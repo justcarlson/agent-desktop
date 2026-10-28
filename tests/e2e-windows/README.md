@@ -27,7 +27,7 @@ own `ok:true`.
 | `CursorOverlaySupport.psm1` | Support helpers for the cursor-overlay scenario. |
 | `Run-E2E.ps1` | The one process-terminating call in the whole tree. Scenario files (`scenarios/*.ps1`) return; only this script exits. |
 | `scenarios/*.ps1` | One scenario per file, dot-sourced and run by `Run-E2E.ps1` in this order: Preconditions, Observation, NonInterference, Interaction, Acceptance, Reliability, Surfaces, ShellSurfaces, TracePerformance, Chromium, SplitIntegrity, CursorOverlay. Nothing is auto-discovered: a scenario file that `Run-E2E.ps1` does not dot-source and list in `Invoke-ScenarioSequence` never runs. |
-| `AcceptanceContendedFocus.ps1`, `InteractionHeaded.ps1`, `InteractionPress.ps1` | Legs dot-sourced by `scenarios/Acceptance.ps1` and `scenarios/Interaction.ps1`. They sit outside `scenarios/` because the contract gate treats every file there as a top-level scenario entry point. |
+| `AcceptanceContendedFocus.ps1`, `InteractionHeaded.ps1`, `InteractionPress.ps1`, `InteractionScroll.ps1` | Legs dot-sourced by `scenarios/Acceptance.ps1` and `scenarios/Interaction.ps1`. They sit outside `scenarios/` because the contract gate treats every file there as a top-level scenario entry point. |
 | `selftest/` | Self-tests for the harness itself (see Running). |
 
 Every file stays under the 400-line cap that `scripts/check-e2e-windows-contract.ps1` enforces (rule 13), so large modules and self-tests are split by responsibility: each `selftest/Invoke-*SelfTests.ps1` entry point owns the process exit and dot-sources its `*SelfTestCases*.ps1` files.
@@ -80,7 +80,8 @@ powershell -NoProfile -File tests\e2e-windows\Run-E2E.ps1
 that under one desktop lease: it builds the release binary and the fixture, runs
 the cursor-overlay teardown tests and frame budgets, the harness-core
 self-tests, and then `Run-E2E.ps1`. It refuses to run off Windows or without
-`AGENT_DESKTOP_NATIVE_E2E_RUNNER=1`, and no CI workflow invokes it.
+`AGENT_DESKTOP_NATIVE_E2E_RUNNER=1`. No CI workflow runs the suite; the refusal
+self-test in `ci.yml` runs it only to prove that guard exits 2.
 
 ## Conventions a scenario file must follow
 

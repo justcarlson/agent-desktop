@@ -59,6 +59,9 @@ cross-compilation evidence alone. The Windows CI lanes run these suites natively
 | Atomic replace succeeds over open readers and concurrent writers, and leaves no temporary residue | `replace_tests.rs` |
 | The binary and the FFI adapter install the hardened seam, and `session start` through a junction state root is refused with nothing written under the target | `src/tests/windows_private_file_install.rs`, `crates/ffi/tests/c_abi_windows_private_file_install.rs` |
 
-The module installs no DACL of its own. It relies on the inherited grants the
-owner test pins, and `no_banned_acl_or_ace_symbol_appears_anywhere_in_this_module`
-keeps it that way.
+The module protects each private directory it creates with a protected DACL
+(`dacl::protect_directory`) granting SYSTEM, Administrators, the token user and
+the owner-eligible SIDs, and `dacl::require_private` checks that DACL before use.
+Files created in such a directory inherit those grants, which
+`a_profile_artifact_keeps_system_admins_and_user_and_never_users_across_create_and_replace`
+in `owner_tests.rs` pins.
