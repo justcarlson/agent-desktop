@@ -1,5 +1,6 @@
 use super::*;
 use crate::refs::refs_test_support::HomeGuard;
+use crate::wait::deadline::VirtualClock;
 use serde_json::json;
 use std::fs;
 
@@ -90,6 +91,7 @@ fn explicit_trace_opens_eagerly_at_build() {
 
 #[test]
 fn segment_lazy_open_creates_trace_dir_on_first_event() {
+    let _clock = VirtualClock::freeze();
     let _guard = HomeGuard::new();
     let trace_dir = crate::refs::refs_store::RefStore::for_session(Some("run-42"))
         .unwrap()
@@ -211,6 +213,7 @@ fn segment_open_rejects_symlinked_trace_dir() {
 
 #[test]
 fn trace_meta_is_first_line_of_new_segment() {
+    let _clock = VirtualClock::freeze();
     let trace_dir = std::env::temp_dir().join(format!(
         "agent-desktop-meta-dir-{}",
         std::time::SystemTime::now()
