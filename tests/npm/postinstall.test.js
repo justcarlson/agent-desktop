@@ -430,7 +430,7 @@ test('bin entry becomes a hard link to the native binary and stays executable', 
   assert.equal(entry.ino, native.ino);
   assert.ok(entry.mode & 0o111, 'linked entry must be executable');
   assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), 'native');
-  assert.match(warnings, /Linked bin entry to native binary/);
+  assert.match(warnings, /Native binary linked: each call runs without the Node launcher/);
   assert.deepEqual(readdirSync(dir).filter((name) => name.includes('.link-')), []);
 });
 
@@ -535,7 +535,7 @@ test('postinstall links the bin entry of an installed package to the native bina
   try {
     const { code, stderr } = await runScriptWithOsStub(join(root, 'scripts', 'postinstall.js'), 'darwin', 'arm64');
     assert.equal(code, 0, stderr);
-    assert.match(stderr, /Linked bin entry to native binary/);
+    assert.match(stderr, /Native binary linked: each call runs without the Node launcher/);
   } finally {
     delete process.env.AGENT_DESKTOP_BINARY_PATH;
   }

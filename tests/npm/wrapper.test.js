@@ -143,3 +143,72 @@ test('AGENT_DESKTOP_BINARY_PATH installs on windows without any helper present',
     try { unlinkSync(`${installedBinary}.sha256`); } catch {}
   }
 });
+
+function noticeWrapper() {
+  const root = temporaryDirectory();
+  const binDir = join(root, 'bin');
+  mkdirSync(binDir);
+  cpSync(wrapperScriptPath, join(binDir, 'agent-desktop'));
+  cpSync(join(__dirname, '../../npm/lib'), join(root, 'lib'), { recursive: true });
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '9.8.7' }));
+  const entry = resolve('linux', 'x64');
+  writeFileSync(
+    join(binDir, entry.binaryName),
+    '#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)));process.exit(3);\n',
+    { mode: 0o755 },
+  );
+  chmodSync(join(binDir, entry.binaryName), 0o755);
+  return { binDir, script: join(binDir, 'agent-desktop') };
+}
+
+async function runLinux(script) {
+  const stub = writeOsStub('linux', 'x64');
+  const { spawn } = require('node:child_process');
+  try {
+    return await new Promise((settle) => {
+      let stdout = '';
+      let stderr = '';
+      const child = spawn(process.execPath, ['-r', stub, script, 'a', '--b'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, ...osStubEnv('linux', 'x64') },
+      });
+      child.stdout.on('data', (c) => { stdout += c; });
+      child.stderr.on('data', (c) => { stderr += c; });
+      child.on('close', (code) => settle({ code, stdout, stderr }));
+    });
+  } finally {
+    removeOsStub(stub);
+  }
+}
+
+test('launcher notice prints once per version and leaves stdout and exit code alone', {
+  skip: process.platform === 'win32',
+}, async () => {
+  const { binDir, script } = noticeWrapper();
+  const first = await runLinux(script);
+  assert.equal(first.code, 3);
+  assert.equal(first.stdout, '["a","--b"]\n');
+  assert.match(first.stderr, /runs through the Node launcher/);
+  assert.match(first.stderr, /--allow-scripts=agent-desktop/);
+  assert.match(first.stderr, /npm install-scripts approve agent-desktop/);
+  assert.equal(statSync(join(binDir, '.launcher-notice-9.8.7')).isFile(), true);
+  const second = await runLinux(script);
+  assert.equal(second.code, 3);
+  assert.equal(second.stdout, first.stdout);
+  assert.doesNotMatch(second.stderr, /Node launcher/);
+});
+
+test('launcher notice stays silent when the marker cannot be written', {
+  skip: process.platform === 'win32' || (process.getuid && process.getuid() === 0),
+}, async () => {
+  const { binDir, script } = noticeWrapper();
+  chmodSync(binDir, 0o555);
+  try {
+    const result = await runLinux(script);
+    assert.equal(result.code, 3);
+    assert.equal(result.stdout, '["a","--b"]\n');
+    assert.doesNotMatch(result.stderr, /Node launcher/);
+  } finally {
+    chmodSync(binDir, 0o755);
+  }
+});

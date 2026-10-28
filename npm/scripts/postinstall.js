@@ -183,9 +183,15 @@ function isNodeWrapper(path) {
   }
 }
 
+const LINKED_NOTICE = 'Native binary linked: each call runs without the Node launcher.';
+
 function linkBinEntry(directory, binaryName, osPlatform = platform()) {
   if (!isInstalledPackage(directory)) return false;
-  if (osPlatform === 'win32') return require('../lib/windows-bin')(directory, binaryName);
+  if (osPlatform === 'win32') {
+    const linked = require('../lib/windows-bin')(directory, binaryName);
+    if (linked) log(LINKED_NOTICE);
+    return linked;
+  }
   const entryPath = join(directory, BIN_ENTRY_NAME);
   const binaryPath = join(directory, binaryName);
   const temporary = `${entryPath}.link-${process.pid}`;
@@ -198,7 +204,7 @@ function linkBinEntry(directory, binaryName, osPlatform = platform()) {
     rmSync(temporary, { force: true });
     linkSync(binaryPath, temporary);
     renameSync(temporary, entryPath);
-    log('Linked bin entry to native binary');
+    log(LINKED_NOTICE);
     return true;
   } catch (err) {
     if (isNodeWrapper(entryPath)) {
