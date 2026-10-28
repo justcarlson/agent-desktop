@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { spawn } = require('child_process');
-const { existsSync, accessSync, chmodSync, lstatSync, constants } = require('fs');
+const { existsSync, accessSync, chmodSync, lstatSync, writeFileSync, constants } = require('fs');
 const { isAbsolute, join } = require('path');
 const { platform, arch } = require('os');
 const { LINUX_HELPER_NAME, MACOS_HELPER_NAME, releasedKeys, resolve } = require('../lib/platform');
@@ -13,6 +13,22 @@ const MACOS_HELPER_PATH_ENV = 'AGENT_DESKTOP_MACOS_HELPER_PATH';
 function getBinaryName() {
   const entry = resolve(platform(), arch());
   return entry && entry.released ? entry.binaryName : null;
+}
+
+const LAUNCHER_NOTICE = [
+  'agent-desktop: this command runs through the Node launcher because npm did not run the install script, which adds about 125 ms per call.',
+  'Allow it and reinstall to link the native binary: npm install -g agent-desktop --allow-scripts=agent-desktop (npm 11), or npm install-scripts approve agent-desktop (npm 12).',
+].join('\n');
+
+// Reaching this launcher means postinstall never linked the native binary.
+// The marker is the only state: if it cannot be written, stay silent.
+function noteLauncherOnce() {
+  try {
+    const { version } = require('../package.json');
+    if (!/^[0-9A-Za-z.+-]+$/.test(version)) return;
+    writeFileSync(join(binDir, `.launcher-notice-${version}`), '', { flag: 'wx' });
+    process.stderr.write(`${LAUNCHER_NOTICE}\n`);
+  } catch {}
 }
 
 function main() {
@@ -96,6 +112,8 @@ function main() {
       }
     }
   }
+
+  noteLauncherOnce();
 
   const child = spawn(binaryPath, process.argv.slice(2), {
     stdio: 'inherit',

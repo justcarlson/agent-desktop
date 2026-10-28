@@ -88,3 +88,4 @@ probes/windows/22-capture-clipboard/bin/
 # them, so they stay untracked. The per-area probe directories
 # probes/windows/NN-*/captures/ commit their twins beside the capture.
 probes/*/captures/**/*.normalized
+npm/bin/.launcher-notice-*
