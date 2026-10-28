@@ -1,6 +1,9 @@
 use agent_desktop_core::{ErrorCode, InteractionPolicy, NotificationIdentity, NotificationInfo};
 
-use super::{dismiss_all_failures, require_foreground_policy, verify_notification_identity};
+use super::{
+    dismiss_all_failures, is_sole_target, require_foreground_policy, unknown_action_error,
+    verify_notification_identity,
+};
 
 fn info(app: &str, title: &str) -> NotificationInfo {
     NotificationInfo {
@@ -149,4 +152,55 @@ fn an_invoke_error_recorded_for_an_entry_that_still_left_is_never_reported() {
     );
     assert!(!failures[0].contains("transient invoke error"));
     assert!(failures[0].contains("#2"));
+}
+
+#[test]
+fn the_clear_all_substitute_fires_only_on_exactly_one_matching_entry() {
+    let target = info("Toaster", "Build finished");
+    let foreign = info("Toaster", "Build finished (not the staged entry)");
+
+    assert!(is_sole_target(&target, std::slice::from_ref(&target)));
+    assert!(!is_sole_target(&target, std::slice::from_ref(&foreign)));
+    assert!(!is_sole_target(&target, &[]));
+    assert!(!is_sole_target(&target, &[target.clone(), foreign]));
+}
+
+#[test]
+fn an_unknown_action_name_is_refused_naming_it_and_nothing_was_delivered() {
+    let error = unknown_action_error("agent-desktop-no-such-action", 3);
+
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert!(error.message.contains("agent-desktop-no-such-action"));
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+}
+
+#[test]
+fn the_dismiss_reaches_the_windows_override_not_the_trait_default() {
+    use agent_desktop_core::{Deadline, DismissNotificationRequest, InteractionLease, SystemOps};
+
+    let adapter = crate::adapter::WindowsAdapter::new();
+    let lease = InteractionLease::guarded(Deadline::detached_after(5_000).expect("deadline"), ())
+        .expect("lease");
+    let identity = NotificationIdentity::default();
+
+    let error = SystemOps::dismiss_notification(
+        &adapter,
+        DismissNotificationRequest {
+            index: 1,
+            app_filter: None,
+            identity: &identity,
+            policy: InteractionPolicy::headless(),
+        },
+        &lease,
+    )
+    .expect_err("the headless floor refuses before anything is raised");
+
+    assert_eq!(
+        error.code,
+        ErrorCode::PolicyDenied,
+        "the trait default would answer PLATFORM_NOT_SUPPORTED instead"
+    );
 }

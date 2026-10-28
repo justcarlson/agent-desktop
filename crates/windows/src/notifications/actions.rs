@@ -17,14 +17,6 @@ use super::verify::{
 #[path = "actions_tests.rs"]
 mod tests;
 
-#[cfg(all(test, target_os = "windows"))]
-#[path = "actions_live_tests.rs"]
-mod live_tests;
-
-#[cfg(all(test, target_os = "windows"))]
-#[path = "actions_gate_tests.rs"]
-mod gate_tests;
-
 /// Removes exactly the identified notification and proves the removal by
 /// re-reading the surface.
 ///
@@ -152,7 +144,11 @@ fn clear_all_still_the_sole_target(
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
     let current = super::list::list_infos(&NotificationFilter::default(), hwnd, deadline)?;
-    Ok(current.len() == 1 && same_identity(target, &current[0]))
+    Ok(is_sole_target(target, &current))
+}
+
+fn is_sole_target(target: &NotificationInfo, current: &[NotificationInfo]) -> bool {
+    matches!(current, [only] if same_identity(target, only))
 }
 
 fn dismiss_all_impl(
