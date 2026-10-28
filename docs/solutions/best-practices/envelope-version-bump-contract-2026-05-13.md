@@ -15,7 +15,6 @@ applies_when:
   - CLI and batch output contracts are unified
 tags:
   - json-contract
-  - release-please
   - cli
   - batch
   - compatibility
