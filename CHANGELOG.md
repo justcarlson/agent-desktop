@@ -6,6 +6,14 @@
 
 * Preserve macOS applications with missing localized display names in the complete inventory, using their executable name or bundle identifier. Such applications no longer block unrelated app-scoped snapshots, window lists, and screenshots.
 
+## [1.0.0](https://github.com/lahfir/agent-desktop/compare/v0.11.1...v1.0.0) (2026-10-27)
+
+### Release
+
+* Release the integrated macOS, Windows, and Linux CLI and C library as 1.0.0.
+* Bundle native CLI executables and platform helpers in npm installations, including installations with lifecycle scripts disabled.
+* Verify release archives, checksums, and build provenance through the manual release workflow.
+
 ## [0.10.1](https://github.com/lahfir/agent-desktop/compare/v0.10.0...v0.10.1) (2026-10-18)
 
 
