@@ -8,10 +8,12 @@ use std::time::Duration;
 
 use crate::system::fixture::test_time::deadline;
 
+use crate::system::capture::capture_test_support::live_graphics_capture_lock;
 use crate::system::capture::capture_test_support::sample_rgb;
 
 #[test]
 fn pattern_fixture_capture_matches_sampled_colours() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
     let image = capture_window(fixture.handle() as _, 1.0, deadline(10_000))
@@ -35,6 +37,7 @@ fn pattern_fixture_capture_matches_sampled_colours() {
 
 #[test]
 fn stalled_fixture_returns_app_unresponsive_without_hanging() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let stalled = StalledFixture::create().expect("stalled fixture starts");
     let started = std::time::Instant::now();
@@ -53,6 +56,7 @@ fn stalled_fixture_returns_app_unresponsive_without_hanging() {
 /// reported as a stale-identity style miss rather than `APP_UNRESPONSIVE`.
 #[test]
 fn destroyed_handle_is_not_reported_unresponsive() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
     let handle = fixture.handle();
@@ -87,6 +91,7 @@ fn printwindow_access_denied_maps_to_perm_denied() {
 
 #[test]
 fn minimized_windows_are_rejected_before_bitmap_alloc() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     gdi_balance::reset();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
@@ -123,6 +128,7 @@ fn oversized_dimensions_are_rejected_while_ordinary_dimensions_are_accepted() {
 
 #[test]
 fn gdi_objects_balance_across_success_deadline_and_forced_failure() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     gdi_balance::reset();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
@@ -157,6 +163,7 @@ fn gdi_objects_balance_across_success_deadline_and_forced_failure() {
 
 #[test]
 fn printwindow_retries_with_bare_flags_when_fullcontent_path_is_skipped() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
     bare_retry_observed::reset();

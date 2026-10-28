@@ -7,6 +7,12 @@ use std::thread;
 
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
 
+/// Whether no window capture holds the process-wide single-flight slot.
+#[cfg(test)]
+pub(crate) fn capture_is_idle() -> bool {
+    !CAPTURE_ACTIVE.load(Ordering::Acquire)
+}
+
 pub(crate) fn capture<T: Send + 'static>(
     deadline: Deadline,
     label: &'static str,

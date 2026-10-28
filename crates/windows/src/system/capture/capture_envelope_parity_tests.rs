@@ -51,6 +51,7 @@ fn assert_disposition_wire(error: &agent_desktop_core::AdapterError, expected: D
 
 #[test]
 fn screenshot_failure_disposition_serializes_not_delivered() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let adapter = WindowsAdapter::new();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
@@ -226,6 +227,7 @@ fn clipboard_get_set_clear_data_shapes_match_core_serialization() {
 
 #[test]
 fn non_one_scale_factor_capture_skipped_on_96dpi_only_hosts() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let displays = crate::system::display::list_displays_live(deadline(10_000)).expect("displays");
     let Some(scaled) = displays

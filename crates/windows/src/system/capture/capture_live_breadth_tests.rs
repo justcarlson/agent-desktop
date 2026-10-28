@@ -58,6 +58,7 @@ fn assert_pattern_samples(bgra: &[u8], width: u32, fixture: &LocalPatternFixture
 
 #[test]
 fn live_legacy_pattern_fixture_matches_and_invert_fails_when_stageable() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_unless_live_staging("legacy pattern capture") {
         return;
