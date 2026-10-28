@@ -69,7 +69,7 @@ are not exposed over the ABI. A bare `@eN` ref returns
   library. A mismatch returns `AD_RESULT_ERR_INVALID_ARGS`: abort. `ad_abi_version()`
   returns the library's major for display. The major increments on a removed
   symbol or a layout change; new `ad_*` symbols and error codes are additive.
-  Before 1.0, pin the exact `libagent_desktop_ffi` version you link against.
+  Pin the exact `libagent_desktop_ffi` version you link against.
 
 - **Session adapters.** `ad_adapter_create_with_session("session-id")` scopes
   refmap persistence to a session namespace, like CLI `--session <id>`. IDs are 1
