@@ -10,6 +10,7 @@
 
 ### Release
 
+* Add Linux support: the CLI, the C library, and the npm package now run on x86_64 and aarch64 Linux (glibc 2.35 or later) through AT-SPI.
 * Release the integrated macOS, Windows, and Linux CLI and C library as 1.0.0.
 * Bundle native CLI executables and platform helpers in npm installations, including installations with lifecycle scripts disabled.
 * Verify release archives, checksums, and build provenance through the manual release workflow.
