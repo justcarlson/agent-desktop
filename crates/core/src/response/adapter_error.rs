@@ -221,7 +221,7 @@ impl AdapterError {
             "Accessibility permission not granted",
         )
         .with_suggestion(
-            "Open System Settings > Privacy & Security > Accessibility and add the app that launches agent-desktop",
+            "Run agent-desktop permissions to see which permission is denied and how to grant it. On macOS, agent-desktop permissions --guide opens System Settings with a guide",
         )
         .with_disposition(DeliverySemantics::not_delivered())
     }

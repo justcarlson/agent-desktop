@@ -274,7 +274,7 @@ mod imp {
         {
             return AdapterError::new(ErrorCode::PermDenied, "Screen Recording permission denied")
                 .with_suggestion(
-                    "Open System Settings > Privacy & Security > Screen Recording and add the app that launches agent-desktop.",
+                    "Run agent-desktop permissions --guide. It opens System Settings > Privacy & Security > Screen Recording with a guide that shows which app to add.",
                 )
                 .with_platform_detail(combined.trim());
         }
