@@ -9,7 +9,7 @@ agent-desktop version
 ```
 
 For a direct native executable without a JavaScript launcher, download the archive for your OS and architecture
-from [GitHub Releases](https://github.com/lahfir/agent-desktop/releases). Extract the executable and its platform
+from [GitHub Releases](https://github.com/vercel-labs/agent-desktop/releases). Extract the executable and its platform
 helper together into a directory on PATH. Upgrade by replacing both with files from the same release.
 
 ## Homebrew and Scoop
@@ -38,11 +38,11 @@ A plain `npm install agent-desktop` without `-g` puts the command in `./node_mod
 
 ## Release archives
 
-Release archives are on the [releases page](https://github.com/lahfir/agent-desktop/releases). Their checksums come
+Release archives are on the [releases page](https://github.com/vercel-labs/agent-desktop/releases). Their checksums come
 from the same release, so they catch corruption but do not prove origin. Check origin with:
 
 ```bash
-gh attestation verify <downloaded-archive> --repo lahfir/agent-desktop
+gh attestation verify <downloaded-archive> --repo vercel-labs/agent-desktop
 ```
 
 ## From source
@@ -51,7 +51,7 @@ You need Rust 1.89 or later, plus the Xcode command-line tools on macOS 13+, the
 linker on Linux:
 
 ```bash
-git clone https://github.com/lahfir/agent-desktop && cd agent-desktop
+git clone https://github.com/vercel-labs/agent-desktop && cd agent-desktop
 cargo build --release -p agent-desktop
 ```
 

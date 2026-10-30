@@ -28,7 +28,7 @@ agent-desktop version
 
 Bun, Yarn and pnpm can install the same package. It includes native binaries and platform helpers for x64 and ARM64.
 For direct execution without a JavaScript launcher, download the matching native archive from
-[GitHub Releases](https://github.com/lahfir/agent-desktop/releases) and keep its helper beside the executable.
+[GitHub Releases](https://github.com/vercel-labs/agent-desktop/releases) and keep its helper beside the executable.
 
 Official Homebrew and Scoop packages are being submitted; they are not yet available in the default catalogs.
 The repository no longer maintains a custom Homebrew tap or Scoop bucket.
@@ -92,10 +92,10 @@ agent-desktop skills get platform     # what differs on the OS you run on
 agent-desktop <command> --help        # flags for one command
 ```
 
-Install the skill into an agent harness from [skills.sh](https://skills.sh/lahfir/agent-desktop/agent-desktop):
+Install the skill into an agent harness from [skills.sh](https://skills.sh/vercel-labs/agent-desktop/agent-desktop):
 
 ```bash
-npx skills add https://github.com/lahfir/agent-desktop --skill agent-desktop
+npx skills add https://github.com/vercel-labs/agent-desktop --skill agent-desktop
 ```
 
 Or add this to your `AGENTS.md`:

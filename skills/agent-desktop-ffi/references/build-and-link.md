@@ -34,7 +34,7 @@ the same name holding `lib/` (the dylib, so, or dll), `include/agent_desktop.h`,
 Linux. On Windows it holds the `agent_desktop_ffi.dll.lib` import library, which an
 MSVC linking consumer links against. Integrity: compare against `checksums.txt` in
 the release assets. Supply-chain verification: each release carries a Sigstore
-attestation; verify with `gh attestation verify <file> --repo lahfir/agent-desktop`
+attestation; verify with `gh attestation verify <file> --repo vercel-labs/agent-desktop`
 before deploying.
 
 ## ABI handshake (do this first)

@@ -7,6 +7,7 @@ An unchanged published version skips publication. Manual dispatch remains availa
 The workflow builds and checks the native CLI and FFI archives, bundles the CLI executables into npm,
 publishes npm through trusted publishing (OIDC), and publishes GitHub archives, checksums, and provenance
 with the built-in `GITHUB_TOKEN`. No extra release token or package-update commit is required.
+The npm job runs in the `Release` environment, so a reviewer approves it in the workflow run before it publishes.
 
 Homebrew and Scoop package definitions belong in `Homebrew/homebrew-core` and `ScoopInstaller/Main`.
 Their maintainers and update automation manage those catalogs after the initial submissions are accepted.
