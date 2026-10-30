@@ -83,9 +83,9 @@ Public probe captures retain technical environment details such as OS versions a
 
 | Resource | Link |
 |----------|------|
-| **Repository** | [github.com/lahfir/agent-desktop](https://github.com/lahfir/agent-desktop) |
-| **skills.sh Listing** | [skills.sh/lahfir/agent-desktop/agent-desktop](https://skills.sh/lahfir/agent-desktop/agent-desktop) |
+| **Repository** | [github.com/vercel-labs/agent-desktop](https://github.com/vercel-labs/agent-desktop) |
+| **skills.sh Listing** | [skills.sh/vercel-labs/agent-desktop/agent-desktop](https://skills.sh/vercel-labs/agent-desktop/agent-desktop) |
 | **npm Package** | [npmjs.com/package/agent-desktop](https://www.npmjs.com/package/agent-desktop) |
-| **CI Status** | [GitHub Actions](https://github.com/lahfir/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain) |
-| **Releases** | [GitHub Releases](https://github.com/lahfir/agent-desktop/releases) |
-| **Issues** | [GitHub Issues](https://github.com/lahfir/agent-desktop/issues) |
+| **CI Status** | [GitHub Actions](https://github.com/vercel-labs/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain) |
+| **Releases** | [GitHub Releases](https://github.com/vercel-labs/agent-desktop/releases) |
+| **Issues** | [GitHub Issues](https://github.com/vercel-labs/agent-desktop/issues) |

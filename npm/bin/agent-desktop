@@ -37,7 +37,7 @@ function main() {
   if (!binaryName) {
     console.error(`Error: Unsupported platform: ${platform()}-${arch()}`);
     console.error(`Released platform keys today: ${releasedKeys().join(', ')}`);
-    console.error('See: https://github.com/lahfir/agent-desktop');
+    console.error('See: https://github.com/vercel-labs/agent-desktop');
     process.exit(1);
   }
 
@@ -48,7 +48,7 @@ function main() {
     console.error(`Expected: ${binaryPath}`);
     console.error('');
     console.error('The installed package is incomplete. Reinstall agent-desktop.');
-    console.error('Release binaries are also available at https://github.com/lahfir/agent-desktop/releases');
+    console.error('Release binaries are also available at https://github.com/vercel-labs/agent-desktop/releases');
 
     process.exit(1);
   }

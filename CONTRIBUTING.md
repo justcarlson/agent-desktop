@@ -31,7 +31,7 @@ This project follows the guidelines in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 ## Getting started
 
 ```bash
-git clone https://github.com/lahfir/agent-desktop
+git clone https://github.com/vercel-labs/agent-desktop
 cd agent-desktop
 
 # Wire up the pre-commit hook (one time per clone)
@@ -132,7 +132,7 @@ Git commits retain author and committer names and email addresses. Use your acco
 
 ## Reporting bugs and security issues
 
-**Bugs and feature requests:** use the [issue templates](https://github.com/lahfir/agent-desktop/issues/new/choose); [SUPPORT.md](SUPPORT.md) says what to include.
+**Bugs and feature requests:** use the [issue templates](https://github.com/vercel-labs/agent-desktop/issues/new/choose); [SUPPORT.md](SUPPORT.md) says what to include.
 
 **Security vulnerabilities:** do **not** open a public issue. Follow [SECURITY.md](SECURITY.md).
 

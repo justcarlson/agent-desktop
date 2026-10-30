@@ -5,9 +5,9 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lahfir/agent-desktop.git"
+    "url": "git+https://github.com/vercel-labs/agent-desktop.git"
   },
-  "homepage": "https://github.com/lahfir/agent-desktop",
+  "homepage": "https://github.com/vercel-labs/agent-desktop",
   "bin": {
     "agent-desktop": "bin/agent-desktop"
   },
