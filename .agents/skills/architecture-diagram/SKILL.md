@@ -24,8 +24,10 @@ Diagrams are standalone HTML files that the docs embed with the `Diagram` compon
 2. Use the identifiers from the code as labels (`PlatformAdapter`, `RefStore`) and put the mechanism in the gray second line (`AX API`, `UI Automation`).
 3. Draw one arrow per real data path. Label arrows that cross a boundary with the command, flag, or call (`snapshot --root`).
 4. Group components by where they run: an outer dashed container for a machine, a nested panel for a process. Put the calling agent outside.
-5. Mark the entry point of the flow with the highlighted circle node. Use it once.
-6. Lay it out for the 720px docs column at 1:1 scale (see style.md) and keep it to 12 nodes or fewer. Move detail to the page text.
+5. Lay the flow out top to bottom: the entry point at the top, then each layer or step on its own row below the one that calls it, so arrows point down. Put branches side by side on one row (the three platform crates, the error outcomes of a step) and route loops back up along the right side. Use left-to-right only for a before-and-after comparison of state, such as the re-drill panels.
+6. Mark the entry point of the flow with the highlighted circle node, at the top. Use it once, and give it the icon of what starts the flow (`robot` for the calling agent, `link` for a ref, `refresh-counter-clockwise` for a re-drill), never a generic globe.
+7. Give every node and container header an icon that names what it is. Use the Geist icon set and the OS marks listed in [references/style.md](references/style.md#icons). Do not draw your own icons or reuse one icon for unrelated nodes.
+8. Lay it out for the 720px docs column at 1:1 scale (see style.md) and keep it to 12 nodes or fewer. Move detail to the page text.
 
 ## Embed it
 
@@ -44,7 +46,7 @@ Keep a text version of the flow next to the diagram on the page, such as a short
 ## Check it
 
 1. In `apps/docs`, run `pnpm dev` and, in a second terminal, `pnpm exec microfrontends proxy microfrontends.json --local-apps agent-desktop`.
-2. Open `http://localhost:3024/desktop/diagrams/<name>/index.html` and the same URL with `?theme=light` at 1440x900. Look for clipped text, overlapping labels, arrows that miss their node, and unreadable gray text.
+2. Open `http://localhost:3024/desktop/diagrams/<name>/index.html` and the same URL with `?theme=light` at 1440x900. Look for clipped text, labels that run past their node, overlapping labels, arrows that miss their node, icons that do not match their node, and unreadable gray text. Labels that fit in Geist can overflow in a fallback font, so leave at least 20 of room after the longest label.
 3. Open the docs page and check the diagram in both site themes.
 4. Run `pnpm build` in `apps/docs`.
 5. Stop the dev server and the proxy, and close the browser session.
