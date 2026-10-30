@@ -54,6 +54,7 @@ pub(crate) fn run() -> Result<(), AppError> {
     let mut next_prune = RETAINED_PRUNE_INTERVAL;
     let identity = endpoint::identity(session.as_deref())?;
     let socket_path = std::env::var_os("AGENT_DESKTOP_INTERNAL_HOST_SOCKET");
+    let reported_missing_permission = std::cell::Cell::new(false);
     let execute = |bytes: &[u8]| {
         if owner.capture_count() >= next_prune {
             match store.retained_object_tokens() {
@@ -66,14 +67,20 @@ pub(crate) fn run() -> Result<(), AppError> {
                 .capture_count()
                 .saturating_add(RETAINED_PRUNE_INTERVAL);
         }
-        if socket_path.is_some() {
+        let response = if socket_path.is_some() {
             request::execute(bytes, &identity, session.as_deref())
         } else {
             execute_request(bytes, session.as_deref())
+        };
+        if reports_missing_permission(&response) {
+            reported_missing_permission.set(true);
         }
+        response
     };
     if let Some(ref path) = socket_path {
-        return socket::run(std::path::Path::new(&path), execute);
+        return socket::run(std::path::Path::new(&path), execute, || {
+            reported_missing_permission.get()
+        });
     }
     let input = std::io::stdin();
     let output = std::fs::File::from(std::io::stdout().as_fd().try_clone_to_owned()?);
@@ -91,6 +98,21 @@ pub(crate) fn run() -> Result<(), AppError> {
         execute,
     )?;
     Ok(())
+}
+
+/// macOS keeps the Accessibility answer a process read before a grant, so a
+/// host that told a caller a permission is missing exits after that reply and
+/// the next call starts a host that sees the new grant.
+fn reports_missing_permission(response: &Response) -> bool {
+    let denied = |report: &serde_json::Value| report["accessibility"]["state"] == "denied";
+    response
+        .error
+        .as_ref()
+        .is_some_and(|error| error.code == "PERM_DENIED")
+        || response
+            .data
+            .as_ref()
+            .is_some_and(|data| denied(data) || denied(&data["permissions"]))
 }
 
 fn execute_request(bytes: &[u8], session: Option<&str>) -> Response {
@@ -199,6 +221,33 @@ fn serve_frames(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_host_stops_after_it_reports_a_missing_permission() {
+        let report = |accessibility: &str| serde_json::json!({ "accessibility": { "state": accessibility } });
+        assert!(reports_missing_permission(&Response::ok(
+            "permissions",
+            report("denied")
+        )));
+        assert!(reports_missing_permission(&Response::ok(
+            "status",
+            serde_json::json!({ "permissions": report("denied") })
+        )));
+        assert!(reports_missing_permission(&crate::response(
+            "snapshot",
+            Err(AppError::Adapter(
+                agent_desktop_core::AdapterError::permission_denied()
+            ))
+        )));
+        assert!(!reports_missing_permission(&Response::ok(
+            "permissions",
+            report("granted")
+        )));
+        assert!(!reports_missing_permission(&Response::ok(
+            "version",
+            serde_json::json!({})
+        )));
+    }
 
     #[test]
     fn repeated_commands_reuse_dispatch_and_preserve_envelopes() {
