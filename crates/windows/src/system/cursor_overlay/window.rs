@@ -97,7 +97,6 @@ impl OverlayWindow {
                 "The cursor overlay window could not be created",
             ));
         }
-        unsafe { ShowWindow(handle, SW_SHOWNOACTIVATE) };
         Ok(Self { handle })
     }
 
