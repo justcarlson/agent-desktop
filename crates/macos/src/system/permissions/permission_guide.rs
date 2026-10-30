@@ -167,13 +167,15 @@ fn outermost_app(executable: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
+/// The short BSD record, unlike the full one, is readable for processes of
+/// another user, such as the root-owned `/usr/bin/login` a terminal starts.
 fn parent_pid(pid: i32) -> Option<i32> {
-    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::zeroed();
-    let size = i32::try_from(std::mem::size_of::<libc::proc_bsdinfo>()).ok()?;
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdshortinfo>::zeroed();
+    let size = i32::try_from(std::mem::size_of::<libc::proc_bsdshortinfo>()).ok()?;
     let read = unsafe {
         libc::proc_pidinfo(
             pid,
-            libc::PROC_PIDTBSDINFO,
+            libc::PROC_PIDT_SHORTBSDINFO,
             0,
             info.as_mut_ptr().cast(),
             size,
@@ -182,7 +184,7 @@ fn parent_pid(pid: i32) -> Option<i32> {
     if read != size {
         return None;
     }
-    i32::try_from(unsafe { info.assume_init() }.pbi_ppid).ok()
+    i32::try_from(unsafe { info.assume_init() }.pbsi_ppid).ok()
 }
 
 fn hand_over(command: &mut Command, lock: &File) {
@@ -312,8 +314,26 @@ mod tests {
     }
 
     #[test]
-    fn the_host_walk_reaches_a_process_above_this_one() {
+    fn the_host_walk_passes_through_a_process_of_another_user() {
         let parent = parent_pid(i32::try_from(std::process::id()).unwrap());
         assert_eq!(parent, Some(unsafe { libc::getppid() }));
+        let launchd_child = std::process::Command::new("/bin/ps")
+            .args(["-axo", "pid=,ppid=,uid="])
+            .output()
+            .unwrap();
+        let root_child = String::from_utf8(launchd_child.stdout)
+            .unwrap()
+            .lines()
+            .filter_map(|line| {
+                let fields: Vec<i32> = line
+                    .split_whitespace()
+                    .filter_map(|field| field.parse().ok())
+                    .collect();
+                (fields.len() == 3 && fields[0] > 1 && fields[1] == 1 && fields[2] == 0)
+                    .then_some(fields[0])
+            })
+            .next()
+            .unwrap();
+        assert_eq!(parent_pid(root_child), Some(1));
     }
 }
