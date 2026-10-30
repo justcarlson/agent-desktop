@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a ref resolves, and when it goes stale</title>
+<script>
+  var t = new URLSearchParams(location.search).get("theme");
+  if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  if (window.self === window.top) document.documentElement.setAttribute("data-top", "");
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000; --panel: #0a0a0a; --node: #111; --border: #5c5c5c;
+    --fg: #ededed; --muted: #8f8f8f; --line: #8f8f8f; --line-strong: #ededed;
+    --hl-fill: #0a2a5e; --hl-ring: #1e5fd6; --hl-icon: #cfe0ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      color-scheme: light;
+      --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+      --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+      --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+    --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+    --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+  }
+  html, body { margin: 0; background: transparent; }
+  :root[data-top], :root[data-top] body { background: var(--bg); }
+  svg { display: block; width: 100%; height: auto; font-family: Geist, "Geist Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .box { fill: var(--panel); stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+  .node { fill: var(--node); }
+  .label { fill: var(--fg); font-size: 15px; text-anchor: middle; }
+  .sub { fill: var(--muted); font-size: 11.5px; text-anchor: middle; }
+  .head { fill: var(--fg); font-size: 16px; font-weight: 500; }
+  .tag { fill: var(--muted); font-size: 12.5px; text-anchor: middle; }
+  .wire { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; marker-end: url(#arrow); }
+  .wire.strong { stroke: var(--line-strong); }
+  .icon { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .icon.fg { stroke: var(--fg); }
+  .hl { fill: var(--hl-fill); stroke: var(--hl-ring); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .hl-icon { fill: none; stroke: var(--hl-icon); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  #arrow path { fill: none; stroke: var(--line); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 720 420" role="img" aria-labelledby="t d">
+  <title id="t">How a ref resolves, and when it goes stale</title>
+  <desc id="d">A command receives a snapshot-qualified ref. RefStore loads snapshots/snapshot_id/refmap.json; if it is gone the error is SNAPSHOT_NOT_FOUND. The ref maps to a RefEntry holding process, role, path, source surface, stable text identity, and a bounds hash. resolve_element_strict re-identifies that entry in the live accessibility tree. Exactly one match returns a handle and the command acts. Zero matches return STALE_REF. Two or more return AMBIGUOUS_TARGET. Every failure is fixed by a fresh snapshot and its new ref.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1.5 1.5 L5.5 4 L1.5 6.5"/>
+    </marker>
+  </defs>
+
+  <path class="wire strong" d="M82 56H118"/>
+  <circle class="hl" cx="48" cy="56" r="30"/>
+  <g transform="translate(36 44)">
+    <circle class="hl-icon" cx="12" cy="12" r="9"/>
+    <ellipse class="hl-icon" cx="12" cy="12" rx="4" ry="9"/>
+    <path class="hl-icon" d="M3 12h18"/>
+  </g>
+  <text class="sub" x="48" y="104">@s…:eN</text>
+
+  <rect class="box node" x="124" y="24" width="200" height="64" rx="6"/>
+  <text class="label" x="224" y="54">RefStore</text>
+  <text class="sub" x="224" y="71">snapshots/&lt;id&gt;/refmap.json</text>
+
+  <path class="wire strong" d="M330 56H358"/>
+
+  <rect class="box node" x="364" y="24" width="272" height="64" rx="6"/>
+  <text class="label" x="500" y="54">RefEntry</text>
+  <text class="sub" x="500" y="71">pid, role, path, identity, bounds</text>
+
+  <path class="wire" d="M170 94V126"/>
+  <text class="tag" style="text-anchor:start" x="178" y="114">snapshot gone</text>
+  <rect class="box node" x="24" y="132" width="200" height="64" rx="6"/>
+  <text class="label" x="124" y="162">SNAPSHOT_NOT_FOUND</text>
+  <text class="sub" x="124" y="179">pruned or other session</text>
+
+  <path class="wire strong" d="M500 94V126"/>
+  <rect class="box node" x="364" y="132" width="272" height="64" rx="6"/>
+  <text class="label" x="500" y="162">resolve_element_strict</text>
+  <text class="sub" x="500" y="179">re-identify in the live tree</text>
+
+  <path class="wire" d="M358 164H268a14 14 0 0 0-14 14V234"/>
+  <path class="wire strong" d="M420 202V234"/>
+  <path class="wire" d="M590 202V234"/>
+
+  <rect class="box node" x="188" y="240" width="132" height="64" rx="6"/>
+  <text class="label" x="254" y="270">STALE_REF</text>
+  <text class="sub" x="254" y="287">zero matches</text>
+
+  <rect class="box node" x="348" y="240" width="140" height="64" rx="6"/>
+  <text class="label" x="418" y="270">act</text>
+  <text class="sub" x="418" y="287">exactly one match</text>
+
+  <rect class="box node" x="508" y="240" width="188" height="64" rx="6"/>
+  <text class="label" x="602" y="270">AMBIGUOUS_TARGET</text>
+  <text class="sub" x="602" y="287">two or more matches</text>
+
+  <path class="wire" d="M254 310V342"/>
+  <path class="wire" d="M602 310V342"/>
+  <path class="wire" d="M124 202V366a14 14 0 0 0 14 14H182"/>
+
+  <rect class="box node" x="188" y="348" width="508" height="64" rx="6"/>
+  <text class="label" x="442" y="378">fresh snapshot or find</text>
+  <text class="sub" x="442" y="395">new snapshot_id, new ref</text>
+</svg>
+</body>
+</html>
