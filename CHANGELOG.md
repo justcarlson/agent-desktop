@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/lahfir/agent-desktop/compare/v1.0.1...v1.1.0) (2026-10-29)
+
+### Features
+
+* The npm launcher prints a one-time notice when npm did not run the install script, which makes each call slower, with the fix for npm 11 and npm 12. Postinstall logs when it links the native binary.
+
+### Bug Fixes
+
+* **macos:** `permissions --guide` offers the app that launched agent-desktop, such as Rex Server or the outer app of a VS Code helper, and not the agent-desktop binary.
+* **macos:** The permission guide sees each grant and closes by itself. Its grant check runs in a fresh process and no longer goes through the command host.
+* **macos:** A command host that reports a missing permission exits after that reply, so the next call sees a new grant without a restart of the launching app.
+* **macos:** The guide uses the macOS 27 name, Device Control and Data Access, says why each permission is needed, and animates the granted tick.
+* **macos:** Permission hints for Accessibility and Screen Recording name `permissions --guide`. The shared `PERM_DENIED` hint no longer names a macOS settings path on Windows.
+
 ## [1.0.1](https://github.com/lahfir/agent-desktop/compare/v1.0.0...v1.0.1) (2026-10-27)
 
 ### Bug Fixes
