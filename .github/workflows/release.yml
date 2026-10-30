@@ -779,6 +779,7 @@ jobs:
     needs: [check-release, build, build-ffi, ffi-release-gates, ffi-release-panic-guard, linux-archive-contents]
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
+    environment: Release
     timeout-minutes: 15
     permissions:
       contents: read
