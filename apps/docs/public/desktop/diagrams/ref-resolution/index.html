@@ -46,71 +46,75 @@
   .hl { fill: var(--hl-fill); stroke: var(--hl-ring); stroke-width: 1; vector-effect: non-scaling-stroke; }
   .hl-icon { fill: none; stroke: var(--hl-icon); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
   #arrow path { fill: none; stroke: var(--line); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+  .label, .sub { text-anchor: start; }
+  .tag.start { text-anchor: start; }
+  .ico { fill: var(--muted); }
+  .ico.fg { fill: var(--fg); }
+  .hl-ico { fill: var(--hl-icon); }
+  .label.dim { fill: var(--muted); }
 </style>
 </head>
 <body>
-<svg viewBox="0 0 720 420" role="img" aria-labelledby="t d">
+<svg viewBox="0 0 720 460" role="img" aria-labelledby="t d">
   <title id="t">How a ref resolves, and when it goes stale</title>
-  <desc id="d">A command receives a snapshot-qualified ref. RefStore loads snapshots/snapshot_id/refmap.json; if it is gone the error is SNAPSHOT_NOT_FOUND. The ref maps to a RefEntry holding process, role, path, source surface, stable text identity, and a bounds hash. resolve_element_strict re-identifies that entry in the live accessibility tree. Exactly one match returns a handle and the command acts. Zero matches return STALE_REF. Two or more return AMBIGUOUS_TARGET. Every failure is fixed by a fresh snapshot and its new ref.</desc>
+  <desc id="d">From top to bottom: a command receives a qualified ref. RefStore loads snapshots/snapshot_id/refmap.json, or fails with SNAPSHOT_NOT_FOUND. The ref maps to a RefEntry, or fails with STALE_REF when the key is missing. resolve_element_strict re-identifies the entry in the live tree: exactly one match lets the command act, zero matches is STALE_REF, and two or more is AMBIGUOUS_TARGET. Every failure is fixed by a fresh snapshot and its new ref.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
       <path d="M1.5 1.5 L5.5 4 L1.5 6.5"/>
     </marker>
   </defs>
-
-  <path class="wire strong" d="M82 56H118"/>
-  <circle class="hl" cx="48" cy="56" r="30"/>
-  <g transform="translate(36 44)">
-    <circle class="hl-icon" cx="12" cy="12" r="9"/>
-    <ellipse class="hl-icon" cx="12" cy="12" rx="4" ry="9"/>
-    <path class="hl-icon" d="M3 12h18"/>
-  </g>
-  <text class="sub" x="48" y="104">@s…:eN</text>
-
-  <rect class="box node" x="124" y="24" width="200" height="64" rx="6"/>
-  <text class="label" x="224" y="54">RefStore</text>
-  <text class="sub" x="224" y="71">snapshots/&lt;id&gt;/refmap.json</text>
-
-  <path class="wire strong" d="M330 56H358"/>
-
-  <rect class="box node" x="364" y="24" width="272" height="64" rx="6"/>
-  <text class="label" x="500" y="54">RefEntry</text>
-  <text class="sub" x="500" y="71">pid, role, path, identity, bounds</text>
-
-  <path class="wire" d="M170 94V126"/>
-  <text class="tag" style="text-anchor:start" x="178" y="114">snapshot gone</text>
-  <rect class="box node" x="24" y="132" width="200" height="64" rx="6"/>
-  <text class="label" x="124" y="162">SNAPSHOT_NOT_FOUND</text>
-  <text class="sub" x="124" y="179">pruned or other session</text>
-
-  <path class="wire strong" d="M500 94V126"/>
-  <rect class="box node" x="364" y="132" width="272" height="64" rx="6"/>
-  <text class="label" x="500" y="162">resolve_element_strict</text>
-  <text class="sub" x="500" y="179">re-identify in the live tree</text>
-
-  <path class="wire" d="M358 164H268a14 14 0 0 0-14 14V234"/>
-  <path class="wire strong" d="M420 202V234"/>
-  <path class="wire" d="M590 202V234"/>
-
-  <rect class="box node" x="188" y="240" width="132" height="64" rx="6"/>
-  <text class="label" x="254" y="270">STALE_REF</text>
-  <text class="sub" x="254" y="287">zero matches</text>
-
-  <rect class="box node" x="348" y="240" width="140" height="64" rx="6"/>
-  <text class="label" x="418" y="270">act</text>
-  <text class="sub" x="418" y="287">exactly one match</text>
-
-  <rect class="box node" x="508" y="240" width="188" height="64" rx="6"/>
-  <text class="label" x="602" y="270">AMBIGUOUS_TARGET</text>
-  <text class="sub" x="602" y="287">two or more matches</text>
-
-  <path class="wire" d="M254 310V342"/>
-  <path class="wire" d="M602 310V342"/>
-  <path class="wire" d="M124 202V366a14 14 0 0 0 14 14H182"/>
-
-  <rect class="box node" x="188" y="348" width="508" height="64" rx="6"/>
-  <text class="label" x="442" y="378">fresh snapshot or find</text>
-  <text class="sub" x="442" y="395">new snapshot_id, new ref</text>
+  <circle class="hl" cx="250" cy="40" r="28"/>
+  <svg class="hl-ico" x="239" y="29" width="22" height="22" viewBox="0 0 16 16"><path d="M8.47 1.47a4.29 4.29 0 1 1 6.06 6.06l-2.5 2.5-1.06-1.06 2.5-2.5a2.79 2.79 0 0 0-3.94-3.94l-2.5 2.5-1.06-1.06zm3.06 4.06-6 6-1.06-1.06 6-6zm-10.06 9a4.3 4.3 0 0 0 6.06 0l2.5-2.5-1.06-1.06-2.5 2.5a2.79 2.79 0 0 1-3.94-3.94l2.5-2.5-1.06-1.06-2.5 2.5a4.3 4.3 0 0 0 0 6.06" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="292" y="36">@&lt;snapshot_id&gt;:eN</text>
+  <text class="sub" x="292" y="53">a qualified ref</text>
+  <path class="wire strong" d="M250 74V90"/>
+  <rect class="box node" x="130" y="96" width="240" height="56" rx="6"/>
+  <svg class="ico" x="146" y="115.0" width="18" height="18" viewBox="0 0 16 16"><path d="M1.5 3.5h13v2h-13zM1 7H0V2h16v5h-1v5.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 1 12.5zm1.5 0v5.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V7zM6 9.5h4V11H6z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="174" y="120.0">RefStore</text>
+  <text class="sub" x="174" y="137.0">snapshots/&lt;id&gt;/refmap.json</text>
+  <path class="wire" d="M376 124H414"/>
+  <text class="tag" x="395" y="116">gone</text>
+  <rect class="box node" x="420" y="96" width="280" height="56" rx="6"/>
+  <svg class="ico" x="436" y="115.0" width="18" height="18" viewBox="0 0 16 16"><path d="m12.47 13.53.53.53L14.06 13l-.53-.53L9.06 8l4.47-4.47.53-.53L13 1.94l-.53.53L8 6.94 3.53 2.47 3 1.94 1.94 3l.53.53L6.94 8l-4.47 4.47-.53.53L3 14.06l.53-.53L8 9.06z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="464" y="120.0">SNAPSHOT_NOT_FOUND</text>
+  <text class="sub" x="464" y="137.0">pruned, or another session</text>
+  <path class="wire strong" d="M250 158V186"/>
+  <rect class="box node" x="130" y="192" width="240" height="56" rx="6"/>
+  <svg class="ico" x="146" y="211.0" width="18" height="18" viewBox="0 0 16 16"><path d="M9.18 0a1 1 0 0 1 .61.3l4.42 4.4a1 1 0 0 1 .29.71v8.09A2.5 2.5 0 0 1 12 16H4a2.5 2.5 0 0 1-2.5-2.5V0h7.69M3 13.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.62L8.88 1.5H3zm8.63-1.25H4.5V11h7.13zm0-3H4.5V8h7.13zm-5-3H4.5V5h2.13z"/></svg>
+  <text class="label" x="174" y="216.0">RefEntry</text>
+  <text class="sub" x="174" y="233.0">pid, role, path, identity, bounds</text>
+  <path class="wire" d="M376 220H414"/>
+  <text class="tag" x="395" y="212">no key</text>
+  <rect class="box node" x="420" y="192" width="280" height="56" rx="6"/>
+  <svg class="ico" x="436" y="211.0" width="18" height="18" viewBox="0 0 16 16"><path d="m12.47 13.53.53.53L14.06 13l-.53-.53L9.06 8l4.47-4.47.53-.53L13 1.94l-.53.53L8 6.94 3.53 2.47 3 1.94 1.94 3l.53.53L6.94 8l-4.47 4.47-.53.53L3 14.06l.53-.53L8 9.06z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="464" y="216.0">STALE_REF</text>
+  <text class="sub" x="464" y="233.0">no live element matches</text>
+  <path class="wire strong" d="M250 254V282"/>
+  <rect class="box node" x="130" y="288" width="240" height="56" rx="6"/>
+  <svg class="ico" x="146" y="307.0" width="18" height="18" viewBox="0 0 16 16"><path d="M8.75 0q.01.69.37 1.06.36.42 1.1.74.73.3 1.6.53c.55.14 1.16.29 1.67.46l.51.17v6.57a5.3 5.3 0 0 1-2.81 4.65l-2.84 1.48-.35.19-.35-.19-2.84-1.48A5.3 5.3 0 0 1 2 9.53V2.96l.51-.17c.5-.17 1.12-.32 1.67-.46q.87-.23 1.6-.53.74-.32 1.1-.74.36-.38.37-1.06zM8 2.06a4.5 4.5 0 0 1-1.61 1.11c-.6.26-1.24.45-1.82.6l-1.07.29v5.47c0 1.4.77 2.67 2.01 3.32L8 14.15l2.49-1.3a3.8 3.8 0 0 0 2.01-3.32V4.06q-.48-.14-1.07-.29a13 13 0 0 1-1.82-.6A4.5 4.5 0 0 1 8 2.06M11.06 7l-3.53 3.53c-.3.3-.77.3-1.06 0L4.94 9 6 7.94l1 1 3-3z"/></svg>
+  <text class="label" x="174" y="312.0">resolve_element_strict</text>
+  <text class="sub" x="174" y="329.0">re-identify in the live tree</text>
+  <path class="wire" d="M376 304H382a14 14 0 0 0 14-14V242a14 14 0 0 1 14-14H414"/>
+  <text class="tag start" x="404" y="272">0 matches</text>
+  <path class="wire" d="M376 330H414"/>
+  <text class="tag" x="395" y="348">2+</text>
+  <rect class="box node" x="420" y="288" width="280" height="56" rx="6"/>
+  <svg class="ico" x="436" y="307.0" width="18" height="18" viewBox="0 0 16 16"><path d="m12.47 13.53.53.53L14.06 13l-.53-.53L9.06 8l4.47-4.47.53-.53L13 1.94l-.53.53L8 6.94 3.53 2.47 3 1.94 1.94 3l.53.53L6.94 8l-4.47 4.47-.53.53L3 14.06l.53-.53L8 9.06z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="464" y="312.0">AMBIGUOUS_TARGET</text>
+  <text class="sub" x="464" y="329.0">several elements match</text>
+  <path class="wire strong" d="M250 350V378"/>
+  <text class="tag start" x="260" y="369">exactly one match</text>
+  <rect class="box node" x="130" y="384" width="240" height="56" rx="6"/>
+  <svg class="ico" x="146" y="403.0" width="18" height="18" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-4.47-1.47.53-.53L11 4.94l-.53.53L6.5 9.44l-.97-.97L5 7.94 3.94 9l.53.53 1.5 1.5c.3.3.77.3 1.06 0z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="174" y="408.0">act</text>
+  <text class="sub" x="174" y="425.0">on the resolved element</text>
+  <path class="wire" d="M700 124H712V412H706"/>
+  <path class="wire" d="M700 220H712" style="marker-end:none"/>
+  <path class="wire" d="M700 316H712" style="marker-end:none"/>
+  <rect class="box node" x="420" y="384" width="280" height="56" rx="6"/>
+  <svg class="ico" x="436" y="403.0" width="18" height="18" viewBox="0 0 16 16"><path d="M2.73 6.42A5.5 5.5 0 0 1 12.84 5.4l.36.66 1.32-.72-.36-.66A7 7 0 0 0 1.5 5.4V3H0v4.17c0 .42.34.75.75.75h4.18v-1.5h-2.2m10.54 3.16h-2.2v-1.5h4.18c.41 0 .75.33.75.75V13h-1.5v-2.39a7 7 0 0 1-12.64.75l-.36-.66 1.31-.72.36.66a5.5 5.5 0 0 0 10.1-1.06" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+  <text class="label" x="464" y="408.0">fresh snapshot</text>
+  <text class="sub" x="464" y="425.0">new snapshot_id, new ref</text>
 </svg>
 </body>
 </html>
