@@ -266,14 +266,10 @@ impl SurfaceHost {
             fade::dim_region(&mut composed.surface, &card, self.card_opacity());
         }
         fade::dim_surface(&mut composed.surface, overlay_opacity);
-        let placement = monitors::monitor_for_point(self.topology.monitors(), &composed.origin)
-            .map_or(composed.origin.clone(), |monitor| {
-                monitors::to_physical(monitor, &composed.origin)
-            });
         self.window.raise();
         let _ = self.window.present(
-            placement.x as i32,
-            placement.y as i32,
+            composed.origin.x as i32,
+            composed.origin.y as i32,
             composed.surface.width,
             composed.surface.height,
             &composed.surface.pixels,

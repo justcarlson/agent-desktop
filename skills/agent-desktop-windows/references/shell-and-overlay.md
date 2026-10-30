@@ -118,8 +118,9 @@ agent-desktop cursor-overlay disable
   draws the card. Each `enable` and each action replaces the card text.
 - **It fades out after 6 s with no instruction** and comes straight back on the
   next command.
-- **Mixed-DPI and multi-monitor mapping is unit-tested only.** It is not
-  verified on a live scaled or multi-monitor desktop.
+- **It draws in physical pixels**, the space element bounds are reported in,
+  so it is not scaled again for the monitor's DPI. Multi-monitor placement is
+  unit-tested only and not verified on a live multi-monitor desktop.
 - **A harness job object takes the overlay with it.** A job with
   `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, which CI runners and some agent
   harnesses use, ends the detached renderer when the job closes. A vanished
