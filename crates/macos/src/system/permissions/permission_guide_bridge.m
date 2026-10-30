@@ -2,7 +2,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <stdbool.h>
 #import <stdint.h>
-#import <sys/sysctl.h>
 
 typedef bool (*ADGuideGranted)(uint8_t step);
 
@@ -12,38 +11,12 @@ static const NSTimeInterval ADGuideLifetime = 600;
 static const NSTimeInterval ADGuideDropRetry = 15;
 static const CGFloat ADGuideWidth = 340;
 static const CGFloat ADGuideGap = 16;
-static const CGFloat ADGuideAuroraHeight = 130;
+static const CGFloat ADGuideAuroraHeight = 96;
+static const float ADGuideAuroraOpacity = 0.55;
 static const int ADGuideRayCount = 64;
 static const CGFloat ADGuideIconSize = 48;
 static const CGFloat ADGuideTileSize = 76;
 static const CGFloat ADGuideGhostSize = 48;
-static const int ADGuideMaxAncestors = 64;
-
-static pid_t ADGuideParent(pid_t pid) {
-    struct kinfo_proc info;
-    size_t size = sizeof(info);
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
-    if (sysctl(mib, 4, &info, &size, NULL, 0) != 0 || size == 0) {
-        return 0;
-    }
-    return info.kp_eproc.e_ppid;
-}
-
-bool agent_desktop_permission_guide_host(char *output, size_t capacity) {
-    @autoreleasepool {
-        pid_t pid = getpid();
-        for (int depth = 0; depth < ADGuideMaxAncestors && pid > 1; depth++) {
-            NSRunningApplication *app =
-                [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
-            NSString *path = app.bundleURL.path;
-            if ([path.pathExtension isEqualToString:@"app"]) {
-                return [path getCString:output maxLength:capacity encoding:NSUTF8StringEncoding];
-            }
-            pid = ADGuideParent(pid);
-        }
-        return false;
-    }
-}
 
 static NSRect ADGuideSettingsFrame(void) {
     NSArray<NSRunningApplication *> *apps =
@@ -191,6 +164,7 @@ static NSColor *ADGuideGray(CGFloat white) {
     self = [super initWithFrame:NSZeroRect];
     if (self != nil) {
         self.layer = [CALayer layer];
+        self.layer.opacity = ADGuideAuroraOpacity;
         self.wantsLayer = YES;
         self.layerUsesCoreImageFilters = YES;
     }
@@ -279,13 +253,13 @@ static NSColor *ADGuideGray(CGFloat white) {
 @property(nonatomic, strong) NSTextField *stepLabel;
 @property(nonatomic, strong) NSTextField *titleLabel;
 @property(nonatomic, strong) NSTextField *bodyLabel;
+@property(nonatomic, strong) NSTextField *reasonLabel;
 @property(nonatomic, strong) NSTextField *captionLabel;
 @property(nonatomic, strong) ADGuideIcon *icon;
 @property(nonatomic, strong) NSImage *hostImage;
 @property(nonatomic, copy) NSString *hostName;
 @property(nonatomic, strong) NSDate *deadline;
 @property(nonatomic, strong) NSDate *droppedAt;
-@property(nonatomic) BOOL coversScreenRecording;
 @property(nonatomic) ADGuideGranted granted;
 @property(nonatomic) uint8_t remaining;
 @property(nonatomic) uint8_t current;
@@ -304,7 +278,6 @@ static NSColor *ADGuideGray(CGFloat white) {
     }
     _granted = granted;
     _remaining = steps;
-    _coversScreenRecording = (steps & ADGuideScreenRecording) != 0;
     _total = ((steps & ADGuideAccessibility) ? 1 : 0) + ((steps & ADGuideScreenRecording) ? 1 : 0);
     _deadline = [NSDate dateWithTimeIntervalSinceNow:ADGuideLifetime];
     _hostImage = [NSWorkspace.sharedWorkspace iconForFile:hostPath];
@@ -332,7 +305,9 @@ static NSColor *ADGuideGray(CGFloat white) {
     self.stepLabel = [NSTextField labelWithString:@""];
     self.stepLabel.font = [NSFont monospacedSystemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.stepLabel.textColor = ADGuideGray(0.56);
-    self.titleLabel = [NSTextField labelWithString:@""];
+    self.titleLabel = [NSTextField wrappingLabelWithString:@""];
+    self.titleLabel.alignment = NSTextAlignmentCenter;
+    self.titleLabel.preferredMaxLayoutWidth = ADGuideWidth - 56;
     self.titleLabel.font = [NSFont systemFontOfSize:22 weight:NSFontWeightBold];
     self.titleLabel.textColor = NSColor.whiteColor;
     self.icon = [[ADGuideIcon alloc] init];
@@ -353,10 +328,15 @@ static NSColor *ADGuideGray(CGFloat white) {
     self.bodyLabel.preferredMaxLayoutWidth = ADGuideWidth - 56;
     self.bodyLabel.textColor = ADGuideGray(0.86);
     self.bodyLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    self.reasonLabel = [NSTextField wrappingLabelWithString:@""];
+    self.reasonLabel.alignment = NSTextAlignmentCenter;
+    self.reasonLabel.preferredMaxLayoutWidth = ADGuideWidth - 56;
+    self.reasonLabel.textColor = ADGuideGray(0.56);
+    self.reasonLabel.font = [NSFont systemFontOfSize:11.5 weight:NSFontWeightRegular];
     NSButton *close = [[ADGuideButton alloc] initWithTitle:@"Not Now" target:self action:@selector(finish)];
     NSView *tile = [self tileFor:self.icon];
     NSStackView *stack = [NSStackView stackViewWithViews:@[
-        tile, self.captionLabel, self.stepLabel, self.titleLabel, self.bodyLabel, close
+        tile, self.captionLabel, self.stepLabel, self.titleLabel, self.bodyLabel, self.reasonLabel, close
     ]];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
     stack.alignment = NSLayoutAttributeCenterX;
@@ -365,7 +345,8 @@ static NSColor *ADGuideGray(CGFloat white) {
     [stack setCustomSpacing:20 afterView:self.captionLabel];
     [stack setCustomSpacing:6 afterView:self.stepLabel];
     [stack setCustomSpacing:10 afterView:self.titleLabel];
-    [stack setCustomSpacing:30 afterView:self.bodyLabel];
+    [stack setCustomSpacing:6 afterView:self.bodyLabel];
+    [stack setCustomSpacing:30 afterView:self.reasonLabel];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.card addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
@@ -469,7 +450,15 @@ static NSColor *ADGuideGray(CGFloat white) {
     BOOL accessibility = self.current == ADGuideAccessibility;
     self.stepLabel.stringValue =
         [NSString stringWithFormat:@"STEP %d OF %d", self.completed + 1, self.total];
-    self.titleLabel.stringValue = accessibility ? @"Allow Accessibility" : @"Allow Screen Recording";
+    NSOperatingSystemVersion renamed = {27, 0, 0};
+    NSString *accessibilityList = [NSProcessInfo.processInfo isOperatingSystemAtLeastVersion:renamed]
+        ? @"Device Control and Data Access"
+        : @"Accessibility";
+    self.titleLabel.stringValue = accessibility ? [@"Allow " stringByAppendingString:accessibilityList]
+                                                : @"Allow Screen Recording";
+    self.reasonLabel.stringValue = accessibility ? @"agent-desktop needs this to see and use your apps."
+                                                 : @"agent-desktop needs this to take screenshots of your apps.";
+    self.reasonLabel.hidden = NO;
     [self showInstructions];
     NSString *pane = accessibility ? @"Privacy_Accessibility" : @"Privacy_ScreenCapture";
     NSOperatingSystemVersion ventura = {13, 0, 0};
@@ -626,18 +615,53 @@ static NSColor *ADGuideGray(CGFloat white) {
             [NSImageSymbolConfiguration configurationWithPointSize:48 weight:NSFontWeightRegular];
         self.icon.image = [check imageWithSymbolConfiguration:config];
         self.icon.contentTintColor = NSColor.systemGreenColor;
+        [self animateTick];
     }
 #pragma clang diagnostic pop
     self.bodyLabel.stringValue = @"Done.";
     [self resizePanel];
 }
 
+- (void)animateTick {
+    if (NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion) {
+        return;
+    }
+    CGFloat half = ADGuideIconSize / 2;
+    CATransform3D small = CATransform3DConcat(
+        CATransform3DConcat(CATransform3DMakeTranslation(-half, -half, 0), CATransform3DMakeScale(0.3, 0.3, 1)),
+        CATransform3DMakeTranslation(half, half, 0));
+    CASpringAnimation *pop = [CASpringAnimation animationWithKeyPath:@"transform"];
+    pop.fromValue = [NSValue valueWithCATransform3D:small];
+    pop.toValue = [NSValue valueWithCATransform3D:CATransform3DIdentity];
+    pop.mass = 1;
+    pop.stiffness = 220;
+    pop.damping = 12;
+    pop.duration = pop.settlingDuration;
+    CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+    fade.fromValue = @0;
+    fade.toValue = @1;
+    fade.duration = 0.18;
+    [self.icon.layer addAnimation:pop forKey:@"pop"];
+    [self.icon.layer addAnimation:fade forKey:@"fade"];
+    Class drawOn = NSClassFromString(@"NSSymbolDrawOnEffect");
+    Class drawOff = NSClassFromString(@"NSSymbolDrawOffEffect");
+    Class options = NSClassFromString(@"NSSymbolEffectOptions");
+    if (drawOn == nil || drawOff == nil || options == nil ||
+        ![self.icon respondsToSelector:@selector(addSymbolEffect:options:animated:)]) {
+        return;
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    [self.icon addSymbolEffect:[drawOff effect] options:[options options] animated:NO];
+    [self.icon addSymbolEffect:[drawOn effect] options:[options options] animated:YES];
+#pragma clang diagnostic pop
+}
+
 - (void)showDone {
+    self.reasonLabel.hidden = YES;
     self.stepLabel.stringValue = @"";
     self.titleLabel.stringValue = @"You are all set";
-    self.bodyLabel.stringValue = self.coversScreenRecording
-        ? [NSString stringWithFormat:@"Quit and reopen %@ before agent-desktop takes screenshots.", self.hostName]
-        : @"agent-desktop can now see and use your apps.";
+    self.bodyLabel.stringValue = @"agent-desktop can now see and use your apps.";
     [self resizePanel];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self finish];

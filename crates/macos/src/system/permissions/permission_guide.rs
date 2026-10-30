@@ -1,5 +1,5 @@
 use agent_desktop_core::AdapterError;
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{CString, c_char};
 use std::fs::File;
 use std::os::fd::AsRawFd;
 use std::os::unix::process::CommandExt;
@@ -10,11 +10,12 @@ use std::time::{Duration, Instant};
 const STEPS_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE";
 const HOST_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE_HOST";
 const LOCK_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE_LOCK";
+const PROBE_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE_PROBE";
 const LOCK_NAME: &str = "agent-desktop-permission-guide.lock";
 const ACCESSIBILITY: u8 = 1;
 const SCREEN_RECORDING: u8 = 2;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
-const HOST_PATH_CAPACITY: usize = 4096;
+const MAX_ANCESTORS: usize = 64;
 const COMMAND_HOST_ENVS: [&str; 3] = [
     "AGENT_DESKTOP_INTERNAL_COMMAND_HOST",
     "AGENT_DESKTOP_INTERNAL_HOST_SOCKET",
@@ -66,6 +67,9 @@ pub(crate) fn start() -> Result<&'static str, AdapterError> {
 }
 
 pub fn entry_from_env() -> Option<u8> {
+    if let Ok(step) = std::env::var(PROBE_ENV) {
+        return Some(if probe(&step) { 0 } else { 1 });
+    }
     let steps = std::env::var(STEPS_ENV).ok()?;
     Some(if run_child(&steps) { 0 } else { 1 })
 }
@@ -87,28 +91,31 @@ fn run_child(steps: &str) -> bool {
     unsafe { agent_desktop_permission_guide_run(steps, host.as_ptr(), granted) == 0 }
 }
 
+/// Each poll runs in a fresh process: a long-lived process keeps the Screen
+/// Recording answer it read at launch, and the command host may belong to
+/// another terminal app.
 extern "C" fn granted(step: u8) -> bool {
-    let key = match step {
-        ACCESSIBILITY => "accessibility",
-        SCREEN_RECORDING => "screen_recording",
-        _ => return false,
-    };
     let Ok(executable) = std::env::current_exe() else {
         return false;
     };
     let mut command = Command::new(executable);
-    command.arg("permissions").env_remove(STEPS_ENV);
+    command
+        .env_remove(STEPS_ENV)
+        .env(PROBE_ENV, step.to_string());
     crate::system::process::run_with_deadline(
         &mut command,
         "macOS permission guide probe",
         Instant::now() + PROBE_TIMEOUT,
     )
-    .is_ok_and(|output| reports_granted(&output.stdout, key))
+    .is_ok_and(|output| output.status.success())
 }
 
-fn reports_granted(stdout: &[u8], key: &str) -> bool {
-    serde_json::from_slice::<serde_json::Value>(stdout)
-        .is_ok_and(|response| response["data"][key]["state"] == "granted")
+fn probe(step: &str) -> bool {
+    match step.parse::<u8>() {
+        Ok(ACCESSIBILITY) => crate::system::permissions::preflight_accessibility(),
+        Ok(SCREEN_RECORDING) => crate::system::permissions::preflight_screen_recording(),
+        _ => false,
+    }
 }
 
 fn missing_steps(accessibility: bool, screen_recording: bool) -> u8 {
@@ -129,13 +136,55 @@ fn parse_steps(value: &str) -> Option<u8> {
         .filter(|steps| (1..=(ACCESSIBILITY | SCREEN_RECORDING)).contains(steps))
 }
 
+/// TCC charges a command-line tool to the app that launched its process
+/// tree, so the guide shows the nearest ancestor that runs from an app
+/// bundle. Terminal servers such as Rex Server are not registered with
+/// LaunchServices, so the bundle comes from the executable path.
 fn host_app() -> Option<PathBuf> {
-    let mut buffer = [0 as c_char; HOST_PATH_CAPACITY];
-    if !unsafe { agent_desktop_permission_guide_host(buffer.as_mut_ptr(), buffer.len()) } {
+    let mut pid = i32::try_from(std::process::id()).ok()?;
+    for _ in 0..MAX_ANCESTORS {
+        if pid <= 1 {
+            return None;
+        }
+        let app = crate::system::renderer_kind::executable_path(pid)
+            .as_deref()
+            .and_then(outermost_app);
+        if app.is_some() {
+            return app;
+        }
+        pid = parent_pid(pid)?;
+    }
+    None
+}
+
+/// A helper such as `Code Helper (Plugin).app` sits inside the app that TCC
+/// names, so the outermost bundle wins.
+fn outermost_app(executable: &Path) -> Option<PathBuf> {
+    executable
+        .ancestors()
+        .filter(|path| path.extension().is_some_and(|extension| extension == "app"))
+        .last()
+        .map(Path::to_path_buf)
+}
+
+/// The short BSD record, unlike the full one, is readable for processes of
+/// another user, such as the root-owned `/usr/bin/login` a terminal starts.
+fn parent_pid(pid: i32) -> Option<i32> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdshortinfo>::zeroed();
+    let size = i32::try_from(std::mem::size_of::<libc::proc_bsdshortinfo>()).ok()?;
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDT_SHORTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if read != size {
         return None;
     }
-    let path = unsafe { CStr::from_ptr(buffer.as_ptr()) };
-    path.to_str().ok().map(PathBuf::from)
+    i32::try_from(unsafe { info.assume_init() }.pbsi_ppid).ok()
 }
 
 fn hand_over(command: &mut Command, lock: &File) {
@@ -180,7 +229,6 @@ fn lock_file(path: &Path) -> std::io::Result<Option<File>> {
 }
 
 unsafe extern "C" {
-    fn agent_desktop_permission_guide_host(output: *mut c_char, capacity: usize) -> bool;
     fn agent_desktop_permission_guide_run(
         steps: u8,
         host_path: *const c_char,
@@ -236,10 +284,56 @@ mod tests {
     }
 
     #[test]
-    fn grant_probe_reads_only_the_requested_permission() {
-        let stdout = br#"{"ok":true,"data":{"accessibility":{"state":"granted"},"screen_recording":{"state":"denied"}}}"#;
-        assert!(reports_granted(stdout, "accessibility"));
-        assert!(!reports_granted(stdout, "screen_recording"));
-        assert!(!reports_granted(b"not json", "accessibility"));
+    fn the_guide_offers_the_outermost_app_bundle_of_the_launching_process() {
+        let rex = Path::new(
+            "/Users/me/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex",
+        );
+        assert_eq!(
+            outermost_app(rex),
+            Some(PathBuf::from(
+                "/Users/me/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app"
+            ))
+        );
+        let code_helper = Path::new(
+            "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)",
+        );
+        assert_eq!(
+            outermost_app(code_helper),
+            Some(PathBuf::from("/Applications/Visual Studio Code.app"))
+        );
+        assert_eq!(
+            outermost_app(Path::new(
+                "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+            )),
+            Some(PathBuf::from("/System/Applications/Utilities/Terminal.app"))
+        );
+        assert_eq!(
+            outermost_app(Path::new("/usr/local/bin/agent-desktop")),
+            None
+        );
+    }
+
+    #[test]
+    fn the_host_walk_passes_through_a_process_of_another_user() {
+        let parent = parent_pid(i32::try_from(std::process::id()).unwrap());
+        assert_eq!(parent, Some(unsafe { libc::getppid() }));
+        let launchd_child = std::process::Command::new("/bin/ps")
+            .args(["-axo", "pid=,ppid=,uid="])
+            .output()
+            .unwrap();
+        let root_child = String::from_utf8(launchd_child.stdout)
+            .unwrap()
+            .lines()
+            .filter_map(|line| {
+                let fields: Vec<i32> = line
+                    .split_whitespace()
+                    .filter_map(|field| field.parse().ok())
+                    .collect();
+                (fields.len() == 3 && fields[0] > 1 && fields[1] == 1 && fields[2] == 0)
+                    .then_some(fields[0])
+            })
+            .next()
+            .unwrap();
+        assert_eq!(parent_pid(root_child), Some(1));
     }
 }
