@@ -13,6 +13,14 @@
     "errors-and-recovery",
     "---Reference---",
     "...commands",
-    "configuration"
+    "configuration",
+    "---Guides---",
+    "...guides",
+    "---Platforms---",
+    "...platforms",
+    "---C library---",
+    "...ffi",
+    "---",
+    "changelog"
   ]
 }
