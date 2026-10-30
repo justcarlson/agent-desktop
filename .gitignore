@@ -58,11 +58,6 @@ logs/
 
 # Local agent tooling
 .claude/
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/technical-writer/
-!.agents/skills/architecture-diagram/
 .cursor/
 .context/
 skills-lock.json
