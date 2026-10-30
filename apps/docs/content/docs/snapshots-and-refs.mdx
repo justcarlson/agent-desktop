@@ -150,7 +150,7 @@ Each ref maps to a `RefEntry`: the evidence needed to find the same element agai
 
 A command never reuses a live handle from the snapshot. Every command that takes a ref, including `click`, `get`, `is`, `snapshot --root`, and `find --root`, re-identifies the element from its stored evidence first.
 
-<Diagram name="ref-resolution" title="How a ref resolves, and when it goes stale" aspectRatio="720 / 420" />
+<Diagram name="ref-resolution" title="How a ref resolves, and when it goes stale" aspectRatio="720 / 460" />
 
 1. The command parses `@s26u7pv9qta5g4:e6` into the snapshot id and the key `@e6`. A bare or malformed ref fails with `INVALID_ARGS`.
 2. `RefStore` loads `snapshots/s26u7pv9qta5g4/refmap.json` from the selected session's namespace. A missing snapshot fails with `SNAPSHOT_NOT_FOUND`.
