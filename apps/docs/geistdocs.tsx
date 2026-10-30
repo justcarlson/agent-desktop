@@ -72,10 +72,6 @@ export const translations = {
   en: {
     displayName: "English",
   },
-  cn: {
-    displayName: "Chinese",
-    search: "搜尋文檔",
-  },
 };
 
 export const basePath: string | undefined = undefined;

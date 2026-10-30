@@ -31,12 +31,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  return [
-    {
-      changeFrequency: "monthly",
-      priority: 1,
-      url: url("/desktop"),
-    },
-    ...pages,
-  ];
+  return pages;
 }

@@ -27,6 +27,12 @@ const config = {
   cacheComponents: true,
   partialPrefetching: true,
 
+  async headers() {
+    return process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production"
+      ? [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
+      : [];
+  },
+
   async redirects() {
     return [{ source: "/docs/desktop/:path*", destination: "/desktop/:path*", permanent: true }];
   },

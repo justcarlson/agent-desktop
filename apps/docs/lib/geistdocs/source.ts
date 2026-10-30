@@ -2,7 +2,7 @@ import { createSource } from "@vercel/geistdocs/source";
 import { docs } from "@/.source/server";
 import { config } from "./config";
 
-export const geistdocsSource = createSource({
+const templateSource = createSource({
   docs,
   config,
   baseUrl: "/desktop",
@@ -10,6 +10,14 @@ export const geistdocsSource = createSource({
     frontmatter: (defaults) => ({ ...defaults, docs_index: "/desktop/llms.txt" }),
   },
 });
+
+export const geistdocsSource = {
+  ...templateSource,
+  getPageImage: (page: Parameters<typeof templateSource.getPageImage>[0]) => ({
+    segments: page.slugs,
+    url: `/desktop/og${page.slugs.length ? `/${page.slugs.join("/")}` : ""}`,
+  }),
+};
 
 export const source = geistdocsSource.source;
 export const getPageImage = geistdocsSource.getPageImage;

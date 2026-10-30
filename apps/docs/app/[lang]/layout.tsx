@@ -10,13 +10,14 @@ import { GeistdocsProvider } from "@/components/geistdocs/provider";
 import { config } from "@/lib/geistdocs/config";
 import { i18n } from "@/lib/geistdocs/i18n";
 import { getRootLang } from "@/lib/geistdocs/root-params";
-import { isSiteUrlConfigured, siteUrl } from "@/lib/geistdocs/site-url";
+import { siteUrl } from "@/lib/geistdocs/site-url";
 
 export const generateStaticParams = () =>
   i18n.languages.map((lang) => ({ lang }));
 
 export const metadata: Metadata = {
-  metadataBase: isSiteUrlConfigured ? siteUrl : undefined,
+  metadataBase: siteUrl,
+  title: { default: "agent-desktop | Desktop Automation for AI", template: "%s | agent-desktop" },
   description: "Desktop automation CLI for AI agents",
   icons: { icon: "/desktop/favicon.ico" },
 };

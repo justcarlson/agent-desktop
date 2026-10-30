@@ -1,4 +1,5 @@
 import { createProxy } from "@vercel/geistdocs/proxy";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { config as geistdocsConfig } from "@/lib/geistdocs/config";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 import { source } from "@/lib/geistdocs/source";
@@ -9,6 +10,15 @@ const proxy = createProxy({
   trackMarkdownRequest: trackMdRequest,
   before: ({ request }) => {
     const pathname = request.nextUrl.pathname;
+    if (pathname === "/desktop/sitemap.xml" || pathname === "/desktop/robots.txt") {
+      return NextResponse.next();
+    }
+    if (pathname === "/desktop/sitemap.md") {
+      return NextResponse.rewrite(new URL("/en/desktop/sitemap.md", request.url));
+    }
+    if (pathname === "/cn/desktop" || pathname.startsWith("/cn/desktop/")) {
+      return new Response(null, { status: 404 });
+    }
     if (
       Object.keys(geistdocsConfig.translations ?? {}).some(
         (lang) => pathname === `/${lang}` || pathname.startsWith(`/${lang}/`)
@@ -26,7 +36,7 @@ const proxy = createProxy({
     const path = rawPath.replace(/\/$/, "");
     if (
       [".well-known/mcp.json", "agents.md", "llms.txt", "openapi.json", "rss.xml", "sitemap.md", "sitemap.xml", "robots.txt"].includes(path) ||
-      path.startsWith("og/") || path === "llms.mdx" || path.startsWith("llms.mdx/")
+      path === "og" || path.startsWith("og/") || path === "llms.mdx" || path.startsWith("llms.mdx/")
     ) return null;
     if (
       !source.getPage(path ? path.split("/") : [], geistdocsConfig.defaultLanguage)
@@ -43,4 +53,10 @@ export const config = {
   ],
 };
 
-export default proxy;
+export default async function handleRequest(request: NextRequest, event: NextFetchEvent) {
+  const response = await proxy(request, event);
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return response;
+}
