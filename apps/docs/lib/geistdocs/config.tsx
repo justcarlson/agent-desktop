@@ -1,6 +1,5 @@
 import { defineConfig } from "@vercel/geistdocs/config";
 import {
-  agent,
   ai,
   basePath,
   github,
@@ -16,7 +15,7 @@ import {
 
 export const config = defineConfig({
   title,
-  agent: { ...agent, enabled: false },
+  agent: { enabled: false },
   defaultLanguage: "en",
   logo: <Logo />,
   logoHref: "/desktop",

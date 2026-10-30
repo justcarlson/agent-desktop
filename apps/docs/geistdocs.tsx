@@ -1,5 +1,4 @@
 import type {
-  GeistdocsAgentReadinessConfig,
   GeistdocsAIConfig,
   GeistdocsNavbarBrand,
 } from "@vercel/geistdocs/config";
@@ -27,6 +26,7 @@ export const nav = [
   {
     label: "npm",
     href: "https://www.npmjs.com/package/agent-desktop",
+    external: true,
   },
 ];
 
@@ -42,31 +42,6 @@ export const prompt =
 
 export const ai = {
 } satisfies GeistdocsAIConfig;
-
-export const agent = {
-  product: {
-    name: "Geistdocs",
-    description:
-      "Geistdocs is a package-backed documentation system for creating Next.js and Fumadocs sites with shared Vercel documentation patterns.",
-    category: "Documentation",
-    audience: ["Documentation authors", "Developer experience teams"],
-    useCases: [
-      "Create package-backed documentation sites",
-      "Expose docs as AI-readable Markdown",
-      "Share Vercel docs UI and runtime behavior across projects",
-    ],
-  },
-  api: {
-    siteOpenApiUrl: "/openapi.json",
-  },
-  links: [
-    {
-      label: "Geistdocs source",
-      href: `https://github.com/${github.owner}/${github.repo}`,
-      description: "Source repository for the Geistdocs package and template",
-    },
-  ],
-} satisfies GeistdocsAgentReadinessConfig;
 
 export const translations = {
   en: {

@@ -35,7 +35,7 @@ Use these instructions when an AI coding agent edits this project.
 | Configure the Fumadocs source adapter or versioned docs | `lib/geistdocs/source.ts` |
 | Configure Fumadocs collections and source-safe MDX processing | `source.config.ts` |
 | Configure the docs page renderer | `app/[lang]/docs/[[...slug]]/page.tsx` |
-| Configure AI-readable markdown output and recovery | `app/[lang]/agents.md/route.ts`, `app/[lang]/.well-known/mcp.json/route.ts`, `app/[lang]/openapi.json/route.ts`, `app/[lang]/llms.txt/route.ts`, `app/[lang]/llms.mdx/[[...slug]]/route.ts`, `app/[lang]/sitemap.md/route.ts` |
+| Configure AI-readable markdown output and recovery | `app/[lang]/desktop/llms.txt/route.ts`, `app/[lang]/desktop/llms.mdx/[[...slug]]/route.ts`, `app/[lang]/desktop/sitemap.md/route.ts` |
 | Configure chat or search APIs | `app/api/chat/route.ts`, `app/api/search/route.ts`, `app/api/search/export/route.ts` |
 | Add request handling before or after Geistdocs routing | `proxy.ts` |
 | Edit the marketing home page | `app/[lang]/(home)/**` |
@@ -59,7 +59,7 @@ Use these instructions when an AI coding agent edits this project.
 - Use `prefetch={true}` for app-owned links to fully static documentation pages so navigation does not stop at the generic route shell.
 - Keep `export const config` in `proxy.ts` as a static object. Next.js must parse proxy matchers at build time.
 - Use proxy matcher exclusions that only match `/api` and `/api/...`, such as `api(?:/|$)`. Do not exclude broad prefixes like `api`, because that also excludes routes such as `/api-reference`.
-- Preserve markdown negotiation unless the task explicitly changes AI-readable output. Geistdocs serves `/agents.md`, `/llms.txt`, `/.well-known/mcp.json`, and per-page Markdown for `.md`, `.mdx`, `Accept: text/markdown`, and AI-agent requests.
+- Preserve markdown negotiation unless the task explicitly changes AI-readable output. Geistdocs serves `/desktop/llms.txt` and per-page Markdown for `.md`, `.mdx`, and `Accept: text/markdown` requests.
 - Restart `next dev` after adding, deleting, or renaming an App Router page or route so `createGeistdocs` regenerates its route manifest.
 - When adding custom proxy behavior, prefer `before`, `after`, `transformRewrite`, and `markdownRoutes` options on `createProxy` instead of replacing the proxy. Use `transformRewrite` for internal route segments that must apply after locale and Markdown resolution.
 - Use explicit `markdownRoutes` for root-mounted docs or any site where homepage/app routes coexist with docs routes.
@@ -122,7 +122,7 @@ Use these instructions when an AI coding agent edits this project.
 
 - Run `pnpm build` after changing routes, config, source setup, MDX components, or package versions.
 - Run `pnpm dev` and open the changed pages when visual layout, navigation, or MDX rendering changes.
-- Check both `/docs` and AI-readable routes such as `/agents.md`, `/.well-known/mcp.json`, `/llms.txt`, or a page-level `.md` URL when changing content routing or proxy behavior.
+- Check `/desktop` and AI-readable routes such as `/desktop/llms.txt` or a page-level `.md` URL when changing content routing or proxy behavior.
 - Confirm `/api/search/export` is statically generated after changing Mixedbread retrieval or source configuration.
 - Confirm no secrets were added to source files. Use `.env.local` for local values and keep it out of Git.
 
