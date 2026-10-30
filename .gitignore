@@ -62,6 +62,7 @@ logs/
 !.agents/skills/
 .agents/skills/*
 !.agents/skills/technical-writer/
+!.agents/skills/architecture-diagram/
 .cursor/
 .context/
 skills-lock.json

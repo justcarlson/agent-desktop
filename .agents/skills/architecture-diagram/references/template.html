@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagram name</title>
+<script>
+  var t = new URLSearchParams(location.search).get("theme");
+  if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  if (window.self === window.top) document.documentElement.setAttribute("data-top", "");
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000; --panel: #0a0a0a; --node: #111; --border: #5c5c5c;
+    --fg: #ededed; --muted: #8f8f8f; --line: #8f8f8f; --line-strong: #ededed;
+    --hl-fill: #0a2a5e; --hl-ring: #1e5fd6; --hl-icon: #cfe0ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      color-scheme: light;
+      --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+      --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+      --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+    --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+    --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+  }
+  html, body { margin: 0; background: transparent; }
+  :root[data-top], :root[data-top] body { background: var(--bg); }
+  svg { display: block; width: 100%; height: auto; font-family: Geist, "Geist Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .box { fill: var(--panel); stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+  .node { fill: var(--node); }
+  .label { fill: var(--fg); font-size: 15px; text-anchor: middle; }
+  .sub { fill: var(--muted); font-size: 11.5px; text-anchor: middle; }
+  .head { fill: var(--fg); font-size: 16px; font-weight: 500; }
+  .tag { fill: var(--muted); font-size: 12.5px; text-anchor: middle; }
+  .wire { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; marker-end: url(#arrow); }
+  .wire.strong { stroke: var(--line-strong); }
+  .icon { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .icon.fg { stroke: var(--fg); }
+  .hl { fill: var(--hl-fill); stroke: var(--hl-ring); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .hl-icon { fill: none; stroke: var(--hl-icon); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  #arrow path { fill: none; stroke: var(--line); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 720 240" role="img" aria-labelledby="t d">
+  <title id="t">Diagram name</title>
+  <desc id="d">Describe the whole flow in one or two sentences.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1.5 1.5 L5.5 4 L1.5 6.5"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="8" y="8" width="704" height="224" rx="8" style="fill:none"/>
+  <text class="head" x="28" y="40">Container</text>
+
+  <rect class="box node" x="40" y="80" width="120" height="64" rx="6"/>
+  <text class="label" x="100" y="110">First</text>
+  <text class="sub" x="100" y="127">detail</text>
+
+  <rect class="box node" x="280" y="80" width="120" height="64" rx="6"/>
+  <text class="label" x="340" y="110">Second</text>
+  <text class="sub" x="340" y="127">detail</text>
+
+  <path class="wire strong" d="M166 112H274"/>
+  <text class="tag" x="220" y="104">/route</text>
+
+  <path class="wire" d="M340 150V170a14 14 0 0 1-14 14H114a14 14 0 0 1-14-14V150"/>
+
+  <path class="wire" d="M406 112H494"/>
+  <circle class="hl" cx="530" cy="112" r="30"/>
+  <g transform="translate(518 100)">
+    <circle class="hl-icon" cx="12" cy="12" r="9"/>
+    <ellipse class="hl-icon" cx="12" cy="12" rx="4" ry="9"/>
+    <path class="hl-icon" d="M3 12h18"/>
+  </g>
+</svg>
+</body>
+</html>
