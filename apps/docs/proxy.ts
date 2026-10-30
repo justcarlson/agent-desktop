@@ -52,7 +52,7 @@ const proxy = createProxy({
 
 export const config = {
   matcher: [
-    "/((?!vc-ap-[^/]+/|desktop/api(?:/|$)|desktop/favicon.ico|api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!vc-ap-[^/]+/|desktop/api(?:/|$)|desktop/favicon.ico|desktop/diagrams/|api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
 

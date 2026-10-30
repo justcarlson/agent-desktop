@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-desktop architecture</title>
+<script>
+  var t = new URLSearchParams(location.search).get("theme");
+  if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  if (window.self === window.top) document.documentElement.setAttribute("data-top", "");
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000; --panel: #0a0a0a; --node: #111; --border: #5c5c5c;
+    --fg: #ededed; --muted: #8f8f8f; --line: #8f8f8f; --line-strong: #ededed;
+    --hl-fill: #0a2a5e; --hl-ring: #1e5fd6; --hl-icon: #cfe0ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      color-scheme: light;
+      --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+      --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+      --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fff; --panel: #fafafa; --node: #fff; --border: #b8b8b8;
+    --fg: #171717; --muted: #666; --line: #7a7a7a; --line-strong: #171717;
+    --hl-fill: #dbe8ff; --hl-ring: #2563eb; --hl-icon: #1d4ed8;
+  }
+  html, body { margin: 0; background: transparent; }
+  :root[data-top], :root[data-top] body { background: var(--bg); }
+  svg { display: block; width: 100%; height: auto; font-family: Geist, "Geist Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .box { fill: var(--panel); stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+  .node { fill: var(--node); }
+  .label { fill: var(--fg); font-size: 15px; text-anchor: middle; }
+  .sub { fill: var(--muted); font-size: 11.5px; text-anchor: middle; }
+  .head { fill: var(--fg); font-size: 16px; font-weight: 500; }
+  .tag { fill: var(--muted); font-size: 12.5px; text-anchor: middle; }
+  .wire { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; marker-end: url(#arrow); }
+  .wire.strong { stroke: var(--line-strong); }
+  .icon { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .icon.fg { stroke: var(--fg); }
+  .hl { fill: var(--hl-fill); stroke: var(--hl-ring); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .hl-icon { fill: none; stroke: var(--hl-icon); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  #arrow path { fill: none; stroke: var(--line); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 720 448" role="img" aria-labelledby="t d">
+  <title id="t">agent-desktop architecture</title>
+  <desc id="d">The calling agent runs the agent-desktop CLI or links the agent-desktop-ffi C library. Both call agent-desktop-core, which holds the commands, snapshot building, and the RefStore. Core calls the PlatformAdapter trait. One platform crate implements it, chosen at compile time: agent-desktop-macos over the AX API, agent-desktop-windows over UI Automation, or agent-desktop-linux over AT-SPI. The platform crate reads the target app's accessibility tree. The result returns to the agent as a JSON envelope.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1.5 1.5 L5.5 4 L1.5 6.5"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="100" y="8" width="612" height="432" rx="8" style="fill:none"/>
+  <g transform="translate(120 26)">
+    <rect class="icon fg" x="0" y="0" width="18" height="7" rx="2"/>
+    <rect class="icon fg" x="0" y="9" width="18" height="7" rx="2"/>
+    <circle class="icon fg" cx="4" cy="3.5" r=".6"/>
+    <circle class="icon fg" cx="4" cy="12.5" r=".6"/>
+  </g>
+  <text class="head" x="148" y="40">Your machine</text>
+
+  <path class="wire strong" d="M74 130a14 14 0 0 0 14-14V104a14 14 0 0 1 14-14H114"/>
+  <path class="wire strong" d="M74 150a14 14 0 0 1 14 14V176a14 14 0 0 0 14 14H114"/>
+  <circle class="hl" cx="44" cy="140" r="30"/>
+  <g transform="translate(32 128)">
+    <circle class="hl-icon" cx="12" cy="12" r="9"/>
+    <ellipse class="hl-icon" cx="12" cy="12" rx="4" ry="9"/>
+    <path class="hl-icon" d="M3 12h18"/>
+  </g>
+  <text class="label" x="44" y="194">agent</text>
+  <text class="sub" x="44" y="210">JSON back</text>
+
+  <rect class="box node" x="120" y="60" width="160" height="60" rx="6"/>
+  <text class="label" x="200" y="84">agent-desktop</text>
+  <text class="sub" x="200" y="101">CLI: cli, dispatch</text>
+
+  <rect class="box node" x="120" y="160" width="160" height="60" rx="6"/>
+  <text class="label" x="200" y="184">agent-desktop-ffi</text>
+  <text class="sub" x="200" y="201">C library: ad_*</text>
+
+  <path class="wire strong" d="M286 90a14 14 0 0 1 14 14V126a14 14 0 0 0 14 14H314"/>
+  <path class="wire strong" d="M286 190a14 14 0 0 0 14-14V154a14 14 0 0 1 14-14H314"/>
+
+  <rect class="box node" x="320" y="110" width="188" height="60" rx="6"/>
+  <text class="label" x="414" y="134">agent-desktop-core</text>
+  <text class="sub" x="414" y="151">commands, snapshot, RefStore</text>
+
+  <path class="wire strong" d="M514 140H542"/>
+
+  <rect class="box node" x="548" y="110" width="144" height="60" rx="6"/>
+  <text class="label" x="620" y="134">PlatformAdapter</text>
+  <text class="sub" x="620" y="151">trait</text>
+
+  <path class="wire" d="M604 176V254"/>
+  <path class="wire" d="M604 176V226a14 14 0 0 1-14 14H420a14 14 0 0 0-14 14"/>
+  <path class="wire" d="M604 176V226a14 14 0 0 1-14 14H222a14 14 0 0 0-14 14"/>
+  <text class="tag" x="306" y="232">one chosen at compile time</text>
+
+  <rect class="box node" x="120" y="260" width="176" height="60" rx="6"/>
+  <text class="label" x="208" y="284">macOS</text>
+  <text class="sub" x="208" y="301">agent-desktop-macos</text>
+
+  <rect class="box node" x="318" y="260" width="176" height="60" rx="6"/>
+  <text class="label" x="406" y="284">Windows</text>
+  <text class="sub" x="406" y="301">agent-desktop-windows</text>
+
+  <rect class="box node" x="516" y="260" width="176" height="60" rx="6"/>
+  <text class="label" x="604" y="284">Linux</text>
+  <text class="sub" x="604" y="301">agent-desktop-linux</text>
+
+  <path class="wire" d="M208 326V354"/>
+  <path class="wire" d="M406 326V354"/>
+  <path class="wire" d="M604 326V354"/>
+  <text class="tag" style="text-anchor:start" x="216" y="345">AX API</text>
+  <text class="tag" style="text-anchor:start" x="414" y="345">UI Automation</text>
+  <text class="tag" style="text-anchor:start" x="612" y="345">AT-SPI</text>
+
+  <rect class="box node" x="120" y="360" width="572" height="60" rx="6"/>
+  <text class="label" x="406" y="384">Target app</text>
+  <text class="sub" x="406" y="401">its accessibility tree</text>
+</svg>
+</body>
+</html>
