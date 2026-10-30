@@ -83,7 +83,27 @@ mod imp {
     use windows::Win32::UI::Accessibility::{CUIAutomation8, IUIAutomation, IUIAutomation2};
 
     thread_local! {
-        static CLIENT: OnceCell<UIAutomation> = const { OnceCell::new() };
+        static CLIENT: OnceCell<ThreadClient> = const { OnceCell::new() };
+    }
+
+    /// This thread's cached client, released when the thread ends, except
+    /// on the main thread. The main thread only ends as the process exits,
+    /// and by the time its thread-local destructors run COM has already
+    /// been torn down, so releasing the client then faults inside combase
+    /// (`CGIPTable::_RevokeInterfaceFromGlobal`) and every CLI call ends in
+    /// a crash report. The process is exiting, so the OS reclaims the
+    /// client anyway.
+    struct ThreadClient {
+        client: std::mem::ManuallyDrop<UIAutomation>,
+        on_main_thread: bool,
+    }
+
+    impl Drop for ThreadClient {
+        fn drop(&mut self) {
+            if !self.on_main_thread {
+                unsafe { std::mem::ManuallyDrop::drop(&mut self.client) };
+            }
+        }
     }
 
     /// Serializes the first UI Automation touch across threads.
@@ -123,11 +143,14 @@ mod imp {
     /// establishing it. See `create_bounded_client` for which CLSID, and why.
     pub fn automation_client() -> Result<UIAutomation, AdapterError> {
         CLIENT.with(|cell| {
-            if let Some(client) = cell.get() {
-                return Ok(client.clone());
+            if let Some(cached) = cell.get() {
+                return Ok((*cached.client).clone());
             }
             let client = create_serialized_client()?;
-            let _ = cell.set(client.clone());
+            let _ = cell.set(ThreadClient {
+                client: std::mem::ManuallyDrop::new(client.clone()),
+                on_main_thread: std::thread::current().name() == Some("main"),
+            });
             Ok(client)
         })
     }
