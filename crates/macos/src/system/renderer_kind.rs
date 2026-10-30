@@ -43,7 +43,7 @@ pub(crate) fn detect_chromium(_pid: i32) -> Option<RendererKind> {
 }
 
 #[cfg(target_os = "macos")]
-fn executable_path(pid: i32) -> Option<PathBuf> {
+pub(crate) fn executable_path(pid: i32) -> Option<PathBuf> {
     let mut buffer = [0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
     let capacity = u32::try_from(buffer.len()).ok()?;
     let written = unsafe { libc::proc_pidpath(pid, buffer.as_mut_ptr().cast(), capacity) };

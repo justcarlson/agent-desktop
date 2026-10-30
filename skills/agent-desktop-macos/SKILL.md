@@ -19,7 +19,7 @@ Read the core skill first (`agent-desktop skills get desktop`) for the observe, 
 ## Requirements
 
 - macOS 13 or later, Intel or Apple Silicon.
-- Accessibility permission for the app that launches agent-desktop (Terminal, iTerm2, Warp, VS Code, Codex). If System Settings lists the `agent-desktop` binary separately, grant it too.
+- Accessibility permission for the app that launches agent-desktop (Terminal, iTerm2, Warp, VS Code, Codex). macOS 27 and later name this list Device Control and Data Access. If System Settings lists the `agent-desktop` binary separately, grant it too.
 - Screen Recording permission, only for `screenshot` and for `session start --screenshots` artifacts.
 - Automation permission for System Events, only where a command reports it missing.
 
@@ -27,7 +27,7 @@ Read the core skill first (`agent-desktop skills get desktop`) for the observe, 
 
 1. Run `agent-desktop permissions`.
 2. If a permission is denied, run `agent-desktop permissions --guide`. It opens the correct System Settings page with a panel that shows the user which app to drag into the list. The user confirms with Touch ID or a password, and the panel moves to the next missing permission by itself. The command returns at once with `"guide": "started"`, `"already_running"` or `"not_needed"`. `agent-desktop permissions --request` shows the system prompts instead.
-3. Open System Settings > Privacy & Security > Accessibility. Turn on the launching app.
+3. If the guide cannot run, open System Settings > Privacy & Security > Accessibility (Device Control and Data Access on macOS 27 and later). Add the launching app and turn it on.
 4. Restart the launching app. A running process does not pick up a new grant.
 5. Run `agent-desktop snapshot --app Finder -i` to confirm.
 

@@ -10,6 +10,8 @@ Each entry is a symptom, its cause, and the fix. Read `error.code`, `error.sugge
 
 **Fix.** Follow "First contact" in the macOS skill: `permissions --guide`, turn on the launching app (and the `agent-desktop` binary if it is listed on its own) in System Settings > Privacy & Security > Accessibility or Screen Recording, restart the launching app, then run `agent-desktop permissions` to confirm `granted`.
 
+The guide offers the app bundle of the nearest process above agent-desktop. Under a tmux server or an SSH session, no such app exists, so the guide offers the `agent-desktop` binary. In that case, add the terminal app that started tmux by hand. macOS 27 and later name the Accessibility list Device Control and Data Access.
+
 For Automation, open Privacy & Security > Automation and allow the launching app to control System Events.
 
 ## Empty or sparse tree

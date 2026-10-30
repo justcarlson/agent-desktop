@@ -2,7 +2,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <stdbool.h>
 #import <stdint.h>
-#import <sys/sysctl.h>
 
 typedef bool (*ADGuideGranted)(uint8_t step);
 
@@ -12,38 +11,12 @@ static const NSTimeInterval ADGuideLifetime = 600;
 static const NSTimeInterval ADGuideDropRetry = 15;
 static const CGFloat ADGuideWidth = 340;
 static const CGFloat ADGuideGap = 16;
-static const CGFloat ADGuideAuroraHeight = 130;
+static const CGFloat ADGuideAuroraHeight = 96;
+static const float ADGuideAuroraOpacity = 0.55;
 static const int ADGuideRayCount = 64;
 static const CGFloat ADGuideIconSize = 48;
 static const CGFloat ADGuideTileSize = 76;
 static const CGFloat ADGuideGhostSize = 48;
-static const int ADGuideMaxAncestors = 64;
-
-static pid_t ADGuideParent(pid_t pid) {
-    struct kinfo_proc info;
-    size_t size = sizeof(info);
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
-    if (sysctl(mib, 4, &info, &size, NULL, 0) != 0 || size == 0) {
-        return 0;
-    }
-    return info.kp_eproc.e_ppid;
-}
-
-bool agent_desktop_permission_guide_host(char *output, size_t capacity) {
-    @autoreleasepool {
-        pid_t pid = getpid();
-        for (int depth = 0; depth < ADGuideMaxAncestors && pid > 1; depth++) {
-            NSRunningApplication *app =
-                [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
-            NSString *path = app.bundleURL.path;
-            if ([path.pathExtension isEqualToString:@"app"]) {
-                return [path getCString:output maxLength:capacity encoding:NSUTF8StringEncoding];
-            }
-            pid = ADGuideParent(pid);
-        }
-        return false;
-    }
-}
 
 static NSRect ADGuideSettingsFrame(void) {
     NSArray<NSRunningApplication *> *apps =
@@ -191,6 +164,7 @@ static NSColor *ADGuideGray(CGFloat white) {
     self = [super initWithFrame:NSZeroRect];
     if (self != nil) {
         self.layer = [CALayer layer];
+        self.layer.opacity = ADGuideAuroraOpacity;
         self.wantsLayer = YES;
         self.layerUsesCoreImageFilters = YES;
     }
@@ -332,7 +306,9 @@ static NSColor *ADGuideGray(CGFloat white) {
     self.stepLabel = [NSTextField labelWithString:@""];
     self.stepLabel.font = [NSFont monospacedSystemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.stepLabel.textColor = ADGuideGray(0.56);
-    self.titleLabel = [NSTextField labelWithString:@""];
+    self.titleLabel = [NSTextField wrappingLabelWithString:@""];
+    self.titleLabel.alignment = NSTextAlignmentCenter;
+    self.titleLabel.preferredMaxLayoutWidth = ADGuideWidth - 56;
     self.titleLabel.font = [NSFont systemFontOfSize:22 weight:NSFontWeightBold];
     self.titleLabel.textColor = NSColor.whiteColor;
     self.icon = [[ADGuideIcon alloc] init];
@@ -469,7 +445,12 @@ static NSColor *ADGuideGray(CGFloat white) {
     BOOL accessibility = self.current == ADGuideAccessibility;
     self.stepLabel.stringValue =
         [NSString stringWithFormat:@"STEP %d OF %d", self.completed + 1, self.total];
-    self.titleLabel.stringValue = accessibility ? @"Allow Accessibility" : @"Allow Screen Recording";
+    NSOperatingSystemVersion renamed = {27, 0, 0};
+    NSString *accessibilityList = [NSProcessInfo.processInfo isOperatingSystemAtLeastVersion:renamed]
+        ? @"Device Control and Data Access"
+        : @"Accessibility";
+    self.titleLabel.stringValue = accessibility ? [@"Allow " stringByAppendingString:accessibilityList]
+                                                : @"Allow Screen Recording";
     [self showInstructions];
     NSString *pane = accessibility ? @"Privacy_Accessibility" : @"Privacy_ScreenCapture";
     NSOperatingSystemVersion ventura = {13, 0, 0};
