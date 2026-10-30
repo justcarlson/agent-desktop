@@ -91,6 +91,7 @@ src/             agent-desktop binary: cli/, cli_args/, dispatch/, batch/, comma
 skills/          agent skills, compiled into the binary
 tests/           golden fixtures, E2E harness per OS, FFI smoke tests
 probes/          raw platform measurements; FINDINGS.md rows are citable evidence
+apps/docs/       Geistdocs site served at agent-browser.dev/desktop as a Vercel Microfrontends child app
 ```
 
 **Dependency inversion (non-negotiable).**

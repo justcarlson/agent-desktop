@@ -1,0 +1,20 @@
+---
+title: Installation
+navTitle: Installation
+description: Install agent-desktop with npm, pnpm, Yarn, or Bun on macOS, Windows, and Linux.
+---
+
+Install the package with npm, pnpm, Yarn, or Bun. It includes native binaries and platform helpers for macOS, Windows, and Linux on x64 and ARM64.
+
+```bash
+npm install -g agent-desktop       # Install the CLI
+agent-desktop permissions --guide  # Grant Accessibility permission (macOS)
+```
+
+For a native executable without a JavaScript launcher, download the archive for your OS and architecture from [GitHub Releases](https://github.com/vercel-labs/agent-desktop/releases). Keep the executable and its platform helper together in a directory on PATH.
+
+## Platform requirements
+
+- **macOS**: Grant Accessibility permission with `agent-desktop permissions --guide`.
+- **Windows**: No grant is needed for apps at the terminal's integrity level.
+- **Linux**: Use the user's graphical session with `at-spi2-core`.
