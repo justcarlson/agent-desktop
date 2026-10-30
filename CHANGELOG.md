@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.2](https://github.com/vercel-labs/agent-desktop/compare/v1.0.1...v1.0.2) (2026-10-30)
+
+### Features
+
+* Tell npm users when the Node launcher slows each call. When npm blocks install scripts, the launcher prints a one-time notice to stderr with the command that links the native binary.
+
+### Bug Fixes
+
+* Make `permissions --guide` on macOS offer the app that launched agent-desktop, such as a terminal that LaunchServices does not know, instead of the agent-desktop binary.
+* Restart the command host after it reports a missing permission, so commands succeed after the user grants access.
+* Point the permission hints and skills at `permissions --guide` instead of `--request`.
+* Point the npm package and repository links at vercel-labs/agent-desktop.
+
 ## [1.0.1](https://github.com/vercel-labs/agent-desktop/compare/v1.0.0...v1.0.1) (2026-10-27)
 
 ### Bug Fixes
