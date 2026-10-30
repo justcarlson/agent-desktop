@@ -136,6 +136,10 @@ Git commits retain author and committer names and email addresses. Use your acco
 
 **Security vulnerabilities:** do **not** open a public issue. Follow [SECURITY.md](SECURITY.md).
 
+## Writing with AI coding agents
+
+If an AI coding agent writes any of your contribution's prose, it must use the [`technical-writer` skill](.agents/skills/technical-writer/SKILL.md). That covers docs pages, READMEs, skills, changelog entries, commit messages, PR descriptions, and issues. The skill sets the voice and editorial standards for this repo and asks agents to check technical claims against the source. Agents that read this repo's `AGENTS.md` pick up the requirement automatically.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [Apache-2.0 License](LICENSE) that covers this project.

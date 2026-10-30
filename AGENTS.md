@@ -49,6 +49,10 @@ check. Bypass it only in an emergency: `git commit --no-verify` or `SKIP_PRECOMM
 - **Vocabulary** is `CONCEPTS.md`. **The JSON contract** is `docs/json-output.md`. **Past lessons** are in
   `docs/solutions/`, with YAML frontmatter (`module`, `tags`, `problem_type`); search it before you work in a
   documented area.
+- **User docs** live in `apps/docs` and are served at agent-browser.dev/desktop. Use the `technical-writer` skill
+  (`.agents/skills/technical-writer/SKILL.md`) when you write or edit prose: docs pages, READMEs, skills, changelog
+  entries, commit messages, PR descriptions, and issues. The docs serve developers and the agents that call
+  agent-desktop, so keep them complete, short, and checked against the code.
 - **Planning documents** (the phase roadmap `phases.md`, sub-phase plans, brainstorms) live in `.compound-engineering/`
   at the repo root. That folder is untracked on purpose. Read it when you plan. Never link to it or cite it from a
   committed file, because it does not exist in any other checkout.
