@@ -10,6 +10,9 @@
     "surfaces",
     "sessions",
     "json-output",
-    "errors-and-recovery"
+    "errors-and-recovery",
+    "---Reference---",
+    "...commands",
+    "configuration"
   ]
 }
