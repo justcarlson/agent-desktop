@@ -68,7 +68,7 @@ agent-desktop launch gtk3-demo
 }
 ```
 
-The result also carries `cdp` when `--cdp` was verified, `renderer: "chromium"` for a detected Chromium or Electron app, and sometimes a `suggestion`. A missing `window` is not a failure. With `--cdp`, `data.cdp` holds `http_endpoint`, `port`, `product`, and `websocket_url` for a CDP client such as agent-browser.
+The result also carries `cdp` when `--cdp` was verified, `renderer: "chromium"` for a detected Chromium or Electron app, and sometimes a `suggestion`. A missing `window` is not a failure. With `--cdp`, `data.cdp` holds `http_endpoint`, `port`, `product`, and `websocket_url` for a CDP client such as agent-browser; [Chromium and Electron apps](/desktop/guides/chromium-and-electron) walks through the handoff.
 
 Errors specific to `launch`:
 

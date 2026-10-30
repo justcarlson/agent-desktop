@@ -113,7 +113,7 @@ An app appears in `list-apps` only when its toolkit registered on the accessibil
 agent-desktop launch google-chrome --arg=--force-renderer-accessibility
 ```
 
-GTK apps nest deeply with unnamed `group` wrappers that `-i --compact` keeps; read past them, or let a skeleton find the drill targets. Electron native dialogs are not on the AT-SPI tree.
+To drive the web contents with agent-browser instead, launch the app with `--cdp`; see [Chromium and Electron apps](/desktop/guides/chromium-and-electron). GTK apps nest deeply with unnamed `group` wrappers that `-i --compact` keeps; read past them, or let a skeleton find the drill targets. Electron native dialogs are not on the AT-SPI tree.
 
 ## Troubleshooting
 

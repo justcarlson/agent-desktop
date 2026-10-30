@@ -1,4 +1,11 @@
 {
   "title": "Guides",
-  "pages": ["observe-act-verify", "waiting", "batch", "headed-mode", "traces"]
+  "pages": [
+    "observe-act-verify",
+    "waiting",
+    "batch",
+    "chromium-and-electron",
+    "headed-mode",
+    "traces"
+  ]
 }

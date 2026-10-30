@@ -80,6 +80,7 @@ Chromium 138 and later exposes a full UIA tree with no flag, but the first read 
 
 - Pass a longer `--timeout-ms` to `snapshot` instead of concluding the tree is empty.
 - A settled tree with boundary nodes carrying `children_count` and no controls is a depth effect: drill into a boundary with `snapshot --root`.
+- For the web contents of an app you can launch fresh, `launch --cdp` opens a DevTools port for agent-browser; see [Chromium and Electron apps](/desktop/guides/chromium-and-electron).
 - A WPF window read before its automation peer exists can bind an empty generic provider. Take a new snapshot after a few seconds.
 
 ## Troubleshooting
