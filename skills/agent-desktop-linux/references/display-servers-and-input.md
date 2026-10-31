@@ -40,8 +40,8 @@ command that resolves a window id report the refusal:
 | `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance is not live, the named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
 | `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
 
-What a bound Hyprland adds to `list-windows` and to resolving a window id is in
-`windows-and-lifecycle.md`.
+What a bound Hyprland adds to `list-windows`, to resolving a window id and to
+`focus-window` is in `windows-and-lifecycle.md`.
 Other commands on Hyprland behave as on a generic Wayland session.
 
 ## X11 versus Wayland
@@ -52,7 +52,7 @@ Other commands on Hyprland behave as on a generic Wayland session.
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused |
-| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
+| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included; on a bound Hyprland, `--headed focus-window` activates through the compositor |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor |
 | `list-displays` | RandR monitors | Mutter `DisplayConfig`; see [Displays on Wayland](#displays-on-wayland) for other compositors |
