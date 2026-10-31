@@ -1,0 +1,16 @@
+# Placement rules for scripts/path/hyprland-module.sh. Paths are relative to the repository root.
+#
+#   into <dir>        the destination folder for the rules that follow; it becomes one Rust module
+#   children <dir>    move the whole module this folder holds: its mod.rs and every module it declares
+#   module <glob>     move one module file, with its tests and any folder it owns
+#   keep <glob>       a file the Wayland work adds that stays where it is
+#
+# Every .rs file the Wayland work adds under crates/linux/src (against the merge-base with main) must be
+# placed by one of these rules or the run stops and names it. Add a rule; never edit the script per head.
+
+into crates/linux/src/system/wayland/hyprland
+children crates/linux/src/system/wayland
+module crates/linux/src/system/display/display_wayland.rs
+module crates/linux/src/system/display/display_outputs.rs
+module crates/linux/src/system/display/wayland_output.rs
+module crates/linux/src/system/display/output_probe.rs
