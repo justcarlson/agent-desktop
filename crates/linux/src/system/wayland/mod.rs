@@ -2,6 +2,8 @@
 //! socket path that a validated binding names, never to the ambient
 //! `WAYLAND_DISPLAY`, and every read carries a deadline.
 
+pub(crate) mod bound_connection;
+pub(crate) mod capture;
 pub(crate) mod dispatch;
 pub(crate) mod peer_fault;
 pub(crate) mod protocol;

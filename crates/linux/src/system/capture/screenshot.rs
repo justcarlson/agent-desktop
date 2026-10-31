@@ -5,10 +5,13 @@ use agent_desktop_core::{
 use crate::system::SharedBus;
 use crate::system::capture::bus_lookup::BusLookup;
 use crate::system::capture::capture_env::CaptureEnv;
+use crate::system::capture::wayland_backends::WaylandBackends;
 use crate::system::capture::wayland_portal::capture_wayland;
 use crate::system::capture::window_context::real_decode;
 use crate::system::capture::{display, png_encode::encode_png, window};
 use crate::system::display::route::{Route, current};
+use crate::system::display::wayland_shell::WaylandShell;
+use crate::system::hyprland::capture::capture_entry::capture_hyprland;
 use crate::system::overlay::cursor_overlay;
 use crate::system::x11::DisplayReader;
 use crate::system::x11::capture::grab::DisplayGrabber;
@@ -46,30 +49,41 @@ fn wayland_window() -> AdapterError {
     .with_suggestion("Capture the screen instead, or run the application in an X11 session")
 }
 
-/// Captures `target` by the session's route. A window is only ever captured on
-/// X11; every Wayland window request is refused before any X11 call.
+const LIVE: WaylandBackends<'static> = WaylandBackends {
+    portal: &capture_wayland,
+    hyprland: &capture_hyprland,
+};
+
+/// Captures `target` by the session's route. A window is captured on X11,
+/// or on Hyprland from the compositor's own toplevel; every other Wayland
+/// window request is refused before any X11 call. Hyprland never reaches
+/// the portal.
 pub(crate) fn capture_with(
     env: &CaptureEnv,
     route: &Route,
     target: ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    capture_through(env, route, target, deadline, &capture_wayland)
+    capture_through(env, route, target, deadline, &LIVE)
 }
-
-pub(crate) type PortalCapture<'a> =
-    &'a dyn Fn(&ScreenshotTarget, Deadline) -> Result<ImageBuffer, AdapterError>;
 
 pub(crate) fn capture_through(
     env: &CaptureEnv,
     route: &Route,
     target: ScreenshotTarget,
     deadline: Deadline,
-    portal: PortalCapture<'_>,
+    wayland: &WaylandBackends<'_>,
 ) -> Result<ImageBuffer, AdapterError> {
     match (route, target) {
-        (Route::Wayland(_), ScreenshotTarget::ExactWindow(_)) => Err(wayland_window()),
-        (Route::Wayland(_), target) => portal(&target, consent_deadline(deadline)?),
+        (Route::Wayland(WaylandShell::Hyprland(binding)), target) => {
+            (wayland.hyprland)(binding, &target, deadline)
+        }
+        (Route::Wayland(WaylandShell::Generic), ScreenshotTarget::ExactWindow(_)) => {
+            Err(wayland_window())
+        }
+        (Route::Wayland(WaylandShell::Generic), target) => {
+            (wayland.portal)(&target, consent_deadline(deadline)?)
+        }
         (Route::X11(_), ScreenshotTarget::ExactWindow(window)) => {
             window::capture(env, &window, false, deadline)
         }
@@ -86,8 +100,23 @@ pub(crate) fn capture_frame_with(
     window: &WindowInfo,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
+    capture_frame_through(env, route, window, deadline, &LIVE)
+}
+
+pub(crate) fn capture_frame_through(
+    env: &CaptureEnv,
+    route: &Route,
+    window: &WindowInfo,
+    deadline: Deadline,
+    wayland: &WaylandBackends<'_>,
+) -> Result<ImageBuffer, AdapterError> {
     match route {
-        Route::Wayland(_) => Err(wayland_window()),
+        Route::Wayland(WaylandShell::Hyprland(binding)) => (wayland.hyprland)(
+            binding,
+            &ScreenshotTarget::ExactWindow(window.clone()),
+            deadline,
+        ),
+        Route::Wayland(WaylandShell::Generic) => Err(wayland_window()),
         Route::X11(_) => window::capture(env, window, true, deadline),
     }
     .map_err(not_delivered)

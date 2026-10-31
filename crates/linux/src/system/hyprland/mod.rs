@@ -5,6 +5,7 @@
 pub(crate) mod bind_refusal;
 pub(crate) mod bind_request;
 pub(crate) mod bound_request;
+pub(crate) mod capture;
 pub(crate) mod clients;
 pub(crate) mod focus;
 pub(crate) mod hyprland_bind;

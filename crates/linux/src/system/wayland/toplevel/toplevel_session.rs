@@ -1,13 +1,14 @@
 //! One connection to the bound compositor's Wayland socket that lists its
 //! toplevels over both foreign toplevel protocols, maps each handle to a
-//! Hyprland address, and activates one through the wlr handle. The socket's
-//! peer must be the bound compositor process, checked by pid and start time
-//! before any byte is read, and every read carries a deadline.
+//! Hyprland address, and activates one through the wlr handle. The
+//! connection is peer-checked by `connect_bound`, and every read carries a
+//! deadline.
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use wayland_client::protocol::wl_registry::WlRegistry;
 use wayland_client::protocol::wl_seat::WlSeat;
 use wayland_client::{Connection, EventQueue};
+use wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
 use wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1;
 use wayland_protocols_wlr::foreign_toplevel::v1::client::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
 
@@ -18,10 +19,9 @@ use super::toplevel_state::ToplevelState;
 use super::toplevel_view::ToplevelView;
 use crate::system::display::display_server::{DisplayCause, display_cause_error};
 use crate::system::hyprland::hyprland_binding::HyprlandBinding;
-use crate::system::process::proc_stat::read_stat;
 use crate::system::wayland::dispatch::dispatch_until;
 use crate::system::wayland::protocol::hyprland_toplevel_mapping::hyprland_toplevel_mapping_manager_v1::HyprlandToplevelMappingManagerV1;
-use crate::system::wayland::socket_peer::connect;
+use crate::system::wayland::bound_connection::connect_bound;
 use crate::system::wayland::wayland_fault::WaylandFault;
 
 /// A live toplevel connection to the bound compositor.
@@ -43,22 +43,7 @@ impl ToplevelSession {
         deadline: Deadline,
     ) -> Result<Self, AdapterError> {
         let socket = binding.wayland_socket.display().to_string();
-        let missing = || {
-            display_cause_error(&DisplayCause::Missing {
-                address: socket.clone(),
-            })
-        };
-        let (stream, pid) = connect(&binding.wayland_socket).map_err(|_| missing())?;
-        let start_time = read_stat(pid).ok().flatten().map(|stat| stat.start_time);
-        if pid != binding.pid || start_time != Some(binding.start_time) {
-            return Err(display_cause_error(&DisplayCause::HyprlandMismatch {
-                detail: format!(
-                    "Hyprland instance {} was bound to pid {}, but its Wayland socket {socket} is now served by pid {pid}",
-                    binding.signature, binding.pid
-                ),
-            }));
-        }
-        let connection = Connection::from_socket(stream).map_err(|_| missing())?;
+        let connection = connect_bound(binding)?;
         let mut queue = connection.new_event_queue::<ToplevelState>();
         let handle = queue.handle();
         let registry = connection.display().get_registry(&handle, ());
@@ -100,6 +85,21 @@ impl ToplevelSession {
             AdapterError::internal("Two foreign toplevel handles named one Hyprland window")
                 .with_suggestion("Retry once the compositor's window list settles")
         })
+    }
+
+    /// The peer-checked connection, for other queues on the same socket.
+    pub(crate) fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
+    /// The live ext handle whose identifier is `identifier`. A handle the
+    /// compositor closed has no identifier left and is never returned.
+    pub(crate) fn ext_handle(&self, identifier: &str) -> Option<ExtForeignToplevelHandleV1> {
+        self.state
+            .ext
+            .iter()
+            .find(|(_, record)| !record.identifier.is_empty() && record.identifier == identifier)
+            .map(|(handle, _)| handle.clone())
     }
 
     /// Sends `activate` on the one wlr handle mapped to `address`.

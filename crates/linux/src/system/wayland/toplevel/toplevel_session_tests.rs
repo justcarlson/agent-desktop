@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use super::*;
+use crate::system::process::proc_stat::read_stat;
 
 fn listener(name: &str) -> (PathBuf, UnixListener) {
     let dir = std::env::temp_dir().join(format!("toplevel-{name}-{}", std::process::id()));

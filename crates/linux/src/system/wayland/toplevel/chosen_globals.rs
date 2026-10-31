@@ -32,7 +32,13 @@ pub(crate) fn choose(globals: &[AdvertisedGlobal]) -> Result<ChosenGlobals, &'st
     })
 }
 
-fn pick(globals: &[AdvertisedGlobal], interface: &str, speaks: u32) -> Option<AdvertisedGlobal> {
+/// The first global named `interface` at the lower of its advertised version
+/// and `speaks`.
+pub(crate) fn pick(
+    globals: &[AdvertisedGlobal],
+    interface: &str,
+    speaks: u32,
+) -> Option<AdvertisedGlobal> {
     globals
         .iter()
         .find(|global| global.interface == interface && global.version >= 1)
