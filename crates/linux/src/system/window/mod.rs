@@ -1,3 +1,4 @@
+pub(super) mod compositor_listing;
 mod embedded_group;
 pub(crate) mod frame_identity;
 pub(super) mod ghost_window;

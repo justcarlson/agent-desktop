@@ -1,7 +1,11 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
+use std::collections::HashSet;
+
+use super::compositor_listing::hyprland_windows;
 use super::window_id;
 use super::window_ops::windows_of_process;
+use crate::system::hyprland::identity::compositor_window_id::is_compositor_id;
 use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::{SharedBus, shell};
 
@@ -50,19 +54,27 @@ pub(crate) fn resolve_window_strict(
     expected: &WindowInfo,
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
+    if is_compositor_id(&expected.id) {
+        let live = hyprland_windows(&HashSet::new(), None, deadline)?;
+        return verify(expected, live, process_of(expected));
+    }
     window_id::decode(&expected.id)?;
     if shell::is_shell_window(expected) {
         shell::window_gate::verify(bus, &expected.id, deadline)?;
         return Ok(expected.clone());
     }
-    let pid = expected.pid.get();
-    let live = windows_of_process(bus, pid, deadline)?;
-    let process = expected
+    let live = windows_of_process(bus, expected.pid.get(), deadline)?;
+    verify(expected, live, process_of(expected))
+}
+
+fn process_of(expected: &WindowInfo) -> Liveness {
+    expected
         .process_instance
         .as_deref()
         .filter(|instance| !instance.is_empty())
-        .map_or(Liveness::Alive, |instance| liveness(pid, instance));
-    verify(expected, live, process)
+        .map_or(Liveness::Alive, |instance| {
+            liveness(expected.pid.get(), instance)
+        })
 }
 
 #[cfg(test)]

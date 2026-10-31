@@ -1,6 +1,9 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, WindowFilter, WindowInfo};
 use serde_json::json;
 
+use std::collections::HashSet;
+
+use super::compositor_listing::hyprland_windows;
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
@@ -79,6 +82,7 @@ pub(crate) fn list_windows(
         },
         deadline,
     )?;
+    let registered: HashSet<u32> = registry.apps.iter().map(|app| app.root.pid()).collect();
     let stopped = match filter.app.as_deref() {
         Some(query) => {
             require_known_target(&registry, select, query, find_running)?;
@@ -100,10 +104,16 @@ pub(crate) fn list_windows(
         windows.retain(|window| window.info.state.is_focused);
     }
     let stack = stack.finish(deadline).flatten();
-    Ok(front_to_back(windows, &state, stack.as_deref())
+    let mut listed: Vec<WindowInfo> = front_to_back(windows, &state, stack.as_deref())
         .into_iter()
         .map(|window| window.info)
-        .collect())
+        .collect();
+    let mut compositor = hyprland_windows(&registered, filter.app.as_deref(), deadline)?;
+    if filter.focused_only {
+        compositor.retain(|window| window.state.is_focused);
+    }
+    listed.append(&mut compositor);
+    Ok(listed)
 }
 
 /// The windows of one process, placed as `list_windows` places them. Only
