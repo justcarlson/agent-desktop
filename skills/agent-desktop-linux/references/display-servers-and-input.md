@@ -23,6 +23,7 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 | `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor |
+| `list-displays` | RandR monitors | Mutter `DisplayConfig`; see [Displays on Wayland](#displays-on-wayland) for other compositors |
 | Clipboard | Native selection owner | `wl-clipboard` |
 | GNOME Shell ref click, popup opener | `--headed`, receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference |
 
@@ -176,6 +177,36 @@ empty insertion is dispatched.
 - The first `type` into a fresh document changes the window title, but the ref
   from the snapshot still resolves: `get` on it reads the typed value. Take a
   fresh snapshot only when the UI you address has changed for another reason.
+
+## Displays on Wayland
+
+`list-displays` asks GNOME's Mutter `DisplayConfig` interface first. When no
+Mutter answers, it connects to the session's Wayland socket and reads the
+compositor's `wl_output` and `zxdg_output_manager_v1` globals. wlroots-family
+compositors such as Sway and Hyprland advertise both.
+
+```bash
+agent-desktop list-displays
+```
+
+- `id` is the output's connector name, such as `eDP-1` or `DP-2`. It does not
+  change while the monitor stays connected.
+- `bounds` is the output's logical position and size in the compositor's
+  layout.
+- `scale` is the current mode's width (its height on an output turned a
+  quarter) over the logical width, rounded to 1/120. An output with no mode
+  reports its integer `wl_output` scale.
+- Wayland names no primary output. The output at the layout origin is
+  primary; with none there, the top-left one is. The list is primary first,
+  then by `id`, so `screenshot --screen N` indexes stay stable.
+- A compositor that advertises neither global, or returns an output without a
+  name, position or size, gives `PLATFORM_NOT_SUPPORTED`.
+  `platform_detail` names what was missing.
+- A compositor that accepts the connection but does not answer within the
+  command's budget gives a retryable `TIMEOUT`. `details.detail` names the
+  socket.
+- A socket that closes the connection gives `PLATFORM_NOT_SUPPORTED` with
+  cause `missing`.
 
 ## Wayland keys
 
