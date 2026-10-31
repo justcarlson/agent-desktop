@@ -6,6 +6,7 @@
 
 pub(crate) mod bind;
 pub(crate) mod clients;
+pub(crate) mod close;
 pub(crate) mod focus;
 pub(crate) mod identity;
 pub(crate) mod ipc;
