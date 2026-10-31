@@ -37,6 +37,7 @@ fn a_wayland_cursor_refusal_is_explicit_without_x11_fallback() {
         .args(["--exact", FILTER, "--nocapture"])
         .env(CHILD, "1")
         .env("WAYLAND_DISPLAY", &path)
+        .env_remove("HYPRLAND_INSTANCE_SIGNATURE")
         .output()
         .unwrap();
     drop(listener);

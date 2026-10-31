@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
-use super::{Cause, DisplayEnv, DisplayServer, Probe, Reach, Unavailable, detect};
+use super::{Cause, DisplayEnv, DisplayServer, Probe, Reach, Unavailable, detect, with_discovery};
 
 struct Fixed {
     wayland: Reach,
@@ -137,4 +137,38 @@ fn a_display_written_with_the_unix_transport_prefix_is_handed_on_without_it() {
     );
     assert_eq!(plain, DisplayServer::X11(":2".to_owned()));
     assert_eq!(super::canonical_display("unixhost:0"), "unixhost:0");
+}
+
+fn refusing(cause: Cause) -> DisplayServer {
+    DisplayServer::Unavailable(Unavailable {
+        cause,
+        detail: "tried".into(),
+    })
+}
+
+#[test]
+fn discovery_is_asked_only_when_the_environment_configures_nothing() {
+    assert_eq!(
+        with_discovery(refusing(Cause::NotConfigured), || true),
+        DisplayServer::Wayland
+    );
+    assert_eq!(
+        with_discovery(refusing(Cause::NotConfigured), || false),
+        refusing(Cause::NotConfigured)
+    );
+    let configured = [
+        DisplayServer::Wayland,
+        DisplayServer::X11(":0".into()),
+        refusing(Cause::Missing),
+        refusing(Cause::Refused),
+    ];
+    for server in configured {
+        let asked = std::cell::Cell::new(false);
+        let decided = with_discovery(server.clone(), || {
+            asked.set(true);
+            true
+        });
+        assert_eq!(decided, server);
+        assert!(!asked.get(), "{server:?} asked discovery");
+    }
 }

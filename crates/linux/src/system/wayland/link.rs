@@ -2,6 +2,7 @@
 //! registry read in a first round trip, and every later round trip bounded by
 //! the same deadline.
 
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 
 use agent_desktop_core::Deadline;
@@ -36,7 +37,16 @@ where
         state: &mut S,
         deadline: Deadline,
     ) -> Result<Self, WaylandFault> {
-        let stream = connect(socket)?;
+        Self::over(connect(socket)?, state, deadline)
+    }
+
+    /// Reads the registry into `state` over a stream the caller already
+    /// connected, so the caller can check the stream's peer first.
+    pub(crate) fn over(
+        stream: UnixStream,
+        state: &mut S,
+        deadline: Deadline,
+    ) -> Result<Self, WaylandFault> {
         let connection = Connection::from_socket(stream).map_err(|_| WaylandFault::Gone)?;
         let queue = connection.new_event_queue::<S>();
         let registry = connection.display().get_registry(&queue.handle(), ());
