@@ -74,6 +74,7 @@ class HyprlandRegistryTests(unittest.TestCase):
         hyprland = run_order("hyprland")
         zoo = hyprland.index("ref_contract.zoo_gtk3")
         self.assertLess(hyprland.index("non_interference.headed_changes_only_target"), zoo)
+        self.assertGreater(hyprland.index("focus.hyprland_other_workspace"), zoo)
         wayland = run_order("wayland")
         self.assertLess(wayland.index("session.other_wayland_route_unchanged"),
                         wayland.index("ref_contract.zoo_gtk3"))
