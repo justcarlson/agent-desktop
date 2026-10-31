@@ -114,35 +114,42 @@ impl ActionOps for LateObservationAdapter {}
 impl InputOps for LateObservationAdapter {}
 impl SystemOps for LateObservationAdapter {}
 
+/// Waits 500 ms against an adapter whose resolution or value read only
+/// returns once the deadline has passed, and returns how many values it read.
+/// A loaded runner can stall the wait before it resolves, so the value case
+/// is retried until one attempt reaches the late read.
+fn late_observation_reads(snapshot_id: &str, delay_resolution: bool) -> u32 {
+    let adapter = LateObservationAdapter {
+        delay_resolution,
+        reads: AtomicU32::new(0),
+    };
+    let predicate = if delay_resolution {
+        wait_predicate::ElementPredicate::Exists
+    } else {
+        wait_predicate::ElementPredicate::Value("ready".into())
+    };
+    let error = wait_for_element_test(
+        "@e1".into(),
+        Some(snapshot_id.to_string()),
+        predicate,
+        500,
+        &adapter,
+        &crate::context::CommandContext::default(),
+    )
+    .expect_err("late observations cannot satisfy a bounded wait");
+    assert_eq!(error.code(), "TIMEOUT");
+    let reads = adapter.reads.load(Ordering::SeqCst);
+    assert!(reads <= 1, "a wait read the value {reads} times");
+    reads
+}
+
 #[test]
 fn element_wait_rejects_late_resolution_and_late_matching_value() {
     let _guard = HomeGuard::new();
     let snapshot_id = snapshot_with_one_ref();
-    for delay_resolution in [true, false] {
-        let adapter = LateObservationAdapter {
-            delay_resolution,
-            reads: AtomicU32::new(0),
-        };
-        let predicate = if delay_resolution {
-            wait_predicate::ElementPredicate::Exists
-        } else {
-            wait_predicate::ElementPredicate::Value("ready".into())
-        };
-        let error = wait_for_element_test(
-            "@e1".into(),
-            Some(snapshot_id.clone()),
-            predicate,
-            500,
-            &adapter,
-            &crate::context::CommandContext::default(),
-        )
-        .expect_err("late observations cannot satisfy a bounded wait");
-        assert_eq!(error.code(), "TIMEOUT");
-        assert_eq!(
-            adapter.reads.load(Ordering::SeqCst),
-            u32::from(!delay_resolution)
-        );
-    }
+    assert_eq!(late_observation_reads(&snapshot_id, true), 0);
+    let reached_late_read = (0..3).any(|_| late_observation_reads(&snapshot_id, false) == 1);
+    assert!(reached_late_read, "no attempt reached the late value read");
 }
 
 #[test]
