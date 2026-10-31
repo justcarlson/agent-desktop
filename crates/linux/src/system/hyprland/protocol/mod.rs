@@ -29,3 +29,7 @@ pub(crate) mod hyprland_toplevel_mapping {
 
     wayland_scanner::generate_client_code!("protocols/hyprland-toplevel-mapping-v1.xml");
 }
+
+/// The global a Hyprland compositor advertises for mapping foreign toplevel
+/// handles to its window addresses.
+pub(crate) const MAPPING_INTERFACE: &str = "hyprland_toplevel_mapping_manager_v1";
