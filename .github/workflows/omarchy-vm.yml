@@ -1,0 +1,163 @@
+name: Omarchy VM
+
+# Runs this repository's tests on a real Omarchy install, the way
+# omacom/omarchy runs its own (.github/workflows/test.yml, test/ci-vm): the VM
+# image of each channel, booted fresh for the run, with this checkout copied
+# in, tested in the desktop session. Nothing it runs holds a secret, so a
+# fork's pull request runs the same way as ours.
+#
+# This is the omarchy-dev skill's templates/omarchy-vm.yml with this
+# repository's paths, build, packages and timeout. test/all runs the Linux
+# end-to-end tiers in the VM with a CLI built on the runner. It is not a
+# required check.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/omarchy-vm.yml
+      - test/**
+      - tests/e2e-linux/**
+      - scripts/private-*.sh
+      - crates/core/**
+      - crates/linux/**
+      - src/**
+      - Cargo.toml
+      - Cargo.lock
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/omarchy-vm.yml
+      - test/**
+      - tests/e2e-linux/**
+      - scripts/private-*.sh
+      - crates/core/**
+      - crates/linux/**
+      - src/**
+      - Cargo.toml
+      - Cargo.lock
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omarchy-vm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # stable is what upstream CI tests; edge is the next release.
+        channel: [stable, edge]
+    env:
+      CHANNEL: ${{ matrix.channel }}
+      REPO: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: src/${{ github.event.repository.name }}
+          persist-credentials: false
+
+      # The VM gets the CLI built here: omarchy-vm leaves */target out of the
+      # copy, and the image has no Rust toolchain.
+      - name: Build the CLI and its clipboard helper
+        working-directory: src/${{ github.event.repository.name }}
+        run: |
+          rustup show
+          cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
+          mkdir -p "$GITHUB_WORKSPACE/agent-desktop-bin"
+          cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
+            "$GITHUB_WORKSPACE/agent-desktop-bin/"
+
+      - name: Install the fetch tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends aria2 jq
+
+      # Public repositories get 4-vCPU, 16 GB runners; private ones get 2 vCPUs
+      # and 8 GB, whose /dev/shm cannot hold the image. Fit the run to the
+      # runner: the image in RAM when it fits with room to spare, as upstream
+      # does, else on the runner's disk; the VM gets the runner's CPUs and its
+      # memory less 2 GB, at most 6 GB as upstream.
+      - name: Size the VM to the runner
+        run: |
+          test -e /dev/kvm || { echo "::error::this runner has no /dev/kvm"; exit 1; }
+          size=$(curl -fsS --retry 3 "https://nightly.omarchy.org/$CHANNEL/latest.json" | jq -r .vm.size)
+          shm=$(df --output=avail -B1 /dev/shm | tail -n 1)
+          if (( shm > size + 2 * 1024 ** 3 )); then
+            cache=/dev/shm/omarchy-vm
+          else
+            cache=$RUNNER_TEMP/omarchy-vm
+          fi
+          mem=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 - 2048 ))
+          (( mem <= 6144 )) || mem=6144
+          {
+            echo "OMARCHY_VM_CACHE=$cache"
+            echo "MEM=${mem}M"
+            echo "SMP=$(nproc)"
+          } >>"$GITHUB_ENV"
+          echo "Runner: $(nproc) CPUs, $(free -h | awk '/^Mem:/ {print $2}') memory; image $(( size / 1024 ** 2 )) MB in $cache; VM ${mem} MB" |
+            tee -a "$GITHUB_STEP_SUMMARY"
+          df -h /dev/shm "$RUNNER_TEMP"
+
+      # The script checks every file against its sha256.
+      - name: Fetch the VM image
+        run: |
+          "src/$REPO/test/omarchy-vm" fetch "$CHANNEL"
+          jq -r '"Image: Omarchy \(.omarchy_version) (\(.version)), kernel \(.kernel)"' \
+            "$OMARCHY_VM_CACHE/$CHANNEL/current/latest.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # QEMU runs in an Arch container on the runner's KVM: Arch's current
+      # QEMU, the same as omarchy-iso's install test and an Omarchy workstation.
+      - name: Run the tests in the VM
+        run: |
+          sudo chmod 0666 /dev/kvm
+          docker run --rm --device /dev/kvm -v "$PWD:/w" -v "$OMARCHY_VM_CACHE:$OMARCHY_VM_CACHE:ro" -w /w \
+            -e CHANNEL -e REPO -e OMARCHY_VM_CACHE -e VM_STATE_DIR=/tmp -e MEM -e SMP \
+            ghcr.io/archlinux/archlinux:latest bash -euo pipefail -c '
+              # pacman 7 fails every sync on a kernel without Landlock.
+              if ! grep -qw landlock /sys/kernel/security/lsm 2>/dev/null; then
+                printf "#!/bin/sh\nexec /usr/bin/pacman --disable-sandbox \"\$@\"\n" >/usr/local/bin/pacman
+                chmod 0755 /usr/local/bin/pacman
+              fi
+              # The Omarchy Arch mirror first; a mirror that drops a file must not fail the run.
+              sed -i "1i Server = https://mirror.omarchy.org/\$repo/os/\$arch" /etc/pacman.d/mirrorlist
+              for attempt in 1 2 3; do
+                if pacman -Syu --noconfirm --needed qemu-system-x86 qemu-hw-display-virtio-gpu \
+                    qemu-hw-display-virtio-vga qemu-img openssh jq >/dev/null; then
+                  break
+                elif (( attempt < 3 )); then
+                  echo "pacman failed, attempt $attempt of 3; trying again in 15 s"
+                  sleep 15
+                else
+                  echo "::error::the test container could not install QEMU"
+                  exit 1
+                fi
+              done
+              # The tier tools and test apps; tests/e2e-linux/runner/gate.py is the list.
+              pkgs=()
+              for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd \
+                  fuse2 python-gobject python-pyqt6 gnome-calculator gnome-text-editor nautilus gnome-terminal \
+                  gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard; do
+                pkgs+=(--pkg "$pkg")
+              done
+              "src/$REPO/test/omarchy-vm" run --channel "$CHANNEL" --copy "src/$REPO" --copy agent-desktop-bin \
+                "${pkgs[@]}" --out out -- bash -c "cd \"\$1\" && ./test/all" _ "$REPO"
+            '
+
+      # The container ran as root: its output belongs to root until here.
+      - name: Hand the results to the runner's user
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" out 2>/dev/null || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: omarchy-vm-${{ matrix.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 14
