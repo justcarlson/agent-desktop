@@ -5,22 +5,23 @@ use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use super::compositor_window_id::encode;
 use super::inventory::Inventory;
+use crate::system::hyprland::clients::hypr_client::HyprClient;
 
-/// The windows of every toplevel that `represented` rejects for its owner's
-/// pid and title, in client order, named by ids issued for `compositor`. A toplevel whose owner has
+/// The windows of every toplevel whose client `represented` rejects, in
+/// client order, named by ids issued for `compositor`. A toplevel whose owner has
 /// no readable instance token is left out, because it could not be
 /// verified later.
 pub(crate) fn compositor_windows(
     inventory: Inventory<'_>,
     active: Option<u64>,
     compositor: (u32, u64),
-    represented: impl Fn(u32, &str) -> bool,
+    represented: impl Fn(&HyprClient) -> bool,
     instance_of: impl Fn(u32) -> Option<String>,
 ) -> Vec<WindowInfo> {
     inventory
         .clients
         .iter()
-        .filter(|client| !represented(client.pid, &client.title))
+        .filter(|client| !represented(client))
         .filter_map(|client| {
             let toplevel = inventory
                 .toplevels

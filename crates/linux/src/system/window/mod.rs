@@ -1,3 +1,4 @@
+pub(super) mod accessible_frames;
 pub(super) mod compositor_listing;
 mod embedded_group;
 pub(crate) mod frame_identity;

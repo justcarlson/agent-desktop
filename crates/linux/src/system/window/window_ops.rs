@@ -3,7 +3,8 @@ use serde_json::json;
 
 use std::collections::HashSet;
 
-use super::compositor_listing::{hyprland_windows, represented_by, unregistered_target};
+use super::accessible_frames::AccessibleFrames;
+use super::compositor_listing::{hyprland_windows, unregistered_target};
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
@@ -87,7 +88,10 @@ pub(crate) fn list_windows(
         Some(query) => {
             if let Err(missing) = require_known_target(&registry, select, query, find_running) {
                 let registered = || {
-                    registered_pids(bus, deadline).map(|all| move |pid, _: &str| all.contains(&pid))
+                    registered_pids(bus, deadline).map(|registered| AccessibleFrames {
+                        registered,
+                        ..AccessibleFrames::default()
+                    })
                 };
                 let compositor = || hyprland_windows(registered, Some(query), deadline);
                 return unregistered_target(missing, compositor)
@@ -107,10 +111,7 @@ pub(crate) fn list_windows(
         desktops.finish(deadline).flatten().as_ref(),
     );
     let mut windows = pass.windows;
-    let frames: HashSet<(u32, String)> = windows
-        .iter()
-        .map(|window| (window.info.pid.get(), window.info.title.clone()))
-        .collect();
+    let frames: Vec<WindowInfo> = windows.iter().map(|window| window.info.clone()).collect();
     if filter.focused_only {
         windows.retain(|window| window.info.state.is_focused);
     }
@@ -124,7 +125,7 @@ pub(crate) fn list_windows(
             Some(_) => registered_pids(bus, deadline)?,
             None => registered.clone(),
         };
-        Ok(represented_by(frames, registered, all))
+        Ok(AccessibleFrames::from_listed(&frames, registered, all))
     };
     let compositor = hyprland_windows(represented, filter.app.as_deref(), deadline)?;
     listed.append(&mut keep_focused(compositor, filter));

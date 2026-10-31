@@ -1,10 +1,9 @@
 //! The compositor-only windows of a Hyprland session, merged into
 //! `list_windows` beside the accessibility frames.
 
-use std::collections::HashSet;
-
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
+use super::accessible_frames::AccessibleFrames;
 use crate::system::app::app_name::name_matches;
 use crate::system::hyprland::bound_request::bound_request;
 use crate::system::hyprland::clients::client_parse::parse_active;
@@ -18,33 +17,16 @@ use crate::system::process::process_lookup::Lookup;
 use crate::system::wayland::toplevel::toplevel_session::ToplevelSession;
 
 /// The toplevels no accessibility frame represents, when the session is
-/// Hyprland; empty on any other route. `represented` is built only on that
-/// route and judges a toplevel by its owner's pid and title. `query` keeps
-/// those whose class, command name or executable matches.
-pub(crate) fn hyprland_windows<R: Fn(u32, &str) -> bool>(
-    represented: impl FnOnce() -> Result<R, AdapterError>,
+/// Hyprland; empty on any other route. `frames` is read only on that route.
+/// `query` keeps those whose class, command name or executable matches.
+pub(crate) fn hyprland_windows(
+    frames: impl FnOnce() -> Result<AccessibleFrames, AdapterError>,
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     match routed_binding()? {
-        Some(binding) => read_windows(&binding, represented()?, query, deadline),
+        Some(binding) => read_windows(&binding, &frames()?, query, deadline),
         None => Ok(Vec::new()),
-    }
-}
-
-/// Whether an accessibility frame already lists a toplevel. A process the
-/// listing read is judged by its frames' titles, so a toplevel it exposes
-/// no frame for, such as every window of an application whose tree is off,
-/// stays listed. A process the listing's filter skipped is judged by
-/// registration alone.
-pub(crate) fn represented_by(
-    frames: HashSet<(u32, String)>,
-    read: HashSet<u32>,
-    registered: HashSet<u32>,
-) -> impl Fn(u32, &str) -> bool {
-    move |pid, title| match read.contains(&pid) {
-        true => frames.contains(&(pid, title.to_owned())),
-        false => registered.contains(&pid),
     }
 }
 
@@ -64,7 +46,7 @@ pub(crate) fn unregistered_target(
 
 fn read_windows(
     binding: &HyprlandBinding,
-    represented: impl Fn(u32, &str) -> bool,
+    frames: &AccessibleFrames,
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
@@ -79,11 +61,12 @@ fn read_windows(
         clients: &clients,
         toplevels: &toplevels,
     };
+    let represented = frames.represented(inventory);
     let windows = compositor_windows(
         inventory,
         active,
         (binding.pid, binding.start_time),
-        represented,
+        |client| represented.contains(&client.address),
         |pid| facts_of(pid).map(|facts| facts.instance),
     );
     Ok(match query {

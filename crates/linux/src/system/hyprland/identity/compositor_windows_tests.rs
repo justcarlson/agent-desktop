@@ -51,7 +51,13 @@ fn toplevels_of_processes_without_an_accessibility_tree_are_listed_by_compositor
         toplevels: &toplevels,
     };
 
-    let windows = compositor_windows(inventory, Some(0x30), (50, 60), |pid, _| pid == 8, instance);
+    let windows = compositor_windows(
+        inventory,
+        Some(0x30),
+        (50, 60),
+        |client| client.pid == 8,
+        instance,
+    );
 
     let ids: Vec<&str> = windows.iter().map(|window| window.id.as_str()).collect();
     assert_eq!(ids, vec!["w-hypr-50-60-a1", "w-hypr-50-60-c3"]);
@@ -80,7 +86,7 @@ fn toplevels_without_a_client_a_live_owner_or_a_plain_identifier_are_not_listed(
         toplevels: &toplevels,
     };
 
-    let windows = compositor_windows(inventory, None, (50, 60), |_, _| false, instance);
+    let windows = compositor_windows(inventory, None, (50, 60), |_| false, instance);
 
     assert!(windows.is_empty());
 }
@@ -101,7 +107,7 @@ fn a_toplevel_its_registered_process_exposes_no_frame_for_is_listed() {
         inventory,
         None,
         (50, 60),
-        |pid, title| pid == 8 && title == "dialog window",
+        |client| client.address == 0x20,
         instance,
     );
 
