@@ -45,6 +45,7 @@ from scenarios import hyprland_binding
 from scenarios import hyprland_binding_effects
 from scenarios import hyprland_binding_refusals
 from scenarios import hyprland_cancel
+from scenarios import hyprland_close
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_identity
