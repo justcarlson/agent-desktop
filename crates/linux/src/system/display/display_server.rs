@@ -89,6 +89,15 @@ pub(crate) fn detect(env: &DisplayEnv, probe: &dyn Probe) -> DisplayServer {
     DisplayServer::Unavailable(Unavailable { cause, detail })
 }
 
+/// The Wayland socket this process's environment names, whether or not a
+/// compositor listens there.
+pub(crate) fn session_wayland_socket() -> Option<PathBuf> {
+    let env = DisplayEnv::from_process();
+    env.wayland
+        .as_deref()
+        .and_then(|name| wayland_socket(&env, name))
+}
+
 /// The display server this process's environment reaches right now.
 pub(crate) fn session_server() -> DisplayServer {
     detect(
