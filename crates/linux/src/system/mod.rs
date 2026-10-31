@@ -6,6 +6,7 @@ pub(crate) mod close;
 pub(crate) mod context;
 pub(crate) mod display;
 pub(crate) mod focus;
+pub(crate) mod hyprland;
 pub(crate) mod interaction;
 pub(crate) mod launch;
 pub(crate) mod menu;
