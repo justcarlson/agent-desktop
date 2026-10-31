@@ -12,6 +12,38 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 `DISPLAY`. With neither reachable, display-dependent commands fail with cause
 `not_configured`, `missing` or `refused` and list the variables they tried.
 
+### Hyprland
+
+On Wayland the CLI binds one Hyprland instance before it uses Hyprland's own
+reads. It checks `$XDG_RUNTIME_DIR/hypr/<signature>/.socket.sock` and binds the
+instance only when its IPC socket answers and the Wayland socket is served by
+the same compositor process. It also needs the compositor to advertise
+`hyprland_toplevel_mapping_manager_v1`. Every read has a deadline of 1 s, and
+the CLI never runs `hyprctl`.
+
+- With `HYPRLAND_INSTANCE_SIGNATURE` set, only that instance is read, even
+  when others run. A signature whose instance has exited is ignored and the
+  CLI searches for one.
+- With no display variables set, as in an SSH shell, the CLI searches the
+  user's runtime directory (`/run/user/<uid>` when `XDG_RUNTIME_DIR` is
+  unset). One live instance is bound. Stale `hypr/` folders are skipped.
+- A Wayland session whose socket another compositor serves keeps the generic
+  Wayland behavior, and so does a Hyprland without the mapping global.
+
+The bind refuses instead of guessing:
+
+| Cause in `details.display_unavailable` | Code | When |
+|---|---|---|
+| `hyprland_ambiguous` | `PLATFORM_NOT_SUPPORTED` | Several instances answer, none is named, and `WAYLAND_DISPLAY` is unset or served by one of them. `details.signatures` lists them; set `HYPRLAND_INSTANCE_SIGNATURE` to choose |
+| `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
+| `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer within 1 s. `details.detail` names the socket |
+
+`list-displays` on a bound Hyprland reads `j/monitors` from that instance.
+`bounds` are layout coordinates: the mode, turned by the monitor's transform,
+divided by its scale. Hyprland has no primary monitor, so the monitor with the
+lowest id is primary. Other commands on Hyprland behave as on a generic
+Wayland session.
+
 ## X11 versus Wayland
 
 | Capability | X11 | Wayland (GNOME) |

@@ -148,6 +148,22 @@ to `role` or `value`.
 | `NOTIFICATION_NOT_FOUND` | The notification ID was not found |
 | `INTERNAL` | Unexpected error or caught panic |
 
+### Unreachable display on Linux
+
+A Linux command that needs the display server and cannot reach it puts the
+cause in `details.display_unavailable` and its retryability in
+`details.retryable`:
+
+| Cause | Code | Meaning |
+|-------|------|---------|
+| `not_configured` | `PLATFORM_NOT_SUPPORTED` | No `WAYLAND_DISPLAY` or `DISPLAY`, and no Hyprland instance was found under the runtime directory |
+| `missing` | `PLATFORM_NOT_SUPPORTED` | The configured server or the bound Hyprland instance is not running |
+| `refused` | `PLATFORM_NOT_SUPPORTED` | The server refused the connection |
+| `auth_refused` | `PLATFORM_NOT_SUPPORTED` | The X server refused this client's authorization |
+| `silent` | `TIMEOUT` (`retryable: true`) | The server, or a Hyprland IPC or Wayland socket, did not answer in time; `details.detail` names the socket when one is known |
+| `hyprland_ambiguous` | `PLATFORM_NOT_SUPPORTED` | Several Hyprland instances answer and none is selected; `details.signatures` lists them |
+| `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The Hyprland instance and the Wayland socket belong to different compositors, or the bound compositor was replaced |
+
 ## Exit codes
 
 `0` success, `1` structured error (JSON on stdout), `2` command-line parse error (the envelope is still printed, with `INVALID_ARGS`).
