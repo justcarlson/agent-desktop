@@ -1,10 +1,13 @@
-//! Which monitor a point belongs to, and where on it the overlay draws.
+//! Which monitor a point belongs to, and where the overlay rests.
 //!
 //! Pure functions over a supplied monitor list, which is the whole point:
 //! A29-6 records this host as one monitor at one scale, so a mixed-DPI or
 //! multi-monitor arrangement cannot be observed here. Keeping the selection
-//! and the mapping free of Win32 is what lets a test present an arrangement
-//! the desktop cannot.
+//! free of Win32 is what lets a test present an arrangement the desktop
+//! cannot.
+//!
+//! Points arrive in physical pixels, because the CLI and the renderer are both
+//! per-monitor DPI aware, so the overlay draws at them without scaling.
 //!
 //! The list is crate-local rather than core's `DisplayInfo`, and that is a
 //! decision rather than an oversight. `DisplayInfo` carries id, bounds,
@@ -58,18 +61,6 @@ pub(crate) fn resting_point(monitors: &[OverlayMonitor]) -> Option<Point> {
         x: primary.work_area.x + primary.work_area.width / 2.0,
         y: primary.work_area.y + primary.work_area.height / 2.0,
     })
-}
-
-/// A logical point mapped to the physical pixel it names on its own monitor.
-///
-/// The virtual screen origin is not necessarily zero — a monitor placed left
-/// of or above the primary has negative coordinates — so the scale is applied
-/// to the offset within the monitor rather than to the raw coordinate.
-pub(crate) fn to_physical(monitor: &OverlayMonitor, point: &Point) -> Point {
-    Point {
-        x: monitor.bounds.x + (point.x - monitor.bounds.x) * monitor.scale,
-        y: monitor.bounds.y + (point.y - monitor.bounds.y) * monitor.scale,
-    }
 }
 
 fn contains(bounds: &Rect, point: &Point) -> bool {

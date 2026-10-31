@@ -1,4 +1,4 @@
-use super::{OverlayMonitor, monitor_for_point, resting_point, to_physical};
+use super::{OverlayMonitor, monitor_for_point, resting_point};
 use agent_desktop_core::{Point, Rect};
 
 /// Takes the bounds as a `Rect` rather than four loose numbers, so a
@@ -61,10 +61,9 @@ fn a_point_inside_the_primary_selects_the_primary() {
 }
 
 /// A monitor left of or above the primary has negative coordinates, so a
-/// mapping that assumed a zero origin would put the cursor on the wrong
-/// screen entirely.
+/// selection that assumed a zero origin would pick the wrong screen entirely.
 #[test]
-fn a_monitor_at_a_negative_origin_is_selected_and_mapped_correctly() {
+fn a_monitor_at_a_negative_origin_is_selected() {
     let monitors = vec![
         monitor(bounds(0.0, 0.0, 1920.0, 1080.0), 1.0, true),
         monitor(bounds(-1280.0, -200.0, 1280.0, 800.0), 2.0, false),
@@ -72,10 +71,6 @@ fn a_monitor_at_a_negative_origin_is_selected_and_mapped_correctly() {
 
     let selected = monitor_for_point(&monitors, &Point { x: -600.0, y: 0.0 }).expect("selects");
     assert_eq!(selected, &monitors[1]);
-
-    let physical = to_physical(selected, &Point { x: -600.0, y: 0.0 });
-    assert_eq!(physical.x, -1280.0 + (-600.0 - -1280.0) * 2.0);
-    assert_eq!(physical.y, -200.0 + (0.0 - -200.0) * 2.0);
 }
 
 /// A point between two non-adjacent monitors belongs to neither. Answering
@@ -97,27 +92,6 @@ fn a_point_in_the_gap_selects_the_nearest_monitor_deterministically() {
     assert_eq!(
         second, &monitors[0],
         "and wins regardless of enumeration order"
-    );
-}
-
-#[test]
-fn a_scaled_monitor_maps_a_logical_point_to_its_physical_pixel() {
-    let monitors = scaled_pair();
-    let scaled = &monitors[1];
-    let logical = Point {
-        x: 2000.0,
-        y: 100.0,
-    };
-
-    let physical = to_physical(scaled, &logical);
-    assert_eq!(physical.x, 1920.0 + 80.0 * 1.5);
-    assert_eq!(physical.y, 0.0 + 100.0 * 1.5);
-
-    let unscaled = to_physical(&monitors[0], &logical);
-    assert_eq!(
-        unscaled, logical,
-        "an unscaled monitor maps a point to itself, so the scaling above belongs to the \
-         monitor rather than to the function"
     );
 }
 
