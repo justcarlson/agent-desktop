@@ -68,3 +68,20 @@ fn a_compositor_that_hangs_up_is_gone() {
     let fault = Link::open(&compositor.socket, &mut Probe::default(), deadline(2_000)).err();
     assert_eq!(fault, Some(WaylandFault::Gone));
 }
+
+#[test]
+fn a_link_opened_on_another_links_connection_reads_its_own_registry() {
+    let compositor = FakeCompositor::start(Script::Answer {
+        globals: vec![("wl_compositor", 6), ("zxdg_output_manager_v1", 3)],
+        outputs: vec![],
+    });
+    let mut first = Probe::default();
+    let held = Link::open(&compositor.socket, &mut first, deadline(2_000)).expect("opens");
+    let mut second = Probe::default();
+    let mut shared =
+        Link::on(held.connection().clone(), &mut second, deadline(2_000)).expect("opens on it");
+    assert!(second.exchange.find("zxdg_output_manager_v1", 3).is_some());
+    shared
+        .roundtrip(&mut second)
+        .expect("the shared connection answers");
+}
