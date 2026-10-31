@@ -169,8 +169,13 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
   `not_delivered`: answer it without `--headed`.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
-- A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
-  cause `wayland_session`.
+- On a bound Hyprland, the close request goes to every toplevel of the process
+  through the compositor (`zwlr_foreign_toplevel_handle_v1.close`), native
+  Wayland and Xwayland windows alike. Each toplevel is checked to belong to the
+  same process instance just before its request. A toplevel with a parent counts
+  as a dialog, as a save prompt is. See [Hyprland focus and close](#hyprland-focus-and-close).
+- On any other Wayland session, a process with no X11 window is
+  `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - Protection follows the target process instance, never its name. `INVALID_ARGS`,
   `not_delivered`, for:
   - the owner of the active display socket, or of the X root's supporting-WM
@@ -256,7 +261,7 @@ safe to repeat.
   every window. Send a global `--headed press escape` (no `--app`), then call
   `focus-window --app <name>` again. A headed ref action runs `focus-window` for
   you and ends the same way.
-- On a bound Hyprland, see [Hyprland focus](#hyprland-focus).
+- On a bound Hyprland, see [Hyprland focus and close](#hyprland-focus-and-close).
   Any other Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
   evidence and leaves it minimized. On X11, `--headed click`, `--headed hover`
@@ -305,7 +310,7 @@ no toplevel, or whose process changed since it was listed, is
 and `details.candidates` names each toplevel's `address` and `workspace`.
 Nothing is sent before a refusal, so run `list-windows` and retry.
 
-## Hyprland focus
+## Hyprland focus and close
 
 ```bash
 agent-desktop --headed focus-window --app foot
@@ -330,8 +335,10 @@ agent-desktop --headed focus-window --app foot
 - An activation that Hyprland, the toplevel state and the application never
   agree on within 6 s is `ACTION_FAILED`, `delivered_unverified`, with each
   witness's last read in `details`. Read the desktop before you retry.
+- `close-app` sends the compositor close request and succeeds when the process
+  exits; the rules above under `close-app` apply.
 - A compositor that lacks `zwlr_foreign_toplevel_manager_v1`,
-  `hyprland_toplevel_mapping_manager_v1` or `wl_seat` is
+  `hyprland_toplevel_mapping_manager_v1` or, for focus, `wl_seat` is
   `PLATFORM_NOT_SUPPORTED`; `platform_detail` names the missing global.
 
 ## Workspaces

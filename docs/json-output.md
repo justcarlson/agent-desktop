@@ -187,6 +187,7 @@ The fifth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a l
 After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer. Every one of these is `not_delivered`.
 ## Hyprland windows
 ## Hyprland windows and focus
+## Hyprland windows, focus and close
 
 On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
 frame represents, such as foot or Alacritty, or a window its application
@@ -262,6 +263,17 @@ the `side_effects` already observed and, when the last read failed,
 `zwlr_foreign_toplevel_manager_v1`, `hyprland_toplevel_mapping_manager_v1` or
 `wl_seat` is `PLATFORM_NOT_SUPPORTED`, and `platform_detail` names the missing
 global.
+
+`close-app` on a bound Hyprland sends `zwlr_foreign_toplevel_handle_v1.close`
+to each toplevel of the process, after it checks that the process instance
+still runs and still owns that toplevel. The `OperationReport` is
+`delivered_verified` once the process has exited; a process that is still
+running at the deadline is `TIMEOUT` with `delivered_unverified`. A toplevel
+with a parent counts as a dialog, so a pending save prompt is `ACTION_FAILED`
+with cause `dialog_pending` and its title in `details.dialog_titles`, and
+nothing answers it. On any other Wayland compositor, graceful close stays
+`ACTION_NOT_SUPPORTED` with cause `wayland_session` unless the app runs under
+XWayland.
 
 ## Hyprland binding
 
