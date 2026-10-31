@@ -37,9 +37,9 @@ pub(crate) fn connect(socket: &Path) -> Result<(UnixStream, u32), PeerFault> {
     Ok((stream, pid))
 }
 
-/// The pid that serves a socket, or `None` when nothing serves it.
-pub(crate) fn peer_pid(socket: &Path) -> Option<u32> {
-    connect(socket).ok().map(|(_, pid)| pid)
+/// The pid that serves a socket, or why none could be read.
+pub(crate) fn peer_pid(socket: &Path) -> Result<u32, PeerFault> {
+    connect(socket).map(|(_, pid)| pid)
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ fn a_listening_socket_names_this_process_as_its_peer() {
     let _listener = UnixListener::bind(&path).expect("bind");
     let (_, pid) = connect(&path).expect("connects");
     assert_eq!(pid, std::process::id());
-    assert_eq!(peer_pid(&path), Some(std::process::id()));
+    assert_eq!(peer_pid(&path), Ok(std::process::id()));
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 

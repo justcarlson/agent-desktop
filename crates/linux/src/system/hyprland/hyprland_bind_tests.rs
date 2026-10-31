@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use agent_desktop_core::Deadline;
 
 use super::*;
+use crate::system::wayland::peer_fault::PeerFault;
 
 const LIVE: u32 = 4100;
 const OTHER: u32 = 4200;
@@ -47,14 +48,15 @@ impl Observe for Fake {
         self.wayland_sockets.clone()
     }
 
-    fn peer(&self, socket: &Path) -> Option<u32> {
-        self.peers
-            .get(socket)
-            .copied()
-            .or(match self.ipc.get(socket) {
-                Some(IpcAnswer::Live(pid)) => Some(*pid),
-                _ => None,
-            })
+    fn peer(&self, socket: &Path) -> Result<u32, PeerFault> {
+        if let Some(pid) = self.peers.get(socket) {
+            return Ok(*pid);
+        }
+        match self.ipc.get(socket) {
+            Some(IpcAnswer::Live(pid)) => Ok(*pid),
+            Some(IpcAnswer::Silent) => Err(PeerFault::Busy),
+            _ => Err(PeerFault::Gone),
+        }
     }
 
     fn ipc(&self, socket: &Path, _deadline: Deadline) -> IpcAnswer {
@@ -255,6 +257,19 @@ fn a_hung_instance_is_never_read_for_a_wayland_socket_no_instance_serves() {
     fake.peers.insert(ipc_path("hung"), OTHER);
     assert_eq!(bound(&request(None, Some("wayland-0")), &fake), Ok(None));
     assert!(!fake.reads.borrow().contains(&ipc_path("hung")));
+}
+
+#[test]
+fn a_full_ipc_backlog_is_waited_on_instead_of_skipped() {
+    let fake = Fake::default()
+        .instance("full", IpcAnswer::Silent)
+        .socket("wayland-1", LIVE);
+    assert_eq!(
+        bound(&request(None, Some("wayland-1")), &fake),
+        Err(BindRefusal::Silent {
+            socket: ipc_path("full"),
+        })
+    );
 }
 
 #[test]

@@ -15,6 +15,7 @@ pub(crate) use super::hyprland_binding::HyprlandBinding;
 pub(crate) use super::ipc_answer::IpcAnswer;
 pub(crate) use super::observe::Observe;
 pub(crate) use super::wayland_answer::WaylandAnswer;
+use crate::system::wayland::peer_fault::PeerFault;
 
 const IPC_SOCKET: &str = ".socket.sock";
 
@@ -93,24 +94,30 @@ fn answering(
 
 impl Pairing<'_> {
     /// True when the named Wayland socket's server owns no instance's IPC
-    /// socket, so no instance can bind and none is waited on.
+    /// socket, so no instance can bind and none is waited on. An IPC socket
+    /// whose queue is full has an unknown owner, so it keeps discovery.
     fn serves_no_instance(&self, hypr_dir: &Path, signatures: &[String]) -> bool {
         let Some(socket) = &self.request.wayland_socket else {
             return false;
         };
-        let Some(owner) = self.observe.peer(socket) else {
+        let Ok(owner) = self.observe.peer(socket) else {
             return false;
         };
-        !signatures.iter().any(|signature| {
-            self.observe
+        signatures.iter().all(|signature| {
+            match self
+                .observe
                 .peer(&hypr_dir.join(signature).join(IPC_SOCKET))
-                == Some(owner)
+            {
+                Ok(pid) => pid != owner,
+                Err(PeerFault::Gone) => true,
+                Err(PeerFault::Busy) => false,
+            }
         })
     }
 
     fn several(&self, live: Vec<Instance>) -> Result<Option<HyprlandBinding>, BindRefusal> {
         if let Some(socket) = &self.request.wayland_socket {
-            let peer = self.observe.peer(socket);
+            let peer = self.observe.peer(socket).ok();
             if !live.iter().any(|instance| Some(instance.pid) == peer) {
                 return Ok(None);
             }
@@ -151,7 +158,7 @@ impl Pairing<'_> {
             .observe
             .wayland_sockets(self.runtime_dir)
             .into_iter()
-            .filter(|socket| self.observe.peer(socket) == Some(instance.pid));
+            .filter(|socket| self.observe.peer(socket) == Ok(instance.pid));
         for socket in own {
             match self.observe.wayland(&socket, instance.pid, self.deadline) {
                 WaylandAnswer::Live { mapping, .. } => {

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use super::*;
 use crate::system::hyprland::ipc_answer::IpcAnswer;
 use crate::system::hyprland::wayland_answer::WaylandAnswer;
+use crate::system::wayland::peer_fault::PeerFault;
 
 struct Clock {
     start_time: Option<u64>,
@@ -15,8 +16,8 @@ impl Observe for Clock {
     fn wayland_sockets(&self, _: &Path) -> Vec<PathBuf> {
         Vec::new()
     }
-    fn peer(&self, _: &Path) -> Option<u32> {
-        None
+    fn peer(&self, _: &Path) -> Result<u32, PeerFault> {
+        Err(PeerFault::Gone)
     }
     fn ipc(&self, _: &Path, _: Deadline) -> IpcAnswer {
         IpcAnswer::Gone

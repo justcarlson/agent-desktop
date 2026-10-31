@@ -13,6 +13,7 @@ use super::ipc_answer::IpcAnswer;
 use super::observe::Observe;
 use super::wayland_answer::WaylandAnswer;
 use crate::system::process::proc_stat::read_stat;
+use crate::system::wayland::peer_fault::PeerFault;
 use crate::system::wayland::protocol::toplevel_mapping_global;
 use crate::system::wayland::registry::global_interfaces;
 use crate::system::wayland::socket_peer::{connect, peer_pid};
@@ -57,7 +58,7 @@ impl Observe for LiveObserve {
         sockets
     }
 
-    fn peer(&self, socket: &Path) -> Option<u32> {
+    fn peer(&self, socket: &Path) -> Result<u32, PeerFault> {
         peer_pid(socket)
     }
 
