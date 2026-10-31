@@ -3,7 +3,7 @@ use std::cell::Cell;
 use agent_desktop_core::{Deadline, ErrorCode};
 
 use super::*;
-use crate::system::wayland::fake_compositor::{FakeCompositor, FakeOutput, Script};
+use crate::system::wayland::hyprland::fake_compositor::{FakeCompositor, FakeOutput, Script};
 
 fn output(name: &str, x: i32, y: i32) -> WaylandOutput {
     WaylandOutput {

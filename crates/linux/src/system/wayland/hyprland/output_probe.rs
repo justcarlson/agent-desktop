@@ -1,4 +1,4 @@
-use crate::system::wayland::wayland_fault::WaylandFault;
+use crate::system::wayland::hyprland::wayland_fault::WaylandFault;
 
 /// Why the Wayland output layout could not be read: the compositor does not
 /// advertise the globals it needs, an output came back without a name,

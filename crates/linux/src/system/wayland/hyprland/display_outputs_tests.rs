@@ -1,8 +1,8 @@
 use agent_desktop_core::Deadline;
 
 use super::*;
-use crate::system::wayland::fake_compositor::{FakeCompositor, FakeOutput, Script};
-use crate::system::wayland::wayland_fault::WaylandFault;
+use crate::system::wayland::hyprland::fake_compositor::{FakeCompositor, FakeOutput, Script};
+use crate::system::wayland::hyprland::wayland_fault::WaylandFault;
 
 fn deadline() -> Deadline {
     Deadline::after(2_000).expect("deadline")

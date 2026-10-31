@@ -6,14 +6,14 @@ use std::path::Path;
 
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode};
 
-use super::display_mutter::{self, LogicalMonitor};
 use super::display_outputs;
-use super::display_server::session_wayland_socket;
 use super::output_probe::OutputProbe;
 use super::wayland_output::WaylandOutput;
-use super::{from_mutter, primaries_first};
+use crate::system::display::display_mutter::{self, LogicalMonitor};
+use crate::system::display::display_server::session_wayland_socket;
+use crate::system::display::{from_mutter, primaries_first};
 
-pub(super) fn wayland_missing() -> AdapterError {
+pub(crate) fn wayland_missing() -> AdapterError {
     AdapterError::new(
         ErrorCode::PlatformNotSupported,
         "Displays cannot be listed on this Wayland session",
