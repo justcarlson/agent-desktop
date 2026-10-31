@@ -12,6 +12,9 @@ pub(crate) enum DisplayCause {
     Refused { detail: String },
     Silent,
     AuthRefused { reason: String },
+    CompositorSilent { socket: String },
+    HyprlandAmbiguous { signatures: Vec<String> },
+    HyprlandMismatch { detail: String },
 }
 
 impl DisplayCause {
@@ -20,14 +23,17 @@ impl DisplayCause {
             Self::NotConfigured => "not_configured",
             Self::Missing { .. } => "missing",
             Self::Refused { .. } => "refused",
-            Self::Silent => "silent",
+            Self::Silent | Self::CompositorSilent { .. } => "silent",
+            Self::HyprlandAmbiguous { .. } => "hyprland_ambiguous",
+            Self::HyprlandMismatch { .. } => "hyprland_mismatch",
             Self::AuthRefused { .. } => "auth_refused",
         }
     }
 }
 
-/// The one error a display cause maps to. Every cause but `Silent` is
-/// permanent and reports `PLATFORM_NOT_SUPPORTED`; `Silent` is `TIMEOUT`.
+/// The one error a display cause maps to. Every cause but the two silent
+/// ones is permanent and reports `PLATFORM_NOT_SUPPORTED`; a silent server or
+/// compositor socket is `TIMEOUT`.
 pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
     let mut error = match cause {
         DisplayCause::NotConfigured => AdapterError::new(
@@ -74,12 +80,44 @@ pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
             "display_unavailable": cause.as_str(),
             "detail": reason,
         })),
+        DisplayCause::CompositorSilent { socket } => {
+            AdapterError::timeout(format!("The compositor socket {socket} did not answer in time"))
+                .with_suggestion("Retry once the compositor answers")
+                .with_details(serde_json::json!({ "detail": socket }))
+        }
+        DisplayCause::HyprlandAmbiguous { signatures } => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!(
+                "Several Hyprland instances are running and none is selected: {}",
+                signatures.join(", ")
+            ),
+        )
+        .with_suggestion(
+            "Set HYPRLAND_INSTANCE_SIGNATURE to the instance to drive, or run inside its \
+             session so WAYLAND_DISPLAY names its socket",
+        )
+        .with_details(serde_json::json!({
+            "detail": signatures.join(", "),
+            "signatures": signatures,
+        })),
+        DisplayCause::HyprlandMismatch { detail } => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!("The Hyprland instance and the Wayland socket do not match: {detail}"),
+        )
+        .with_suggestion(
+            "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        )
+        .with_details(serde_json::json!({ "detail": detail })),
     };
     let mut details = error
         .details
         .take()
         .unwrap_or_else(|| serde_json::json!({}));
     details["display_unavailable"] = cause.as_str().into();
-    details["retryable"] = matches!(cause, DisplayCause::Silent).into();
+    details["retryable"] = matches!(
+        cause,
+        DisplayCause::Silent | DisplayCause::CompositorSilent { .. }
+    )
+    .into();
     error.with_details(details)
 }

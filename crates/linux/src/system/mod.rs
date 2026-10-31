@@ -6,6 +6,7 @@ pub(crate) mod close;
 pub(crate) mod context;
 pub(crate) mod display;
 pub(crate) mod focus;
+pub(crate) mod hyprland;
 pub(crate) mod interaction;
 pub(crate) mod launch;
 pub(crate) mod menu;
@@ -16,6 +17,7 @@ pub(crate) mod registry;
 pub(crate) mod shell;
 pub(crate) mod signal;
 pub(crate) mod tray;
+pub(crate) mod wayland;
 pub(crate) mod window;
 pub(crate) mod x11;
 

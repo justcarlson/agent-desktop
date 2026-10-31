@@ -42,7 +42,7 @@ pub(crate) fn target_steps(
                     let plans = crate::input::keyboard::text_plan::plan_text(&map, text)?;
                     world.send_plans(plans, &mut gate, deadline)?;
                 }
-                Backend::Wayland => {
+                Backend::Wayland(_) => {
                     let chunks = crate::input::keyboard::text_plan::plan_text_keysyms(text);
                     world.send_keysyms(&chunks, &mut gate, deadline)?;
                 }
@@ -104,7 +104,7 @@ fn worded_for(
     if !focus {
         return error;
     }
-    let (message, suggestion) = if matches!(backend, Backend::Wayland) {
+    let (message, suggestion) = if matches!(backend, Backend::Wayland(_)) {
         (
             "The target application's active window could not be confirmed, so no key was sent",
             "On Wayland, bring the target window to the front yourself, then use global press without --app, --window-id or --headed; global keys go to the focused window and automatic activation is unavailable",
@@ -138,7 +138,7 @@ fn send_combo(
             let plan = crate::input::keyboard::key_plan::plan_combo(&map, combo)?;
             world.send_plans(vec![plan], gate, deadline)?;
         }
-        Backend::Wayland => {
+        Backend::Wayland(_) => {
             let keys = crate::input::keyboard::key_plan::plan_keysyms(combo)?;
             world.send_keysyms(&[keys], gate, deadline)?;
         }
@@ -150,8 +150,8 @@ fn physical_step(backend: &Backend, operation: &'static str) -> ActionStep {
     let label = match (backend, operation) {
         (Backend::X11(_), "type_text") => "XTEST.type_text",
         (Backend::X11(_), _) => "XTEST.press_key",
-        (Backend::Wayland, "type_text") => "RemoteDesktop.type_text",
-        (Backend::Wayland, _) => "RemoteDesktop.press_key",
+        (Backend::Wayland(_), "type_text") => "RemoteDesktop.type_text",
+        (Backend::Wayland(_), _) => "RemoteDesktop.press_key",
     };
     ActionStep::succeeded(label)
         .with_mechanism(StepMechanism::PhysicalSynthetic)

@@ -112,6 +112,9 @@ jobs:
       - name: Enforce the stale_ref constructors take only ref ids
         run: scripts/check-stale-ref-constructor-misuse.sh
 
+      - name: Enforce vendored protocol provenance
+        run: scripts/check-vendored-protocols.sh
+
       - name: Clippy
         run: cargo clippy --locked -p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi --all-targets -- -D warnings
 

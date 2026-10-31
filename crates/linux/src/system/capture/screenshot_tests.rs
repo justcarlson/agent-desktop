@@ -1,3 +1,4 @@
+use crate::system::display::wayland_shell::WaylandShell;
 use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::*;
@@ -15,7 +16,7 @@ fn a_window_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
     let rig = Rig::standard();
     let error = capture_with(
         &rig.env(),
-        &Route::Wayland,
+        &Route::Wayland(WaylandShell::Generic),
         ScreenshotTarget::ExactWindow(target()),
         deadline(),
     )
@@ -29,8 +30,13 @@ fn a_window_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
 #[test]
 fn the_debug_frame_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
     let rig = Rig::standard();
-    let error = capture_frame_with(&rig.env(), &Route::Wayland, &target(), deadline())
-        .expect_err("unsupported");
+    let error = capture_frame_with(
+        &rig.env(),
+        &Route::Wayland(WaylandShell::Generic),
+        &target(),
+        deadline(),
+    )
+    .expect_err("unsupported");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert_eq!(rig.x11_touched(), 0);
 }
@@ -189,7 +195,7 @@ fn the_wayland_route_waits_for_a_person_whatever_the_command_deadline_is() {
         let command = Deadline::after(command_ms).expect("a deadline");
         let _ = capture_through(
             &rig.env(),
-            &Route::Wayland,
+            &Route::Wayland(WaylandShell::Generic),
             ScreenshotTarget::FullScreen,
             command,
             &portal,

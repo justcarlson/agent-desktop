@@ -21,7 +21,7 @@ pub(crate) fn send_plans(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(display) => session::run(&display, plans, gate, lease),
-        Backend::Wayland => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
+        Backend::Wayland(_) => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
     }
 }
 
@@ -32,7 +32,7 @@ pub(crate) fn send_keysyms(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(_) => Err(AdapterError::not_supported("x11_keysym_input")),
-        Backend::Wayland => keysym_send::send_chunks(chunks, gate, deadline),
+        Backend::Wayland(_) => keysym_send::send_chunks(chunks, gate, deadline),
     }
 }
 
@@ -56,7 +56,7 @@ pub(crate) fn mouse_event(
                 &delivery,
             ))
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("mouse_event")),
+        Backend::Wayland(_) => Err(keysym_send::pointer_refusal("mouse_event")),
     }
 }
 
@@ -74,7 +74,7 @@ pub(crate) fn drag(
                 &delivery,
             ))
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("drag")),
+        Backend::Wayland(_) => Err(keysym_send::pointer_refusal("drag")),
     }
 }
 

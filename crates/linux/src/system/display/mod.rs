@@ -5,6 +5,7 @@ use crate::system::display::display_cause::Cause;
 use crate::system::display::display_mutter::LogicalMonitor;
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::display::display_unavailable::Unavailable;
+use crate::system::display::wayland_shell::WaylandShell;
 
 fn wayland_missing() -> AdapterError {
     AdapterError::new(
@@ -13,7 +14,7 @@ fn wayland_missing() -> AdapterError {
     )
     .with_suggestion(
         "Run under GNOME, whose compositor answers the Mutter DisplayConfig \
-         interface; no other Wayland display source is measured",
+         interface, or under Hyprland; no other Wayland display source is measured",
     )
 }
 
@@ -165,11 +166,17 @@ pub(crate) fn list_wayland_displays(deadline: Deadline) -> Result<Vec<DisplayInf
 
 /// Lists the session's displays. On X11 the monitor list comes from RandR
 /// and Mutter's `DisplayConfig` supplies each monitor's scale where it
-/// answers; on Wayland Mutter is the only measured source and a session
-/// without it is `PLATFORM_NOT_SUPPORTED`.
+/// answers. On Wayland a bound Hyprland instance answers over its IPC
+/// socket; any other Wayland session needs Mutter, and a session without it
+/// is `PLATFORM_NOT_SUPPORTED`.
 pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
     match session_server() {
-        DisplayServer::Wayland => list_wayland_displays(deadline),
+        DisplayServer::Wayland => match route::resolve(DisplayServer::Wayland)? {
+            route::Route::Wayland(WaylandShell::Hyprland(binding)) => {
+                crate::system::hyprland::monitors::list(&binding, deadline)
+            }
+            _ => list_wayland_displays(deadline),
+        },
         DisplayServer::X11(display) => {
             let pending = x11::start(|| MonitorReader.read());
             let mutter =
@@ -200,3 +207,4 @@ pub(crate) mod display_reach;
 pub(crate) mod display_server;
 pub(crate) mod display_unavailable;
 pub(crate) mod route;
+pub(crate) mod wayland_shell;

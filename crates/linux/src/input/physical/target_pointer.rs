@@ -49,7 +49,7 @@ pub(crate) fn click_steps(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
-    if world.backend()? == Backend::Wayland {
+    if matches!(world.backend()?, Backend::Wayland(_)) {
         return Err(world.pointer_refusal("click"));
     }
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
@@ -87,7 +87,7 @@ pub(crate) fn scroll_steps(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
-    if world.backend()? == Backend::Wayland {
+    if matches!(world.backend()?, Backend::Wayland(_)) {
         return Err(world.pointer_refusal("scroll"));
     }
     let at = aim_point(world, element, None, deadline)?;
@@ -179,7 +179,7 @@ pub(crate) fn confirm_receiver(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     if crate::system::tray::target_of(handle).is_some()
-        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland))
+        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland(_)))
     {
         return Ok(());
     }
@@ -253,7 +253,7 @@ pub(crate) fn click_shell(
                 deadline,
             )?;
         }
-        Backend::Wayland => {
+        Backend::Wayland(_) => {
             world.validate_pointer(node, &point, deadline)?;
             crate::input::wayland::pointer_send::send(
                 &MouseEvent {

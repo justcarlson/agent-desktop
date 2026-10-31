@@ -33,7 +33,9 @@ impl FakeWorld {
     }
 
     pub(crate) fn wayland() -> Self {
-        Self::on(Backend::Wayland)
+        Self::on(Backend::Wayland(
+            crate::system::display::wayland_shell::WaylandShell::Generic,
+        ))
     }
 
     fn on(backend: Backend) -> Self {

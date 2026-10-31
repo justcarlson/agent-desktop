@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
-use super::{Cause, DisplayEnv, DisplayServer, Probe, Reach, Unavailable, detect};
+use super::{Cause, DisplayEnv, DisplayServer, Probe, Reach, Unavailable, detect, with_discovery};
 
 struct Fixed {
     wayland: Reach,
@@ -137,4 +137,39 @@ fn a_display_written_with_the_unix_transport_prefix_is_handed_on_without_it() {
     );
     assert_eq!(plain, DisplayServer::X11(":2".to_owned()));
     assert_eq!(super::canonical_display("unixhost:0"), "unixhost:0");
+}
+
+#[test]
+fn an_unconfigured_environment_is_wayland_only_when_discovery_finds_hyprland() {
+    let nothing = || detect(&env(None, None), &probe(Reach::Connected, Reach::Connected));
+    assert_eq!(with_discovery(nothing(), || true), DisplayServer::Wayland);
+    assert_eq!(
+        unavailable(with_discovery(nothing(), || false)).cause,
+        Cause::NotConfigured
+    );
+}
+
+#[test]
+fn a_configured_environment_never_asks_discovery() {
+    let configured = [
+        detect(
+            &env(Some("wayland-1"), None),
+            &probe(Reach::Connected, Reach::Missing),
+        ),
+        detect(
+            &env(None, Some(":0")),
+            &probe(Reach::Missing, Reach::Connected),
+        ),
+        detect(
+            &env(Some("wayland-9"), None),
+            &probe(Reach::Missing, Reach::Missing),
+        ),
+    ];
+    for server in configured {
+        let expected = server.clone();
+        assert_eq!(
+            with_discovery(server, || panic!("discovery must not run")),
+            expected
+        );
+    }
 }

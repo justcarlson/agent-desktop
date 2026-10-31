@@ -1,13 +1,14 @@
 use std::path::Path;
 
-use agent_desktop_core::ErrorCode;
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
-use super::{Backend, select};
+use super::{Backend, select, select_with};
 use crate::system::display::display_cause::Cause;
 use crate::system::display::display_env::DisplayEnv;
 use crate::system::display::display_reach::Reach;
 use crate::system::display::display_server::{DisplayServer, Probe, detect};
 use crate::system::display::display_unavailable::Unavailable;
+use crate::system::display::wayland_shell::WaylandShell;
 
 struct Fixed {
     wayland: Reach,
@@ -42,8 +43,8 @@ fn an_x11_answer_selects_the_x11_backend_with_the_display() {
 #[test]
 fn a_wayland_answer_selects_the_wayland_backend() {
     assert_eq!(
-        select(DisplayServer::Wayland).expect("backend"),
-        Backend::Wayland
+        select_with(DisplayServer::Wayland, generic).expect("backend"),
+        Backend::Wayland(WaylandShell::Generic)
     );
 }
 
@@ -102,7 +103,10 @@ fn a_stale_wayland_socket_with_a_working_display_selects_x11() {
     };
     let server = detect(&env(Some("wayland-9"), Some(":1")), &probe);
 
-    assert_eq!(select(server).expect("backend"), Backend::X11(":1".into()));
+    assert_eq!(
+        select_with(server, generic).expect("backend"),
+        Backend::X11(":1".into())
+    );
 }
 
 #[test]
@@ -113,7 +117,10 @@ fn a_live_wayland_socket_decides_before_a_set_display() {
     };
     let server = detect(&env(Some("wayland-0"), Some(":1")), &probe);
 
-    assert_eq!(select(server).expect("backend"), Backend::Wayland);
+    assert_eq!(
+        select_with(server, generic).expect("backend"),
+        Backend::Wayland(WaylandShell::Generic)
+    );
 }
 
 #[test]
@@ -126,4 +133,21 @@ fn the_backend_choice_never_reads_the_environment_itself() {
             "backend selection must consume the session detector, found {forbidden}"
         );
     }
+}
+
+fn generic() -> Result<WaylandShell, AdapterError> {
+    Ok(WaylandShell::Generic)
+}
+
+#[test]
+fn a_refused_hyprland_binding_starts_no_delivery() {
+    let refusal = crate::system::hyprland::bind_refusal::BindRefusal::Mismatch {
+        detail: "swapped".into(),
+    };
+    let error =
+        select_with(DisplayServer::Wayland, || Err(refusal.to_error())).expect_err("no backend");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.as_ref().expect("details");
+    assert_eq!(details["physical_delivery_started"], false);
+    assert_eq!(details["display_unavailable"], "hyprland_mismatch");
 }

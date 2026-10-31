@@ -25,7 +25,7 @@ pub(crate) trait Probe {
     fn x11(&self, display: &str) -> Reach;
 }
 
-fn wayland_socket(env: &DisplayEnv, name: &str) -> Option<PathBuf> {
+pub(crate) fn wayland_socket(env: &DisplayEnv, name: &str) -> Option<PathBuf> {
     if name.starts_with('/') {
         return Some(PathBuf::from(name));
     }
@@ -89,12 +89,34 @@ pub(crate) fn detect(env: &DisplayEnv, probe: &dyn Probe) -> DisplayServer {
     DisplayServer::Unavailable(Unavailable { cause, detail })
 }
 
-/// The display server this process's environment reaches right now.
+/// The display server this process's environment reaches right now. An
+/// environment that names no server at all, such as a shell started over SSH
+/// or by a systemd unit, is a Wayland session when Hyprland discovery finds
+/// one under the user's runtime directory; the route then reports the
+/// binding or why it was refused.
 pub(crate) fn session_server() -> DisplayServer {
-    detect(
-        &DisplayEnv::from_process(),
-        &super::display_probe::SocketProbe,
+    with_discovery(
+        detect(
+            &DisplayEnv::from_process(),
+            &super::display_probe::SocketProbe,
+        ),
+        crate::system::hyprland::session::discovers_a_session,
     )
+}
+
+/// Applies Hyprland discovery to a server detected from the environment. Only
+/// an environment that configures nothing asks `discovers`.
+pub(crate) fn with_discovery(
+    server: DisplayServer,
+    discovers: impl FnOnce() -> bool,
+) -> DisplayServer {
+    match server {
+        DisplayServer::Unavailable(Unavailable {
+            cause: Cause::NotConfigured,
+            ..
+        }) if discovers() => DisplayServer::Wayland,
+        other => other,
+    }
 }
 
 /// Proves the selected X11 server completed its handshake and answered a

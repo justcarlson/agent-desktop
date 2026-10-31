@@ -2,6 +2,7 @@ use super::*;
 use crate::system::bus::bus_fault::BusFault;
 use crate::system::bus::bus_stage::Stage;
 use crate::system::capture::window::fakes::{FakeGrabber, Rig, deadline};
+use crate::system::display::wayland_shell::WaylandShell;
 use crate::system::x11::capture::grab_error::GrabError;
 use std::io::ErrorKind;
 use std::sync::Arc;
@@ -124,7 +125,7 @@ fn an_x11_display_that_answers_needs_no_screen_recording_permission() {
 #[test]
 fn wayland_is_unknown_and_the_display_is_never_asked() {
     let grabber = grabber_answering(Ok(true));
-    let state = screen_recording_of(Ok(Route::Wayland), &grabber);
+    let state = screen_recording_of(Ok(Route::Wayland(WaylandShell::Generic)), &grabber);
     assert_eq!(state, PermissionState::Unknown);
     assert_eq!(grabber.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
 }
