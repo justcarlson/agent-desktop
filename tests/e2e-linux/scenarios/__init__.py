@@ -45,6 +45,10 @@ from scenarios import hyprland_binding
 from scenarios import hyprland_binding_effects
 from scenarios import hyprland_binding_refusals
 from scenarios import hyprland_cancel
+from scenarios import hyprland_capture
+from scenarios import hyprland_capture_inview
+from scenarios import hyprland_capture_refusals
+from scenarios import hyprland_capture_screen
 from scenarios import hyprland_close
 from scenarios import hyprland_close_dialog
 from scenarios import hyprland_desktop
