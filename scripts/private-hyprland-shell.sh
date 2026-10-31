@@ -13,6 +13,9 @@
 # A private runtime dir is deep enough that the instance socket path passes the 108-byte
 # sun_path limit; Hyprland and hyprctl truncate it the same way, so readiness asks hyprctl
 # instead of testing for .socket.sock.
+# The parent never presents a window on a hidden special workspace, so the nested output would
+# never draw a frame and window capture would time out; the nested session therefore renders to
+# its own headless output and disables the output backed by the parent window.
 # WAYLAND_DISPLAY and HYPRLAND_INSTANCE_SIGNATURE name the nested session for the command.
 set -euo pipefail
 
@@ -81,6 +84,18 @@ start_registry() {
   return 1
 }
 
+headless_output() {
+  local ctl="env HYPRLAND_INSTANCE_SIGNATURE=$signature hyprctl"
+  $ctl output create headless AGENT-DESKTOP-1 > /dev/null || return 1
+  $ctl keyword monitor "AGENT-DESKTOP-1,1280x800@60,0x0,1" > /dev/null || return 1
+  $ctl keyword monitor "WAYLAND-1,disable" > /dev/null || return 1
+  for _ in $(seq 1 50); do
+    $ctl -j monitors 2>/dev/null | grep -q '"AGENT-DESKTOP-1"' && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 start_shell() {
   rm -rf -- "$rt/hypr"
   cat > "$rt/hyprland.conf" <<EOF
@@ -118,6 +133,9 @@ EOF
         signature=$(basename "$dir")
       fi
     done
+    if [ -n "$signature" ] && ! headless_output; then
+      return 1
+    fi
     if [ -n "$signature" ]; then
       socket=$(find "$rt" -maxdepth 1 -name 'wayland-*' ! -name '*.lock' -printf '%f\n' | sort | head -n 1)
       [ -n "$socket" ] && break
