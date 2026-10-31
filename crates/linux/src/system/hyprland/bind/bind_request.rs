@@ -29,7 +29,7 @@ impl BindRequest {
             .and_then(|name| wayland_socket(env, name));
         Self {
             runtime_dir,
-            signature: signature.filter(|value| plain_signature(value)),
+            signature,
             wayland_socket,
         }
     }
