@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use agent_desktop_core::ErrorCode;
+use wayland_client::ConnectError;
 
 use super::*;
 
@@ -38,5 +39,28 @@ fn a_protocol_error_is_internal_and_keeps_the_compositor_text() {
     assert_eq!(
         error.platform_detail.as_deref(),
         Some("wl_registry#2: invalid version")
+    );
+}
+
+#[test]
+fn a_client_library_that_cannot_load_is_unsupported_and_names_the_library() {
+    let fault = WaylandFault::from_connect(ConnectError::NoWaylandLib);
+    assert_eq!(fault, WaylandFault::NoLibrary);
+    let error = fault.into_error(Path::new(SOCKET));
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    let detail = error.platform_detail.expect("platform detail");
+    assert!(detail.contains("libwayland-client.so.0"), "{detail}");
+    assert!(detail.contains(SOCKET), "{detail}");
+}
+
+#[test]
+fn a_connection_without_a_compositor_is_gone() {
+    assert_eq!(
+        WaylandFault::from_connect(ConnectError::NoCompositor),
+        WaylandFault::Gone
+    );
+    assert_eq!(
+        WaylandFault::from_connect(ConnectError::InvalidFd),
+        WaylandFault::Gone
     );
 }

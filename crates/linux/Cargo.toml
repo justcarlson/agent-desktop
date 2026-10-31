@@ -20,6 +20,9 @@ x11rb                        = { version = "=0.14.0", default-features = false, 
 wayland-client               = { version = "=0.31.15", default-features = false }
 wayland-protocols            = { version = "=0.32.13", default-features = false, features = ["client", "unstable"] }
 
+[features]
+wayland-dlopen = ["wayland-client/system", "wayland-client/dlopen"]
+
 [lints]
 workspace = true
 

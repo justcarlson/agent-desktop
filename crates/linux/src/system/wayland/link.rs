@@ -37,7 +37,7 @@ where
         deadline: Deadline,
     ) -> Result<Self, WaylandFault> {
         let stream = connect(socket)?;
-        let connection = Connection::from_socket(stream).map_err(|_| WaylandFault::Gone)?;
+        let connection = Connection::from_socket(stream).map_err(WaylandFault::from_connect)?;
         let queue = connection.new_event_queue::<S>();
         let registry = connection.display().get_registry(&queue.handle(), ());
         let mut link = Self {
