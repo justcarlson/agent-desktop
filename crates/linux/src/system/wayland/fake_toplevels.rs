@@ -1,7 +1,7 @@
 //! The toplevel globals of the scripted compositor: an
 //! `ext_foreign_toplevel_list_v1` that announces each fake toplevel with its
 //! identifier, a `zwlr_foreign_toplevel_manager_v1` that announces each with
-//! its title and state and answers `activate`, and a
+//! its title, state and parent and answers `activate` and `close`, and a
 //! `hyprland_toplevel_mapping_manager_v1` that answers each mapping request
 //! with the toplevel's address or `failed`.
 
@@ -13,15 +13,21 @@ pub(super) const WLR_MANAGER: &str = "zwlr_foreign_toplevel_manager_v1";
 
 const FIRST_SERVER_ID: u32 = 0xff00_0000;
 const ACTIVATE: u16 = 4;
+const CLOSE: u16 = 5;
 const ACTIVATED: u32 = 2;
 
 /// One toplevel the fake compositor announces. `address` is what its
-/// mapping requests answer; `None` answers `failed`.
+/// mapping requests answer; `None` answers `failed`. `parent` is the index
+/// of the toplevel it is a child of. A `stubborn` toplevel ignores
+/// `activate` and `close`.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct FakeToplevel {
     pub(crate) identifier: &'static str,
     pub(crate) address: Option<u64>,
     pub(crate) activated: bool,
+    pub(crate) parent: Option<usize>,
+    pub(crate) stubborn: bool,
+    pub(crate) closed: bool,
 }
 
 /// The server-side ids of one connection's toplevel handles. A compositor
@@ -82,14 +88,26 @@ fn state_events(id: u32, toplevel: &FakeToplevel) -> Vec<u8> {
 }
 
 /// The manager's `toplevel` event for each toplevel with its title and
-/// state.
-pub(super) fn manager_events(manager: u32, first: u32, toplevels: &[FakeToplevel]) -> Vec<u8> {
+/// state, then each child's `parent` event from version 3.
+pub(super) fn manager_events(
+    manager: (u32, u32),
+    first: u32,
+    toplevels: &[FakeToplevel],
+) -> Vec<u8> {
+    let (manager, version) = manager;
     let mut out = Vec::new();
     for (index, toplevel) in toplevels.iter().enumerate() {
         let id = at(first, index);
         out.extend(message(manager, 0, &[Arg::Uint(id)]));
         out.extend(message(id, 0, &[Arg::Text(toplevel.identifier)]));
         out.extend(state_events(id, toplevel));
+    }
+    for (index, toplevel) in toplevels.iter().enumerate() {
+        if let (Some(parent), true) = (toplevel.parent, version >= 3) {
+            let id = at(first, index);
+            out.extend(message(id, 7, &[Arg::Uint(at(first, parent))]));
+            out.extend(message(id, 5, &[]));
+        }
     }
     out
 }
@@ -98,6 +116,7 @@ pub(super) fn manager_events(manager: u32, first: u32, toplevels: &[FakeToplevel
 pub(super) fn logged(request: u16, toplevel: &FakeToplevel) -> String {
     let name = match request {
         ACTIVATE => "activate",
+        CLOSE => "close",
         _ => "request",
     };
     format!("{name} {}", toplevel.identifier)
@@ -109,15 +128,24 @@ pub(super) fn handle_request(
     request: u16,
     toplevels: &mut [FakeToplevel],
 ) -> Vec<u8> {
-    if request != ACTIVATE {
+    if toplevels[index].stubborn || toplevels[index].closed {
         return Vec::new();
     }
-    let mut out = Vec::new();
-    for (each, toplevel) in toplevels.iter_mut().enumerate() {
-        toplevel.activated = each == index;
-        out.extend(state_events(at(first, each), toplevel));
+    match request {
+        ACTIVATE => {
+            let mut out = Vec::new();
+            for (each, toplevel) in toplevels.iter_mut().enumerate() {
+                toplevel.activated = each == index;
+                out.extend(state_events(at(first, each), toplevel));
+            }
+            out
+        }
+        CLOSE => {
+            toplevels[index].closed = true;
+            message(at(first, index), 6, &[])
+        }
+        _ => Vec::new(),
     }
-    out
 }
 
 fn address_reply(handle: u32, address: Option<u64>) -> Vec<u8> {

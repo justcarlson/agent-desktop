@@ -68,7 +68,9 @@ where
         if let wlr_manager::Event::Toplevel { toplevel } = event {
             state.wlr_toplevels_mut().push(WlrToplevel {
                 handle: toplevel,
+                title: String::new(),
                 activated: false,
+                parent: None,
                 closed: false,
             });
         }
@@ -99,7 +101,9 @@ where
             return;
         };
         match event {
+            wlr_handle::Event::Title { title } => record.title = title,
             wlr_handle::Event::State { state } => record.activated = holds_activated(&state),
+            wlr_handle::Event::Parent { parent } => record.parent = parent,
             wlr_handle::Event::Closed => record.closed = true,
             _ => {}
         }

@@ -1,7 +1,9 @@
+use std::cell::OnceCell;
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline};
 
+use super::close_route::CloseRoute;
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::menu::surfaces;
 use crate::system::process::liveness::{self, Liveness};
@@ -37,6 +39,8 @@ pub(super) trait World {
     fn request_close(&self, window: u32) -> Result<(), ControlError>;
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError>;
     fn timeout_error(&self) -> AdapterError;
+    /// Whether the session is Wayland with no compositor close route, so
+    /// only XWayland windows can receive a close request.
     fn on_wayland(&self) -> bool;
 }
 
@@ -46,6 +50,14 @@ pub(super) struct Live<'a> {
     pub(super) instance: &'a str,
     pub(super) deadline: Deadline,
     pub(super) started: Instant,
+    pub(super) route: OnceCell<CloseRoute>,
+}
+
+impl Live<'_> {
+    fn route(&self) -> &CloseRoute {
+        self.route
+            .get_or_init(|| CloseRoute::open(self.pid, self.deadline))
+    }
 }
 
 impl World for Live<'_> {
@@ -74,13 +86,21 @@ impl World for Live<'_> {
     }
 
     fn toplevels(&self) -> ControlRead<Vec<Toplevel>> {
-        control::toplevels_of(self.pid, self.deadline)
+        match self.route() {
+            CloseRoute::X11 => control::toplevels_of(self.pid, self.deadline),
+            CloseRoute::Compositor(close) => close.borrow_mut().toplevels(),
+            CloseRoute::Unreachable => ControlRead::Unavailable,
+        }
     }
 
     fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>> {
-        match Deadline::detached_after(LATE_READ_MS) {
-            Ok(deadline) => control::toplevels_of(self.pid, deadline),
-            Err(_) => ControlRead::Unavailable,
+        let Ok(deadline) = Deadline::detached_after(LATE_READ_MS) else {
+            return ControlRead::Unavailable;
+        };
+        match self.route() {
+            CloseRoute::X11 => control::toplevels_of(self.pid, deadline),
+            CloseRoute::Compositor(close) => close.borrow().toplevels_until(deadline),
+            CloseRoute::Unreachable => ControlRead::Unavailable,
         }
     }
 
@@ -90,7 +110,15 @@ impl World for Live<'_> {
     }
 
     fn request_close(&self, window: u32) -> Result<(), ControlError> {
-        control::request_close(window, self.pid, self.instance, self.deadline)
+        match self.route() {
+            CloseRoute::X11 => {
+                control::request_close(window, self.pid, self.instance, self.deadline)
+            }
+            CloseRoute::Compositor(close) => {
+                close.borrow_mut().request_close(window, self.instance)
+            }
+            CloseRoute::Unreachable => Err(ControlError::NoDisplay),
+        }
     }
 
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError> {
@@ -103,5 +131,6 @@ impl World for Live<'_> {
 
     fn on_wayland(&self) -> bool {
         matches!(session_server(), DisplayServer::Wayland)
+            && !matches!(self.route(), CloseRoute::Compositor(_))
     }
 }

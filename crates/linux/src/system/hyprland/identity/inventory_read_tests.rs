@@ -37,7 +37,7 @@ fn reads(first: Vec<HyprClient>, second: Vec<HyprClient>) -> Vec<HyprClient> {
         },
         || {
             toplevels_read.set(true);
-            Ok(Vec::new())
+            Ok(Vec::<ToplevelView>::new())
         },
     )
     .expect("read");

@@ -28,10 +28,10 @@ pub(crate) fn read_inventory(
 /// earlier read. Titles are not compared, because a terminal or browser
 /// retitles its window between two reads; a reused address names a new
 /// window, whose process or class differs.
-pub(crate) fn stable_inventory(
+pub(crate) fn stable_inventory<T>(
     mut clients: impl FnMut() -> Result<Vec<HyprClient>, AdapterError>,
-    toplevels: impl FnOnce() -> Result<Vec<ToplevelView>, AdapterError>,
-) -> Result<(Vec<HyprClient>, Vec<ToplevelView>), AdapterError> {
+    toplevels: impl FnOnce() -> Result<Vec<T>, AdapterError>,
+) -> Result<(Vec<HyprClient>, Vec<T>), AdapterError> {
     let before = clients()?;
     let toplevels = toplevels()?;
     let after = clients()?;

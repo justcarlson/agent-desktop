@@ -1,7 +1,7 @@
 use agent_desktop_core::Deadline;
-use wayland_client::delegate_dispatch;
 use wayland_client::protocol::wl_callback;
 use wayland_client::protocol::wl_registry;
+use wayland_client::{Proxy, delegate_dispatch};
 
 use super::*;
 use crate::system::wayland::exchange::{ExchangeHandler, HoldsExchange};
@@ -75,20 +75,30 @@ fn the_activated_state_is_read_from_native_endian_words() {
 }
 
 #[test]
-fn every_handle_reports_its_activated_state() {
+fn every_handle_reports_its_title_activated_state_and_parent() {
     let (_compositor, _link, seen) = open(vec![
         FakeToplevel {
             activated: true,
             ..toplevel("main")
         },
-        toplevel("save"),
+        FakeToplevel {
+            parent: Some(0),
+            ..toplevel("save")
+        },
     ]);
+    let titles: Vec<&str> = seen.toplevels.iter().map(|t| t.title.as_str()).collect();
+    assert_eq!(titles, vec!["main", "save"]);
     assert!(seen.toplevels[0].activated);
     assert!(!seen.toplevels[1].activated);
+    assert_eq!(seen.toplevels[0].parent, None);
+    assert_eq!(
+        seen.toplevels[1].parent.as_ref().map(Proxy::id),
+        Some(seen.toplevels[0].handle.id())
+    );
 }
 
 #[test]
-fn an_activation_reaches_the_compositor_and_its_answer_is_read() {
+fn an_activation_and_a_close_reach_the_compositor_and_their_answers_are_read() {
     let (compositor, mut link, mut seen) = open(vec![
         FakeToplevel {
             activated: true,
@@ -106,9 +116,14 @@ fn an_activation_reaches_the_compositor_and_its_answer_is_read() {
     link.roundtrip(&mut seen).expect("answers");
     assert!(!seen.toplevels[0].activated);
     assert!(seen.toplevels[1].activated);
+
+    seen.toplevels[0].handle.close();
+    link.roundtrip(&mut seen).expect("answers");
+    assert!(seen.toplevels[0].closed);
+    assert!(!seen.toplevels[1].closed);
     assert_eq!(
         *compositor.log.lock().expect("log"),
-        vec!["activate two".to_owned()]
+        vec!["activate two".to_owned(), "close one".to_owned()]
     );
 }
 

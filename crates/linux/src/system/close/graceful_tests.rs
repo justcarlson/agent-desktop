@@ -362,3 +362,14 @@ fn the_wait_ends_as_soon_as_the_process_is_gone() {
     close(&world, &request()).expect("closes");
     assert!(world.clock.get().is_zero());
 }
+
+#[test]
+fn a_close_request_that_times_out_before_any_send_is_a_timeout_not_delivered() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.windows = ControlRead::Ready(vec![window(1)]);
+    *world.closes.borrow_mut() = vec![Err(ControlError::TimedOut)];
+    let error = close(&world, &request()).expect_err("timed out");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_no_signal(&world);
+}

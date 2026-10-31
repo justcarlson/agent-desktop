@@ -300,7 +300,7 @@ impl Server<'_> {
                     let handle = self.ids.wlr + u32::try_from(index).expect("few toplevels");
                     self.objects.insert(handle, Kind::WlrHandle(index));
                 }
-                fake_toplevels::manager_events(id, self.ids.wlr, &self.toplevels)
+                fake_toplevels::manager_events((id, version), self.ids.wlr, &self.toplevels)
             }
             fake_toplevels::MAPPER => {
                 self.objects.insert(id, Kind::Mapper);
