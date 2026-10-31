@@ -66,6 +66,18 @@ verdict=ok
 [ "$seen" = "unset/unset/unset" ] || verdict=bad
 check "inherited accessibility overrides never reach the payload" "$verdict"
 
+# shellcheck disable=SC2016
+"$helper" -- sh -c '
+  bus=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+    --method org.a11y.Bus.GetAddress | sed -n "s/^(.\(.*\).,)$/\1/p")
+  gdbus call --address "$bus" --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+    --method org.freedesktop.DBus.NameHasOwner org.a11y.atspi.Registry | grep -q true
+' 2>/dev/null
+status=$?
+verdict=ok
+[ "$status" -eq 0 ] || verdict=bad
+check "the AT-SPI registry owns its name before the payload starts" "$verdict"
+
 "$helper" -- sh -c 'exit 41' 2>/dev/null
 status=$?
 verdict=ok
