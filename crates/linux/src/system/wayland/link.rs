@@ -74,6 +74,16 @@ where
         )
     }
 
+    /// Dispatches events until `done` holds or the deadline passes, for an
+    /// answer that may arrive after the round trip that requested it.
+    pub(crate) fn wait(
+        &mut self,
+        state: &mut S,
+        done: impl Fn(&S) -> bool,
+    ) -> Result<(), WaylandFault> {
+        dispatch_until(&mut self.queue, state, done, self.deadline)
+    }
+
     /// Binds `global` at the lower of its advertised version and `version`.
     pub(crate) fn bind<I, U>(&self, global: &Global, version: u32, data: U) -> I
     where

@@ -9,9 +9,12 @@ use std::time::Duration;
 
 use agent_desktop_core::Deadline;
 
+pub(crate) mod bound_request;
 pub(crate) mod ipc_fault;
+pub(crate) mod ipc_reply;
 
 pub(crate) use self::ipc_fault::IpcFault;
+pub(crate) use self::ipc_reply::IpcReply;
 use crate::system::wayland::socket_peer::connect_peer;
 use crate::system::wayland::wayland_fault::WaylandFault;
 
@@ -21,9 +24,12 @@ pub(crate) const REPLY_CAP: usize = 1024 * 1024;
 
 const CHUNK: usize = 16 * 1024;
 
-/// Sends `command` (for example `j/version`), reads the whole reply and
-/// returns the pid the kernel names as the socket's server.
-pub(crate) fn request(socket: &Path, command: &str, deadline: Deadline) -> Result<u32, IpcFault> {
+/// Sends `command` (for example `j/monitors`) and returns the whole reply.
+pub(crate) fn request(
+    socket: &Path,
+    command: &str,
+    deadline: Deadline,
+) -> Result<IpcReply, IpcFault> {
     let (mut stream, pid) = connect_peer(socket).map_err(|fault| match fault {
         WaylandFault::Silent => IpcFault::Silent,
         WaylandFault::Gone | WaylandFault::Protocol(_) => IpcFault::Gone,
@@ -38,7 +44,7 @@ pub(crate) fn request(socket: &Path, command: &str, deadline: Deadline) -> Resul
         limit(&stream, deadline)?;
         match stream.read(&mut chunk) {
             Ok(0) if body.is_empty() => return Err(IpcFault::Gone),
-            Ok(0) => return Ok(pid),
+            Ok(0) => return Ok(IpcReply { pid, body }),
             Ok(read) => {
                 if body.len() + read > REPLY_CAP {
                     return Err(IpcFault::Oversized);
