@@ -60,13 +60,19 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   A window on a hidden special workspace, on a workspace out of view, or with
   no accessibility tree is captured where it is. Nothing is activated, shown
   or moved.
-- Hyprland draws a window that is out of view from the buffer it last drew,
-  which can be seconds old. The capture makes the window draw, then returns
-  the first frame whose pixels changed; those pixels were drawn after the
-  request. A window whose pixels stay the same for at least 250 ms returns
-  that unchanged frame, which can be older than the request. A drawing that
-  lands later is not waited for, so capture again to see it. An unchanged
-  window takes about 460 ms to capture.
+- A window in view is captured from one frame, in about 45 ms. In view
+  means it is on the workspace its monitor shows, or on the special workspace
+  open over it, and no other window on its workspace is fullscreen or
+  maximized. The frame holds the newest drawing the window committed before
+  the request.
+- Any other window, such as one out of view or behind a fullscreen window, is
+  drawn from the buffer it last drew, which can be seconds old. The capture
+  makes the window draw, then returns the first frame whose pixels changed;
+  those pixels were drawn after the request. A window whose pixels stay the
+  same for at least 250 ms returns that unchanged frame, which can be older
+  than the request. A drawing that lands later is not waited for, so capture
+  again to see it. An unchanged window out of view takes about 430 ms to
+  capture.
 - `--screen N` captures the output `list-displays` names at index `N`, at its
   full pixel size. `data.scale_factor` is the output's scale; fractional
   scales and outputs at negative origins work.

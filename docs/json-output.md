@@ -202,15 +202,23 @@ It never asks the desktop portal, so no dialog appears.
   A window on a hidden special workspace, on a workspace out of view, or with
   no accessibility tree is captured where it is. Nothing is activated, shown
   or moved. The image is the window's size times its monitor's scale.
-- Hyprland draws a window that is out of view from the buffer it last drew,
-  which can be seconds old, and does not say when the window draws again. So
-  the capture takes one frame to make the window draw, then opens a new capture
-  session every 25 ms. It returns the first frame whose pixels differ from that
-  first one; those pixels were drawn after the request. A window whose pixels
-  stay the same for 10 sessions, at least 250 ms, returns that unchanged
-  frame, which can be older than the request. A drawing that lands later is
-  not waited for. An unchanged window takes about 460 ms to capture, so a
-  budget too short for the wait answers `TIMEOUT`.
+- A window in view is captured from one frame. In view means it is on the
+  workspace its monitor shows, or on the special workspace open over that
+  monitor, and no other window on its workspace is fullscreen or maximized.
+  Hyprland asks such a window for every frame, so the first frame holds the
+  newest drawing the window committed before the request, at most one drawing
+  old. A window in view takes about 45 ms to capture.
+- Hyprland stops asking any other window for frames and draws it from the
+  buffer it last drew, which can be seconds old. That covers a window out of
+  view, one behind a fullscreen or maximized window, and one on a workspace
+  under an open special workspace. So the capture takes one frame to make the
+  window draw, then opens a new capture session every 25 ms. It returns the
+  first frame whose pixels differ from that first one; those pixels were drawn
+  after the request. A window whose pixels stay the same for 10 sessions, at
+  least 250 ms, returns that unchanged frame, which can be older than the
+  request. A drawing that lands later is not waited for. An unchanged window
+  out of view takes about 430 ms to capture, so a budget too short for the
+  wait answers `TIMEOUT`.
 - `--screen N`, or no selector for the primary display, captures the output
   `list-displays` names, through `zwlr_screencopy_v1`, at its full pixel size.
   `data.scale_factor` is the output's scale, fractional scales included.
