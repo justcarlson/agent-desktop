@@ -99,6 +99,13 @@ def stop(name):
     except OSError:
         pass
 
+def executable(name, roots=("/usr/libexec", "/usr/lib")):
+    for root in roots:
+        path = os.path.join(root, name)
+        if os.access(path, os.X_OK):
+            return path
+    sys.exit(f"private-wayland-shell: {name} not found in {', '.join(roots)}")
+
 def wait_owned(name):
     for _ in range(150):
         if name_owned(name):
@@ -112,11 +119,11 @@ time.sleep(1)
 activation = {"WAYLAND_DISPLAY": sock, "GDK_BACKEND": "wayland", "XDG_SESSION_TYPE": "wayland"}
 call("/org/freedesktop/DBus", "UpdateActivationEnvironment", GLib.Variant("(a{ss})", (activation,)))
 env = dict(os.environ, WAYLAND_DISPLAY=sock, GDK_BACKEND="wayland", XDG_SESSION_TYPE="wayland")
-subprocess.Popen(["/usr/libexec/xdg-desktop-portal-gnome"], env=env,
+subprocess.Popen([executable("xdg-desktop-portal-gnome")], env=env,
                  stdin=subprocess.DEVNULL, start_new_session=True)
 if not wait_owned("org.freedesktop.impl.portal.desktop.gnome"):
     sys.exit(1)
-subprocess.Popen(["/usr/libexec/xdg-desktop-portal", "-r"], env=env,
+subprocess.Popen([executable("xdg-desktop-portal"), "-r"], env=env,
                  stdin=subprocess.DEVNULL, start_new_session=True)
 if not wait_owned("org.freedesktop.portal.Desktop"):
     sys.exit(1)
