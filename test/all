@@ -7,8 +7,9 @@
 # it on a host: the tiers start desktop sessions and drive apps.
 #
 # Writes to ~/out: versions.txt (channel, image, app versions),
-# private-session.log, <tier>.log, and suites/<tier>/ with report.txt and
-# per-leg evidence when a tier fails (the runner removes a passing suite).
+# private-session.log, live-session.log, <tier>.log, and suites/<tier>/ with
+# report.txt and per-leg evidence when a tier fails (the runner removes a
+# passing suite).
 set -euo pipefail
 
 [[ -n ${OMARCHY_VM_CHANNEL:-} ]] || { echo "test/all: run this in an Omarchy VM (test/omarchy-vm run), not on a host" >&2; exit 2; }
@@ -187,6 +188,19 @@ if private_session_ok "$out/private-session.log"; then
   echo "private session checks passed; not counted: the ${#mutter_checks[@]} mutter checks"
 else
   echo "test/all: a private session check failed" >&2
+  rc=1
+fi
+
+# The live session checks are opt-in: they start desktop sessions, so they
+# run only here, in the VM. x11-mutter is left out for the reason above. A
+# skipped check fails the step: unittest prints a bare OK only when none skip.
+step "live session checks"
+env -u AGENT_DESKTOP_E2E_SKIP_LIVE AGENT_DESKTOP_E2E_LIVE_SESSIONS=1 python3 -I -m unittest discover -v \
+  -s tests/e2e-linux -p test_session_contract.py \
+  -k LiveTierTests.test_x11_openbox -k LiveTierTests.test_wayland 2>&1 |
+  tee "$out/live-session.log" || true
+if ! grep -qx OK "$out/live-session.log" || grep -q '^Ran 0 tests' "$out/live-session.log"; then
+  echo "test/all: a live session check failed or was skipped" >&2
   rc=1
 fi
 
