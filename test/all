@@ -18,7 +18,7 @@ out=$HOME/out
 bin=${AGENT_DESKTOP_E2E_BIN:-$HOME/src/agent-desktop-bin/agent-desktop}
 apps=(gnome-calculator gnome-text-editor nautilus gnome-terminal gnome-control-center gnome-shell
   python-pyqt6 python-gobject openbox xorg-server-xvfb gtk3 gtk4 glib2 at-spi2-core
-  xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard hyprland foot)
+  xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard hyprland foot grim)
 
 # Legs that fail on upstream main and on this branch alike, in
 # separate fresh VMs on the same image version: Arch's app versions differ

@@ -145,17 +145,17 @@ def _new_client(tier, app_id: str, known: set[str]) -> dict | None:
     return found[0] if found and found[0].get("mapped") else None
 
 
-def terminal_argv(app_id: str) -> list[str]:
+def terminal_argv(app_id: str, command: list[str] | None = None) -> list[str]:
     """A foot toplevel whose command never writes a title, so its title holds still while a leg reads it."""
-    return ["foot", "--app-id", app_id, "--title", app_id, "sleep", "infinity"]
+    return ["foot", "--app-id", app_id, "--title", app_id, *(command or ["sleep", "infinity"])]
 
 
 @contextlib.contextmanager
-def terminal(tier, app_id: str):
-    """A foot toplevel with no accessibility tree, started in the run's slice."""
+def terminal(tier, app_id: str, command: list[str] | None = None):
+    """A foot toplevel with no accessibility tree, started in the run's slice, running `command`."""
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
-    attached_session.spawn(tier, terminal_argv(app_id), dict(tier.env),
+    attached_session.spawn(tier, terminal_argv(app_id, command), dict(tier.env),
                            tier.runtime_dir / "terminal-launch.log")
     found = raw.poll(lambda: _new_client(tier, app_id, known), 10.0)
     require(found, f"the {app_id} terminal never mapped")
