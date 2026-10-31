@@ -2,7 +2,7 @@
 //! compositor's output globals anywhere else, and one refusal when neither
 //! source exists.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode};
 
@@ -12,6 +12,8 @@ use super::display_server::session_wayland_socket;
 use super::output_probe::OutputProbe;
 use super::wayland_output::WaylandOutput;
 use super::{from_mutter, primaries_first};
+use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
+use crate::system::hyprland::bind::routed_binding::routed_binding;
 
 pub(super) fn wayland_missing() -> AdapterError {
     AdapterError::new(
@@ -93,11 +95,25 @@ pub(crate) fn list_outputs(
 pub(crate) fn list_wayland_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
     decide_wayland(
         display_mutter::logical_monitors(deadline)?,
-        || match session_wayland_socket() {
+        || match output_socket(routed_binding, session_wayland_socket)? {
             Some(socket) => list_outputs(&socket, deadline),
             None => Err(wayland_missing()),
         },
     )
+}
+
+/// The socket whose outputs are read: the bound Hyprland instance's Wayland
+/// socket, so a session found by discovery is read without
+/// `WAYLAND_DISPLAY`, else the socket the environment names. A refused
+/// binding is the error, so outputs are never read from another compositor.
+pub(crate) fn output_socket(
+    binding: impl FnOnce() -> Result<Option<HyprlandBinding>, AdapterError>,
+    named: impl FnOnce() -> Option<PathBuf>,
+) -> Result<Option<PathBuf>, AdapterError> {
+    Ok(match binding()? {
+        Some(bound) => Some(bound.wayland_socket),
+        None => named(),
+    })
 }
 
 #[cfg(test)]
