@@ -16,6 +16,7 @@ pub(crate) mod registry;
 pub(crate) mod shell;
 pub(crate) mod signal;
 pub(crate) mod tray;
+pub(crate) mod wayland;
 pub(crate) mod window;
 pub(crate) mod x11;
 
