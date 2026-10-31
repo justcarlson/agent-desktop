@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 #
 # One check over the three Linux channels that must carry the clipboard owner
-# helper: the CLI archive, the FFI archive and the npm package table. A channel
-# that omits the helper installs a program whose clipboard-set has no owner, and
-# nothing else in the pipeline notices.
+# helper and the third-party notices: the CLI archive, the FFI archive and the
+# npm package table. A channel that omits the helper installs a program whose
+# clipboard-set has no owner, and nothing else in the pipeline notices. A channel
+# that omits the notices ships the generated Wayland protocol bindings without
+# the BSD-3-Clause text their license requires.
 #
 # Usage:
 #   check-linux-archive-contents.sh cli <cli.tar.gz>
@@ -21,6 +23,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HELPER=agent-desktop-linux-clipboard-owner
 LIBRARY=libagent_desktop_ffi.so
+NOTICE=THIRD_PARTY_NOTICES.md
 
 usage() {
   sed -n '12,16p' "$0" | sed 's/^# \{0,1\}//' >&2
@@ -42,20 +45,21 @@ executable_members() {
 }
 
 check_cli() {
-  local archive=$1 listing expected executable
+  local archive=$1 listing expected programs executable
   [ -r "$archive" ] || { fail "cannot read CLI archive $archive"; return; }
   listing=$(archive_listing "$archive")
-  expected=$(printf 'agent-desktop\n%s\n' "$HELPER" | sort)
+  expected=$(printf 'agent-desktop\n%s\n%s\n' "$HELPER" "$NOTICE" | sort)
   if [ "$listing" != "$expected" ]; then
     fail "CLI archive $archive lists '$(printf '%s' "$listing" | tr '\n' ' ')', expected exactly '$(printf '%s' "$expected" | tr '\n' ' ')'"
     return
   fi
+  programs=$(printf 'agent-desktop\n%s\n' "$HELPER" | sort)
   executable=$(executable_members "$archive")
-  if [ "$executable" != "$expected" ]; then
-    fail "CLI archive $archive members are not all executable: '$(printf '%s' "$executable" | tr '\n' ' ')'"
+  if [ "$executable" != "$programs" ]; then
+    fail "CLI archive $archive executable members are '$(printf '%s' "$executable" | tr '\n' ' ')', expected exactly '$(printf '%s' "$programs" | tr '\n' ' ')'"
     return
   fi
-  echo "OK: CLI archive carries agent-desktop and $HELPER, both executable"
+  echo "OK: CLI archive carries agent-desktop and $HELPER, both executable, and $NOTICE"
 }
 
 check_ffi() {
@@ -67,7 +71,7 @@ check_ffi() {
     fail "FFI archive $archive has no top-level directory"
     return
   fi
-  for member in "lib/$LIBRARY" "lib/$HELPER" include/agent_desktop.h LICENSE README.md SHA256SUMS; do
+  for member in "lib/$LIBRARY" "lib/$HELPER" include/agent_desktop.h LICENSE "$NOTICE" README.md SHA256SUMS; do
     if ! printf '%s\n' "$listing" | grep -Fx "$root/$member" >/dev/null; then
       fail "FFI archive $archive does not list $root/$member"
     fi
@@ -82,12 +86,12 @@ check_ffi() {
       fail "FFI archive README does not state '$phrase'"
     fi
   done
-  [ "$problems" -eq 0 ] && echo "OK: FFI archive carries $LIBRARY and $HELPER side by side"
+  [ "$problems" -eq 0 ] && echo "OK: FFI archive carries $LIBRARY and $HELPER side by side, and $NOTICE"
   return 0
 }
 
 check_npm() {
-  local key=$1 entries expected
+  local key=$1 entries expected notices
   case "$key" in
     linux-x64|linux-arm64) ;;
     *) echo "check-linux-archive-contents: '$key' is not linux-x64 or linux-arm64" >&2; exit 2 ;;
@@ -102,7 +106,15 @@ check_npm() {
     fail "npm table entries for $key are '$(printf '%s' "$entries" | tr '\n' ' ')', expected exactly '$(printf '%s' "$expected" | tr '\n' ' ')'"
     return
   fi
-  echo "OK: npm table for $key lists agent-desktop and $HELPER"
+  notices=$(node -e "
+    const entry = require(process.argv[1]).PLATFORMS[process.argv[2]];
+    process.stdout.write((entry.notices ?? []).join('\\n'));
+  " "$ROOT/npm/lib/platform.js" "$key")
+  if [ "$notices" != "$NOTICE" ]; then
+    fail "npm table notices for $key are '$(printf '%s' "$notices" | tr '\n' ' ')', expected exactly '$NOTICE'"
+    return
+  fi
+  echo "OK: npm table for $key lists agent-desktop and $HELPER, and $NOTICE"
 }
 
 [ "$#" -ge 1 ] || usage

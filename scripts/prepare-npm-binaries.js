@@ -4,7 +4,7 @@ const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { PLATFORMS, tarballName } = require('../npm/lib/platform');
+const { PLATFORMS, archiveMembers, tarballName } = require('../npm/lib/platform');
 const { checksumFor } = require('../npm/scripts/postinstall');
 
 const archiveDirectory = process.argv[2];
@@ -25,7 +25,7 @@ for (const [key, entry] of Object.entries(PLATFORMS)) {
   }
   const listing = execFileSync('tar', ['-tzf', archivePath], { encoding: 'utf8' })
     .trim().split(/\r?\n/).sort();
-  if (JSON.stringify(listing) !== JSON.stringify([...entry.entries].sort())) {
+  if (JSON.stringify(listing) !== JSON.stringify(archiveMembers(entry).sort())) {
     throw new Error(`Unexpected archive entries for ${archiveName}`);
   }
   for (const name of entry.entries) {
