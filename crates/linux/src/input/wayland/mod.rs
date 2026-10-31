@@ -4,6 +4,8 @@ pub(crate) mod keysym_send;
 pub(crate) mod layout;
 pub(crate) mod pointer_send;
 pub(crate) mod remote_desktop;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod virtual_keyboard;
 
 #[cfg(test)]
 mod fake_session;
