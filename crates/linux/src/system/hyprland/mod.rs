@@ -5,6 +5,7 @@
 //! with its Wayland socket.
 
 pub(crate) mod bind;
+pub(crate) mod capture;
 pub(crate) mod clients;
 pub(crate) mod identity;
 pub(crate) mod ipc;

@@ -4,6 +4,7 @@ pub(crate) mod display;
 pub(crate) mod fullscreen_route;
 pub(crate) mod pixels;
 pub(crate) mod png_encode;
+pub(crate) mod wayland_backends;
 pub(crate) mod wayland_crop;
 pub(crate) mod wayland_file;
 pub(crate) mod wayland_portal;
