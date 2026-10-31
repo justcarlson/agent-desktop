@@ -93,8 +93,7 @@ pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
             ),
         )
         .with_suggestion(
-            "Set HYPRLAND_INSTANCE_SIGNATURE to the instance to drive, or run inside its \
-             session so WAYLAND_DISPLAY names its socket",
+            "Set HYPRLAND_INSTANCE_SIGNATURE to the instance to drive",
         )
         .with_details(serde_json::json!({
             "detail": signatures.join(", "),
