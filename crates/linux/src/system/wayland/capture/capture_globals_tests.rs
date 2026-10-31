@@ -43,3 +43,38 @@ fn screencopy_before_version_three_or_outputs_without_names_are_refused() {
     globals.remove(0);
     assert_eq!(chosen(globals), Err("wl_shm"));
 }
+
+fn with_toplevel_capture() -> Vec<Global> {
+    let mut globals = advertised();
+    globals.push(global(
+        10,
+        "ext_foreign_toplevel_image_capture_source_manager_v1",
+        1,
+    ));
+    globals.push(global(11, "ext_image_copy_capture_manager_v1", 1));
+    globals
+}
+
+#[test]
+fn a_toplevel_capture_binds_shm_and_both_ext_capture_managers() {
+    let chosen = toplevel(&Exchange::advertising(with_toplevel_capture())).unwrap();
+    assert_eq!(chosen.shm.name, 1);
+    assert_eq!(chosen.sources.name, 10);
+    assert_eq!(chosen.copy.name, 11);
+}
+
+#[test]
+fn a_missing_ext_capture_global_is_named() {
+    let mut globals = with_toplevel_capture();
+    globals.retain(|global| global.interface != "ext_image_copy_capture_manager_v1");
+    assert_eq!(
+        toplevel(&Exchange::advertising(globals)),
+        Err("ext_image_copy_capture_manager_v1")
+    );
+    let mut globals = with_toplevel_capture();
+    globals.retain(|global| !global.interface.starts_with("ext_foreign_toplevel_image"));
+    assert_eq!(
+        toplevel(&Exchange::advertising(globals)),
+        Err("ext_foreign_toplevel_image_capture_source_manager_v1")
+    );
+}

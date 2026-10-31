@@ -50,3 +50,11 @@ fn an_inverted_frame_is_turned_upright_row_by_row() {
         vec![3, 3, 3, 4, 4, 4, 1, 1, 1, 2, 2, 2]
     );
 }
+
+#[test]
+fn a_buffer_size_is_the_stride_times_the_height_or_nothing() {
+    assert_eq!(buffer_len(4, 3), Some((16, 48)));
+    assert_eq!(buffer_len(0, 3), None);
+    assert_eq!(buffer_len(4, 0), None);
+    assert_eq!(buffer_len(u32::MAX, u32::MAX), None);
+}
