@@ -7,7 +7,9 @@ pub(crate) mod dispatch;
 pub(crate) mod exchange;
 pub(crate) mod global;
 pub(crate) mod link;
+pub(crate) mod registry_read;
 pub(crate) mod socket_connect;
+pub(crate) mod socket_peer;
 pub(crate) mod wayland_fault;
 
 #[cfg(test)]

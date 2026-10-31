@@ -12,6 +12,8 @@ pub(crate) enum DisplayCause {
     Refused { detail: String },
     Silent,
     AuthRefused { reason: String },
+    HyprlandAmbiguous { signatures: Vec<String> },
+    HyprlandMismatch { detail: String },
 }
 
 impl DisplayCause {
@@ -22,6 +24,8 @@ impl DisplayCause {
             Self::Refused { .. } => "refused",
             Self::Silent => "silent",
             Self::AuthRefused { .. } => "auth_refused",
+            Self::HyprlandAmbiguous { .. } => "hyprland_ambiguous",
+            Self::HyprlandMismatch { .. } => "hyprland_mismatch",
         }
     }
 }
@@ -74,6 +78,26 @@ pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
             "display_unavailable": cause.as_str(),
             "detail": reason,
         })),
+        DisplayCause::HyprlandAmbiguous { signatures } => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!(
+                "Several Hyprland instances are running and none is selected: {}",
+                signatures.join(", ")
+            ),
+        )
+        .with_suggestion("Set HYPRLAND_INSTANCE_SIGNATURE to the instance to drive")
+        .with_details(serde_json::json!({
+            "detail": signatures.join(", "),
+            "signatures": signatures,
+        })),
+        DisplayCause::HyprlandMismatch { detail } => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!("The Hyprland instance and the Wayland socket do not match: {detail}"),
+        )
+        .with_suggestion(
+            "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        )
+        .with_details(serde_json::json!({ "detail": detail })),
     };
     let mut details = error
         .details
