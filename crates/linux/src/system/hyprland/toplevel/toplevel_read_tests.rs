@@ -1,9 +1,11 @@
 use agent_desktop_core::{Deadline, ErrorCode};
 
 use super::*;
+use crate::system::hyprland::protocol::MAPPING_INTERFACE;
 use crate::system::hyprland::toplevel::fake_binding::binding_for;
 use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
+use crate::system::wayland::toplevel_list::LIST_INTERFACE;
 
 const BOTH: [(&str, u32); 2] = [(LIST_INTERFACE, 1), (MAPPING_INTERFACE, 1)];
 

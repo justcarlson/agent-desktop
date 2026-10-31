@@ -2,14 +2,25 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use agent_desktop_core::{AdapterError, DisplayInfo, ErrorCode, Rect, ScreenshotTarget};
+use agent_desktop_core::{
+    AdapterError, DisplayInfo, ErrorCode, ProcessId, Rect, ScreenshotTarget, WindowInfo,
+    WindowState,
+};
 
 use super::*;
+use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
+use crate::system::hyprland::clients::hypr_client::HyprClient;
+use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
+use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
+use crate::system::wayland::capture::composition::Composition;
 use crate::system::wayland::capture::shm_layout::XRGB8888;
 
 struct FakeWorld {
     enforced: bool,
+    bound: Result<BoundToplevel, AdapterError>,
+    composition: Result<Composition, AdapterError>,
     frame: Result<RawFrame, AdapterError>,
+    still: bool,
     displays: VecDeque<Vec<DisplayInfo>>,
     log: Log,
 }
@@ -24,6 +35,33 @@ impl CaptureWorld for FakeWorld {
     fn enforced(&mut self) -> Result<bool, AdapterError> {
         note(&self.log, "enforced");
         Ok(self.enforced)
+    }
+
+    fn bind(&mut self, _win: &WindowInfo) -> Result<BoundToplevel, AdapterError> {
+        note(&self.log, "bind");
+        self.bound.clone()
+    }
+
+    fn composition(&mut self, bound: &BoundToplevel) -> Result<Composition, AdapterError> {
+        note(
+            &self.log,
+            format!("composition {:#x}", bound.client.address),
+        );
+        self.composition.clone()
+    }
+
+    fn capture_toplevel(
+        &mut self,
+        identifier: &str,
+        composition: Composition,
+    ) -> Result<RawFrame, AdapterError> {
+        note(&self.log, format!("toplevel {identifier} {composition:?}"));
+        self.frame.clone()
+    }
+
+    fn still_bound(&mut self, bound: &BoundToplevel) -> Result<bool, AdapterError> {
+        note(&self.log, format!("still {:#x}", bound.client.address));
+        Ok(self.still)
     }
 
     fn displays(&mut self) -> Result<Vec<DisplayInfo>, AdapterError> {
@@ -70,6 +108,32 @@ fn frame(width: u32, height: u32) -> RawFrame {
     }
 }
 
+fn bound() -> BoundToplevel {
+    BoundToplevel {
+        client: HyprClient {
+            address: 0x10,
+            pid: 7,
+            title: "Notes".into(),
+            class: "app".into(),
+            geometry: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 400.0,
+                height: 300.0,
+            },
+            workspace: ClientWorkspace {
+                name: "special:hid".into(),
+                monitor: None,
+            },
+            shown: false,
+        },
+        toplevel: ToplevelView {
+            identifier: "abc".into(),
+            address: 0x10,
+        },
+    }
+}
+
 fn display(id: &str, bounds: Rect, scale: f64, is_primary: bool) -> DisplayInfo {
     DisplayInfo {
         id: id.into(),
@@ -109,7 +173,10 @@ fn layout() -> Vec<DisplayInfo> {
 fn world(frame: RawFrame) -> FakeWorld {
     FakeWorld {
         enforced: false,
+        bound: Ok(bound()),
+        composition: Ok(Composition::Stale),
         frame: Ok(frame),
+        still: true,
         displays: VecDeque::from([layout()]),
         log: Log::default(),
     }
@@ -117,6 +184,18 @@ fn world(frame: RawFrame) -> FakeWorld {
 
 fn entries(world: &FakeWorld) -> Vec<String> {
     world.log.borrow().clone()
+}
+
+fn window() -> WindowInfo {
+    WindowInfo {
+        id: "w-hypr-50-60-abc".into(),
+        title: "Notes".into(),
+        app: "app".into(),
+        pid: ProcessId::new(7),
+        process_instance: Some("boot:100".into()),
+        bounds: None,
+        state: WindowState::default(),
+    }
 }
 
 fn screen(world: &mut FakeWorld, target: ScreenshotTarget) -> Result<ImageBuffer, AdapterError> {
@@ -129,12 +208,82 @@ fn screen(world: &mut FakeWorld, target: ScreenshotTarget) -> Result<ImageBuffer
 }
 
 #[test]
-fn an_enforcing_compositor_is_refused_before_any_display_is_read_or_captured() {
-    let mut world = world(frame(64, 32));
+fn an_enforcing_compositor_is_refused_before_anything_is_bound_or_captured() {
+    let mut world = world(frame(800, 600));
     world.enforced = true;
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::PermDenied);
     let error = screen(&mut world, ScreenshotTarget::FullScreen).unwrap_err();
     assert_eq!(error.code, ErrorCode::PermDenied);
-    assert_eq!(entries(&world), ["enforced"]);
+    assert_eq!(entries(&world), ["enforced", "enforced"]);
+}
+
+#[test]
+fn the_window_is_captured_from_its_own_toplevel_at_its_buffer_scale() {
+    let mut world = world(frame(800, 600));
+    let image = capture_window(&mut world, &window()).unwrap();
+    assert_eq!(
+        entries(&world),
+        [
+            "enforced",
+            "bind",
+            "composition 0x10",
+            "toplevel abc Stale",
+            "still 0x10"
+        ]
+    );
+    assert_eq!(
+        (image.width, image.height, image.scale_factor),
+        (800, 600, 2.0)
+    );
+}
+
+#[test]
+fn a_composed_window_is_captured_as_current_and_any_other_as_stale() {
+    for composition in [Composition::Current, Composition::Stale] {
+        let mut world = world(frame(800, 600));
+        world.composition = Ok(composition);
+        capture_window(&mut world, &window()).unwrap();
+        assert_eq!(entries(&world)[3], format!("toplevel abc {composition:?}"));
+    }
+}
+
+#[test]
+fn a_composition_that_cannot_be_read_captures_nothing() {
+    let mut world = world(frame(800, 600));
+    world.composition = Err(AdapterError::internal("no clients"));
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.message, "no clients");
+    assert_eq!(entries(&world), ["enforced", "bind", "composition 0x10"]);
+}
+
+#[test]
+fn a_window_that_changed_during_capture_returns_no_pixels() {
+    let mut world = world(frame(800, 600));
+    world.still = false;
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+}
+
+#[test]
+fn a_window_that_binds_to_nothing_is_never_captured() {
+    let mut world = world(frame(800, 600));
+    world.bound = Err(AdapterError::new(ErrorCode::WindowNotFound, "gone"));
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+    assert_eq!(entries(&world), ["enforced", "bind"]);
+}
+
+#[test]
+fn a_frame_error_is_returned_as_it_is() {
+    let mut world = world(frame(800, 600));
+    world.frame = Err(AdapterError::timeout("no frame"));
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        entries(&world),
+        ["enforced", "bind", "composition 0x10", "toplevel abc Stale"]
+    );
 }
 
 #[test]

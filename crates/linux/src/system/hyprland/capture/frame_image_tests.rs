@@ -62,3 +62,11 @@ fn an_unknown_format_is_refused() {
     let error = frame_image(&two_rows(0x3231_5258, false), 1.0).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
 }
+
+#[test]
+fn the_scale_is_buffer_pixels_over_logical_width() {
+    assert_eq!(scale_of(1500, 1000.0), 1.5);
+    assert_eq!(scale_of(800, 800.0), 1.0);
+    assert_eq!(scale_of(800, 0.0), 1.0);
+    assert_eq!(scale_of(800, f64::NAN), 1.0);
+}

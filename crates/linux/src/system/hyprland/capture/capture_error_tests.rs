@@ -37,6 +37,14 @@ fn each_fault_maps_to_its_documented_code() {
             ErrorCode::Internal,
         ),
         (
+            CaptureFault::Failed(FrameFailure::Stopped),
+            ErrorCode::WindowNotFound,
+        ),
+        (
+            CaptureFault::Failed(FrameFailure::BufferConstraints),
+            ErrorCode::ActionFailed,
+        ),
+        (
             CaptureFault::Failed(FrameFailure::Unknown),
             ErrorCode::ActionFailed,
         ),
@@ -104,7 +112,10 @@ fn a_missed_frame_suggests_no_flag_screenshot_lacks() {
 
 #[test]
 fn a_refused_frame_names_the_reason_the_compositor_gave() {
-    let rows = [(FrameFailure::Unknown, "unknown")];
+    let rows = [
+        (FrameFailure::BufferConstraints, "buffer_constraints"),
+        (FrameFailure::Unknown, "unknown"),
+    ];
     for (failure, reason) in rows {
         let error = error_for(&CaptureFault::Failed(failure));
         let details = error.details.unwrap_or_default();

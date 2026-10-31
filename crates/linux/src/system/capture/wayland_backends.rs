@@ -12,8 +12,8 @@ pub(crate) type HyprlandCapture<'a> =
 
 /// How a Wayland session captures: the bound Hyprland instance, when
 /// `binding` finds one, through its own capture protocols, and any other
-/// compositor through the screenshot portal. A refused binding is the
-/// error, and the two backends never stand in for each other.
+/// compositor's displays through the screenshot portal. A refused binding
+/// is the error, and the two backends never stand in for each other.
 pub(crate) struct WaylandBackends<'a> {
     pub(crate) binding: BindingLookup<'a>,
     pub(crate) portal: PortalCapture<'a>,

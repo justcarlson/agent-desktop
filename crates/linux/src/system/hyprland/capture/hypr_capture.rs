@@ -1,17 +1,40 @@
-//! Hyprland `screenshot`. A display is captured through
-//! `zwlr_screencopy_v1` from the output it is named by. The permission
+//! Hyprland `screenshot`. A window is captured through
+//! `ext_image_copy_capture_v1` from its own foreign toplevel, so a window
+//! on a hidden or special workspace is captured without being shown or
+//! activated. A window Hyprland composes is answered with its first frame;
+//! any other waits for a redraw. A display is captured through
+//! `zwlr_screencopy_v1` from the output Hyprland names it by. The permission
 //! setting is read before anything is sent, and no portal is ever asked.
 
-use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ScreenshotTarget};
+use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ScreenshotTarget, WindowInfo};
 
 use super::capture_error::permission_refusal;
 use super::capture_world::CaptureWorld;
 use super::cursor_hider::CursorHider;
-use super::frame_image::frame_image;
+use super::frame_image::{frame_image, scale_of};
 use crate::system::capture::display::select;
 use crate::system::wayland::capture::raw_frame::RawFrame;
 
 const SIZE_TOLERANCE: f64 = 1.0;
+
+/// Captures exactly the toplevel `win` is bound to.
+pub(crate) fn capture_window(
+    world: &mut impl CaptureWorld,
+    win: &WindowInfo,
+) -> Result<ImageBuffer, AdapterError> {
+    refuse_enforced(world)?;
+    let bound = world.bind(win)?;
+    let composition = world.composition(&bound)?;
+    let frame = world.capture_toplevel(&bound.toplevel.identifier, composition)?;
+    if !world.still_bound(&bound)? {
+        return Err(AdapterError::new(
+            ErrorCode::WindowNotFound,
+            "The window closed or changed while its frame was captured",
+        )
+        .with_suggestion("Run 'list-windows' for the current window ids, then retry"));
+    }
+    frame_image(&frame, scale_of(frame.width, bound.client.geometry.width))
+}
 
 /// Captures the display `target` names, with `hider` hiding what the agent
 /// draws over it for the length of the capture.

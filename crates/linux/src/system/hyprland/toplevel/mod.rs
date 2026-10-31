@@ -8,6 +8,7 @@ pub(crate) mod mapped_toplevels;
 pub(crate) mod mapping_target;
 pub(crate) mod toplevel_join;
 pub(crate) mod toplevel_read;
+pub(crate) mod toplevel_reader;
 pub(crate) mod toplevel_session;
 pub(crate) mod toplevel_view;
 pub(crate) mod wlr_window;
