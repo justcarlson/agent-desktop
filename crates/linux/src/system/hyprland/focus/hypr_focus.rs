@@ -15,12 +15,9 @@ use super::proof_read::ProofRead;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::side_effects::side_effects;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
-use crate::system::hyprland::identity::compositor_window_id::{decode, is_compositor_id};
-use crate::system::hyprland::identity::identity_bind::{bind_compositor, bind_frame};
-use crate::system::hyprland::identity::identity_error::identity_error;
-use crate::system::hyprland::identity::identity_refusal::IdentityRefusal;
+use crate::system::hyprland::identity::compositor_window_id::is_compositor_id;
 use crate::system::hyprland::identity::inventory::Inventory;
-use crate::system::hyprland::identity::window_evidence::WindowEvidence;
+use crate::system::hyprland::identity::window_bind::bind_window;
 
 const SPECIAL_PREFIX: &str = "special:";
 
@@ -81,28 +78,8 @@ fn bind(world: &mut impl HyprWorld, win: &WindowInfo) -> Result<BoundToplevel, A
         clients: &clients,
         toplevels: &toplevels,
     };
-    let evidence = WindowEvidence {
-        pid: win.pid.get(),
-        instance: win.process_instance.clone(),
-        title: win.title.clone(),
-        size: win.bounds.map(|bounds| (bounds.width, bounds.height)),
-    };
-    let live = world.live_instance(evidence.pid);
-    let bound = if is_compositor_id(&win.id) {
-        match decode(&win.id) {
-            Some(id) => bind_compositor(
-                &id,
-                &evidence,
-                world.compositor(),
-                live.as_deref(),
-                inventory,
-            ),
-            None => Err(IdentityRefusal::ToplevelGone),
-        }
-    } else {
-        bind_frame(&evidence, live.as_deref(), inventory)
-    };
-    bound.map_err(identity_error)
+    let live = world.live_instance(win.pid.get());
+    bind_window(win, inventory, live.as_deref(), world.compositor())
 }
 
 fn witness(

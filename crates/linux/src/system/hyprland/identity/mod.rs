@@ -9,4 +9,5 @@ pub(crate) mod identity_bind;
 pub(crate) mod identity_error;
 pub(crate) mod identity_refusal;
 pub(crate) mod inventory;
+pub(crate) mod window_bind;
 pub(crate) mod window_evidence;
