@@ -26,7 +26,7 @@ pub(crate) fn capture_window(
     let bound = world.bind(win)?;
     let composition = world.composition(&bound)?;
     let frame = world.capture_toplevel(&bound.toplevel.identifier, composition)?;
-    if !world.still_bound(&bound)? {
+    if !world.still_bound(win, &bound)? {
         return Err(AdapterError::new(
             ErrorCode::WindowNotFound,
             "The window closed or changed while its frame was captured",

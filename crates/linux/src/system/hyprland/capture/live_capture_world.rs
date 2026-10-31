@@ -6,19 +6,21 @@
 
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, WindowInfo};
 
+use super::capture_bind::{bind_stable, still_bound_to};
 use super::capture_error::capture_error;
 use super::capture_world::CaptureWorld;
 use super::enforce_option::read_enforced;
 use super::toplevel_composition::composition_of;
+use super::toplevel_reads::ToplevelReads;
 use crate::system::display::display_wayland::list_outputs;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_read::{read_clients, read_desktop, read_filling};
+use crate::system::hyprland::clients::hypr_client::HyprClient;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
-use crate::system::hyprland::identity::inventory::Inventory;
-use crate::system::hyprland::identity::window_bind::bind_window;
 use crate::system::hyprland::toplevel::bound_socket::connect_bound;
 use crate::system::hyprland::toplevel::toplevel_read::read_toplevels;
 use crate::system::hyprland::toplevel::toplevel_reader::ToplevelReader;
+use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
 use crate::system::process::process_facts;
 use crate::system::process::process_lookup::Lookup;
 use crate::system::wayland::capture::capture_fault::CaptureFault;
@@ -59,18 +61,7 @@ impl CaptureWorld for LiveCaptureWorld {
     }
 
     fn bind(&mut self, win: &WindowInfo) -> Result<BoundToplevel, AdapterError> {
-        let clients = read_clients(&self.binding, self.deadline)?;
-        let toplevels = self.reader()?.views()?;
-        let live = match process_facts::lookup(win.pid.get()) {
-            Lookup::Found(facts) => Some(facts.instance),
-            Lookup::Gone | Lookup::Unreadable => None,
-        };
-        let inventory = Inventory {
-            clients: &clients,
-            toplevels: &toplevels,
-        };
-        let compositor = (self.binding.pid, self.binding.start_time);
-        bind_window(win, inventory, live.as_deref(), compositor)
+        bind_stable(win, self)
     }
 
     fn composition(&mut self, bound: &BoundToplevel) -> Result<Composition, AdapterError> {
@@ -94,11 +85,12 @@ impl CaptureWorld for LiveCaptureWorld {
             .map_err(|fault| capture_error(&fault, &socket))
     }
 
-    fn still_bound(&mut self, bound: &BoundToplevel) -> Result<bool, AdapterError> {
-        let identifier = &bound.toplevel.identifier;
-        Ok(read_toplevels(&self.binding, self.deadline)?
-            .iter()
-            .any(|view| view.identifier == *identifier && view.address == bound.client.address))
+    fn still_bound(
+        &mut self,
+        win: &WindowInfo,
+        bound: &BoundToplevel,
+    ) -> Result<bool, AdapterError> {
+        still_bound_to(win, bound, self)
     }
 
     fn displays(&mut self) -> Result<Vec<DisplayInfo>, AdapterError> {
@@ -109,5 +101,30 @@ impl CaptureWorld for LiveCaptureWorld {
         let stream = connect_bound(&self.binding)?;
         capture_output(stream, name, self.deadline)
             .map_err(|fault| capture_error(&fault, &self.binding.wayland_socket))
+    }
+}
+
+impl ToplevelReads for LiveCaptureWorld {
+    fn clients(&mut self) -> Result<Vec<HyprClient>, AdapterError> {
+        read_clients(&self.binding, self.deadline)
+    }
+
+    fn toplevels(&mut self) -> Result<Vec<ToplevelView>, AdapterError> {
+        self.reader()?.views()
+    }
+
+    fn fresh_toplevels(&mut self) -> Result<Vec<ToplevelView>, AdapterError> {
+        read_toplevels(&self.binding, self.deadline)
+    }
+
+    fn live_instance(&self, pid: u32) -> Option<String> {
+        match process_facts::lookup(pid) {
+            Lookup::Found(facts) => Some(facts.instance),
+            Lookup::Gone | Lookup::Unreadable => None,
+        }
+    }
+
+    fn compositor(&self) -> (u32, u64) {
+        (self.binding.pid, self.binding.start_time)
     }
 }
