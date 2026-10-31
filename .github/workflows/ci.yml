@@ -178,6 +178,47 @@ jobs:
       - name: FFI integration tests
         run: scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-ffi --tests
 
+      - name: Save build artifacts from main
+        if: github.ref == 'refs/heads/main' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
+  release-macos:
+    name: Release build (macOS)
+    runs-on: macos-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache cargo registry
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Restore build artifacts
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ runner.os }}-build-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-build-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-
+            ${{ runner.os }}-build-release-
+
       - name: Build stripped release binary
         run: |
           cargo build --locked --release -p agent-desktop
@@ -239,6 +280,7 @@ jobs:
         with:
           path: target/
           key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
 
   test-linux:
     name: Test (Linux)
@@ -520,6 +562,79 @@ jobs:
       - name: FFI integration tests
         run: cargo test --locked -p agent-desktop-ffi --tests
 
+      - name: Guard profile isolation
+        shell: pwsh
+        run: |
+          if (-not $env:HOME -or -not $env:HOME.StartsWith($env:RUNNER_TEMP, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "FAIL: HOME is not under RUNNER_TEMP: $env:HOME"
+            exit 1
+          }
+          if (-not $env:USERPROFILE -or -not $env:USERPROFILE.StartsWith($env:RUNNER_TEMP, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "FAIL: USERPROFILE is not under RUNNER_TEMP: $env:USERPROFILE"
+            exit 1
+          }
+          $leak = Join-Path $env:ORIGINAL_USERPROFILE '.agent-desktop'
+          if (Test-Path $leak) {
+            Write-Host "FAIL: a test escaped the isolated HOME and wrote $leak"
+            exit 1
+          }
+          Write-Host 'OK: private artifacts stayed under RUNNER_TEMP'
+
+      - name: Save build artifacts from main
+        if: github.ref == 'refs/heads/main' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
+  release-windows:
+    name: Release build (Windows)
+    runs-on: windows-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      # Core resolves its home directory from HOME, then USERPROFILE (crates/core/src/refs/mod.rs), so the lane points both at a throwaway directory.
+      - name: Isolate HOME for the whole lane
+        shell: pwsh
+        run: |
+          $cargoHome  = if ($env:CARGO_HOME)  { $env:CARGO_HOME }  else { Join-Path $env:USERPROFILE '.cargo' }
+          $rustupHome = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
+          $testHome = Join-Path $env:RUNNER_TEMP ("agent-desktop-test-home-" + [guid]::NewGuid())
+          New-Item -ItemType Directory -Path $testHome | Out-Null
+          Add-Content -Path $env:GITHUB_ENV -Value "ORIGINAL_USERPROFILE=$env:USERPROFILE"
+          Add-Content -Path $env:GITHUB_ENV -Value "CARGO_HOME=$cargoHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "RUSTUP_HOME=$rustupHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "HOME=$testHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "USERPROFILE=$testHome"
+
+      - name: Cache cargo registry
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}/registry/index/
+            ${{ env.CARGO_HOME }}/registry/cache/
+            ${{ env.CARGO_HOME }}/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Restore build artifacts
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ runner.os }}-build-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-build-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-
+            ${{ runner.os }}-build-release-
+
       - name: Build stripped release binary
         run: cargo build --locked --release -p agent-desktop
 
@@ -598,6 +713,7 @@ jobs:
           path: target/
           key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
+
   test-windows-arm:
     name: Test (Windows ARM64)
     runs-on: windows-11-arm
@@ -666,6 +782,61 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "lib_tests=$passed"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "lib_suites=$suites"
 
+      - name: Guard profile isolation
+        shell: pwsh
+        run: |
+          if (-not $env:HOME -or -not $env:HOME.StartsWith($env:RUNNER_TEMP, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "FAIL: HOME is not under RUNNER_TEMP: $env:HOME"
+            exit 1
+          }
+          if (-not $env:USERPROFILE -or -not $env:USERPROFILE.StartsWith($env:RUNNER_TEMP, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "FAIL: USERPROFILE is not under RUNNER_TEMP: $env:USERPROFILE"
+            exit 1
+          }
+          $leak = Join-Path $env:ORIGINAL_USERPROFILE '.agent-desktop'
+          if (Test-Path $leak) {
+            Write-Host "FAIL: a test escaped the isolated HOME and wrote $leak"
+            exit 1
+          }
+          Write-Host 'OK: private artifacts stayed under RUNNER_TEMP'
+
+  release-windows-arm:
+    name: Release build (Windows ARM64)
+    runs-on: windows-11-arm
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Isolate HOME for the whole lane
+        shell: pwsh
+        run: |
+          $cargoHome  = if ($env:CARGO_HOME)  { $env:CARGO_HOME }  else { Join-Path $env:USERPROFILE '.cargo' }
+          $rustupHome = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
+          $testHome = Join-Path $env:RUNNER_TEMP ("agent-desktop-test-home-" + [guid]::NewGuid())
+          New-Item -ItemType Directory -Path $testHome | Out-Null
+          Add-Content -Path $env:GITHUB_ENV -Value "ORIGINAL_USERPROFILE=$env:USERPROFILE"
+          Add-Content -Path $env:GITHUB_ENV -Value "CARGO_HOME=$cargoHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "RUSTUP_HOME=$rustupHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "HOME=$testHome"
+          Add-Content -Path $env:GITHUB_ENV -Value "USERPROFILE=$testHome"
+
+      - name: Cache cargo registry
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}/registry/index/
+            ${{ env.CARGO_HOME }}/registry/cache/
+            ${{ env.CARGO_HOME }}/git/db/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-cargo-
+
       - name: Build release binary
         run: cargo build --locked --release -p agent-desktop
 
@@ -702,6 +873,7 @@ jobs:
             exit 1
           }
           Write-Host 'OK: private artifacts stayed under RUNNER_TEMP'
+
 
   windows-lib-test-parity:
     name: Windows lib-test parity (x64 vs ARM64)
@@ -857,7 +1029,7 @@ jobs:
     name: ci-ok
     runs-on: ubuntu-24.04
     if: always()
-    needs: [changes, fmt, msrv, test, test-linux, test-windows, test-windows-arm, windows-lib-test-parity, ffi-panic-guard]
+    needs: [changes, fmt, msrv, test, release-macos, test-linux, test-windows, release-windows, test-windows-arm, release-windows-arm, windows-lib-test-parity, ffi-panic-guard]
     timeout-minutes: 5
     permissions:
       contents: read
