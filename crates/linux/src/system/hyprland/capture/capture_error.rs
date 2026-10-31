@@ -45,6 +45,11 @@ pub(crate) fn capture_error(fault: &CaptureFault, socket: &Path) -> AdapterError
         )
         .with_suggestion("Update Hyprland to a release that offers it")
         .with_platform_detail(format!("missing Wayland global {interface}")),
+        CaptureFault::Failed(FrameFailure::Stopped) => AdapterError::new(
+            ErrorCode::WindowNotFound,
+            "The window closed before its frame was captured",
+        )
+        .with_suggestion("Run 'list-windows' for the current window ids, then retry"),
         CaptureFault::Failed(failure) => failed("The compositor refused the frame")
             .with_details(json!({ "kind": "capture_refused", "reason": refusal_reason(*failure) })),
         CaptureFault::NoFormat => failed("The compositor offered no buffer layout this tool reads"),
@@ -61,6 +66,8 @@ pub(crate) fn capture_error(fault: &CaptureFault, socket: &Path) -> AdapterError
 fn refusal_reason(failure: FrameFailure) -> &'static str {
     match failure {
         FrameFailure::Unknown => "unknown",
+        FrameFailure::BufferConstraints => "buffer_constraints",
+        FrameFailure::Stopped => "stopped",
     }
 }
 

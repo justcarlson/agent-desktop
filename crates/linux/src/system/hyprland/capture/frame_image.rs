@@ -30,6 +30,16 @@ pub(crate) fn frame_image(frame: &RawFrame, scale: f64) -> Result<ImageBuffer, A
     encode_png(&rgb, frame.width, frame.height, scale)
 }
 
+/// Buffer pixels per logical pixel for a frame `pixels` wide of something
+/// `logical` wide, one when the logical width is unknown.
+pub(crate) fn scale_of(pixels: u32, logical: f64) -> f64 {
+    if logical.is_finite() && logical > 0.0 {
+        f64::from(pixels) / logical
+    } else {
+        1.0
+    }
+}
+
 #[cfg(test)]
 #[path = "frame_image_tests.rs"]
 mod tests;

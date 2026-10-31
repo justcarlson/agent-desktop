@@ -1,4 +1,4 @@
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ScreenshotTarget};
@@ -43,8 +43,13 @@ fn bound() -> Result<Option<HyprlandBinding>, AdapterError> {
 }
 
 #[test]
-fn every_hyprland_display_goes_to_hyprland_capture_and_never_to_the_portal() {
-    for wanted in [ScreenshotTarget::FullScreen, ScreenshotTarget::Screen(1)] {
+fn every_hyprland_target_goes_to_hyprland_capture_and_never_to_the_portal() {
+    let targets = [
+        ScreenshotTarget::ExactWindow(target()),
+        ScreenshotTarget::FullScreen,
+        ScreenshotTarget::Screen(1),
+    ];
+    for wanted in targets {
         let seen = RefCell::new(Vec::new());
         let hyprland = |binding: &HyprlandBinding, given: &ScreenshotTarget, deadline: Deadline| {
             seen.borrow_mut()
@@ -76,6 +81,36 @@ fn every_hyprland_display_goes_to_hyprland_capture_and_never_to_the_portal() {
 }
 
 #[test]
+fn the_hyprland_debug_frame_is_the_window_capture() {
+    let seen = RefCell::new(None);
+    let hyprland = |_: &HyprlandBinding, given: &ScreenshotTarget, _: Deadline| {
+        seen.replace(Some(label(given)));
+        Err(AdapterError::new(ErrorCode::WindowNotFound, "stub"))
+    };
+    let backends = WaylandBackends {
+        binding: &bound,
+        portal: &no_portal,
+        hyprland: &hyprland,
+    };
+    let rig = Rig::standard();
+    let error = capture_frame_through(
+        &rig.env(),
+        &Route::Wayland,
+        &target(),
+        deadline(),
+        &backends,
+    )
+    .expect_err("the stub fails");
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(
+        seen.into_inner(),
+        Some(label(&ScreenshotTarget::ExactWindow(target())))
+    );
+    assert_eq!(rig.x11_touched(), 0);
+}
+
+#[test]
 fn a_refused_hyprland_binding_is_the_error_and_reaches_no_backend() {
     let refused = || {
         Err(AdapterError::new(
@@ -89,39 +124,23 @@ fn a_refused_hyprland_binding_is_the_error_and_reaches_no_backend() {
         hyprland: &no_hyprland,
     };
     let rig = Rig::standard();
-    let error = capture_through(
+    for wanted in [
+        ScreenshotTarget::FullScreen,
+        ScreenshotTarget::ExactWindow(target()),
+    ] {
+        let error = capture_through(&rig.env(), &Route::Wayland, wanted, deadline(), &backends)
+            .expect_err("refused");
+        assert_eq!(error.message, "refused");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
+    let error = capture_frame_through(
         &rig.env(),
         &Route::Wayland,
-        ScreenshotTarget::FullScreen,
+        &target(),
         deadline(),
         &backends,
     )
     .expect_err("refused");
     assert_eq!(error.message, "refused");
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
-fn a_window_on_a_bound_hyprland_is_refused_before_the_binding_is_read() {
-    let looked = Cell::new(false);
-    let lookup = || {
-        looked.set(true);
-        bound()
-    };
-    let backends = WaylandBackends {
-        binding: &lookup,
-        portal: &no_portal,
-        hyprland: &no_hyprland,
-    };
-    let rig = Rig::standard();
-    let error = capture_through(
-        &rig.env(),
-        &Route::Wayland,
-        ScreenshotTarget::ExactWindow(target()),
-        deadline(),
-        &backends,
-    )
-    .expect_err("refused");
-    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(!looked.get());
+    assert_eq!(rig.x11_touched(), 0);
 }
