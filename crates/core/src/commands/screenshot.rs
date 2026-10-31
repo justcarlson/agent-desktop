@@ -18,8 +18,10 @@ pub struct ScreenshotArgs {
 
 pub fn execute(args: ScreenshotArgs, adapter: &dyn PlatformAdapter) -> Result<Value, AppError> {
     let deadline = crate::Deadline::standard()?;
-    let target = resolve_target(&args, adapter, deadline)?;
-    let buf = adapter.screenshot(target, deadline)?;
+    let target = resolve_target(&args, adapter, deadline).map_err(unsent_capture_error)?;
+    let buf = adapter
+        .screenshot(target, deadline)
+        .map_err(|error| unsent_capture_error(error.into()))?;
 
     if let Some(path) = args.output_path {
         crate::refs::write_user_file(&path, &buf.data)
@@ -40,6 +42,13 @@ pub fn execute(args: ScreenshotArgs, adapter: &dyn PlatformAdapter) -> Result<Va
             "height": buf.height,
             "scale_factor": buf.scale_factor
         }))
+    }
+}
+
+fn unsent_capture_error(error: AppError) -> AppError {
+    match error {
+        AppError::Adapter(source) => source.unsent().into(),
+        other => other,
     }
 }
 
