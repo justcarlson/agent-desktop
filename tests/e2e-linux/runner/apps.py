@@ -34,8 +34,11 @@ ALIASES = {
     "Zoo GTK3": ("zoo gtk3", "zoo_gtk3.py"),
     "Zoo GTK4": ("zoo gtk4", "zoo_gtk4.py"),
     "Zoo Qt": ("zoo qt", "zoo_qt.py"),
+    "Twin Windows": ("twin windows", "twin_windows.py"),
 }
 ZOOS = {"Zoo GTK3": "zoo_gtk3", "Zoo GTK4": "zoo_gtk4", "Zoo Qt": "zoo_qt"}
+SCRIPTS = {"Twin Windows": "twin_windows.py"}
+TOPLEVELS = {"Twin Windows": ("twin_windows.py", 2)}
 _TIERS = {}
 _SPAWNED = {}
 SHELL_HELPERS = frozenset({"gnome-shell", "mutter-x11-fram", "mutter-x11-frames"})
@@ -119,6 +122,7 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     from runner.readiness import wait_ready
 
     names = ALIASES.get(app, (Path(app).name.casefold(),))
+    toplevels = TOPLEVELS.get(app)
     with raw.bounded_until(time.monotonic() + settle_s):
         before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
@@ -131,11 +135,13 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
         if event_log.exists():
             event_log.unlink()
         args = args or (str(event_log),)
+    elif app in SCRIPTS:
+        app = str(Path(__file__).resolve().parents[1] / "apps" / SCRIPTS[app])
     if app.endswith(("qt_window.py", "zoo_qt.py")):
         command = [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), app]
         env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1",
                    QT_QPA_PLATFORM="wayland" if tier.name == "wayland" else "xcb")
-    elif app.endswith(("zoo_gtk3.py", "zoo_gtk4.py")):
+    elif app.endswith(("zoo_gtk3.py", "zoo_gtk4.py", "twin_windows.py")):
         command = ["python3", app]
         env["GTK_USE_PORTAL"] = "0"
     else:
@@ -147,7 +153,7 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     if tier.name == "hyprland":
         from runner import attached_session
         since = attached_session.boot_ticks()
-        attached_session.spawn(tier, command + list(args), env, log)
+        attached_session.spawn(tier, command + list(args), env, log, toplevels=toplevels)
     else:
         with log.open("ab") as stream:
             child = subprocess.Popen(command + list(args), env=env, stdout=stream, stderr=stream,
