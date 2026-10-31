@@ -1,6 +1,7 @@
 import contextlib
 import json
 import time
+import weakref
 
 from oracle.atspi_raw import poll
 from oracle.proc import members
@@ -9,10 +10,17 @@ from runner.helper import (command, delayed, managed, one, ref, require, root,
 from runner.legs import implementation
 from runner.verdict import LegContext
 
+# Session members when each leg's Qt app was not yet running. Session
+# services also exit on their own: Files D-Bus-activates
+# org.gnome.NautilusPreviewer, a gjs process that exits about 10 s later,
+# so the oracle reads only the members a leg added.
+_BASELINES = weakref.WeakKeyDictionary()
+
 
 def log_state(ctx):
     path = ctx.tier.runtime_dir / "qt-window.log"
-    return {"members": members(ctx.tier.runtime_dir),
+    baseline = _BASELINES.get(ctx, ())
+    return {"added": [member for member in members(ctx.tier.runtime_dir) if member not in baseline],
             "log": path.read_text() if path.exists() else None}
 
 
@@ -20,6 +28,7 @@ def log_state(ctx):
 def qt_app(ctx):
     path = ctx.tier.runtime_dir / "qt-window.log"
     remove(path)
+    _BASELINES[ctx] = members(ctx.tier.runtime_dir)
     baseline = log_state(ctx)
     ctx.before("applog", baseline)
     try:
