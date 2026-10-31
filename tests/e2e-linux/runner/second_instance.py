@@ -1,7 +1,9 @@
 """A second, runner-owned headless Hyprland for the multi-instance binding legs.
 
-The instance runs as a client of the session's compositor, on a silent
-special workspace, inside the run's slice. It has its own IPC socket, its own
+The instance runs as a client of the session's compositor, alone on its own
+silent special workspace (`OUTER_WORKSPACE`), inside the run's slice. Outer
+tiling never shares that workspace with the apps a leg opens, so their windows
+cannot resize the instance's window. It has its own IPC socket, its own
 Wayland socket, a headless output named `OUTPUT` and a sentinel window, so a
 leg can tell the two instances apart and observe both. The attached record
 names it, so teardown and a cancelled run stop it and remove its paths.
@@ -20,6 +22,7 @@ from runner import attached, attached_session, session
 
 OUTPUT = "AGENT-DESKTOP-1"
 SENTINEL = "ad-e2e-sentinel"
+OUTER_WORKSPACE = "ad_e2e_nested"
 MODE = "1280x800@60"
 WAYLAND_SOCKET = re.compile(r"wayland-\d+")
 DROPPED = ("HYPRLAND_INSTANCE_SIGNATURE", "AT_SPI_BUS_ADDRESS", "AGENT_DESKTOP_HOME")
@@ -140,7 +143,7 @@ def ensure(tier, seconds: float = 20.0) -> dict:
     config.write_text(config_text(lua))
     before = set(hyprland.instances(shared))
     attached_session.spawn(tier, ["Hyprland", "-c", str(config)], _env(tier),
-                           tier.runtime_dir / "second-instance.log")
+                           tier.runtime_dir / "second-instance.log", OUTER_WORKSPACE)
     instance = _poll(lambda: find_new(attached.load(tier.runtime_dir), before), seconds)
     if instance is None:
         raise session.TierUnavailable("hyprland: the second instance did not answer on its IPC socket")

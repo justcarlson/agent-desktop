@@ -60,12 +60,22 @@ class AbsentRefTests(unittest.TestCase):
                                                      physical_delivery_started=True)))
 
 
+MONITORS = [{"name": "Virtual-1", "x": 0, "y": 0, "width": 1280, "height": 800, "scale": 1.0, "transform": 0}]
+
+
+def listed(*names: tuple[str, bool]) -> Envelope:
+    data = [{"id": name, "is_primary": primary, "bounds": {"x": 0, "y": 0, "width": 1280, "height": 800},
+             "scale": 1.0} for name, primary in names]
+    return Envelope(ok=True, data=data, error=None, raw="[]", elapsed_ms=5.0, argv=[], exit_code=0)
+
+
 class ReadOnlyCommandTests(unittest.TestCase):
     def replies(self) -> dict:
         return {
             "list-apps": Envelope(True, {"apps": [{"pid": 10}]}, None, "", 1.0, []),
             "list-windows": Envelope(True, [{"id": "w1"}], None, "", 1.0, []),
             "snapshot": Envelope(True, {"complete": True}, None, "", 1.0, []),
+            "list-displays": listed(("Virtual-1", True)),
             "status": Envelope(True, {}, None, "", 1.0, []),
         }
 
@@ -78,21 +88,28 @@ class ReadOnlyCommandTests(unittest.TestCase):
             return replies[argv[0]]
 
         ctx = SimpleNamespace(tier=SimpleNamespace(), product=product)
-        return hyprland_desktop._read_only_commands(ctx, app), calls
+        with mock.patch.object(hyprland_desktop, "shared", return_value=Path("/run/user/1000")), \
+                mock.patch.object(hyprland_desktop, "monitors", return_value=MONITORS) as read:
+            problems = hyprland_desktop._read_only_commands(ctx, app, {"signature": "sig"})
+        read.assert_called_once_with(Path("/run/user/1000"), "sig")
+        return problems, calls
 
-    def test_the_route_reads_only_commands_the_upstream_product_answers_on_hyprland(self):
+    def test_the_route_reads_every_headless_inventory_and_display_command(self):
         problems, calls = self.run_commands(self.replies())
         self.assertEqual(problems, [])
-        self.assertEqual(calls, ["list-apps", "list-windows", "snapshot", "status"])
+        self.assertEqual(calls, ["list-apps", "list-windows", "snapshot", "list-displays", "status"])
 
     def test_each_read_only_command_that_fails_is_a_problem(self):
         failed = Envelope(False, None, {"code": "INTERNAL"}, "{}", 1.0, [], exit_code=1)
         for command, bad in (("list-apps", Envelope(True, {"apps": [{"pid": 11}]}, None, "", 1.0, [])),
                              ("list-windows", Envelope(True, [{"id": "w2"}], None, "", 1.0, [])),
                              ("snapshot", Envelope(True, {"complete": False}, None, "", 1.0, [])),
+                             ("list-displays", failed),
+                             ("list-displays", listed(("Virtual-1", False))),
+                             ("list-displays", listed(("Virtual-1", True), ("AGENT-DESKTOP-1", False))),
                              ("status", failed)):
             replies = self.replies() | {command: bad}
-            with self.subTest(command=command):
+            with self.subTest(command=command, reply=bad.data):
                 problems, _ = self.run_commands(replies)
                 self.assertEqual(len(problems), 1, problems)
 
