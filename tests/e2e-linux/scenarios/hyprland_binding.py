@@ -103,7 +103,8 @@ def ambiguous_or_mismatched_binding_refused(ctx: LegContext) -> None:
          "hyprland_mismatch"),
         ("second signature, session display", pair_env(ctx.tier, nested["signature"], main["wayland"]),
          "hyprland_mismatch"),
-        ("no live instance", bare_env(ctx.tier, XDG_RUNTIME_DIR=str(no_live)), "not_configured"),
+        ("no live instance", bare_env(ctx.tier, XDG_RUNTIME_DIR=str(no_live),
+                                      DBUS_SESSION_BUS_ADDRESS=ctx.tier.bus_address), "not_configured"),
     ):
         problems += _refused(ctx, env, PLATFORM, cause, label)
     several = ctx.product(LIST, env=pair_env(ctx.tier, None, None), headed=False)

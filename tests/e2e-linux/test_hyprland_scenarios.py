@@ -97,6 +97,36 @@ class SilentDiscoveryTests(unittest.TestCase):
         self.assertEqual(seen[0], ("silent",))
 
 
+class NoLiveInstanceTests(unittest.TestCase):
+    def test_the_no_live_case_keeps_the_session_bus_and_drops_only_the_compositor(self):
+        envs = []
+
+        def refused_with(ctx, env, code, cause, label):
+            envs.append((label, env))
+            return []
+
+        tier = SimpleNamespace(runtime_dir=Path("/work"), state_root=Path("/work/ad-home"),
+                               bus_address="unix:path=/run/user/1000/bus", env={"PATH": "/usr/bin"})
+        ctx = SimpleNamespace(tier=tier, mode="headed", product=lambda *a, **k: refused("PLATFORM_NOT_SUPPORTED"))
+        main = {"signature": "main", "wayland": "wayland-1"}
+        nested = {"signature": "nested", "wayland": "wayland-2"}
+        with mock.patch.object(hyprland_binding, "main_instance", return_value=main), \
+             mock.patch.object(hyprland_binding.second_instance, "ensure", return_value=nested), \
+             mock.patch.object(hyprland_binding.socket_fixture, "private_runtime", return_value=Path("/work/nl.x")), \
+             mock.patch.object(hyprland_common, "shared", return_value=Path("/run/user/1000")), \
+             mock.patch.object(hyprland_binding, "_observe"), \
+             mock.patch.object(hyprland_binding, "_refused", side_effect=refused_with), \
+             mock.patch.object(hyprland_binding, "_displays", return_value=[]), \
+             mock.patch.object(hyprland_binding, "monitors", return_value=[]):
+            with self.assertRaises(AssertionError):
+                hyprland_binding.ambiguous_or_mismatched_binding_refused(ctx)
+        env = dict(envs)["no live instance"]
+        self.assertEqual(env["XDG_RUNTIME_DIR"], "/work/nl.x")
+        self.assertEqual(env["DBUS_SESSION_BUS_ADDRESS"], tier.bus_address)
+        for key in ("WAYLAND_DISPLAY", "DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE"):
+            self.assertNotIn(key, env)
+
+
 class AbsentRefTests(unittest.TestCase):
     def check(self, mode: str, envelope: Envelope) -> list[str]:
         ctx = SimpleNamespace(mode=mode, product=lambda argv: envelope)
