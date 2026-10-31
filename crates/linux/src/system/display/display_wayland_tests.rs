@@ -205,3 +205,50 @@ fn a_socket_nobody_serves_is_a_missing_display_server() {
         "missing"
     );
 }
+
+fn bound(socket: &str) -> HyprlandBinding {
+    HyprlandBinding {
+        wayland_socket: PathBuf::from(socket),
+        pid: 1,
+        start_time: 2,
+    }
+}
+
+#[test]
+fn a_bound_hyprland_instance_names_the_output_socket() {
+    let named = Cell::new(false);
+    let socket = output_socket(
+        || Ok(Some(bound("/run/user/1/wayland-1"))),
+        || {
+            named.set(true);
+            Some(PathBuf::from("/run/user/1/wayland-0"))
+        },
+    );
+    assert_eq!(
+        socket.expect("bound"),
+        Some(PathBuf::from("/run/user/1/wayland-1"))
+    );
+    assert!(!named.get());
+}
+
+#[test]
+fn a_refused_binding_reads_no_outputs_and_no_binding_reads_the_named_socket() {
+    let refused = output_socket(
+        || {
+            Err(AdapterError::new(
+                ErrorCode::PlatformNotSupported,
+                "ambiguous",
+            ))
+        },
+        || Some(PathBuf::from("/run/user/1/wayland-0")),
+    );
+    assert_eq!(
+        refused.expect_err("refused").code,
+        ErrorCode::PlatformNotSupported
+    );
+    let named = output_socket(|| Ok(None), || Some(PathBuf::from("/run/user/1/wayland-0")));
+    assert_eq!(
+        named.expect("named"),
+        Some(PathBuf::from("/run/user/1/wayland-0"))
+    );
+}
