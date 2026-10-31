@@ -103,12 +103,61 @@ fn read_unfiltered(
     select: impl Fn(&RegistryApp) -> bool,
     deadline: Deadline,
 ) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
+    crate::ltrace(format!(
+        "registry: {}",
+        registry
+            .apps
+            .iter()
+            .map(|a| format!("{}:{}:answered={}", a.root.pid(), a.name, a.answered))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
     let chosen = chosen_apps(registry, select, proc_stat::is_stopped);
-    let (windows, outcomes) = gather(&chosen, |roots| read_frames(bus, roots, deadline))?;
-    Ok((
-        crate::system::window::window_filter::without_helpers(windows, deadline)?,
-        outcomes,
-    ))
+    crate::ltrace(format!(
+        "chosen: {:?}",
+        chosen.iter().map(|(_, a)| a.root.pid()).collect::<Vec<_>>()
+    ));
+    let (windows, outcomes) = gather(&chosen, |roots| {
+        let r = read_frames(bus, roots, deadline);
+        if let Ok(frames) = &r {
+            for (root, f) in roots.iter().zip(frames) {
+                crate::ltrace(format!(
+                    "frames pid={} read={:?} nodes={}",
+                    root.pid(),
+                    f.read,
+                    f.nodes.len()
+                ));
+                for n in &f.nodes {
+                    crate::ltrace(format!(
+                        "   node {} {} name={:?} states={:?} ext={:?} ifaces={:?}",
+                        n.element.bus_name(),
+                        n.element.path(),
+                        n.properties.name,
+                        n.traits.states,
+                        n.extents,
+                        n.traits.interfaces
+                    ));
+                }
+            }
+        } else {
+            crate::ltrace("frames read error");
+        }
+        r
+    })?;
+    crate::ltrace(format!(
+        "collected: {}",
+        crate::system::registry::lw(&windows)
+    ));
+    let windows = crate::system::window::window_filter::without_helpers(windows, deadline);
+    match &windows {
+        Ok(w) => crate::ltrace(format!(
+            "after without_helpers: {}",
+            crate::system::registry::lw(w)
+        )),
+        Err(e) => crate::ltrace(format!("without_helpers err: {e:?}")),
+    }
+    let windows = windows?;
+    Ok((windows, outcomes))
 }
 
 /// Whether a selected, listable application has no outcome in the pass and no
@@ -269,7 +318,12 @@ pub(in crate::system) fn run_pass_with(
 ) -> Result<(Pass, X11State), AdapterError> {
     let (windows, outcomes) = read_unfiltered(bus, registry, &select, deadline)?;
     let state = finish(deadline);
+    crate::ltrace(format!("x11 state: {state:?}"));
     let mut windows = without_ghosts(windows, &state);
+    crate::ltrace(format!(
+        "after without_ghosts: {}",
+        crate::system::registry::lw(&windows)
+    ));
     let ids = WindowIds::in_runtime_dir();
     remember_ids(&windows, &state, ids.as_ref());
     let stopped = of_stopped_apps(

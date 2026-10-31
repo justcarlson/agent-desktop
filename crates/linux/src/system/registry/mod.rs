@@ -292,3 +292,22 @@ pub(super) mod registry_frames;
 pub(super) mod registry_live_tests;
 
 pub(crate) mod app_query;
+
+#[allow(dead_code)]
+pub(crate) fn lw(ws: &[listed_window::ListedWindow]) -> String {
+    ws.iter()
+        .map(|w| {
+            format!(
+                "[{} pid={} title={:?} unshown={} ext={:?} sizeid={} gp={}]",
+                w.info.id,
+                w.frame.pid,
+                w.info.title,
+                w.unshown,
+                w.frame.extents,
+                w.frame.size_identity,
+                w.frame.global_position
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}

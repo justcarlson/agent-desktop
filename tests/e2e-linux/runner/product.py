@@ -40,6 +40,8 @@ def _full_argv(binary: str, argv: list[str], headed: bool, window_id: str | None
 
 def _result_env(tier: Tier) -> dict[str, str]:
     env = dict(tier.env)
+    if "AD_LISTING_TRACE" in os.environ:
+        env["AD_LISTING_TRACE"] = os.environ["AD_LISTING_TRACE"]
     env.setdefault("HOME", str(Path.home()))
     env.setdefault("LANG", "C.UTF-8")
     if LEASE_FD_ENV in os.environ:
