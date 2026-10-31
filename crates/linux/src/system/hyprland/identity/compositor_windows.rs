@@ -5,15 +5,18 @@ use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use super::compositor_window_id::encode;
 use super::inventory::Inventory;
+use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
 
 /// The windows of every toplevel whose client `represented` rejects, in
-/// client order, named by ids issued for `compositor`. A toplevel whose owner has
+/// client order, named by ids issued for `compositor`. A window is focused
+/// only when it is the active window and its workspace is in view, as the
+/// focus proof requires. A toplevel whose owner has
 /// no readable instance token is left out, because it could not be
 /// verified later.
 pub(crate) fn compositor_windows(
     inventory: Inventory<'_>,
-    active: Option<u64>,
+    desktop: &DesktopState,
     compositor: (u32, u64),
     represented: impl Fn(&HyprClient) -> bool,
     instance_of: impl Fn(u32) -> Option<String>,
@@ -37,7 +40,8 @@ pub(crate) fn compositor_windows(
                 process_instance: Some(instance),
                 bounds: Some(client.geometry),
                 state: WindowState {
-                    is_focused: active == Some(client.address),
+                    is_focused: desktop.active == Some(client.address)
+                        && desktop.in_view(&client.workspace),
                     accessible: false,
                     minimized: None,
                     visible: Some(client.shown),

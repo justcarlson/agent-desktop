@@ -28,6 +28,12 @@ impl DesktopState {
         })
     }
 
+    /// Whether some monitor shows `workspace` with no special workspace in
+    /// front of it.
+    pub(crate) fn in_view(&self, workspace: &ClientWorkspace) -> bool {
+        self.shows(&workspace.name) && self.covering_special(workspace).is_none()
+    }
+
     /// The monitor that shows `workspace` when it holds a special workspace
     /// open in front of it. Hyprland keeps that special workspace in front of
     /// an activated window on a regular workspace.

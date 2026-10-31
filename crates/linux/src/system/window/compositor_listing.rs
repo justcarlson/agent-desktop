@@ -5,9 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
 use super::accessible_frames::AccessibleFrames;
 use crate::system::app::app_name::name_matches;
-use crate::system::hyprland::bound_request::bound_request;
-use crate::system::hyprland::clients::client_parse::parse_active;
-use crate::system::hyprland::clients::client_read::read_clients;
+use crate::system::hyprland::clients::client_read::{read_clients, read_desktop};
 use crate::system::hyprland::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::identity::compositor_windows::compositor_windows;
 use crate::system::hyprland::identity::inventory::Inventory;
@@ -52,11 +50,7 @@ fn read_windows(
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     let clients = read_clients(binding, deadline)?;
     let toplevels = ToplevelSession::open(binding, deadline)?.views()?;
-    let active = bound_request(binding, "j/activewindow", deadline)?;
-    let active = parse_active(&active).ok_or_else(|| {
-        AdapterError::internal("The Hyprland active window could not be read")
-            .with_suggestion("Retry once the compositor answers")
-    })?;
+    let desktop = read_desktop(binding, deadline)?;
     let inventory = Inventory {
         clients: &clients,
         toplevels: &toplevels,
@@ -64,7 +58,7 @@ fn read_windows(
     let represented = frames.represented(inventory);
     let windows = compositor_windows(
         inventory,
-        active,
+        &desktop,
         (binding.pid, binding.start_time),
         |client| represented.contains(&client.address),
         |pid| facts_of(pid).map(|facts| facts.instance),

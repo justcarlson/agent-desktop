@@ -147,12 +147,13 @@ impl ToplevelSession {
             self.mapping
                 .get_window_for_toplevel_wlr(toplevel, &handle, MappingTarget::Wlr(index));
         }
-        self.requested = (self.state.ext.len(), self.state.wlr.len());
+        let requested = (self.state.ext.len(), self.state.wlr.len());
+        self.requested = requested;
         let _mapped = self.connection.display().sync(&handle, ());
         dispatch_until(
             &mut self.queue,
             &mut self.state,
-            |state| state.synced > base + 1 && state.mapped(),
+            |state| state.synced > base + 1 && state.mapped(requested),
             deadline,
         )
         .map_err(|fault| fault_error(&self.socket, fault))

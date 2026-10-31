@@ -17,9 +17,16 @@ pub(crate) struct ToplevelState {
 }
 
 impl ToplevelState {
-    /// Whether the mapping manager answered for every handle.
-    pub(crate) fn mapped(&self) -> bool {
-        self.ext.iter().all(|(_, record)| record.answered)
-            && self.wlr.iter().all(|(_, record)| record.answered)
+    /// Whether the mapping manager answered for the first `requested`
+    /// handles of each protocol. A handle announced after its mapping
+    /// request was sent waits for the next settle.
+    pub(crate) fn mapped(&self, requested: (usize, usize)) -> bool {
+        let (ext, wlr) = requested;
+        self.ext.iter().take(ext).all(|(_, record)| record.answered)
+            && self.wlr.iter().take(wlr).all(|(_, record)| record.answered)
     }
 }
+
+#[cfg(test)]
+#[path = "toplevel_state_tests.rs"]
+mod tests;

@@ -12,7 +12,6 @@ use agent_desktop_core::{
 use super::focus_refusal::{not_focused, proof_refusal, special_open};
 use super::hypr_world::HyprWorld;
 use super::proof_read::ProofRead;
-use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::side_effects::side_effects;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
@@ -126,16 +125,10 @@ fn witness(
     let read = ProofRead {
         compositor_active: desktop.active == Some(address),
         toplevel_activated,
-        in_view: in_view(&desktop, &bound.client.workspace),
+        in_view: desktop.in_view(&bound.client.workspace),
         frame_active,
     };
     Ok((read, desktop))
-}
-
-/// Whether a monitor shows `workspace` with no special workspace in front
-/// of it.
-fn in_view(desktop: &DesktopState, workspace: &ClientWorkspace) -> bool {
-    desktop.shows(&workspace.name) && desktop.covering_special(workspace).is_none()
 }
 
 fn headless_refusal(read: ProofRead, bound: &BoundToplevel, before: &DesktopState) -> AdapterError {
