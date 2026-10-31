@@ -3,6 +3,7 @@
 //! path the caller names, every read waits for at most the caller's deadline,
 //! and no outside tool or compositor-specific IPC is involved.
 
+pub(crate) mod capture;
 pub(crate) mod dispatch;
 pub(crate) mod exchange;
 pub(crate) mod ext_toplevel;
