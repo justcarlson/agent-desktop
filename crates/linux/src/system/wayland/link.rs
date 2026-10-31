@@ -48,6 +48,17 @@ where
         deadline: Deadline,
     ) -> Result<Self, WaylandFault> {
         let connection = Connection::from_socket(stream).map_err(|_| WaylandFault::Gone)?;
+        Self::on(connection, state, deadline)
+    }
+
+    /// Opens a second event queue and registry on a connection another link
+    /// already holds, so objects of both links can be passed to each other's
+    /// requests.
+    pub(crate) fn on(
+        connection: Connection,
+        state: &mut S,
+        deadline: Deadline,
+    ) -> Result<Self, WaylandFault> {
         let queue = connection.new_event_queue::<S>();
         let registry = connection.display().get_registry(&queue.handle(), ());
         let mut link = Self {
@@ -106,6 +117,11 @@ where
 
     pub(crate) fn handle(&self) -> QueueHandle<S> {
         self.queue.handle()
+    }
+
+    /// The connection this link reads, for a link opened `on` it.
+    pub(crate) fn connection(&self) -> &Connection {
+        &self.connection
     }
 }
 

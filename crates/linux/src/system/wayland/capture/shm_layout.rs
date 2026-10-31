@@ -9,6 +9,7 @@ pub(crate) const ARGB8888: u32 = 0;
 pub(crate) const XRGB8888: u32 = 1;
 const XBGR8888: u32 = 0x3432_4258;
 const ABGR8888: u32 = 0x3432_4241;
+const BYTES_PER_PIXEL: u32 = 4;
 const PREFERRED: [u32; 4] = [XRGB8888, XBGR8888, ARGB8888, ABGR8888];
 
 /// The reader's view of a `wl_shm` format this tool can decode.
@@ -35,6 +36,17 @@ pub(crate) fn choose_format(offered: &[u32]) -> Option<u32> {
     PREFERRED
         .into_iter()
         .find(|format| offered.contains(format))
+}
+
+/// The stride and total length of a buffer for a frame, both as the
+/// protocol's signed sizes, or `None` for an empty or unrepresentable frame.
+pub(crate) fn buffer_len(width: u32, height: u32) -> Option<(i32, i32)> {
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let stride = width.checked_mul(BYTES_PER_PIXEL)?;
+    let total = stride.checked_mul(height)?;
+    Some((i32::try_from(stride).ok()?, i32::try_from(total).ok()?))
 }
 
 /// The pixels with their rows in top-to-bottom order.
