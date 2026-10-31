@@ -38,7 +38,8 @@ fn probe_error(probe: OutputProbe, socket: &Path) -> AdapterError {
 }
 
 /// The displays of a compositor's outputs. Wayland names no primary output,
-/// so the one at the layout origin is primary, else the top-left one. An
+/// so the one at the layout origin is primary, else the top-left one, and
+/// the lowest name breaks a tie between mirrored outputs. An
 /// output without a name, position or size makes the whole list unusable,
 /// because `--screen` indexes would shift under it.
 pub(crate) fn from_outputs(outputs: &[WaylandOutput]) -> Option<Vec<DisplayInfo>> {
@@ -46,17 +47,15 @@ pub(crate) fn from_outputs(outputs: &[WaylandOutput]) -> Option<Vec<DisplayInfo>
         .iter()
         .map(WaylandOutput::display)
         .collect::<Option<Vec<_>>>()?;
-    let corner = |display: &DisplayInfo| (display.bounds.y, display.bounds.x);
-    let primary = displays
-        .iter()
-        .position(|display| corner(display) == (0.0, 0.0))
-        .or_else(|| {
-            (0..displays.len()).min_by(|left, right| {
-                let (left_y, left_x) = corner(&displays[*left]);
-                let (right_y, right_x) = corner(&displays[*right]);
-                left_y.total_cmp(&right_y).then(left_x.total_cmp(&right_x))
-            })
-        });
+    let at_origin = |display: &DisplayInfo| display.bounds.y == 0.0 && display.bounds.x == 0.0;
+    let primary = (0..displays.len()).min_by(|left, right| {
+        let (left, right) = (&displays[*left], &displays[*right]);
+        at_origin(right)
+            .cmp(&at_origin(left))
+            .then(left.bounds.y.total_cmp(&right.bounds.y))
+            .then(left.bounds.x.total_cmp(&right.bounds.x))
+            .then_with(|| left.id.cmp(&right.id))
+    });
     if let Some(index) = primary {
         displays[index].is_primary = true;
     }

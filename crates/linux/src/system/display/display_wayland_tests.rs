@@ -67,6 +67,15 @@ fn without_an_output_at_the_origin_the_top_left_one_is_primary() {
 }
 
 #[test]
+fn mirrored_outputs_pick_the_same_primary_in_either_advertisement_order() {
+    let forward = [output("HDMI-A-1", 0, 0), output("DP-1", 0, 0)];
+    let backward = [output("DP-1", 0, 0), output("HDMI-A-1", 0, 0)];
+    let expected = vec![("DP-1", true), ("HDMI-A-1", false)];
+    assert_eq!(ids(&from_outputs(&forward).expect("complete")), expected);
+    assert_eq!(ids(&from_outputs(&backward).expect("complete")), expected);
+}
+
+#[test]
 fn the_order_follows_the_names_not_the_advertisement_order() {
     let forward = [
         output("eDP-1", 0, 0),
