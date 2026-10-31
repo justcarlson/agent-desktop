@@ -23,6 +23,7 @@ sha256_of() {
 }
 
 # Prints one problem per line for the protocol folder $1 and notice file $2.
+# shellcheck disable=SC2016
 problems_in() {
     local dir=$1 notices=$2 provenance="$1/PROVENANCE.md"
     local listed=" " line file revision digest actual path name
