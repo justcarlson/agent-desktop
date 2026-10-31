@@ -208,6 +208,24 @@ agent-desktop list-displays
 - A socket that closes the connection gives `PLATFORM_NOT_SUPPORTED` with
   cause `missing`.
 
+### System libwayland build
+
+The default build speaks the Wayland protocol in pure Rust. A build with the
+`agent-desktop-linux/wayland-dlopen` cargo feature uses the system
+libwayland-client instead and loads it with `dlopen` at the first Wayland
+connection.
+
+- When `libwayland-client.so.0` cannot be loaded, the command gives
+  `PLATFORM_NOT_SUPPORTED`. `platform_detail` names the library and the
+  socket.
+- Measured on x86_64 with glibc 2.39: the release binary is 7,098,920 bytes
+  without the feature and 7,107,568 bytes with it (+8,648). Section padding
+  moves both sizes in 4 KiB steps, so other changes shift them by that much.
+- The feature adds no `NEEDED` entry. `readelf -d` lists `libgcc_s.so.1`,
+  `libm.so.6` and `libc.so.6` for both builds.
+- It adds the `dlopen`, `dlerror` and `dlclose` imports at `GLIBC_2.34`, below
+  the 2.35 floor. The highest glibc version each build needs is the same.
+
 ## Wayland keys
 
 Wayland keys use one detected backend, `org.gnome.Mutter.RemoteDesktop` on the
