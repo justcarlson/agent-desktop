@@ -1,0 +1,25 @@
+entry @s1blzu6p4lsqis:e2 states=[]
+== A: Tab with a minimal generated keymap (wtype style)
+sent_events=2 keymap_bytes=229 hold_ms=0
+entry states=[]
+== B: Tab with a full us keymap, evdev KEY_TAB
+rawkeys sent=2
+entry states=['focused']
+== devices before
+  kbd 'wl_keyboard' layout=de active_keymap='German' main=True
+== C: type 'Hello é' with a minimal generated keymap, 300 ms per key
+== devices during
+  kbd 'wl_keyboard' layout=de active_keymap='German' main=False
+  kbd 'hl-virtual-keyboard-wlprobe' layout=de active_keymap='error' main=True
+sent_events=14 keymap_bytes=387 hold_ms=0
+== devices after
+  kbd 'wl_keyboard' layout=de active_keymap='German' main=True
+AT-SPI value: {"version":"2.5","ok":true,"command":"get","data":{"property":"value","ref":"@s1blzu6p4lsqis:e2","value":"Hello é"}}
+== D: same text, 5 ms per key, after clearing
+sent_events=14 keymap_bytes=387 hold_ms=0
+AT-SPI value: {"version":"2.5","ok":true,"command":"get","data":{"property":"value","ref":"@s1blzu6p4lsqis:e2","value":"Hello é"}}
+== devices end
+  kbd 'wl_keyboard' layout=de active_keymap='German' main=True
+== app key log
+press Tab 9 focus= Button;press Tab 23 focus= Button;press H 9 focus= Entry;entry 'H';press e 10 focus= Entry;entry 'He';press l 11 focus= Entry;entry 'Hel';press l 11 focus= Entry;entry 'Hell';press o 12 focus= Entry;entry 'Hello';press space 13 focus= Entry;entry 'Hello ';press eacute 14 focus= Entry;entry 'Hello é';entry '';press H 9 focus= Entry;entry 'H';press e 10 focus= Entry;entry 'He';press l 11 focus= Entry;entry 'Hel';press l 11 focus= Entry;entry 'Hell';press o 12 focus= Entry;entry 'Hello';press space 13 focus= Entry;entry 'Hello ';press eacute 14 focus= Entry;entry 'Hello é';
+== client keymap events (size): 37532 1532 37532 35572 37532 1710 37532 1710 37532 

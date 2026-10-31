@@ -1,0 +1,48 @@
+is-active True
+press Tab 9 focus= Button
+release Tab 9 focus= Button
+press Tab 23 focus= Button
+release Tab 23 focus= Entry
+press H 9 focus= Entry
+entry 'H'
+release H 9 focus= Entry
+press e 10 focus= Entry
+entry 'He'
+release e 10 focus= Entry
+press l 11 focus= Entry
+entry 'Hel'
+release l 11 focus= Entry
+press l 11 focus= Entry
+entry 'Hell'
+release l 11 focus= Entry
+press o 12 focus= Entry
+entry 'Hello'
+release o 12 focus= Entry
+press space 13 focus= Entry
+entry 'Hello '
+release space 13 focus= Entry
+press eacute 14 focus= Entry
+entry 'Hello é'
+release eacute 14 focus= Entry
+entry ''
+press H 9 focus= Entry
+entry 'H'
+release H 9 focus= Entry
+press e 10 focus= Entry
+entry 'He'
+release e 10 focus= Entry
+press l 11 focus= Entry
+entry 'Hel'
+release l 11 focus= Entry
+press l 11 focus= Entry
+entry 'Hell'
+release l 11 focus= Entry
+press o 12 focus= Entry
+entry 'Hello'
+release o 12 focus= Entry
+press space 13 focus= Entry
+entry 'Hello '
+release space 13 focus= Entry
+press eacute 14 focus= Entry
+entry 'Hello é'
+release eacute 14 focus= Entry

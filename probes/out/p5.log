@@ -1,0 +1,29 @@
+monitors [('PROBE', 1280, 800, '1')]
+0x5637638a1e00 2593365 1 1238x758 21,21 'ADTest'
+activewindow 0x5637638a1e00 1 'ADTest'
+== layers before
+cursor ready pid=2593421 surfaces=2
+cursor client pid=2593421 start=8883142
+== layers with cursor client
+  layer PROBE level=3 agent-desktop-cursor pid=2593421 at=200,10 size=32x32
+  layer PROBE level=3 agent-desktop-cursor pid=2593421 at=400,40 size=32x32
+== focus with cursor client
+activewindow 0x5637638a1e00 1 'ADTest'
+== keyboard still reaches the app: Tab with a full us keymap
+rawkeys sent=2
+entry states: ['focused']
+activewindow 0x5637638a1e00 1 'ADTest'
+== window capture (ext_image_copy_capture) with cursors over the window
+session done=true stopped=false size=1238x758 shm_formats=[0, 1]
+f1_first: arrived=true ready=true failed=None ms=5 damage=[(0, 0, 1238, 758)]
+  no cursor colours
+== output capture (zwlr_screencopy, overlay_cursor=0) with cursors
+screencopy buffer ok=true fmt=0 1280x800 stride=5120
+screencopy ready=true failed=false flags=0
+  1024: (0,0,255) #0000FF blue
+  1024: (255,0,0) #FF0000 red
+== stop cursor client (exact pid 2593421)
+== layers after exit
+screencopy buffer ok=true fmt=0 1280x800 stride=5120
+screencopy ready=true failed=false flags=0
+  no cursor colours

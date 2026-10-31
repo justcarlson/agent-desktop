@@ -1,0 +1,32 @@
+Hyprland 0.56.2 built from branch v0.56.2 at commit efb50993780079460b0cbed1363e2166a2de1d9f clean ([gha] Nix: update inputs).
+== hyprctl clients (address pid workspace size at title)
+0x560d70f647f0 2418151 1 921x988 954,21 'ADTest'
+0x560d70f743f0 2418153 1 921x488 21,521 'ADOther'
+0x560d70f84240 2418149 1 457x488 21,21 'ADTest'
+0x560d70f943d0 2418154 1 452x241 490,21 'ADTwin'
+0x560d70f99860 2418154 1 452x235 490,274 'ADTwin'
+== wlprobe list
+{"ext_identifier":"18000002","title":"ADTest","app_id":"-c","address":"0x560d70f647f0","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000003","title":"ADOther","app_id":"-c","address":"0x560d70f743f0","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000004","title":"ADTest","app_id":"-c","address":"0x560d70f84240","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000005","title":"ADTwin","app_id":"two_windows.py","address":"0x560d70f943d0","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000006","title":"ADTwin","app_id":"two_windows.py","address":"0x560d70f99860","map_failed":false,"wlr_states":[2]}
+ext=5 wlr=5
+== second wlprobe list (identifier stability across clients)
+ext=5 wlr=5
+{"ext_identifier":"18000002","title":"ADTest","app_id":"-c",
+{"ext_identifier":"18000003","title":"ADOther","app_id":"-c"
+{"ext_identifier":"18000004","title":"ADTest","app_id":"-c",
+{"ext_identifier":"18000005","title":"ADTwin","app_id":"two_
+{"ext_identifier":"18000006","title":"ADTwin","app_id":"two_
+== agent-desktop list-windows
+[{"accessible": true, "app_name": "python3.14", "bounds": {"height": 235.0, "width": 452.0, "x": 0.0, "y": 0.0}, "id": "w-1.4-org-a11y-atspi-accessible-7", "is_focused": true, "minimized": false, "pid": 2418154, "process_instance": "<boot>:8831153", "title": "ADTwin", "visible": true}, {"accessible": true, "app_name": "python3.14", "bounds": {"height": 988.0, "width": 921.0, "x": 0.0, "y": 0.0}, "id": "w-1.5-org-a11y-atspi-accessible-5", "is_focused": false, "minimized": false, "pid": 2418151, "process_instance": "<boot>:8831153", "title": "ADTest", "visible": true}, {"accessible": true, "app_name": "python3.14", "bounds": {"height": 241.0, "width": 452.0, "x": 0.0, "y": 0.0}, "id": "w-1.4-org-a11y-atspi-accessible-6", "is_focused": false, "minimized": false, "pid": 2418154, "process_instance": "<boot>:8831153", "title": "ADTwin", "visible": true}, {"accessible": true, "app_name": "python3.14", "bounds": {"height": 488.0, "width": 457.0, "x": 0.0, "y": 0.0}, "id": "w-1.6-org-a11y-atspi-accessible-6", "is_focused": false, "minimized": false, "pid": 2418149, "process_instance": "<boot>:8831153", "title": "ADTest", "visible": true}, {"accessible": true, "app_name": "python3.14", "bounds": {"height": 488.0, "width": 921.0, "x": 0.0, "y": 0.0}, "id": "w-1.7-org-a11y-atspi-accessible-6", "is_focused": false, "minimized": false, "pid": 2418153, "process_instance": "<boot>:8831153", "title": "ADOther", "visible": true}]
+pids 2418149 2418151 2418153 twin=2418154
+snapshot w-1.4-org-a11y-atspi-accessible-7
+{"version":"2.5","ok":true,"command":"snapshot","data":{"app":"python3.14","complete":true,"ref_count":1,"snapshot_id":"s3a68t37luc00c","tree":{"children":[{"children":[{"available_actions":["Click","SetValue","TypeText","SetFocus"],"ref_id":"@s3a68t37luc00c:e1","role":"textfield","states":["focused"]}],"role":"group"}],"name":"ADTwin","role":"window"},"window":{"id":"w-1.4-org-a11y-atspi-accessible-7","title":"ADTwin"}}}
+
+snapshot w-1.4-org-a11y-atspi-accessible-6
+{"version":"2.5","ok":true,"command":"snapshot","data":{"app":"python3.14","complete":true,"ref_count":1,"snapshot_id":"s647y4y5fis7q","tree":{"children":[{"children":[{"available_actions":["Click","SetValue","TypeText","SetFocus"],"ref_id":"@s647y4y5fis7q:e1","role":"textfield"}],"role":"group"}],"name":"ADTwin","role":"window"},"window":{"id":"w-1.4-org-a11y-atspi-accessible-6","title":"ADTwin"}}}
+
+pid 2418149 start=8831153
+pid 2418151 start=8831153

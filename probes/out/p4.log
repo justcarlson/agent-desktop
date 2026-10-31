@@ -1,0 +1,34 @@
+monitors [('PROBE', 1280, 800, '1')]
+A=0x561c0512f650 wid=w-1.4-org-a11y-atspi-accessible-5
+0x561c0512f650 2582837 1 613x758 646,21 'ADTest'
+activewindow 0x561c0512f650 1 'ADTest'
+activeworkspace 1 monitor_special=-
+== capture visible (count 0)
+target ext_identifier=18000002 title="ADTest"
+session done=true stopped=false size=613x758 shm_formats=[0, 1]
+f1_first: arrived=true ready=true failed=None ms=14 damage=[(0, 0, 613, 758)]
+f2_static: arrived=true ready=true failed=None ms=7 damage=[(0, 0, 613, 758)]
+between: agent-desktop click @s39qw1bgmvjez:e1 > /dev/null; sleep 0.2 -> exit status: 0
+f3_after: arrived=true ready=true failed=None ms=4 damage=[(0, 0, 613, 758)]
+diff f1-f2 pixels=Some(0) f1-f3 pixels=Some(328) total=464654
+after: count 1
+ok
+0x561c0512f650 2582837 special:hid 1238x758 21,21 'ADTest'
+activewindow 0x561c05148150 1 'ADOther'
+activeworkspace 1 monitor_special=-
+== capture hidden (count 1)
+target ext_identifier=18000002 title="ADTest"
+session done=true stopped=false size=1238x758 shm_formats=[0, 1]
+f1_first: arrived=true ready=true failed=None ms=15 damage=[(0, 0, 1238, 758)]
+f2_static: arrived=true ready=true failed=None ms=9 damage=[(0, 0, 1238, 758)]
+between: agent-desktop click @ssrlzaxrs9cim:e1 > /dev/null; sleep 0.2 -> exit status: 0
+f3_after: arrived=true ready=true failed=None ms=9 damage=[(0, 0, 1238, 758)]
+diff f1-f2 pixels=Some(0) f1-f3 pixels=Some(360) total=938404
+after: count 2
+== hidden again, static window, 3 frames in a row with no change
+target ext_identifier=18000002 title="ADTest"
+session done=true stopped=false size=1238x758 shm_formats=[0, 1]
+f1_first: arrived=true ready=true failed=None ms=2 damage=[(0, 0, 1238, 758)]
+f2_static: arrived=true ready=true failed=None ms=10 damage=[(0, 0, 1238, 758)]
+f3_after: arrived=true ready=true failed=None ms=9 damage=[(0, 0, 1238, 758)]
+diff f1-f2 pixels=Some(0) f1-f3 pixels=Some(0) total=938404

@@ -1,0 +1,67 @@
+A=0x5575ca965a50 B=0x5575ca98af00 C=0x5575ca955e50 twins=0x5575ca9757a0 0x5575ca97adb0
+== R2 twins floating, same size, same position
+ok
+ok
+0x5575ca9757a0 2428178 3 400x300 700,400 'ADTwin'
+0x5575ca97adb0 2428178 3 400x300 700,400 'ADTwin'
+atspi w-1.5-org-a11y-atspi-accessible-6 2428178 {'height': 300.0, 'width': 400.0, 'x': 0.0, 'y': 0.0} False ADTwin
+atspi w-1.5-org-a11y-atspi-accessible-7 2428178 {'height': 300.0, 'width': 400.0, 'x': 0.0, 'y': 0.0} False ADTwin
+== setup: B to workspace 2, C to special:hid, focus A
+ok
+ok
+ok
+0x5575ca955e50 2428177 special:hid 1854x988 21,21 'ADSpecial'
+0x5575ca965a50 2428173 1 1854x988 21,21 'ADTest'
+0x5575ca98af00 2428175 2 1854x988 21,21 'ADOther'
+0x5575ca9757a0 2428178 3 400x300 700,400 'ADTwin'
+0x5575ca97adb0 2428178 3 400x300 700,400 'ADTwin'
+activewindow 0x5575ca965a50 1 'ADTest'
+activeworkspace 1 monitor_special=-
+== activate B on non-active workspace 2 (0x5575ca98af00)
+before: [("0x5575ca955e50", "ADSpecial", []), ("0x5575ca965a50", "ADTest", [2]), ("0x5575ca98af00", "ADOther", []), ("0x5575ca9757a0", "ADTwin", []), ("0x5575ca97adb0", "ADTwin", [])]
+after_ms=0 after: [("0x5575ca955e50", "ADSpecial", [], []), ("0x5575ca965a50", "ADTest", [], ["state[]"]), ("0x5575ca98af00", "ADOther", [2], ["state[2]"]), ("0x5575ca9757a0", "ADTwin", [], []), ("0x5575ca97adb0", "ADTwin", [], [])]
+activewindow 0x5575ca98af00 2 'ADOther'
+activeworkspace 2 monitor_special=-
+atspi_focused ['ADOther']
+ext=5 wlr=5
+wlr 0x5575ca955e50 ADSpecial []
+wlr 0x5575ca965a50 ADTest []
+wlr 0x5575ca98af00 ADOther [2]
+wlr 0x5575ca9757a0 ADTwin []
+wlr 0x5575ca97adb0 ADTwin []
+== activate A back on workspace 1 (0x5575ca965a50)
+before: [("0x5575ca955e50", "ADSpecial", []), ("0x5575ca965a50", "ADTest", []), ("0x5575ca98af00", "ADOther", [2]), ("0x5575ca9757a0", "ADTwin", []), ("0x5575ca97adb0", "ADTwin", [])]
+after_ms=0 after: [("0x5575ca955e50", "ADSpecial", [], []), ("0x5575ca965a50", "ADTest", [2], ["state[2]"]), ("0x5575ca98af00", "ADOther", [], ["state[]"]), ("0x5575ca9757a0", "ADTwin", [], []), ("0x5575ca97adb0", "ADTwin", [], [])]
+activewindow 0x5575ca965a50 1 'ADTest'
+activeworkspace 1 monitor_special=-
+atspi_focused ['ADTest']
+ext=5 wlr=5
+wlr 0x5575ca955e50 ADSpecial []
+wlr 0x5575ca965a50 ADTest [2]
+wlr 0x5575ca98af00 ADOther []
+wlr 0x5575ca9757a0 ADTwin []
+wlr 0x5575ca97adb0 ADTwin []
+== activate C on hidden special:hid (0x5575ca955e50)
+before: [("0x5575ca955e50", "ADSpecial", []), ("0x5575ca965a50", "ADTest", [2]), ("0x5575ca98af00", "ADOther", []), ("0x5575ca9757a0", "ADTwin", []), ("0x5575ca97adb0", "ADTwin", [])]
+after_ms=0 after: [("0x5575ca955e50", "ADSpecial", [2], ["state[2]"]), ("0x5575ca965a50", "ADTest", [], ["state[]"]), ("0x5575ca98af00", "ADOther", [], []), ("0x5575ca9757a0", "ADTwin", [], []), ("0x5575ca97adb0", "ADTwin", [], [])]
+activewindow 0x5575ca955e50 special:hid 'ADSpecial'
+activeworkspace 1 monitor_special=special:hid
+atspi_focused ['ADSpecial']
+ext=5 wlr=5
+wlr 0x5575ca955e50 ADSpecial [2]
+wlr 0x5575ca965a50 ADTest []
+wlr 0x5575ca98af00 ADOther []
+wlr 0x5575ca9757a0 ADTwin []
+wlr 0x5575ca97adb0 ADTwin []
+== activate A again (does special close?) (0x5575ca965a50)
+before: [("0x5575ca955e50", "ADSpecial", [2]), ("0x5575ca965a50", "ADTest", []), ("0x5575ca98af00", "ADOther", []), ("0x5575ca9757a0", "ADTwin", []), ("0x5575ca97adb0", "ADTwin", [])]
+after_ms=0 after: [("0x5575ca955e50", "ADSpecial", [], ["state[]"]), ("0x5575ca965a50", "ADTest", [2], ["state[2]", "state[2]", "state[2]"]), ("0x5575ca98af00", "ADOther", [], []), ("0x5575ca9757a0", "ADTwin", [], []), ("0x5575ca97adb0", "ADTwin", [], [])]
+activewindow 0x5575ca965a50 1 'ADTest'
+activeworkspace 1 monitor_special=-
+atspi_focused ['ADTest']
+ext=5 wlr=5
+wlr 0x5575ca955e50 ADSpecial []
+wlr 0x5575ca965a50 ADTest [2]
+wlr 0x5575ca98af00 ADOther []
+wlr 0x5575ca9757a0 ADTwin []
+wlr 0x5575ca97adb0 ADTwin []

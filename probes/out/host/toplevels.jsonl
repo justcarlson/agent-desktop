@@ -1,0 +1,3 @@
+{"ext_identifier":"18000035","title":"a terminal window","app_id":"terminal","address":"0x55a7c449c260","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000030","title":"an Electron app window","app_id":"electron-app","address":"0x55a7c46f79c0","map_failed":false,"wlr_states":[]}
+{"ext_identifier":"18000006","title":"a browser window","app_id":"browser","address":"0x55a7c42aa440","map_failed":false,"wlr_states":[2]}
