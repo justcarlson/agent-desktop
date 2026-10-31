@@ -1,8 +1,10 @@
 //! The R1 binding decision. One Hyprland instance is bound only when its IPC
 //! socket answers and a Wayland socket served by the same compositor process
 //! answers a registry round trip. An explicitly named instance is checked
-//! alone; discovery reads every instance directory and refuses when more than
-//! one answers. A silent endpoint refuses instead of being skipped, because
+//! alone, and one that does not answer refuses rather than falling back to
+//! discovery, unless the named Wayland socket belongs to a compositor that
+//! owns no instance. Discovery reads every instance directory and refuses when
+//! more than one answers. A silent endpoint refuses instead of being skipped, because
 //! skipping it could bind a compositor the caller did not mean.
 
 use std::path::Path;
@@ -11,6 +13,7 @@ use agent_desktop_core::Deadline;
 
 pub(crate) use super::bind_refusal::BindRefusal;
 pub(crate) use super::bind_request::BindRequest;
+use super::bind_request::plain_signature;
 pub(crate) use super::hyprland_binding::HyprlandBinding;
 pub(crate) use super::ipc_answer::IpcAnswer;
 pub(crate) use super::observe::Observe;
@@ -50,10 +53,20 @@ pub(crate) fn bind(
         deadline,
         explicit: true,
     };
-    if let Some(signature) = &request.signature
-        && let Some(instance) = answering(observe, &hypr_dir, signature, deadline)?
-    {
-        return pairing.pair(instance);
+    if let Some(signature) = &request.signature {
+        if plain_signature(signature)
+            && let Some(instance) = answering(observe, &hypr_dir, signature, deadline)?
+        {
+            return pairing.pair(instance);
+        }
+        if pairing.serves_no_instance(&hypr_dir, &observe.signatures(&hypr_dir)) {
+            return Ok(None);
+        }
+        return Err(BindRefusal::Mismatch {
+            detail: format!(
+                "HYPRLAND_INSTANCE_SIGNATURE {signature} names no live Hyprland instance"
+            ),
+        });
     }
     pairing.explicit = false;
     let signatures = observe.signatures(&hypr_dir);

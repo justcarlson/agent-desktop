@@ -21,8 +21,8 @@ the same compositor process. The bind has a 1 s budget across every socket it
 tries, and the CLI never runs `hyprctl`.
 
 - With `HYPRLAND_INSTANCE_SIGNATURE` set, only that instance is read, even
-  when others run. A signature whose instance has exited is ignored and the
-  CLI searches for one.
+  when others run. A signature whose instance has exited refuses with
+  `hyprland_mismatch`; the CLI does not search for another.
 - With no display variables set, as in an SSH shell, the CLI searches the
   user's runtime directory (`/run/user/<uid>` when `XDG_RUNTIME_DIR` is
   unset). One live instance is bound and the session is treated as Wayland.
@@ -35,7 +35,7 @@ The bind refuses instead of guessing. `list-displays` reports the refusal:
 | Cause in `details.display_unavailable` | Code | When |
 |---|---|---|
 | `hyprland_ambiguous` | `PLATFORM_NOT_SUPPORTED` | Several instances answer, none is named, and `WAYLAND_DISPLAY` is unset or served by one of them. `details.signatures` lists them; set `HYPRLAND_INSTANCE_SIGNATURE` to choose |
-| `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
+| `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance is not live, the named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
 | `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
 
 Other commands on Hyprland behave as on a generic Wayland session.
