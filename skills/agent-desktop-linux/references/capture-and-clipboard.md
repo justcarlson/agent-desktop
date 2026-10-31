@@ -1,7 +1,7 @@
 # Capture and Clipboard on Linux
 
 X11 needs no permission and no outside tool. A bound Hyprland captures a
-display through the compositor and asks nobody. Other Wayland desktops ask a
+window or a display through the compositor and asks nobody. Other Wayland desktops ask a
 person once for `screenshot`. The Wayland clipboard needs `wl-clipboard`. `agent-desktop permissions` shows the
 case: `screen_recording` is `not_required` on X11 and `unknown` on Wayland.
 `screenshot` has no timeout flag.
@@ -47,14 +47,33 @@ agent-desktop screenshot /tmp/everything.png
 
 ## `screenshot` on Hyprland
 
-On a bound Hyprland, a display capture uses the compositor's
-`zwlr_screencopy_v1`. It never asks the portal, so no dialog appears, and it
-never falls back to the portal when the compositor refuses.
+On a bound Hyprland, a window capture uses the compositor's
+`ext_image_copy_capture_v1` and a display capture its `zwlr_screencopy_v1`.
+It never asks the portal, so no dialog appears, and it never falls back to the
+portal when the compositor refuses.
 
 ```bash
+agent-desktop list-windows --app foot
+agent-desktop screenshot --window-id <id from list-windows> /tmp/foot.png
 agent-desktop list-displays
 agent-desktop screenshot --screen 1 /tmp/second.png
 ```
+
+- A window target (`--app`, `--window-id`) binds to exactly one toplevel, the
+  way `focus-window` does. A window on a hidden special workspace, on a
+  workspace out of view, or with no accessibility tree is captured where it
+  is. Nothing is activated, shown or moved.
+- A window in view is captured from one frame. In view means it is on the
+  workspace its monitor shows, or on the special workspace open over it, and
+  no other window on its workspace is fullscreen or maximized.
+- Any other window is drawn from the buffer it last drew, which can be
+  seconds old. The capture makes the window draw, then returns the first
+  frame whose pixels changed. A window whose pixels stay the same for at
+  least 250 ms returns that unchanged frame. A drawing that lands later is
+  not waited for, so capture again to see it.
+- A window that matches no toplevel, or closes or changes during the
+  capture, is `WINDOW_NOT_FOUND`, with no pixels. A window that matches
+  several toplevels is `AMBIGUOUS_TARGET` with `details.candidates`.
 
 - `--screen N` captures the output `list-displays` names at index `N`, at its
   full pixel size. No selector captures the primary display.
@@ -66,13 +85,12 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   answers `PERM_DENIED` with `details.option` and `details.enforced: true`.
   Nothing is requested and no dialog appears. Set the option to false to
   capture.
-- No frame before the deadline is `TIMEOUT` with `details.kind:
-  "capture_frame"`. A frame the compositor refuses is `ACTION_FAILED` with
-  `details.kind: "capture_refused"`.
+- No frame before the deadline, or a deadline that ends the wait for a
+  window's new drawing, is `TIMEOUT` with `details.kind: "capture_frame"`. A
+  frame the compositor refuses is `ACTION_FAILED` with `details.kind:
+  "capture_refused"`.
 - A display that is removed or changes during the capture is
   `INVALID_ARGS`.
-- A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on
-  Hyprland in this release.
 - Every error before the image is written is `not_delivered` with
   `retry: safe`, and no file is created. `docs/json-output.md` lists every
   code.
@@ -109,7 +127,8 @@ agent-desktop screenshot /tmp/desktop.png
 - A known display layout is rechecked after consent, including when it had only
   one monitor. A changed layout returns `ACTION_FAILED` without pixels.
 - A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on
-  Wayland, permanently. Capture a display, or read the window with `snapshot`.
+  these desktops and never reaches the portal. Capture a display, or read the
+  window with `snapshot`.
 - The portal writes the PNG under the user's home. The CLI accepts the file only
   inside the temp, runtime or home directory, checks it is a regular file of the
   user made for this request, reads it and removes it.
