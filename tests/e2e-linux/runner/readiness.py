@@ -45,6 +45,10 @@ def probe(tier, app):
         if not shell.name:
             raise RuntimeError("shell AT-SPI name missing")
         shell.children()
+    elif tier.name == "hyprland":
+        from runner import attached_session
+        attached_session.probe(tier)
+        raw.registry(tier)
     else:
         if "window id" not in tool(tier, ["xprop", "-root", "_NET_SUPPORTING_WM_CHECK"]):
             raise RuntimeError("X11 window manager is unavailable")
@@ -57,7 +61,7 @@ def probe(tier, app):
 
 def wait_ready(tier, app=None, *, seconds=45.0):
     deadline = time.monotonic() + seconds
-    last = "no responsiveness sample"
+    last = cause = "no responsiveness sample"
     while True:
         try:
             with raw.bounded_until(deadline):
@@ -67,7 +71,10 @@ def wait_ready(tier, app=None, *, seconds=45.0):
             return
         except Exception as error:
             last = f"{type(error).__name__}: {error}"
+            if str(error) != raw.DEADLINE_EXPIRED:
+                cause = last
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise TierUnavailable(f"{tier.name}: WM/AT-SPI responsiveness gate expired: {last}")
+            reason = last if cause in (last, "no responsiveness sample") else f"{last}; last cause: {cause}"
+            raise TierUnavailable(f"{tier.name}: WM/AT-SPI responsiveness gate expired: {reason}")
         time.sleep(min(0.1, remaining))

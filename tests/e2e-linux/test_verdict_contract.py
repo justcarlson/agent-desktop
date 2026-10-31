@@ -232,6 +232,18 @@ class VerdictRuleTests(unittest.TestCase):
         self.assertTrue(any("owned-process set changed" in f for f in failures))
         self.assertTrue(any("joined" in f for f in failures))
 
+    def test_a_joined_process_is_described_by_its_state_and_cgroup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "12").mkdir()
+            (root / "12" / "stat").write_text("12 (gnome-calculato) S 1 12 12 0\n")
+            (root / "12" / "cgroup").write_text("0::/user.slice/run.slice/app.scope\n")
+            text = verdict.describe(12, root)
+            self.assertIn("gnome-calculato", text)
+            self.assertIn("S", text)
+            self.assertIn("run.slice", text)
+            self.assertIn("gone", verdict.describe(13, root))
+
     def test_departed_attributed_app_fails_the_leg(self):
         ctx = self.ctx()
         ctx.before("atspi", "a")
