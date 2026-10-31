@@ -96,12 +96,14 @@ pub(super) fn open_system_surface(
 pub(super) fn focus_window(
     args: FocusWindowArgs,
     adapter: &dyn PlatformAdapter,
+    context: &agent_desktop_core::context::CommandContext,
 ) -> Result<Value, AppError> {
     focus_window_command::execute(
         focus_window_command::FocusWindowArgs {
             window_id: args.window_id,
             app: args.app,
             title: args.title,
+            policy: context.physical_input_policy(),
         },
         adapter,
     )

@@ -76,6 +76,19 @@ pub trait SystemOps: Send + Sync {
         Err(AdapterError::not_supported("focus_window"))
     }
 
+    /// Focuses the exact window for `focus-window` under `policy` and reports
+    /// how focus was proven and what else the desktop changed. A platform
+    /// that leaves this unimplemented gets `focus_window` and core's
+    /// confirmation instead.
+    fn focus_window_reported(
+        &self,
+        _win: &WindowInfo,
+        _policy: InteractionPolicy,
+        _lease: &InteractionLease,
+    ) -> Result<crate::FocusOutcome, AdapterError> {
+        Err(AdapterError::not_supported("focus_window_reported"))
+    }
+
     fn launch_app(
         &self,
         _id: &str,
@@ -237,7 +250,7 @@ pub trait SystemOps: Send + Sync {
         &self,
         _process: ProcessIdentity,
         _combo: &crate::KeyCombo,
-        _policy: crate::InteractionPolicy,
+        _policy: InteractionPolicy,
         _lease: &InteractionLease,
     ) -> Result<ActionResult, AdapterError> {
         Err(AdapterError::not_supported("press_key_for_app"))
