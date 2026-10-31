@@ -66,6 +66,7 @@ pub(crate) fn list_windows(
     filter: &WindowFilter,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
+    crate::ltrace(format!("list_windows start filter app={:?}", filter.app));
     let pending = x11::start(|| DisplayReader.read());
     let desktops = x11::start(desktops::read);
     let stack = x11::start(client_stack::read);
@@ -88,6 +89,11 @@ pub(crate) fn list_windows(
     };
     let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
     let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
+    crate::ltrace(format!(
+        "list_windows filter app={:?} pass windows: {}",
+        filter.app,
+        crate::system::registry::lw(&pass.windows)
+    ));
     let windows = settle_scoped(pass.windows, stopped)?;
     pass.windows = require_answered(windows, &pass.outcomes, filter.app.is_some())?;
     finish_listing(
@@ -100,10 +106,15 @@ pub(crate) fn list_windows(
         windows.retain(|window| window.info.state.is_focused);
     }
     let stack = stack.finish(deadline).flatten();
-    Ok(front_to_back(windows, &state, stack.as_deref())
+    let listed: Vec<WindowInfo> = front_to_back(windows, &state, stack.as_deref())
         .into_iter()
         .map(|window| window.info)
-        .collect())
+        .collect();
+    crate::ltrace(format!(
+        "list_windows end ids: {:?}",
+        listed.iter().map(|w| w.id.as_str()).collect::<Vec<_>>()
+    ));
+    Ok(listed)
 }
 
 /// The windows of one process, placed as `list_windows` places them. Only

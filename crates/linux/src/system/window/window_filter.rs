@@ -48,6 +48,26 @@ fn classified(
     for window in windows {
         deadline.ensure_remaining()?;
         let pid = window.frame.pid;
+        crate::ltrace(format!(
+            "classify {} pid={} unshown={} absent={} complete={} windowed={} users={:?} helpers={:?} -> {:?}",
+            window.info.id,
+            pid,
+            window.unshown,
+            population.absent.contains(&pid),
+            population.complete.contains(&pid),
+            population.windowed.contains(&pid),
+            population.users.get(&pid),
+            population.helper_ids,
+            native_group::classify(
+                window,
+                windows,
+                &population.clients,
+                population.users.get(&pid).unwrap_or(&no_users),
+                &population.helper_ids,
+                population.complete.contains(&pid)
+            )
+            .map_err(|e| e.message)
+        ));
         if window.unshown {
             listed.push(window.clone());
             continue;

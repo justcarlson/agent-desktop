@@ -133,6 +133,14 @@ pub(crate) fn read_frames(
     deadline: Deadline,
 ) -> Result<Vec<FrameRead>, AdapterError> {
     let mut frames = crate::system::registry::registry_frames::read_frames(bus, roots, deadline)?;
+    for (root, frame) in roots.iter().zip(&frames) {
+        crate::ltrace(format!(
+            "raw frames pid={} read={:?} nodes={}",
+            root.pid(),
+            frame.read,
+            frame.nodes.len()
+        ));
+    }
     for frame in &mut frames {
         exclude_popup_menus(&mut frame.nodes, |node| {
             let connection = bus.get(deadline).ok()?;
@@ -147,6 +155,7 @@ pub(crate) fn read_frames(
             .flatten()
         });
     }
+    crate::ltrace("popup exclusion done");
     Ok(frames)
 }
 
