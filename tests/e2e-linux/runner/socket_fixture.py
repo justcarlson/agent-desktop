@@ -106,7 +106,7 @@ def stale_instances(work: Path) -> list[str]:
 
 def private_runtime(work: Path) -> Path:
     """A new runtime directory with only stale instances, for the no-live-instance case."""
-    runtime = Path(tempfile.mkdtemp(prefix="no-live-runtime.", dir=work))
+    runtime = Path(tempfile.mkdtemp(prefix="nl.", dir=work))
     (runtime / "hypr" / "ad_e2e_stale_plain").mkdir(parents=True, mode=0o700)
     (runtime / "hypr" / "ad_e2e_stale_plain" / ".socket.sock").write_bytes(b"")
     dead = runtime / "hypr" / "ad_e2e_stale_dead"

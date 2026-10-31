@@ -104,6 +104,12 @@ class FixtureDirectoryTests(Workspace):
         self.assertNotEqual(first, second)
         self.assertEqual(len(list((second / "hypr").iterdir())), 2)
 
+    def test_the_private_runtime_fits_a_socket_under_the_deepest_session_base(self):
+        deepest = len("/run/user/4294967294/agent-desktop-sessions/rt.abcdefgh")
+        work = self.root / ("w" * (deepest - len(str(self.root)) - 1))
+        work.mkdir()
+        socket_fixture.private_runtime(work)
+
 
 class SecondInstanceTests(Workspace):
     def test_both_config_languages_set_a_fixed_mode_and_no_animations(self):
@@ -111,6 +117,13 @@ class SecondInstanceTests(Workspace):
         self.assertIn("monitor = ,", second_instance.config_text(False))
         for lua in (True, False):
             self.assertIn(second_instance.MODE, second_instance.config_text(lua))
+
+    def test_the_second_instance_opens_no_update_or_donation_window(self):
+        for lua in (True, False):
+            with self.subTest(lua=lua):
+                text = second_instance.config_text(lua)
+                for key in ("no_update_news", "no_donation_nag"):
+                    self.assertRegex(text, rf"{key} = true")
 
     def test_the_headless_output_sits_beside_the_first_monitor(self):
         for lua in (True, False):

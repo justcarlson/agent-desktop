@@ -26,12 +26,14 @@ DROPPED = ("HYPRLAND_INSTANCE_SIGNATURE", "AT_SPI_BUS_ADDRESS", "AGENT_DESKTOP_H
 LUA_CONFIG = (
     f'hl.monitor({{ output = "", mode = "{MODE}", position = "0x0", scale = 1 }})\n'
     "hl.config({ misc = { disable_hyprland_logo = true, disable_splash_rendering = true },"
-    " animations = { enabled = false } })\n"
+    " animations = { enabled = false },"
+    " ecosystem = { no_update_news = true, no_donation_nag = true } })\n"
 )
 HYPRLANG_CONFIG = (
     f"monitor = , {MODE}, 0x0, 1\n"
     "misc {\n    disable_hyprland_logo = true\n    disable_splash_rendering = true\n}\n"
     "animations {\n    enabled = false\n}\n"
+    "ecosystem {\n    no_update_news = true\n    no_donation_nag = true\n}\n"
 )
 
 
