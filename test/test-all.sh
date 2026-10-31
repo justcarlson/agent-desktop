@@ -37,7 +37,7 @@ check "a log with no passing check fails" "$([[ $(verdict 'private-session: cras
 
 # Each drift list names only legs its tier registers, and leaves them out.
 eval "$(sed -n '/^[a-z]*_drift=(/,/^)/p; /^legs_except() {/,/^}/p' "$here/all")"
-cd "$here/.."
+cd "$here/.." || exit 2
 for pair in x11-openbox:openbox_drift wayland:wayland_drift hyprland:hyprland_drift; do
   tier=${pair%%:*} list="${pair#*:}[@]"
   legs=$(legs_except "$tier" "${!list}" 2>/dev/null)
