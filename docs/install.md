@@ -57,6 +57,8 @@ cargo build --release -p agent-desktop
 
 On Linux, also run `cargo build --release -p agent-desktop-linux --bins` and keep
 `agent-desktop-linux-clipboard-owner` beside the CLI. npm and the release archives include it.
+The Linux archives and the npm package also carry `THIRD_PARTY_NOTICES.md`, the license of the vendored
+Wayland protocol file in `crates/linux/protocols/`.
 
 ## Permissions
 

@@ -7,6 +7,11 @@ ignore = [
   { id = "RUSTSEC-2026-0372", reason = "Unmaintained advisory on a zbus 5 transitive dependency. zbus 5.19 is the newest release that has the blocking API this crate uses; remove this entry when the crate moves to zbus 6." },
 ]
 
+# This list covers crate dependencies only. The Linux crate also generates code
+# from a vendored BSD-3-Clause Wayland protocol file that no crate carries; its
+# source, hash and license are recorded in crates/linux/protocols/PROVENANCE.md
+# and checked by scripts/check-vendored-protocols.sh, and its notice ships as
+# THIRD_PARTY_NOTICES.md.
 [licenses]
 version = 2
 confidence-threshold = 0.8

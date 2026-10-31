@@ -7,7 +7,7 @@ const root = join(__dirname, '..');
 const npmDir = join(root, 'npm');
 const pkg = require(join(npmDir, 'package.json'));
 const releaseWorkflow = readFileSync(join(root, '.github/workflows/release.yml'), 'utf8');
-const { LINUX_HELPER_NAME, PLATFORMS, tarballName } = require(join(npmDir, 'lib', 'platform.js'));
+const { LINUX_HELPER_NAME, LINUX_NOTICE_NAME, PLATFORMS, tarballName } = require(join(npmDir, 'lib', 'platform.js'));
 const expectedFiles = [
   'bin/agent-desktop',
   'lib/platform.js',
@@ -143,6 +143,13 @@ function workflowViolations(workflow, platforms = PLATFORMS, tarballPatternFor =
     ) {
       violations.push(`${key} must install exactly agent-desktop and ${LINUX_HELPER_NAME}`);
     }
+    if (
+      key.startsWith('linux-') &&
+      entry.released &&
+      JSON.stringify(entry.notices) !== JSON.stringify([LINUX_NOTICE_NAME])
+    ) {
+      violations.push(`${key} archives must carry exactly ${LINUX_NOTICE_NAME} as their notice`);
+    }
   }
 
   // Negative rules stay whole-file: a long-lived token anywhere in the release
@@ -161,6 +168,10 @@ function workflowViolations(workflow, platforms = PLATFORMS, tarballPatternFor =
     ['id-token: write', `${NPM_PUBLISH_JOB} must grant id-token: write for npm trusted publishing`],
     ['package-manager-cache: false', `${NPM_PUBLISH_JOB} must disable package manager caching`],
     ['npm publish --access public', `${NPM_PUBLISH_JOB} must publish through the trusted-publishing command`],
+    [
+      `cp ../${LINUX_NOTICE_NAME} ${LINUX_NOTICE_NAME}`,
+      `${NPM_PUBLISH_JOB} must copy ${LINUX_NOTICE_NAME} into the package`,
+    ],
   ];
   for (const [needle, message] of required) {
     if (!publishNpm.includes(needle)) {
@@ -291,6 +302,7 @@ function selfTest() {
     '      - uses: actions/setup-node@v6',
     '        with:',
     '          package-manager-cache: false',
+    `      - run: cp ../${LINUX_NOTICE_NAME} ${LINUX_NOTICE_NAME}`,
     '      - run: npm publish --access public',
     '',
   ].join('\n');
@@ -302,6 +314,7 @@ function selfTest() {
       target: 'x86_64-unknown-linux-gnu',
       released: true,
       entries: ['agent-desktop', LINUX_HELPER_NAME],
+      notices: [LINUX_NOTICE_NAME],
     },
   };
   const violationsFor = (workflow, platforms = fixturePlatforms) => workflowViolations(workflow, platforms, tarballName);
@@ -327,6 +340,20 @@ function selfTest() {
       ...fixturePlatforms,
       'linux-x64': { ...fixturePlatforms['linux-x64'], entries: ['agent-desktop'] },
     },
+  );
+  expectCaught(
+    'a released Linux entry drops the third-party notices',
+    sound,
+    'linux-x64 archives must carry exactly',
+    {
+      ...fixturePlatforms,
+      'linux-x64': { ...fixturePlatforms['linux-x64'], notices: undefined },
+    },
+  );
+  expectCaught(
+    'the npm job stops copying the third-party notices',
+    sound.replace(`      - run: cp ../${LINUX_NOTICE_NAME} ${LINUX_NOTICE_NAME}\n`, ''),
+    `must copy ${LINUX_NOTICE_NAME}`,
   );
   expectCaught(
     'npm job loses id-token while another job keeps it',

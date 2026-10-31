@@ -172,8 +172,9 @@ jobs:
           VERSION: ${{ inputs.version || format('0.0.0-pr{0}', github.event.pull_request.number) }}
         run: |
           TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"
+          install -m 0644 THIRD_PARTY_NOTICES.md "target/${{ matrix.target }}/release/THIRD_PARTY_NOTICES.md"
           tar -czf "${TARBALL}" -C "target/${{ matrix.target }}/release" \
-            agent-desktop agent-desktop-linux-clipboard-owner
+            agent-desktop agent-desktop-linux-clipboard-owner THIRD_PARTY_NOTICES.md
           scripts/check-linux-archive-contents.sh cli "${TARBALL}"
           sha256sum "${TARBALL}" > "${TARBALL}.sha256"
 
@@ -302,7 +303,10 @@ jobs:
           cat scripts/ffi-archive-readme-linux.md >> "$STAGE/README.md"
           # shellcheck disable=SC2016
           echo '- `lib/agent-desktop-linux-clipboard-owner` — clipboard owner helper, colocated for library-image discovery' >> "$STAGE/README.md"
-          (cd "$STAGE" && sha256sum lib/* include/* LICENSE > SHA256SUMS)
+          install -m 0644 THIRD_PARTY_NOTICES.md "$STAGE/THIRD_PARTY_NOTICES.md"
+          # shellcheck disable=SC2016
+          echo '- `THIRD_PARTY_NOTICES.md` — licenses of the third-party protocol files the library is generated from' >> "$STAGE/README.md"
+          (cd "$STAGE" && sha256sum lib/* include/* LICENSE THIRD_PARTY_NOTICES.md > SHA256SUMS)
           tar -czf "${STAGE}.tar.gz" "${STAGE}"
           (cd "$STAGE" && sha256sum -c SHA256SUMS)
           scripts/check-linux-archive-contents.sh ffi "${STAGE}.tar.gz"

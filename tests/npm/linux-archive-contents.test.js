@@ -10,6 +10,7 @@ const { temporaryDirectory, drainRoots } = createTemporaryRoots();
 const root = join(__dirname, '..', '..');
 const script = join(root, 'scripts', 'check-linux-archive-contents.sh');
 const HELPER = 'agent-desktop-linux-clipboard-owner';
+const NOTICE = 'THIRD_PARTY_NOTICES.md';
 const POSIX_ONLY = process.platform === 'win32' ? 'the check is a bash script' : false;
 
 afterEach(() => {
@@ -25,9 +26,11 @@ function writeMember(dir, relative, contents, mode = 0o755) {
 
 function cliArchive({ omit = [], extra = {}, modes = {} } = {}) {
   const dir = temporaryDirectory();
-  const members = { 'agent-desktop': 'cli', [HELPER]: 'helper', ...extra };
+  const members = { 'agent-desktop': 'cli', [HELPER]: 'helper', [NOTICE]: 'notices', ...extra };
   for (const name of omit) delete members[name];
-  for (const [name, contents] of Object.entries(members)) writeMember(dir, name, contents, modes[name] ?? 0o755);
+  for (const [name, contents] of Object.entries(members)) {
+    writeMember(dir, name, contents, modes[name] ?? (name === NOTICE ? 0o644 : 0o755));
+  }
   const tarball = join(temporaryDirectory(), 'cli.tar.gz');
   execFileSync('tar', ['-czf', tarball, '-C', dir, ...Object.keys(members)]);
   return tarball;
@@ -48,6 +51,7 @@ function ffiArchive({ omit = [], modes = {}, readme = ffiReadme() } = {}) {
     [`lib/${HELPER}`]: 'helper',
     'include/agent_desktop.h': 'header',
     LICENSE: 'license',
+    [NOTICE]: 'notices',
     'README.md': readme,
     SHA256SUMS: 'sums',
   };
@@ -65,7 +69,7 @@ function run(...args) {
   return { code: result.status, out: `${result.stdout}${result.stderr}` };
 }
 
-test('a CLI archive with exactly the executable and the helper passes', { skip: POSIX_ONLY }, () => {
+test('a CLI archive with exactly the executable, the helper and the notices passes', { skip: POSIX_ONLY }, () => {
   const { code, out } = run('cli', cliArchive());
   assert.equal(code, 0, out);
 });
@@ -84,7 +88,25 @@ test('a CLI archive with an extra member fails', { skip: POSIX_ONLY }, () => {
 test('a CLI archive whose helper is not executable fails', { skip: POSIX_ONLY }, () => {
   const { code, out } = run('cli', cliArchive({ modes: { [HELPER]: 0o644 } }));
   assert.equal(code, 1);
-  assert.match(out, /not all executable/);
+  assert.match(out, /executable members/);
+});
+
+test('a CLI archive that omits the third-party notices fails', { skip: POSIX_ONLY }, () => {
+  const { code, out } = run('cli', cliArchive({ omit: [NOTICE] }));
+  assert.equal(code, 1);
+  assert.match(out, /expected exactly/);
+});
+
+test('a CLI archive whose notices file is executable fails', { skip: POSIX_ONLY }, () => {
+  const { code, out } = run('cli', cliArchive({ modes: { [NOTICE]: 0o755 } }));
+  assert.equal(code, 1);
+  assert.match(out, /executable members/);
+});
+
+test('an FFI archive that omits the third-party notices fails', { skip: POSIX_ONLY }, () => {
+  const { code, out } = run('ffi', ffiArchive({ omit: [NOTICE] }));
+  assert.equal(code, 1);
+  assert.match(out, new RegExp(NOTICE));
 });
 
 test('an FFI archive with the library, the helper beside it and the README text passes', { skip: POSIX_ONLY }, () => {
