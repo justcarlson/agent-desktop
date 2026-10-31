@@ -34,18 +34,30 @@ fn sent(compositor: &FakeCompositor) -> Vec<String> {
 }
 
 #[test]
-fn every_mapped_live_toplevel_is_listed_with_its_address_and_state() {
+fn every_mapped_live_toplevel_is_listed_with_its_address_state_and_parent() {
     let (_compositor, session) = open(vec![
         FakeToplevel {
             activated: true,
             ..toplevel("main", Some(0x5555_0000_0010))
         },
         toplevel("unmapped", None),
-        toplevel("save", Some(0x20)),
+        FakeToplevel {
+            parent: Some(0),
+            ..toplevel("save", Some(0x20))
+        },
     ]);
     let windows = session.windows();
-    let seen: Vec<(u64, bool)> = windows.iter().map(|w| (w.address, w.activated)).collect();
-    assert_eq!(seen, vec![(0x5555_0000_0010, true), (0x20, false)]);
+    let seen: Vec<(u64, &str, bool, bool)> = windows
+        .iter()
+        .map(|w| (w.address, w.title.as_str(), w.activated, w.child))
+        .collect();
+    assert_eq!(
+        seen,
+        vec![
+            (0x5555_0000_0010, "main", true, false),
+            (0x20, "save", false, true),
+        ]
+    );
 }
 
 #[test]
@@ -76,6 +88,21 @@ fn an_address_with_no_live_handle_is_refused_before_anything_is_sent() {
     assert_eq!(error.code, ErrorCode::ActionFailed);
     session.settle().expect("settles");
     assert!(sent(&compositor).is_empty());
+}
+
+#[test]
+fn a_close_reaches_its_handle_and_the_closed_toplevel_leaves_the_list() {
+    let (compositor, mut session) = open(vec![
+        toplevel("one", Some(0x10)),
+        toplevel("two", Some(0x20)),
+    ]);
+    let id = session.windows()[0].id;
+    assert!(session.close(id).expect("sends"));
+    session.settle().expect("settles");
+    let left: Vec<u64> = session.windows().iter().map(|w| w.address).collect();
+    assert_eq!(left, vec![0x20]);
+    assert!(!session.close(id).expect("answers"));
+    assert_eq!(sent(&compositor), vec!["close one".to_owned()]);
 }
 
 #[test]
