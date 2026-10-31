@@ -99,6 +99,13 @@ def stop(name):
     except OSError:
         pass
 
+def portal_binary(name):
+    for directory in ("/usr/libexec", "/usr/lib"):
+        path = os.path.join(directory, name)
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    sys.exit(f"{name} is not in /usr/libexec or /usr/lib")
+
 def wait_owned(name):
     for _ in range(150):
         if name_owned(name):
@@ -112,11 +119,11 @@ time.sleep(1)
 activation = {"WAYLAND_DISPLAY": sock, "GDK_BACKEND": "wayland", "XDG_SESSION_TYPE": "wayland"}
 call("/org/freedesktop/DBus", "UpdateActivationEnvironment", GLib.Variant("(a{ss})", (activation,)))
 env = dict(os.environ, WAYLAND_DISPLAY=sock, GDK_BACKEND="wayland", XDG_SESSION_TYPE="wayland")
-subprocess.Popen(["/usr/libexec/xdg-desktop-portal-gnome"], env=env,
+subprocess.Popen([portal_binary("xdg-desktop-portal-gnome")], env=env,
                  stdin=subprocess.DEVNULL, start_new_session=True)
 if not wait_owned("org.freedesktop.impl.portal.desktop.gnome"):
     sys.exit(1)
-subprocess.Popen(["/usr/libexec/xdg-desktop-portal", "-r"], env=env,
+subprocess.Popen([portal_binary("xdg-desktop-portal"), "-r"], env=env,
                  stdin=subprocess.DEVNULL, start_new_session=True)
 if not wait_owned("org.freedesktop.portal.Desktop"):
     sys.exit(1)

@@ -123,18 +123,6 @@ print(",".join(leg for leg in ids if leg not in skip))
 PY
 }
 
-# scripts/private-wayland-shell.sh starts the portals from /usr/libexec; Arch
-# installs them in /usr/lib. The VM is throwaway, so link them where the
-# script looks. The password is the image's default, as in test/omarchy-vm.
-link_portals() {
-  local name
-  for name in xdg-desktop-portal xdg-desktop-portal-gnome; do
-    if [[ ! -e /usr/libexec/$name && -x /usr/lib/$name ]]; then
-      echo omarchy | sudo -S -p '' sh -c 'mkdir -p /usr/libexec && ln -s "/usr/lib/$1" "/usr/libexec/$1"' _ "$name"
-    fi
-  done
-}
-
 rc=0
 # run_tier <tier> [<leg,leg,...>]: one run.sh call, one private session.
 run_tier() {
@@ -172,7 +160,6 @@ else
 fi
 
 run_tier x11-openbox "$openbox_legs"
-link_portals
 run_tier wayland "$wayland_legs"
 
 exit "$rc"
