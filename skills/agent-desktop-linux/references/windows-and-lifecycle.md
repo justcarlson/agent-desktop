@@ -268,6 +268,34 @@ safe to repeat.
   with cause `wayland_session` before delivery. Use `restore` to restore a window
   without clicking it.
 
+## Hyprland windows without an accessibility tree
+
+On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
+frame represents: windows of processes with no accessibility tree, such as foot,
+Ghostty and Alacritty, and windows an accessible application exposes no frame
+for. The binding rules are in `display-servers-and-input.md`.
+
+```bash
+agent-desktop list-windows --app foot
+```
+
+- Such a row carries `accessible: false`, `bounds`, `visible`, `is_focused` and
+  `process_instance`, but no `minimized`.
+- Its id is `w-hypr-<compositor pid>-<compositor start>-<toplevel identifier>`.
+  Hyprland never reuses a toplevel identifier while it runs, so the id names one
+  toplevel of one compositor process. After a compositor restart the old id is
+  `WINDOW_NOT_FOUND`; run `list-windows` again.
+- The window has no refs. `snapshot --window-id` and `find --window-id` refuse
+  the id with `INVALID_ARGS`.
+- `list-windows --app` matches it by its class (foot's `--app-id`), command name
+  or executable, also when no accessibility application has that name.
+
+An AT-SPI window is never listed twice. Each frame is matched to the one
+toplevel of its process with its exact title, and between same-titled windows
+to the one with its size. That toplevel is left out of the compositor rows.
+When the size cannot tell twins apart, every twin is left out, and so is every
+toplevel of a registered process the listing's `--app` filter skipped.
+
 ## Workspaces
 
 A window on another workspace lists `visible: false` and cannot take a headless

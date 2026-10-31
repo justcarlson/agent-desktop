@@ -14,11 +14,12 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 
 ### Hyprland
 
-On Wayland the CLI binds one Hyprland instance before it reads that
-instance's Wayland socket. It checks `$XDG_RUNTIME_DIR/hypr/<signature>/.socket.sock` and binds the
+On Wayland the CLI binds one Hyprland instance before it reads Hyprland's own
+state. It checks `$XDG_RUNTIME_DIR/hypr/<signature>/.socket.sock` and binds the
 instance only when that IPC socket answers and the Wayland socket is served by
-the same compositor process. The bind has a 1 s budget across every socket it
-tries, and the CLI never runs `hyprctl`.
+the same compositor process. The compositor must also advertise
+`hyprland_toplevel_mapping_manager_v1`. The bind has a 1 s budget across every
+socket it tries, and the CLI never runs `hyprctl`.
 
 - With `HYPRLAND_INSTANCE_SIGNATURE` set, only that instance is read, even
   when others run. A signature whose instance has exited refuses with
@@ -28,9 +29,10 @@ tries, and the CLI never runs `hyprctl`.
   unset). One live instance is bound and the session is treated as Wayland.
   Stale `hypr/` folders are skipped.
 - A Wayland session whose socket another compositor serves keeps the generic
-  Wayland behavior.
+  Wayland behavior, and so does a Hyprland without the mapping global.
 
-The bind refuses instead of guessing. `list-displays` reports the refusal:
+The bind refuses instead of guessing. `list-windows`, `list-displays` and a
+`w-hypr-` window id report the refusal:
 
 | Cause in `details.display_unavailable` | Code | When |
 |---|---|---|
@@ -38,6 +40,7 @@ The bind refuses instead of guessing. `list-displays` reports the refusal:
 | `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance is not live, the named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
 | `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
 
+What a bound Hyprland adds to `list-windows` is in `windows-and-lifecycle.md`.
 Other commands on Hyprland behave as on a generic Wayland session.
 
 ## X11 versus Wayland
