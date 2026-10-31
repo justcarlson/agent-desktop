@@ -7,6 +7,7 @@ pub struct FocusWindowArgs {
     pub window_id: Option<String>,
     pub app: Option<String>,
     pub title: Option<String>,
+    pub policy: crate::InteractionPolicy,
 }
 
 pub fn execute(args: FocusWindowArgs, adapter: &dyn PlatformAdapter) -> Result<Value, AppError> {
@@ -43,6 +44,13 @@ pub fn execute(args: FocusWindowArgs, adapter: &dyn PlatformAdapter) -> Result<V
 
     let window_id = window.id.clone();
     let lease = adapter.acquire_interaction_lease(deadline)?;
+    match adapter.focus_window_reported(&window, args.policy, &lease) {
+        Ok(outcome) => {
+            return Ok(json!({ "focused": outcome.window, "activation": outcome.activation }));
+        }
+        Err(error) if error.is_default_not_supported("focus_window_reported") => {}
+        Err(error) => return Err(error.into()),
+    }
     let focused = crate::system::window_focus::focus_and_confirm(adapter, &window, &lease)?;
     debug_assert_eq!(focused.id, window_id);
     Ok(json!({ "focused": focused }))
@@ -51,3 +59,7 @@ pub fn execute(args: FocusWindowArgs, adapter: &dyn PlatformAdapter) -> Result<V
 #[cfg(test)]
 #[path = "focus_window_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "focus_window_reported_tests.rs"]
+mod reported_tests;
