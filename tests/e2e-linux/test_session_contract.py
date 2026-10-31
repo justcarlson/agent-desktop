@@ -15,11 +15,22 @@ sys.path.insert(0, str(ROOT))
 
 from runner import session
 
+LIVE_ENV = "AGENT_DESKTOP_E2E_LIVE_SESSIONS"
 SKIP_LIVE_ENV = "AGENT_DESKTOP_E2E_SKIP_LIVE"
 
 
-def live_allowed() -> bool:
-    return sys.platform.startswith("linux") and not os.environ.get(SKIP_LIVE_ENV)
+def live_skip_reason() -> str | None:
+    """Why the live session checks do not run, or None when they run.
+
+    They start real desktop sessions, so they run only when LIVE_ENV is "1",
+    as test/all sets it inside a throwaway VM. SKIP_LIVE_ENV still wins."""
+    if not sys.platform.startswith("linux"):
+        return "live session checks need Linux"
+    if os.environ.get(SKIP_LIVE_ENV):
+        return f"{SKIP_LIVE_ENV} is set"
+    if os.environ.get(LIVE_ENV) != "1":
+        return f"live session checks start desktop sessions; set {LIVE_ENV}=1 in a throwaway VM"
+    return None
 
 
 def make_proc(root: Path, entries: dict[int, tuple[bytes, int]]) -> Path:
@@ -367,21 +378,73 @@ class StubWrapperTests(unittest.TestCase):
             self.assertIn("health gate", str(raised.exception))
 
 
-@unittest.skipUnless(live_allowed(), "live session checks run on the box")
 class LiveTierTests(unittest.TestCase):
-    def test_every_tier_starts_sweeps_and_leaves_nothing(self):
+    def setUp(self):
+        reason = live_skip_reason()
+        if reason:
+            self.skipTest(reason)
+
+    def start_sweep_and_leave_nothing(self, name):
         suite = Path(tempfile.mkdtemp(prefix="ad-e2e-live-suite-"))
-        for name in ("x11-openbox", "x11-mutter", "wayland"):
-            with self.subTest(tier=name), \
-                mock.patch.dict(os.environ, {"AGENT_DESKTOP_E2E_SUITE": str(suite)}):
-                with session.start_tier(name, 120.0) as tier:
-                    self.assertTrue(tier.runtime_dir.is_dir())
-                    self.assertTrue(tier.display or tier.wayland_display)
-                    self.assertTrue(tier.a11y_bus_address)
-                    members = session._proc_members(tier.runtime_dir)
-                    self.assertNotEqual(members, [])
-                self.assertFalse(tier.runtime_dir.exists())
-                self.assertEqual(session._proc_members(tier.runtime_dir), [])
+        with mock.patch.dict(os.environ, {"AGENT_DESKTOP_E2E_SUITE": str(suite)}):
+            with session.start_tier(name, 120.0) as tier:
+                self.assertTrue(tier.runtime_dir.is_dir())
+                self.assertTrue(tier.display or tier.wayland_display)
+                self.assertTrue(tier.a11y_bus_address)
+                members = session._proc_members(tier.runtime_dir)
+                self.assertNotEqual(members, [])
+            self.assertFalse(tier.runtime_dir.exists())
+            self.assertEqual(session._proc_members(tier.runtime_dir), [])
+
+    def test_x11_openbox_starts_sweeps_and_leaves_nothing(self):
+        self.start_sweep_and_leave_nothing("x11-openbox")
+
+    def test_x11_mutter_starts_sweeps_and_leaves_nothing(self):
+        self.start_sweep_and_leave_nothing("x11-mutter")
+
+    def test_wayland_starts_sweeps_and_leaves_nothing(self):
+        self.start_sweep_and_leave_nothing("wayland")
+
+
+class LiveGateTests(unittest.TestCase):
+    class Selected(Exception):
+        pass
+
+    def run_live(self, environ):
+        names = unittest.TestLoader().getTestCaseNames(LiveTierTests)
+        suite = unittest.TestSuite(LiveTierTests(name) for name in names)
+        result = unittest.TestResult()
+        with mock.patch.dict(os.environ, environ, clear=True), \
+            mock.patch.object(sys, "platform", "linux"), \
+            mock.patch.object(session, "start_tier", side_effect=self.Selected) as start:
+            suite.run(result)
+        return names, result, start
+
+    def test_live_checks_skip_unless_opted_in(self):
+        names, result, start = self.run_live({})
+        self.assertEqual(len(names), 3)
+        self.assertEqual(len(result.skipped), len(names))
+        self.assertTrue(all(LIVE_ENV in reason for _, reason in result.skipped))
+        start.assert_not_called()
+
+    def test_live_checks_skip_when_the_value_is_not_one(self):
+        _, result, start = self.run_live({LIVE_ENV: "0"})
+        self.assertEqual(len(result.skipped), 3)
+        start.assert_not_called()
+
+    def test_opting_in_selects_every_live_check(self):
+        names, result, start = self.run_live({LIVE_ENV: "1"})
+        self.assertEqual(result.skipped, [])
+        self.assertEqual(len(result.errors), len(names))
+        self.assertTrue(all("Selected" in trace for _, trace in result.errors))
+        self.assertEqual(sorted(call.args[0] for call in start.call_args_list),
+                         ["wayland", "x11-mutter", "x11-openbox"])
+
+    def test_skip_live_still_wins_over_the_opt_in(self):
+        _, result, start = self.run_live({LIVE_ENV: "1", SKIP_LIVE_ENV: "1"})
+        self.assertEqual(len(result.skipped), 3)
+        self.assertTrue(all(SKIP_LIVE_ENV in reason for _, reason in result.skipped))
+        start.assert_not_called()
 
 
 if __name__ == "__main__":

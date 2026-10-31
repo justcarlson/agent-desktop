@@ -20,6 +20,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(discover), 1, discover)
         self.assertIn("AGENT_DESKTOP_E2E_SKIP_LIVE=1", discover[0])
 
+    def test_vm_lane_opts_in_to_the_live_session_checks(self):
+        script = (REPO / "test" / "all").read_text()
+        self.assertIn("-u AGENT_DESKTOP_E2E_SKIP_LIVE AGENT_DESKTOP_E2E_LIVE_SESSIONS=1", script)
+        self.assertIn("-k LiveTierTests.test_x11_openbox -k LiveTierTests.test_wayland", script)
+
 
 
 class SourceRuleTests(unittest.TestCase):
