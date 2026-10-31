@@ -87,3 +87,16 @@ fn zero_or_several_toplevels_refuse_the_window_and_one_binds_it() {
         Some(0x30)
     );
 }
+
+#[test]
+fn a_compositor_id_whose_compositor_or_toplevel_is_gone_is_not_found() {
+    for refusal in [
+        IdentityRefusal::OtherCompositor,
+        IdentityRefusal::ToplevelGone,
+    ] {
+        let error = resolution_error(refusal);
+
+        assert_eq!(error.code, ErrorCode::WindowNotFound);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
+}

@@ -3,6 +3,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum IdentityRefusal {
     ProcessChanged,
+    OtherCompositor,
+    ToplevelGone,
     NoCandidate,
     Ambiguous(Vec<(u64, String)>),
 }

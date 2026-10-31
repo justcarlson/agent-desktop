@@ -216,3 +216,62 @@ fn the_one_matching_client_without_a_toplevel_mapping_binds_nothing() {
         Err(IdentityRefusal::NoCandidate)
     );
 }
+
+#[test]
+fn a_compositor_window_binds_by_its_identifier_and_owner() {
+    let clients = [
+        client(0x10, 7, "foot", (1.0, 1.0), "1"),
+        client(0x20, 7, "foot", (1.0, 1.0), "1"),
+    ];
+    let toplevels = [view("a", 0x10), view("b", 0x20)];
+    let inventory = Inventory {
+        clients: &clients,
+        toplevels: &toplevels,
+    };
+    let id = CompositorWindowId {
+        compositor_pid: 50,
+        compositor_start: 60,
+        identifier: "b".into(),
+    };
+
+    let bound = bind_compositor(&id, &frame(7, "renamed", None), (50, 60), LIVE, inventory);
+
+    assert_eq!(bound, Ok(0x20));
+}
+
+#[test]
+fn a_compositor_window_from_another_compositor_or_owner_or_gone_is_refused() {
+    let clients = [client(0x10, 7, "foot", (1.0, 1.0), "1")];
+    let toplevels = [view("a", 0x10), view("orphan", 0x99)];
+    let inventory = Inventory {
+        clients: &clients,
+        toplevels: &toplevels,
+    };
+    let id = |identifier: &str| CompositorWindowId {
+        compositor_pid: 50,
+        compositor_start: 60,
+        identifier: identifier.into(),
+    };
+    let owner = frame(7, "foot", None);
+
+    assert_eq!(
+        bind_compositor(&id("a"), &owner, (50, 61), LIVE, inventory),
+        Err(IdentityRefusal::OtherCompositor)
+    );
+    assert_eq!(
+        bind_compositor(&id("a"), &owner, (50, 60), Some("boot:9"), inventory),
+        Err(IdentityRefusal::ProcessChanged)
+    );
+    assert_eq!(
+        bind_compositor(&id("a"), &frame(8, "foot", None), (50, 60), LIVE, inventory),
+        Err(IdentityRefusal::ProcessChanged)
+    );
+    assert_eq!(
+        bind_compositor(&id("gone"), &owner, (50, 60), LIVE, inventory),
+        Err(IdentityRefusal::ToplevelGone)
+    );
+    assert_eq!(
+        bind_compositor(&id("orphan"), &owner, (50, 60), LIVE, inventory),
+        Err(IdentityRefusal::ToplevelGone)
+    );
+}
