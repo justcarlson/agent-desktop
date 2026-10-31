@@ -157,15 +157,35 @@ Every ref is re-identified from its stored entry or refused, and `details.kind` 
 The fifth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a live field could not be read, so the identity count stayed unproven. It is retryable. Linux menu and tray refs report the same kind as `STALE_REF`.
 
 After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer. Every one of these is `not_delivered`.
+## Hyprland windows
+
+On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
+frame represents, such as foot or Alacritty, or a window its application
+exposes no frame for:
+
+```json
+{ "id": "w-hypr-658-344-18000006", "title": "~", "app_name": "foot", "pid": 2210,
+  "process_instance": "1f0c2a9e:51234", "bounds": { "x": 0, "y": 0, "width": 960, "height": 1080 },
+  "is_focused": false, "visible": true, "accessible": false }
+```
+
+- The id is `w-hypr-<compositor pid>-<compositor start>-<toplevel identifier>`.
+  Only the compositor process that issued it lists it, so after a compositor
+  restart the old id is `WINDOW_NOT_FOUND`.
+- The row has no `minimized` and no refs. `snapshot --window-id` and
+  `find --window-id` refuse the id with `INVALID_ARGS`.
+
 ## Hyprland binding
 
 On Hyprland, `list-displays` reads the Wayland socket of the one Hyprland
-instance it binds. The binding refuses with `PLATFORM_NOT_SUPPORTED` and a
-cause in `error.details.display_unavailable`. `hyprland_ambiguous` means
-several instances answer and none is named; `details.signatures` lists them.
-`hyprland_mismatch` means the named instance is not live, or it and the
-Wayland socket belong to different compositor processes. A socket that accepts the connection and never
-answers is `TIMEOUT` with cause `silent`, and `details.detail` names it.
+instance it binds, and `list-windows` reads that instance's clients. Both
+commands, and a `w-hypr-` window id, report a refused binding with
+`PLATFORM_NOT_SUPPORTED` and a cause in `error.details.display_unavailable`.
+`hyprland_ambiguous` means several instances answer and none is named;
+`details.signatures` lists them. `hyprland_mismatch` means the named instance
+is not live, or it and the Wayland socket belong to different compositor
+processes. A socket that accepts the connection and never answers is `TIMEOUT`
+with cause `silent`, and `details.detail` names it.
 
 ## Error codes
 
