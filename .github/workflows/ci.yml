@@ -110,8 +110,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Cache build artifacts
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore build artifacts
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/
           key: ${{ runner.os }}-build-ci-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
@@ -232,6 +233,13 @@ jobs:
       - name: NPM wrapper smoke
         run: scripts/ci-npm-wrapper-smoke.sh
 
+      - name: Save build artifacts from main
+        if: github.ref == 'refs/heads/main' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest
@@ -263,8 +271,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Cache build artifacts
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore build artifacts
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/
           key: ${{ runner.os }}-build-ci-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
@@ -368,6 +377,13 @@ jobs:
           assert "session bus" in doc["error"]["suggestion"], "error does not carry the recovery step"
           '
 
+      - name: Save build artifacts from main
+        if: github.ref == 'refs/heads/main' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
   test-windows:
     name: Test (Windows)
     runs-on: windows-latest
@@ -409,8 +425,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Cache build artifacts
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore build artifacts
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/
           key: ${{ runner.os }}-build-ci-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
@@ -573,6 +590,13 @@ jobs:
             exit 1
           }
           Write-Host 'OK: private artifacts stayed under RUNNER_TEMP'
+
+      - name: Save build artifacts from main
+        if: github.ref == 'refs/heads/main' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
   test-windows-arm:
     name: Test (Windows ARM64)
