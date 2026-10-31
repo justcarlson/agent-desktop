@@ -56,8 +56,12 @@ pub(crate) fn bind(
         return pairing.pair(instance);
     }
     pairing.explicit = false;
+    let signatures = observe.signatures(&hypr_dir);
+    if pairing.serves_no_instance(&hypr_dir, &signatures) {
+        return Ok(None);
+    }
     let mut live = Vec::new();
-    for signature in observe.signatures(&hypr_dir) {
+    for signature in signatures {
         if let Some(instance) = answering(observe, &hypr_dir, &signature, deadline)? {
             live.push(instance);
         }
@@ -88,6 +92,22 @@ fn answering(
 }
 
 impl Pairing<'_> {
+    /// True when the named Wayland socket's server owns no instance's IPC
+    /// socket, so no instance can bind and none is waited on.
+    fn serves_no_instance(&self, hypr_dir: &Path, signatures: &[String]) -> bool {
+        let Some(socket) = &self.request.wayland_socket else {
+            return false;
+        };
+        let Some(owner) = self.observe.peer(socket) else {
+            return false;
+        };
+        !signatures.iter().any(|signature| {
+            self.observe
+                .peer(&hypr_dir.join(signature).join(IPC_SOCKET))
+                == Some(owner)
+        })
+    }
+
     fn several(&self, live: Vec<Instance>) -> Result<Option<HyprlandBinding>, BindRefusal> {
         if let Some(socket) = &self.request.wayland_socket {
             let peer = self.observe.peer(socket);

@@ -48,7 +48,13 @@ impl Observe for Fake {
     }
 
     fn peer(&self, socket: &Path) -> Option<u32> {
-        self.peers.get(socket).copied()
+        self.peers
+            .get(socket)
+            .copied()
+            .or(match self.ipc.get(socket) {
+                Some(IpcAnswer::Live(pid)) => Some(*pid),
+                _ => None,
+            })
     }
 
     fn ipc(&self, socket: &Path, _deadline: Deadline) -> IpcAnswer {
@@ -237,7 +243,18 @@ fn a_silent_ipc_endpoint_refuses_in_discovery_and_when_bound() {
         socket: ipc_path("silent"),
     });
     assert_eq!(bound(&request(None, None), &fake), silent);
+    assert_eq!(bound(&request(None, Some("wayland-1")), &fake), silent);
     assert_eq!(bound(&request(Some("silent"), None), &fake), silent);
+}
+
+#[test]
+fn a_hung_instance_is_never_read_for_a_wayland_socket_no_instance_serves() {
+    let mut fake = Fake::default()
+        .instance("hung", IpcAnswer::Silent)
+        .socket("wayland-0", GNOME);
+    fake.peers.insert(ipc_path("hung"), OTHER);
+    assert_eq!(bound(&request(None, Some("wayland-0")), &fake), Ok(None));
+    assert!(!fake.reads.borrow().contains(&ipc_path("hung")));
 }
 
 #[test]
