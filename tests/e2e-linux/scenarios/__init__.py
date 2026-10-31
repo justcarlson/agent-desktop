@@ -43,6 +43,10 @@ from scenarios import error_contract
 from scenarios import batch_contract
 from scenarios import hyprland_binding
 from scenarios import hyprland_cancel
+from scenarios import hyprland_capture
+from scenarios import hyprland_capture_inview
+from scenarios import hyprland_capture_refusals
+from scenarios import hyprland_capture_screen
 from scenarios import hyprland_close
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
@@ -59,6 +63,10 @@ __all__ = [
     "headed_actions",
     "hyprland_binding",
     "hyprland_cancel",
+    "hyprland_capture",
+    "hyprland_capture_inview",
+    "hyprland_capture_refusals",
+    "hyprland_capture_screen",
     "hyprland_close",
     "hyprland_desktop",
     "hyprland_focus",
