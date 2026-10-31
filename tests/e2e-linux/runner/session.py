@@ -247,7 +247,9 @@ def sweep_strays(session_base: Path, proc_root: Path = Path("/proc")) -> list[Pa
         if pid_dir.exists() and _process_start_time(pid_dir) == int(runner_start):
             continue
         if attached.load(runtime_dir) is not None:
-            from runner import attached_session
+            from runner import attached_guard, attached_session
+            if attached_guard.refusals(dict(os.environ)):
+                continue
             with contextlib.suppress(TeardownError):
                 attached_session.teardown(runtime_dir, check_survivors=False, proc_root=proc_root)
             swept.append(runtime_dir)
