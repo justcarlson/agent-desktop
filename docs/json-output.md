@@ -192,6 +192,43 @@ A refusal after an activation carries `details.activation_sent: true`, the last
 ids), or a compositor id from another compositor instance. A process that
 changes between that listing and the bind is `STALE_REF`.
 
+## Hyprland capture
+
+On a bound Hyprland, `screenshot` uses the compositor's own capture protocols.
+It never asks the desktop portal, so no dialog appears.
+
+- A window target (`--window-id` or `--app`) binds to exactly one toplevel, the
+  way `focus-window` does, and is captured through `ext_image_copy_capture_v1`.
+  A window on a hidden special workspace, on a workspace out of view, or with
+  no accessibility tree is captured where it is. Nothing is activated, shown
+  or moved. The image is the window's size times its monitor's scale.
+- The image is drawn after the request. Hyprland draws a window that is out of
+  view from the buffer it last drew, so the capture takes one frame to make the
+  window draw again, waits up to 25 ms, and returns a frame from a new capture
+  session. A window with nothing new to draw returns its unchanged content. An
+  earlier frame is never returned.
+- `--screen N`, or no selector for the primary display, captures the output
+  `list-displays` names, through `zwlr_screencopy_v1`, at its full pixel size.
+  `data.scale_factor` is the output's scale, fractional scales included.
+  Outputs at negative origins work too.
+- Each capture makes Hyprland send `screencast` events on its event socket.
+- `permissions` reports `screen_recording` as `unknown`.
+
+| Code | `details` | Meaning |
+|------|-----------|---------|
+| `PERM_DENIED` | `option: "ecosystem:enforce_permissions"`, `enforced: true` | Hyprland enforces permissions and would withhold the frame without asking. Nothing was requested |
+| `TIMEOUT` | `kind: "capture_frame"` | The compositor sent no frame before the deadline. A compositor that does not answer at all gives `display_unavailable: "silent"` |
+| `ACTION_FAILED` | `kind: "capture_refused"`, `reason: "buffer_constraints"` or `"unknown"` | The compositor refused every frame. A refused buffer is retried on new sessions for up to 2 s, while a moved window's size settles |
+| `ACTION_FAILED` | none | The frame size does not match the display, or the compositor offered no buffer layout this tool reads |
+| `WINDOW_NOT_FOUND` | none | The window closed before or during the capture, or the id belongs to another compositor instance |
+| `ACTION_NOT_SUPPORTED` | none | The compositor does not advertise a protocol the capture needs; `platform_detail` names it |
+| `INVALID_ARGS` | `display` when known | The display is gone, or changed during the capture |
+| `PLATFORM_NOT_SUPPORTED` | `display_unavailable: "missing"` | The compositor closed its socket during the capture |
+
+A window bind refusal has the same `details.cause` as for `focus-window`. Every
+`screenshot` error before the image is written is `not_delivered` with
+`retry: safe`, and no file is created.
+
 ## Error codes
 
 | Code | Meaning |

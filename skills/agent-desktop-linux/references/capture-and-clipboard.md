@@ -1,7 +1,8 @@
 # Capture and Clipboard on Linux
 
-X11 needs no permission and no outside tool. Wayland asks a person once for
-`screenshot` and needs `wl-clipboard`. `agent-desktop permissions` shows the
+X11 needs no permission and no outside tool. A bound Hyprland captures through
+the compositor and asks nobody. Other Wayland desktops ask a person once for
+`screenshot`. The Wayland clipboard needs `wl-clipboard`. `agent-desktop permissions` shows the
 case: `screen_recording` is `not_required` on X11 and `unknown` on Wayland.
 `screenshot` has no timeout flag.
 
@@ -44,9 +45,52 @@ agent-desktop screenshot /tmp/everything.png
 - Resource, connection and visibility failures keep their own errors. Only a
   window whose paint cannot be proven gets the `covered` advice.
 
-## `screenshot` on Wayland
+## `screenshot` on Hyprland
 
-Wayland has no window position and no per-window capture. The portal's
+On a bound Hyprland, `screenshot` uses the compositor's own capture protocols.
+It never asks the portal, so no dialog appears.
+
+```bash
+agent-desktop list-windows --app foot
+agent-desktop screenshot --window-id w-hypr-658-344-18000006 /tmp/foot.png
+agent-desktop screenshot --screen 1 /tmp/second.png
+```
+
+- A window target binds to exactly one toplevel, the way `focus-window` does.
+  A window on a hidden special workspace, on a workspace out of view, or with
+  no accessibility tree is captured where it is. Nothing is activated, shown
+  or moved.
+- The image is drawn after the request, never an earlier frame. Hyprland
+  draws a window that is out of view from the buffer it last drew, so the
+  capture makes the window draw again and waits up to 25 ms for it. A window
+  with nothing new to draw returns its unchanged content.
+- `--screen N` captures the output `list-displays` names at index `N`, at its
+  full pixel size. `data.scale_factor` is the output's scale; fractional
+  scales and outputs at negative origins work.
+- With `ecosystem:enforce_permissions` on, Hyprland withholds capture from a
+  client it does not list, without asking anyone. The CLI reads the setting
+  first and answers `PERM_DENIED` with `details.option` and
+  `details.enforced: true`. Nothing is requested and no dialog appears. The
+  refusal holds even for a client the config allows. Set the option to false
+  to capture.
+- No frame before the deadline is `TIMEOUT` with `details.kind:
+  "capture_frame"`. Retry once the compositor draws again.
+- A frame the compositor refuses is `ACTION_FAILED` with `details.kind:
+  "capture_refused"` and `details.reason`. Right after a window moves,
+  Hyprland 0.56 can refuse frames until the size settles. The CLI retries on
+  new sessions for up to 2 s first.
+- A window that closes before or during the capture is `WINDOW_NOT_FOUND`. A
+  display that is removed or changes during the capture is `INVALID_ARGS`.
+- Every error before the image is written is `not_delivered` with
+  `retry: safe`, and no file is created. `docs/json-output.md` lists every
+  code.
+- `permissions` reports `screen_recording` as `unknown`. Each capture makes
+  Hyprland send `screencast` events on its event socket.
+
+## `screenshot` on other Wayland desktops
+
+Without a bound Hyprland, Wayland offers no window position and no per-window
+capture. The portal's
 `Screenshot` captures the desktop; the CLI returns the primary display by
 default, cropping the image on a multi-monitor desktop. `--screen N` selects
 another monitor.
@@ -76,7 +120,7 @@ agent-desktop screenshot /tmp/desktop.png
 - A known display layout is rechecked after consent, including when it had only
   one monitor. A changed layout returns `ACTION_FAILED` without pixels.
 - A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on
-  Wayland, permanently. Capture a display, or read the window with `snapshot`.
+  these desktops, permanently. Capture a display, or read the window with `snapshot`.
 - The portal writes the PNG under the user's home. The CLI accepts the file only
   inside the temp, runtime or home directory, checks it is a regular file of the
   user made for this request, reads it and removes it.
