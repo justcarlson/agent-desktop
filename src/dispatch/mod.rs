@@ -102,7 +102,7 @@ fn dispatch_command(
         Commands::ListWindows(args) => app_window::list_windows(args, adapter),
         Commands::ListDisplays => commands::list_displays::execute(adapter),
         Commands::ListApps(args) => app_window::list_apps(args, adapter),
-        Commands::FocusWindow(args) => app_window::focus_window(args, adapter),
+        Commands::FocusWindow(args) => app_window::focus_window(args, adapter, context),
         Commands::ResizeWindow(args) => app_window::resize_window(args, adapter),
         Commands::MoveWindow(args) => app_window::move_window(args, adapter),
         Commands::Minimize(args) => app_window::minimize(args, adapter),

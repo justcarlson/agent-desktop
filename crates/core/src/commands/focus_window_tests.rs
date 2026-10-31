@@ -87,6 +87,7 @@ fn reports_focused_window_after_os_confirms_focus() {
             window_id: Some(target.id),
             app: None,
             title: None,
+            policy: crate::InteractionPolicy::headless(),
         },
         &adapter,
     )
@@ -112,6 +113,7 @@ fn errors_when_focus_does_not_settle_on_requested_window() {
             window_id: Some(target.id),
             app: None,
             title: None,
+            policy: crate::InteractionPolicy::headless(),
         },
         &adapter,
     )
@@ -135,6 +137,7 @@ fn falls_back_to_focused_window_list_when_direct_observation_is_unsupported() {
             window_id: Some(target.id),
             app: None,
             title: None,
+            policy: crate::InteractionPolicy::headless(),
         },
         &adapter,
     )
@@ -190,6 +193,7 @@ fn app_filter_results_are_not_discarded_by_display_name() {
             window_id: None,
             app: Some("net.whatsapp.WhatsApp".into()),
             title: None,
+            policy: crate::InteractionPolicy::headless(),
         },
         &adapter,
     )
