@@ -240,6 +240,13 @@ REGISTRY += tuple(
     for suffix in ("", "_windows")
 )
 
+REGISTRY += (
+    Leg('focus.hyprland_other_workspace', 'A headed focus-window on an accessible window and on a compositor-only toplevel, each alone on a workspace no monitor shows, makes j/activewindow name that toplevel and pid, leaves j/clients placing it on its workspace and has j/monitors show that workspace; focus, cursor and workspaces return to the bystander', 'Calculator, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
+    Leg('focus.hyprland_twin_after_sizes_differ', 'Once a third window gives same-titled native Wayland twins distinct j/clients sizes, a headed focus-window on each frame in turn makes j/activewindow name the toplevel of that frame size, the second twin included', 'Focus Twins, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
+    Leg('focus.hyprland_same_size_twins_ambiguous', 'A headed focus-window on either of two same-titled native Wayland twins of one size refuses with AMBIGUOUS_TARGET naming both j/clients addresses and workspaces, not_delivered, while j/activewindow, the cursor, the workspaces and both twins stay as they were', 'Focus Twins and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
+    Leg('focus.hyprland_closed_window_not_found', 'A headed focus-window on a closed accessible frame and on a closed compositor-only toplevel, both gone from j/clients, refuses with WINDOW_NOT_FOUND, not_delivered, while j/activewindow, the cursor and the workspaces stay as they were', 'Calculator, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'proc'), 'pass'),
+)
+
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")
