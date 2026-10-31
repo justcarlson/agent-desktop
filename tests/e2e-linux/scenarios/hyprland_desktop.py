@@ -128,6 +128,7 @@ def headed_changes_only_target(ctx: LegContext) -> None:
     reads = {"desktop": lambda: desktop(ctx.tier, main), "second": lambda: desktop(ctx.tier, nested)}
     ctx.before("hyprland.desktop", reads["desktop"]())
     ctx.before("hyprland.second_desktop", reads["second"]())
+    second_instance.print_outer_window(ctx.tier, nested, "before")
     with Sampler(reads) as sampler:
         with managed(ctx, "Calculator") as app:
             tree = root(ctx, app)
@@ -135,11 +136,13 @@ def headed_changes_only_target(ctx: LegContext) -> None:
             before = display(tree)
             ctx.before("atspi.display", before)
             problems = _headed_refusals(ctx, app, seven)
+            second_instance.print_outer_window(ctx.tier, nested, "with-calculator")
             ctx.after("atspi.display", display(tree))
             problems += [] if display(tree) == before else ["a refused headed command changed Calculator"]
             ctx.restored("atspi.display", _undo(tree, before))
         ctx.after("hyprland.desktop", reads["desktop"]())
         ctx.after("hyprland.second_desktop", reads["second"]())
+    second_instance.print_outer_window(ctx.tier, nested, "after")
     problems += sampler.changes + keeps_focus(ctx.tier, reads["desktop"]())
     require(not problems, "; ".join(problems))
     ctx.restored("hyprland.desktop", reads["desktop"]())
