@@ -227,6 +227,28 @@ is not live, or it and the Wayland socket belong to different compositor
 processes. A socket that accepts the connection and never answers is `TIMEOUT`
 with cause `silent`, and `details.detail` names it.
 
+## Hyprland capture
+
+On a bound Hyprland, `screenshot --screen N`, or no selector for the primary
+display, captures that output through `zwlr_screencopy_v1` at its full pixel
+size. `data.scale_factor` is the output's scale. The portal is never asked and
+no dialog appears; a refusal is the answer, never a portal fallback. Only a
+frame presented after the request counts, and an unchanged frame is valid. A
+window target stays `PLATFORM_NOT_SUPPORTED`.
+
+Every capture error is `not_delivered` with `retry: safe`, and no file is
+written.
+
+| Code | When | `details` |
+|------|------|-----------|
+| `PERM_DENIED` | `ecosystem:enforce_permissions` is on; nothing was requested | `option`, `enforced: true` |
+| `TIMEOUT` | No frame arrived before the deadline | `kind: "capture_frame"` |
+| `ACTION_FAILED` | The compositor refused the frame | `kind: "capture_refused"`, `reason: "unknown"` |
+| `ACTION_FAILED` | The frame came from before the request, its size did not match the display, or no buffer layout was readable | |
+| `ACTION_NOT_SUPPORTED` | The compositor lacks a global capture needs; `platform_detail` names it | |
+| `INVALID_ARGS` | The display is gone or changed during the capture | `display` when the compositor no longer offers it |
+| `PLATFORM_NOT_SUPPORTED` | The compositor closed the connection | `display_unavailable: "missing"` |
+
 ## Error codes
 
 | Code | Meaning |

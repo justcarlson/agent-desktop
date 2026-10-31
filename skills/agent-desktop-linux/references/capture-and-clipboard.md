@@ -1,7 +1,8 @@
 # Capture and Clipboard on Linux
 
-X11 needs no permission and no outside tool. Wayland asks a person once for
-`screenshot` and needs `wl-clipboard`. `agent-desktop permissions` shows the
+X11 needs no permission and no outside tool. A bound Hyprland captures a
+display through the compositor and asks nobody. Other Wayland desktops ask a
+person once for `screenshot`. The Wayland clipboard needs `wl-clipboard`. `agent-desktop permissions` shows the
 case: `screen_recording` is `not_required` on X11 and `unknown` on Wayland.
 `screenshot` has no timeout flag.
 
@@ -44,7 +45,39 @@ agent-desktop screenshot /tmp/everything.png
 - Resource, connection and visibility failures keep their own errors. Only a
   window whose paint cannot be proven gets the `covered` advice.
 
-## `screenshot` on Wayland
+## `screenshot` on Hyprland
+
+On a bound Hyprland, a display capture uses the compositor's
+`zwlr_screencopy_v1`. It never asks the portal, so no dialog appears, and it
+never falls back to the portal when the compositor refuses.
+
+```bash
+agent-desktop list-displays
+agent-desktop screenshot --screen 1 /tmp/second.png
+```
+
+- `--screen N` captures the output `list-displays` names at index `N`, at its
+  full pixel size. No selector captures the primary display.
+  `data.scale_factor` is the output's scale.
+- Only a frame the compositor presents after the request counts. A screen
+  whose pixels did not change still returns its new frame.
+- With `ecosystem:enforce_permissions` on, Hyprland withholds capture from
+  this tool without asking anyone. The CLI reads the setting first and
+  answers `PERM_DENIED` with `details.option` and `details.enforced: true`.
+  Nothing is requested and no dialog appears. Set the option to false to
+  capture.
+- No frame before the deadline is `TIMEOUT` with `details.kind:
+  "capture_frame"`. A frame the compositor refuses is `ACTION_FAILED` with
+  `details.kind: "capture_refused"`.
+- A display that is removed or changes during the capture is
+  `INVALID_ARGS`.
+- A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on
+  Hyprland in this release.
+- Every error before the image is written is `not_delivered` with
+  `retry: safe`, and no file is created. `docs/json-output.md` lists every
+  code.
+
+## `screenshot` on other Wayland desktops
 
 Wayland has no window position and no per-window capture. The portal's
 `Screenshot` captures the desktop; the CLI returns the primary display by

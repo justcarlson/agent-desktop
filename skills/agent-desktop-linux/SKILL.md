@@ -44,7 +44,7 @@ Observation and semantic actions need no helper tool.
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; on a bound Hyprland, `list-windows` also lists windows without an accessibility tree, such as foot. `focus-window` and graceful `close-app` need X11 or a bound Hyprland; there `focus-window` activates only with `--headed` and reports `data.activation`. Other window control needs an X11 client. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | X11; GNOME Wayland through Mutter; other Wayland compositors through `wl_output` and `zxdg_output_manager_v1`. See `references/display-servers-and-input.md` |
-| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
+| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. A bound Hyprland: any display through the compositor, with no dialog; window targets are `PLATFORM_NOT_SUPPORTED`. Other Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
@@ -218,8 +218,8 @@ cursor; on Wayland none is drawn.
   key names.
 - `references/windows-and-lifecycle.md`: `launch`, `close-app`, window ops,
   focus, workspaces, stopped apps, background `press`.
-- `references/capture-and-clipboard.md`: `screenshot` on X11 and Wayland,
-  the Wayland consent dialog, clipboard owner and helper.
+- `references/capture-and-clipboard.md`: `screenshot` on X11, Hyprland and
+  other Wayland desktops, the Wayland consent dialog, clipboard owner and helper.
 - `references/shell-tray-and-notifications.md`: menus and GTK4 popovers, GNOME
   Overview/top bar, shell reads and input, notification identity guards, SNI
   and AppIndicator requirements and refusals, sandbox guidance.
