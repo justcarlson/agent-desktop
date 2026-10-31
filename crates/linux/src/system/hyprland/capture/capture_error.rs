@@ -42,7 +42,7 @@ pub(crate) fn capture_error(fault: &CaptureFault, socket: &str) -> AdapterError 
         CaptureFault::Setup(WaylandFault::Gone) | CaptureFault::FrameGone => gone(),
         CaptureFault::FrameSilent => {
             AdapterError::timeout("The compositor sent no frame before the deadline")
-                .with_suggestion("Retry with a longer --timeout once the compositor answers")
+                .with_suggestion("Retry once the compositor draws again")
                 .with_details(json!({ "kind": "capture_frame" }))
         }
         CaptureFault::Unsupported(interface) => AdapterError::new(
@@ -56,7 +56,8 @@ pub(crate) fn capture_error(fault: &CaptureFault, socket: &str) -> AdapterError 
             "The window closed before its frame was captured",
         )
         .with_suggestion("Run 'list-windows' for the current window ids, then retry"),
-        CaptureFault::Failed(_) => failed("The compositor refused the frame"),
+        CaptureFault::Failed(failure) => failed("The compositor refused the frame")
+            .with_details(json!({ "kind": "capture_refused", "reason": refusal_reason(*failure) })),
         CaptureFault::NoFormat => failed("The compositor offered no buffer layout this tool reads"),
         CaptureFault::Stale => failed("The compositor sent a frame from before the request"),
         CaptureFault::OutputMissing(name) => AdapterError::new(
@@ -65,6 +66,14 @@ pub(crate) fn capture_error(fault: &CaptureFault, socket: &str) -> AdapterError 
         )
         .with_suggestion("Run 'list-displays' to see the displays that exist now")
         .with_details(json!({ "display": name })),
+    }
+}
+
+fn refusal_reason(failure: FrameFailure) -> &'static str {
+    match failure {
+        FrameFailure::BufferConstraints => "buffer_constraints",
+        FrameFailure::Stopped => "stopped",
+        FrameFailure::Unknown => "unknown",
     }
 }
 

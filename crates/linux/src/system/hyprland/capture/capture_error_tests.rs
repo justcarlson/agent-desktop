@@ -85,3 +85,25 @@ fn the_permission_refusal_is_perm_denied_and_names_the_option() {
         Some(ENFORCE_OPTION.into())
     );
 }
+
+#[test]
+fn a_missed_frame_suggests_no_flag_screenshot_lacks() {
+    let error = capture_error(&CaptureFault::FrameSilent, SOCKET);
+    let suggestion = error.suggestion.unwrap_or_default();
+    assert!(!suggestion.contains("--timeout"), "{suggestion}");
+    assert!(!suggestion.is_empty());
+}
+
+#[test]
+fn a_refused_frame_names_the_reason_the_compositor_gave() {
+    let rows = [
+        (FrameFailure::BufferConstraints, "buffer_constraints"),
+        (FrameFailure::Unknown, "unknown"),
+    ];
+    for (failure, reason) in rows {
+        let error = capture_error(&CaptureFault::Failed(failure), SOCKET);
+        let details = error.details.unwrap_or_default();
+        assert_eq!(details["kind"], "capture_refused", "{failure:?}");
+        assert_eq!(details["reason"], reason, "{failure:?}");
+    }
+}

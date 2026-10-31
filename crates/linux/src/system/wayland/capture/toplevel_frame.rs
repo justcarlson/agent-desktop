@@ -1,8 +1,6 @@
-//! One toplevel through `ext_image_copy_capture_v1`. Each capture opens a
-//! new session and asks for two frames: the first makes the toplevel
-//! redraw, the second, awaited for a bounded time, carries the redraw. A
-//! frame the compositor rejects for its buffer is retried on a new session
-//! with the new constraints, a bounded number of times.
+//! One toplevel through `ext_image_copy_capture_v1`. Each frame is the
+//! first frame of its own session; `frame_redraw` decides which frame is
+//! the answer and when a refused buffer is retried.
 
 use agent_desktop_core::Deadline;
 use wayland_client::protocol::wl_shm::WlShm;
@@ -22,14 +20,12 @@ use super::frame_failure::FrameFailure;
 use super::frame_freshness::monotonic_now;
 use super::frame_outcome::FrameOutcome;
 use super::frame_record::FrameRecord;
-use super::frame_redraw::{REDRAW_SETTLE, redrawn};
+use super::frame_redraw::capture_after_redraw;
 use super::frame_settle::settle_frame;
 use super::raw_frame::RawFrame;
 use super::session_record::SessionRecord;
 use super::shm_buffer::ShmBuffer;
 use super::shm_layout::{buffer_len, choose_format};
-
-const SESSION_ATTEMPTS: usize = 3;
 
 struct Managers {
     shm: WlShm,
@@ -58,13 +54,11 @@ pub(crate) fn capture_toplevel(
             .registry
             .bind(chosen.copy.name, chosen.copy.version, &handle, ()),
     };
-    let mut outcome = Err(CaptureFault::Failed(FrameFailure::BufferConstraints));
-    for _ in 0..SESSION_ATTEMPTS {
-        outcome = one_session(&mut capture, &managers, toplevel, deadline);
-        if outcome != Err(CaptureFault::Failed(FrameFailure::BufferConstraints)) {
-            break;
-        }
-    }
+    let outcome = capture_after_redraw(
+        deadline,
+        |deadline| one_session(&mut capture, &managers, toplevel, deadline),
+        std::thread::sleep,
+    );
     managers.copy.destroy();
     managers.sources.destroy();
     capture.flush();
@@ -117,14 +111,7 @@ fn one_frame(
         stride: u32::try_from(stride).map_err(|_| CaptureFault::NoFormat)?,
     };
     let buffer = ShmBuffer::create(shm, layout, &capture.handle()).ok_or(CaptureFault::NoFormat)?;
-    let first = take_frame(capture, session, (&buffer, layout), deadline)?;
-    let second = take_frame(
-        capture,
-        session,
-        (&buffer, layout),
-        deadline.capped(REDRAW_SETTLE),
-    );
-    redrawn(first, second)
+    take_frame(capture, session, (&buffer, layout), deadline)
 }
 
 fn take_frame(
