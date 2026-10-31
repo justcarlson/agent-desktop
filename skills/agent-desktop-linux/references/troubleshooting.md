@@ -22,6 +22,7 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Bring the target forward yourself; use global `press` or the app's own UI |
 | `PLATFORM_NOT_SUPPORTED` `hyprland_ambiguous` | Several Hyprland instances run and none is named. Set `HYPRLAND_INSTANCE_SIGNATURE` to one of `details.signatures` |
 | `PLATFORM_NOT_SUPPORTED` `hyprland_mismatch` | `HYPRLAND_INSTANCE_SIGNATURE` names no live instance, it and `WAYLAND_DISPLAY` name different compositors, or the bound Hyprland was replaced. Take both from the same Hyprland session |
+| `AMBIGUOUS_TARGET` with `details.candidates` on Hyprland | Several same-titled windows of one process match and their sizes do not tell them apart. Give them distinct titles or sizes, then run `list-windows` and retry |
 | `INVALID_ARGS` on a `w-hypr-` id | The window has no accessibility tree, so `snapshot` and `find` cannot read it. Pick a window that lists `"accessible": true` |
 | `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland. Use a semantic action, `set-value` or a global `press` |
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | Notification protocol missing, or its owner is not the detected shell backend. Run inside the supported desktop session; see the shell reference |

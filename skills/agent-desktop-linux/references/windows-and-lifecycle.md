@@ -296,6 +296,14 @@ to the one with its size. That toplevel is left out of the compositor rows.
 When the size cannot tell twins apart, every twin is left out, and so is every
 toplevel of a registered process the listing's `--app` filter skipped.
 
+A command that resolves an accessible window id before it acts binds the frame
+the same way: `move-window`, `resize-window`, `minimize`, `maximize`,
+`restore`, a headed action and `screenshot --window-id`. A frame with
+no toplevel, or whose process changed since it was listed, is
+`WINDOW_NOT_FOUND`. Twins the size cannot tell apart are `AMBIGUOUS_TARGET`,
+and `details.candidates` names each toplevel's `address` and `workspace`.
+Nothing is sent before a refusal, so run `list-windows` and retry.
+
 ## Workspaces
 
 A window on another workspace lists `visible: false` and cannot take a headless
