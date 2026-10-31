@@ -44,6 +44,7 @@ from scenarios import batch_contract
 from scenarios import hyprland_binding
 from scenarios import hyprland_cancel
 from scenarios import hyprland_desktop
+from scenarios import hyprland_focus
 from scenarios import hyprland_identity
 from scenarios import wayland_outputs
 
@@ -58,6 +59,7 @@ __all__ = [
     "hyprland_binding",
     "hyprland_cancel",
     "hyprland_desktop",
+    "hyprland_focus",
     "hyprland_identity",
     "identity",
     "launch",

@@ -8,6 +8,7 @@ accessibility tree.
 
 from __future__ import annotations
 
+from oracle import hyprland
 from oracle.proc import members
 from runner import second_instance
 from runner.helper import activate, changed, display, managed, one, ref, require, root
@@ -138,7 +139,7 @@ def headed_changes_only_target(ctx: LegContext) -> None:
             seven = ref(ctx, app, role="button", name="7")
             before = display(tree)
             ctx.before("atspi.display", before)
-            problems = _headed_refusals(ctx, app, seven)
+            problems = _headed_refusals(ctx, seven)
             second_instance.print_outer_window(ctx.tier, nested, "with-calculator")
             ctx.after("atspi.display", display(tree))
             problems += [] if display(tree) == before else ["a refused headed command changed Calculator"]
@@ -161,13 +162,37 @@ def absent_ref_problems(ctx: LegContext, absent: str) -> list[str]:
     return boundary_problems("absent ref", envelope, ("ELEMENT_NOT_FOUND", "STALE_REF"))
 
 
-def _headed_refusals(ctx: LegContext, app, seven: str) -> list[str]:
+def _headed_refusals(ctx: LegContext, seven: str) -> list[str]:
     problems = boundary_problems("headed ref click", ctx.product(["click", seven]),
                                  ("ACTION_NOT_SUPPORTED",), cause="wayland_session")
-    problems += boundary_problems("focus-window", ctx.product(["focus-window", "--window-id", app.windows[0]]),
-                                  ("ACTION_NOT_SUPPORTED",), cause="wayland_session")
     problems += boundary_problems("mouse-click", ctx.product(["mouse-click", "--xy", "1,1"]),
                                   ("ACTION_NOT_SUPPORTED",), physical=True, cause="wayland_session")
+    return problems
+
+
+def expected_focus_refusal(workspace: str | None, in_view: set[str]) -> tuple[str, str | None]:
+    """The cause a headless focus-window names for an unfocused window, from the compositor's placement."""
+    if workspace and workspace.startswith("special:") and workspace not in in_view:
+        return "hidden_special_workspace", workspace
+    return "window_not_focused", None
+
+
+def headless_focus_problems(ctx: LegContext, app) -> list[str]:
+    """A headless focus-window on a window the bystander's focus covers activates and reveals nothing."""
+    main = main_instance(ctx.tier)
+    runtime, signature = shared(ctx.tier), main["signature"]
+    toplevels = [item for item in hyprland.query(runtime, signature, "clients", pid=main["pid"])
+                 if item.get("pid") == app.pid]
+    require(len(toplevels) == 1, f"Calculator has {len(toplevels)} toplevels")
+    monitors = hyprland.query(runtime, signature, "monitors", pid=main["pid"])
+    in_view = {name for item in monitors for name in (item["activeWorkspace"]["name"],
+                                                      (item.get("specialWorkspace") or {}).get("name"))}
+    cause, workspace = expected_focus_refusal((toplevels[0].get("workspace") or {}).get("name"), in_view)
+    envelope = ctx.product(["focus-window", "--window-id", app.windows[0]])
+    problems = boundary_problems("headless focus-window", envelope, ("POLICY_DENIED",), physical=True, cause=cause)
+    named = ((envelope.error or {}).get("details") or {}).get("workspace")
+    if named != workspace:
+        problems.append(f"headless focus-window: details.workspace is {named!r}, the compositor says {workspace!r}")
     return problems
 
 
@@ -185,10 +210,11 @@ def hyprland_delivery_boundaries(ctx: LegContext) -> None:
         with Sampler({"desktop": read}) as sampler:
             problems = absent_ref_problems(ctx, seven.split(":", 1)[0] + ":e999999")
             if ctx.mode == "headed":
-                problems += _headed_refusals(ctx, app, seven)
+                problems += _headed_refusals(ctx, seven)
             else:
                 problems += boundary_problems("headless mouse-click", ctx.product(["mouse-click", "--xy", "1,1"]),
                                               ("POLICY_DENIED",))
+                problems += headless_focus_problems(ctx, app)
         ctx.after("atspi.display", display(tree))
         ctx.after("hyprland.desktop", read())
         ctx.after("proc.members", members(ctx.tier.runtime_dir))
