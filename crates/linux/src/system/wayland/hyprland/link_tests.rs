@@ -5,8 +5,8 @@ use wayland_client::delegate_dispatch;
 use wayland_client::protocol::{wl_callback, wl_registry};
 
 use super::*;
-use crate::system::wayland::exchange::{Exchange, ExchangeHandler};
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::hyprland::exchange::{Exchange, ExchangeHandler};
+use crate::system::wayland::hyprland::fake_compositor::{FakeCompositor, Script};
 
 #[derive(Default)]
 struct Probe {
