@@ -88,10 +88,16 @@ if [[ -n $OMARCHY_VM_PKGS ]]; then
   # The image's sync databases are as old as the image: refresh them.
   echo omarchy | sudo -S -p '' pacman -Sy --noconfirm --needed $OMARCHY_VM_PKGS >&2
 fi
+# The attached hyprland e2e tier starts only with this root-owned marker, which
+# holds this boot's id, and with its opt-in variable below.
+marker=/var/lib/agent-desktop-e2e/attached-hyprland-vm
+echo omarchy | sudo -S -p '' sh -c 'install -d -o root -g root -m 0755 "${1%/*}" &&
+  install -o root -g root -m 0644 /proc/sys/kernel/random/boot_id "$1"' _ "$marker"
 echo "omarchy-vm: session up after ${SECONDS} s; $(omarchy-version)" >&2
 rc=0
 systemd-run --user --quiet --collect --wait --pipe -p WorkingDirectory=~/src \
   -E OMARCHY_VM_CHANNEL="$OMARCHY_VM_CHANNEL" -E OMARCHY_VM_VERSION="$OMARCHY_VM_VERSION" \
+  -E AGENT_DESKTOP_E2E_ATTACHED_HYPRLAND=1 \
   bash -c "$OMARCHY_VM_CMD" </dev/null >&2 || rc=$?
 echo "$rc" >~/out/rc
 tar cf - -C ~/out .

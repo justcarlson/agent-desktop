@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from oracle import hyprland, proc as process
-from runner import attached, session
+from runner import attached, attached_guard, session
 from runner.session import OWNER_MARKER, TeardownError, Tier, TierUnavailable
 
 NAME = "hyprland"
@@ -151,6 +151,7 @@ def probe(tier: Tier) -> None:
 @contextlib.contextmanager
 def start(deadline: float, source: dict[str, str] | None = None):
     source = dict(os.environ if source is None else source)
+    attached_guard.require(source)
     values = required_env(source)
     monotonic_deadline = time.monotonic() + deadline
     compositor = _compositor(values)
