@@ -43,7 +43,7 @@ Observation and semantic actions need no helper tool.
 | Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and capability-detected Mutter Wayland sessions; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; `focus-window` requires X11. Other window control and graceful close need an X11 client. See `references/windows-and-lifecycle.md` |
-| Displays | `list-displays` | Works |
+| Displays | `list-displays` | X11; GNOME Wayland through Mutter; other Wayland compositors through `wl_output` and `zxdg_output_manager_v1`. See `references/display-servers-and-input.md` |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
@@ -214,7 +214,8 @@ cursor; on Wayland none is drawn.
 - `references/bus-and-permissions.md`: bus bootstrap, the three bus states,
   `status` and `permissions` output, state-root rules.
 - `references/display-servers-and-input.md`: X11 versus Wayland table,
-  `press`, `type`, pointer, wheel, drag, blocked combos, key names.
+  displays on Wayland, `press`, `type`, pointer, wheel, drag, blocked combos,
+  key names.
 - `references/windows-and-lifecycle.md`: `launch`, `close-app`, window ops,
   focus, workspaces, stopped apps, background `press`.
 - `references/capture-and-clipboard.md`: `screenshot` on X11 and Wayland,
