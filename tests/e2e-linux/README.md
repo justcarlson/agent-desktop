@@ -68,7 +68,7 @@ Each tier runs the headless and headed modes registered for that leg. A headed m
 
 The `hyprland` tier uses the session's own compositor, buses and AT-SPI registry; it starts none of them. Before any leg, it checks that the IPC socket, the Wayland socket and the accessibility bus answer.
 
-The tier refuses to start unless all three conditions hold. It checks them before it reads the session, connects to a socket, launches an app or cleans up, and exits 2 with a line for each condition that fails:
+The tier refuses to start unless all three conditions hold. `run.sh` checks them before it creates a suite directory or stages the binary, and the runner checks them again before it reads the session, connects to a socket, launches an app or cleans up. A refused run exits 2 with a line for each condition that fails:
 
 - `AGENT_DESKTOP_E2E_ATTACHED_HYPRLAND=1` is set.
 - `/var/lib/agent-desktop-e2e/attached-hyprland-vm` is a regular file that holds the current boot id (`/proc/sys/kernel/random/boot_id`). The file and each directory above it are owned by root and not writable by group or others. The path is fixed, outside `$HOME` and `$XDG_RUNTIME_DIR`.

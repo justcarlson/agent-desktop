@@ -12,7 +12,22 @@ sys.path.insert(0, str(HARNESS))
 from runner import stage
 
 
+def refuse_attached_tier(argv: list[str]) -> None:
+    """Refuse the attached tier before anything is written or staged."""
+    from runner import attached_guard
+    from runner.main import parse_args
+
+    if parse_args(argv).tier != "hyprland":
+        return
+    reasons = attached_guard.refusals(dict(os.environ))
+    for reason in reasons:
+        print(f"gate: hyprland tier refused: {reason}", file=sys.stderr)
+    if reasons:
+        raise SystemExit(2)
+
+
 def main(argv: list[str]) -> None:
+    refuse_attached_tier(argv)
     base = Path(
         os.environ.get("AGENT_DESKTOP_SESSION_BASE")
         or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
