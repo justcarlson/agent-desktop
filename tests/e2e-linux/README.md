@@ -50,7 +50,7 @@ test/omarchy-vm run --channel stable --copy . --copy "$bin" "${pkgs[@]}" --out v
   -- bash -c 'cd "$1" && ./test/all' _ "$(basename "$PWD")"
 ```
 
-Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift` and `wayland_drift`: they fail on upstream `main` and on the branch alike on the Arch image, because the app versions differ. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. Arch installs the portals in `/usr/lib`, so `test/all` links them into `/usr/libexec` for `scripts/private-wayland-shell.sh`. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
+Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift` and `wayland_drift`: they fail on upstream `main` and on the branch alike on the Arch image, because the app versions differ. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
 
 ## Tiers
 
