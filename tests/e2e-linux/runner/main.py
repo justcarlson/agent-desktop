@@ -262,6 +262,13 @@ def main(argv: list[str]) -> int:
     from runner import gate, legs, report, session, stage, verdict
 
     tiers = (args.tier,) if args.tier else DEFAULT_TIERS
+    if "hyprland" in tiers:
+        from runner import attached_guard
+        refused = attached_guard.refusals(dict(os.environ))
+        for reason in refused:
+            print(f"gate: hyprland tier refused: {reason}", file=sys.stderr)
+        if refused:
+            return report.exit_code(0, True)
     selected_ids = ({name.strip() for name in args.leg.split(",")} if args.leg
                     else {leg.id for leg in legs.REGISTRY})
     for leg_id in sorted(selected_ids):

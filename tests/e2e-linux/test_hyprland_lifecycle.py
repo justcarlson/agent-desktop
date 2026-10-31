@@ -13,7 +13,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import attached, attached_session, cancel, session
+from runner import attached, attached_guard, attached_session, cancel, session
 
 
 def make_proc(root: Path, pid: int, start: int, *, cgroup: str = "0::/session.slice/x.service",
@@ -119,7 +119,8 @@ class AttachedLifecycleTests(unittest.TestCase):
         stale.mkdir()
         attached.record_fixture(self.work, stale)
         make_proc(self.proc, 60, 601, comm="foot")
-        with mock.patch.object(attached_session, "_stop_slice") as stop_slice:
+        with mock.patch.object(attached_session, "_stop_slice") as stop_slice, \
+             mock.patch.object(attached_guard, "refusals", return_value=[]):
             swept = session.sweep_strays(self.base, self.proc)
         self.assertEqual(swept, [self.work])
         stop_slice.assert_called_once()

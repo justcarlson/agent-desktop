@@ -192,6 +192,11 @@ fi
 
 run_tier x11-openbox "$openbox_legs"
 run_tier wayland "$wayland_legs"
-if start_bystander; then run_tier hyprland "$hyprland_legs"; else rc=1; fi
+# The guard refuses unless test/omarchy-vm opted in and wrote its root-owned
+# marker in this boot of a VM; nothing touches the session before it passes.
+if ! python3 -I tests/e2e-linux/runner/attached_guard.py; then
+  echo "test/all: the hyprland tier refused to start" >&2
+  rc=1
+elif start_bystander; then run_tier hyprland "$hyprland_legs"; else rc=1; fi
 
 exit "$rc"
