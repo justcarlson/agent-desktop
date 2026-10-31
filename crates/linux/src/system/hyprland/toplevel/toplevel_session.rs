@@ -1,6 +1,6 @@
 //! One held connection to the bound compositor's Wayland socket over which
 //! its toplevels are read through `zwlr_foreign_toplevel_manager_v1`, each
-//! mapped to its Hyprland address, and one is activated.
+//! mapped to its Hyprland address, and one is activated or asked to close.
 //! The manager is the shared wlroots-family protocol, found by its registry
 //! entry alone; the mapping manager is what ties a handle to the Hyprland
 //! window, and so to its process. Every read waits for at most the
@@ -25,7 +25,7 @@ use crate::system::wayland::wlr_toplevels::{
     SEAT_INTERFACE, WLR_MANAGER_INTERFACE, WLR_MANAGER_VERSION, advertised_manager,
 };
 
-const NEED: &str = "activating a window";
+const NEED: &str = "activating or closing a window";
 
 /// A held toplevel connection to the bound compositor.
 pub(crate) struct ToplevelSession {
@@ -108,7 +108,9 @@ impl ToplevelSession {
                 Some(WlrWindow {
                     id: toplevel.handle.id().protocol_id(),
                     address,
+                    title: toplevel.title.clone(),
                     activated: toplevel.activated,
+                    child: toplevel.parent.is_some(),
                 })
             })
             .collect()
@@ -130,6 +132,19 @@ impl ToplevelSession {
         };
         toplevel.handle.activate(&seat);
         self.link.flush().map_err(|fault| self.fault(fault))
+    }
+
+    /// Sends `close` on the live handle with protocol id `id`. `false` is a
+    /// handle the compositor has already closed or never announced, so
+    /// nothing was sent.
+    pub(crate) fn close(&mut self, id: u32) -> Result<bool, AdapterError> {
+        let Some(toplevel) = self.live(|_, toplevel| toplevel.handle.id().protocol_id() == id)
+        else {
+            return Ok(false);
+        };
+        toplevel.handle.close();
+        self.link.flush().map_err(|fault| self.fault(fault))?;
+        Ok(true)
     }
 
     fn address_of(&self, index: usize) -> Option<u64> {

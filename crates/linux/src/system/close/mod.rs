@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::time::Instant;
 
 use agent_desktop_core::{AdapterError, AppInfo, InteractionLease, OperationReport};
@@ -6,6 +7,7 @@ use super::SharedBus;
 use crate::system::process::process_lookup::Lookup;
 use world::{Live, World};
 
+mod close_route;
 #[cfg(test)]
 mod fake;
 mod force;
@@ -78,6 +80,7 @@ pub(crate) fn close_app(
         instance: app.process_instance.as_deref().unwrap_or_default(),
         deadline: lease.deadline(),
         started: Instant::now(),
+        route: OnceCell::new(),
     };
     run_report(&live, app, force)
 }
