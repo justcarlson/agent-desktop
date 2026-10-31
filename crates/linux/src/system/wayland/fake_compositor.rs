@@ -2,15 +2,16 @@
 //! Wayland wire protocol to answer a registry read, `wl_output` binds,
 //! `zxdg_output_manager_v1.get_xdg_output` and the toplevel globals in
 //! `fake_toplevels`, or it accepts the connection and stays silent, or hangs
-//! up.
+//! up. Every request a toplevel handle receives is logged.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
-use super::fake_toplevels::{self, FakeToplevel};
+use super::fake_toplevels::{self, FakeToplevel, HandleIds};
 
 const OUTPUT: &str = "wl_output";
 const MANAGER: &str = "zxdg_output_manager_v1";
@@ -44,6 +45,7 @@ pub(crate) enum Script {
 /// A listening fake compositor; its socket directory goes when it drops.
 pub(crate) struct FakeCompositor {
     pub(crate) socket: PathBuf,
+    pub(crate) log: Arc<Mutex<Vec<String>>>,
     dir: PathBuf,
 }
 
@@ -58,14 +60,18 @@ impl FakeCompositor {
         std::fs::create_dir_all(&dir).expect("socket directory");
         let socket = dir.join("wayland-fake");
         let listener = UnixListener::bind(&socket).expect("bind fake compositor");
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let served = Arc::clone(&log);
         std::thread::spawn(move || {
             let Ok((stream, _)) = listener.accept() else {
                 return;
             };
             match script {
-                Script::Answer { globals, outputs } => serve(stream, &globals, &outputs, &[]),
+                Script::Answer { globals, outputs } => {
+                    serve(stream, &globals, &outputs, Vec::new(), served)
+                }
                 Script::Toplevels { globals, toplevels } => {
-                    serve(stream, &globals, &[], &toplevels)
+                    serve(stream, &globals, &[], toplevels, served)
                 }
                 Script::Silent => {
                     let _ = (&stream).read_to_end(&mut Vec::new());
@@ -73,7 +79,7 @@ impl FakeCompositor {
                 Script::HangUp => drop(stream),
             }
         });
-        Self { socket, dir }
+        Self { socket, log, dir }
     }
 }
 
@@ -87,6 +93,7 @@ pub(super) enum Arg<'a> {
     Uint(u32),
     Int(i32),
     Text(&'a str),
+    Array(&'a [u8]),
 }
 
 #[derive(Clone, Copy)]
@@ -97,6 +104,8 @@ enum Kind {
     Manager(u32),
     List,
     Mapper,
+    WlrManager,
+    WlrHandle(usize),
     Other,
 }
 
@@ -111,9 +120,13 @@ pub(super) fn message(object: u32, opcode: u16, args: &[Arg<'_>]) -> Vec<u8> {
                 body.extend_from_slice(&length.to_ne_bytes());
                 body.extend_from_slice(text.as_bytes());
                 body.push(0);
-                while body.len() % 4 != 0 {
-                    body.push(0);
-                }
+                pad(&mut body);
+            }
+            Arg::Array(bytes) => {
+                let length = u32::try_from(bytes.len()).expect("short array");
+                body.extend_from_slice(&length.to_ne_bytes());
+                body.extend_from_slice(bytes);
+                pad(&mut body);
             }
         }
     }
@@ -122,6 +135,12 @@ pub(super) fn message(object: u32, opcode: u16, args: &[Arg<'_>]) -> Vec<u8> {
     out.extend_from_slice(&((size << 16) | u32::from(opcode)).to_ne_bytes());
     out.extend_from_slice(&body);
     out
+}
+
+fn pad(body: &mut Vec<u8>) {
+    while body.len() % 4 != 0 {
+        body.push(0);
+    }
 }
 
 fn word(bytes: &[u8], at: usize) -> u32 {
@@ -191,8 +210,10 @@ fn xdg_events(id: u32, manager: u32, output: (u32, u32), fake: &FakeOutput) -> V
 struct Server<'a> {
     globals: &'a [(&'static str, u32)],
     outputs: &'a [FakeOutput],
-    toplevels: &'a [FakeToplevel],
+    toplevels: Vec<FakeToplevel>,
     objects: HashMap<u32, Kind>,
+    ids: HandleIds,
+    log: Arc<Mutex<Vec<String>>>,
 }
 
 impl Server<'_> {
@@ -228,9 +249,21 @@ impl Server<'_> {
                     _ => Vec::new(),
                 }
             }
-            (Kind::Mapper, 0) => {
-                let handle = word(bytes, 8);
-                fake_toplevels::mapping_reply(handle, word(bytes, 12), self.toplevels)
+            (Kind::Mapper, 0 | 1) => {
+                let first = if opcode == 0 {
+                    self.ids.ext
+                } else {
+                    self.ids.wlr
+                };
+                let target = (first, word(bytes, 12));
+                fake_toplevels::mapping_reply(word(bytes, 8), target, &self.toplevels)
+            }
+            (Kind::WlrHandle(index), request) => {
+                if let Ok(mut log) = self.log.lock() {
+                    log.push(fake_toplevels::logged(request, &self.toplevels[index]));
+                }
+                let at = (self.ids.wlr, index);
+                fake_toplevels::handle_request(at, request, &mut self.toplevels)
             }
             _ => Vec::new(),
         }
@@ -257,7 +290,17 @@ impl Server<'_> {
             }
             fake_toplevels::LIST => {
                 self.objects.insert(id, Kind::List);
-                fake_toplevels::list_events(id, self.toplevels)
+                self.ids.ext = self.ids.take(self.toplevels.len());
+                fake_toplevels::list_events(id, self.ids.ext, &self.toplevels)
+            }
+            fake_toplevels::WLR_MANAGER => {
+                self.objects.insert(id, Kind::WlrManager);
+                self.ids.wlr = self.ids.take(self.toplevels.len());
+                for index in 0..self.toplevels.len() {
+                    let handle = self.ids.wlr + u32::try_from(index).expect("few toplevels");
+                    self.objects.insert(handle, Kind::WlrHandle(index));
+                }
+                fake_toplevels::manager_events(id, self.ids.wlr, &self.toplevels)
             }
             fake_toplevels::MAPPER => {
                 self.objects.insert(id, Kind::Mapper);
@@ -275,13 +318,16 @@ fn serve(
     mut stream: UnixStream,
     globals: &[(&'static str, u32)],
     outputs: &[FakeOutput],
-    toplevels: &[FakeToplevel],
+    toplevels: Vec<FakeToplevel>,
+    log: Arc<Mutex<Vec<String>>>,
 ) {
     let mut server = Server {
         globals,
         outputs,
         toplevels,
         objects: HashMap::from([(1, Kind::Display)]),
+        ids: HandleIds::default(),
+        log,
     };
     let mut pending = Vec::new();
     let mut chunk = [0_u8; 4096];

@@ -39,9 +39,11 @@ fn desktop(active: Option<u64>, special: Option<&str>) -> DesktopState {
         active,
         monitors: vec![MonitorWorkspaces {
             id: Some(0),
+            monitor: "Virtual-1".into(),
             active: "1".into(),
             special: special.map(str::to_owned),
         }],
+        cursor: None,
     }
 }
 

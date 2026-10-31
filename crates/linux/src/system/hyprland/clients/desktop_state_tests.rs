@@ -16,11 +16,13 @@ fn every_monitor_reports_its_active_and_special_workspace_by_name() {
         monitors,
         vec![
             MonitorWorkspaces {
+                monitor: "HDMI-A-1".into(),
                 id: Some(1),
                 active: "4".into(),
                 special: None,
             },
             MonitorWorkspaces {
+                monitor: "Virtual-1".into(),
                 id: Some(0),
                 active: "1".into(),
                 special: Some("special:hid".into()),
@@ -42,6 +44,7 @@ fn a_shown_special_workspace_counts_as_visible_and_a_hidden_one_does_not() {
     let state = DesktopState {
         active: None,
         monitors,
+        cursor: None,
     };
 
     assert!(state.shows("special:hid"));
@@ -51,11 +54,22 @@ fn a_shown_special_workspace_counts_as_visible_and_a_hidden_one_does_not() {
 }
 
 #[test]
+fn the_cursor_position_is_read_from_its_reply_and_anything_else_is_none() {
+    assert_eq!(
+        parse_cursor(br#"{"x":957,"y":604}"#),
+        Some(Point { x: 957.0, y: 604.0 })
+    );
+    assert_eq!(parse_cursor(br#"{"x":957}"#), None);
+    assert_eq!(parse_cursor(b"640, 400"), None);
+}
+
+#[test]
 fn an_open_special_workspace_covers_a_regular_workspace_on_its_monitor() {
     let monitors = parse_monitors(MONITORS.as_bytes()).expect("monitors");
     let state = DesktopState {
         active: None,
         monitors,
+        cursor: None,
     };
     let on = |name: &str, monitor: i64| ClientWorkspace {
         name: name.into(),
@@ -64,8 +78,8 @@ fn an_open_special_workspace_covers_a_regular_workspace_on_its_monitor() {
 
     let covering = state.covering_special(&on("3", 0)).expect("covered");
     assert_eq!(
-        (covering.id, covering.special.as_deref()),
-        (Some(0), Some("special:hid"))
+        (covering.monitor.as_str(), covering.special.as_deref()),
+        ("Virtual-1", Some("special:hid"))
     );
     assert!(state.covering_special(&on("special:hid", 0)).is_none());
     assert!(state.covering_special(&on("special:other", 0)).is_none());

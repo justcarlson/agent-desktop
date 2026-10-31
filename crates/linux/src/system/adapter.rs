@@ -3,10 +3,11 @@ use agent_desktop_core::system::launch_result::LaunchResult;
 use agent_desktop_core::system::process_state::ProcessState;
 use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
-    DismissNotificationRequest, DisplayInfo, ErrorCode, ImageBuffer, InteractionLease,
-    InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo,
-    OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
-    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    DismissNotificationRequest, DisplayInfo, ErrorCode, FocusOutcome, ImageBuffer,
+    InteractionLease, InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter,
+    NotificationInfo, OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget,
+    SessionAffinity, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo,
+    WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -73,6 +74,20 @@ impl SystemOps for LinuxAdapter {
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
         crate::system::focus::focus_window::focus_window(self.bus(), win, lease)
+    }
+
+    fn focus_window_reported(
+        &self,
+        win: &WindowInfo,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<FocusOutcome, AdapterError> {
+        crate::system::hyprland::focus::focus_entry::focus_window_reported(
+            self.bus(),
+            win,
+            policy,
+            lease,
+        )
     }
 
     fn close_app(

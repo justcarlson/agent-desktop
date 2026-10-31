@@ -43,3 +43,32 @@ fn an_accessibility_window_id_never_has_the_compositor_prefix() {
     assert!(!is_compositor_id("w-1.42-org-a11y-atspi-accessible-1"));
     assert!(is_compositor_id("w-hypr-garbage"));
 }
+
+#[test]
+fn an_encoded_id_decodes_to_its_parts() {
+    assert_eq!(
+        decode("w-hypr-1234-98765-18000035"),
+        Some(CompositorWindowId {
+            compositor_pid: 1234,
+            compositor_start: 98765,
+            identifier: "18000035".into(),
+        })
+    );
+    for id in [
+        "w-hypr-1234-98765-",
+        "w-hypr-x-98765-1a",
+        "w-1.42-a",
+        "w-hypr-01234-98765-1a",
+    ] {
+        assert_eq!(decode(id), None, "{id}");
+    }
+}
+
+#[test]
+fn an_id_belongs_only_to_the_compositor_instance_that_issued_it() {
+    let id = decode("w-hypr-1234-98765-1a").expect("decodes");
+
+    assert!(id.issued_by(1234, 98765));
+    assert!(!id.issued_by(1234, 98766));
+    assert!(!id.issued_by(1235, 98765));
+}

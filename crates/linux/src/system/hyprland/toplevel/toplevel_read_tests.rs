@@ -1,6 +1,7 @@
 use agent_desktop_core::{Deadline, ErrorCode};
 
 use super::*;
+use crate::system::hyprland::toplevel::fake_binding::binding_for;
 use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
 
@@ -10,26 +11,11 @@ fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("deadline")
 }
 
-fn binding_for(compositor: &FakeCompositor) -> HyprlandBinding {
-    let pid = std::process::id();
-    let start_time = read_stat(pid)
-        .ok()
-        .flatten()
-        .map(|stat| stat.start_time)
-        .expect("start time");
-    HyprlandBinding {
-        signature: "sig_1".into(),
-        ipc_socket: compositor.socket.with_extension("ipc"),
-        wayland_socket: compositor.socket.clone(),
-        pid,
-        start_time,
-    }
-}
-
 fn toplevel(identifier: &'static str, address: Option<u64>) -> FakeToplevel {
     FakeToplevel {
         identifier,
         address,
+        ..FakeToplevel::default()
     }
 }
 

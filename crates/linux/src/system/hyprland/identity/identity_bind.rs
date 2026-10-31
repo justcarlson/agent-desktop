@@ -1,5 +1,6 @@
 //! Binds a window to exactly one compositor toplevel by evidence.
 
+use super::compositor_window_id::CompositorWindowId;
 use super::identity_refusal::IdentityRefusal;
 use super::inventory::Inventory;
 use super::window_evidence::WindowEvidence;
@@ -35,6 +36,36 @@ pub(crate) fn bind_frame(
         .any(|toplevel| toplevel.address == chosen.address)
         .then_some(chosen.address)
         .ok_or(IdentityRefusal::NoCandidate)
+}
+
+/// The Hyprland address of the toplevel `id` names, after checking that the
+/// compositor that issued the id still runs and that `owner`'s process still
+/// owns the toplevel.
+pub(crate) fn bind_compositor(
+    id: &CompositorWindowId,
+    owner: &WindowEvidence,
+    compositor: (u32, u64),
+    live_instance: Option<&str>,
+    inventory: Inventory<'_>,
+) -> Result<u64, IdentityRefusal> {
+    if !id.issued_by(compositor.0, compositor.1) {
+        return Err(IdentityRefusal::OtherCompositor);
+    }
+    check_process(owner, live_instance)?;
+    let toplevel = inventory
+        .toplevels
+        .iter()
+        .find(|toplevel| toplevel.identifier == id.identifier)
+        .ok_or(IdentityRefusal::ToplevelGone)?;
+    let client = inventory
+        .clients
+        .iter()
+        .find(|client| client.address == toplevel.address)
+        .ok_or(IdentityRefusal::ToplevelGone)?;
+    if client.pid != owner.pid {
+        return Err(IdentityRefusal::ProcessChanged);
+    }
+    Ok(client.address)
 }
 
 fn check_process(
