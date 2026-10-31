@@ -13,6 +13,8 @@ pub(crate) mod socket_connect;
 pub(crate) mod socket_peer;
 pub(crate) mod toplevel_list;
 pub(crate) mod wayland_fault;
+pub(crate) mod wlr_toplevel;
+pub(crate) mod wlr_toplevels;
 
 #[cfg(test)]
 pub(crate) mod fake_compositor;
