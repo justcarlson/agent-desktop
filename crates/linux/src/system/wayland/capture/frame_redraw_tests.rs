@@ -50,11 +50,50 @@ impl Script {
 }
 
 #[test]
-fn the_answer_is_the_first_frame_of_a_session_opened_after_the_redraw() {
+fn the_answer_is_the_first_later_frame_whose_pixels_changed() {
     let script = Script::new(vec![Ok(frame(1)), Ok(frame(2))]);
     assert_eq!(script.run(5000), Ok(frame(2)));
     assert_eq!(*script.sessions.borrow(), 2);
     assert_eq!(*script.pauses.borrow(), vec![REDRAW_SETTLE]);
+}
+
+#[test]
+fn a_redraw_that_lands_after_the_first_pause_is_waited_for() {
+    let script = Script::new(vec![
+        Ok(frame(1)),
+        Ok(frame(1)),
+        Ok(frame(1)),
+        Ok(frame(1)),
+        Ok(frame(2)),
+        Ok(frame(3)),
+    ]);
+    assert_eq!(script.run(5000), Ok(frame(2)));
+    assert_eq!(*script.sessions.borrow(), 5);
+    assert_eq!(*script.pauses.borrow(), vec![REDRAW_SETTLE; 4]);
+}
+
+#[test]
+fn an_unchanged_window_is_answered_only_after_the_whole_redraw_wait() {
+    let script = Script::new(vec![Ok(frame(1)); REDRAW_POLLS + 5]);
+    assert_eq!(script.run(5000), Ok(frame(1)));
+    assert_eq!(*script.sessions.borrow(), REDRAW_POLLS + 1);
+    assert_eq!(*script.pauses.borrow(), vec![REDRAW_SETTLE; REDRAW_POLLS]);
+}
+
+#[test]
+fn a_redraw_wait_the_deadline_cuts_short_times_out_instead_of_answering() {
+    let script = Script::new(vec![Ok(frame(1)), Ok(frame(1)), Ok(frame(2))]);
+    assert_eq!(script.run(90), Err(CaptureFault::FrameSilent));
+    assert_eq!(*script.sessions.borrow(), 1);
+}
+
+#[test]
+fn a_resized_frame_is_a_redraw() {
+    let mut resized = frame(1);
+    resized.width = 4;
+    resized.stride = 16;
+    let script = Script::new(vec![Ok(frame(1)), Ok(resized.clone())]);
+    assert_eq!(script.run(5000), Ok(resized));
 }
 
 #[test]
@@ -105,9 +144,9 @@ fn refused_buffers_are_retried_a_bounded_number_of_times() {
 }
 
 #[test]
-fn a_refused_buffer_is_not_retried_without_time_for_the_pause() {
+fn a_refused_buffer_without_time_for_the_pause_times_out() {
     let script = Script::new(vec![REFUSED, Ok(frame(1))]);
-    assert_eq!(script.run(1), REFUSED);
+    assert_eq!(script.run(1), Err(CaptureFault::FrameSilent));
     assert_eq!(*script.sessions.borrow(), 1);
 }
 
