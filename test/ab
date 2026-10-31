@@ -1,0 +1,93 @@
+#!/bin/bash
+# Diagnostic only, not for merge. Runs two prebuilt CLIs in one Omarchy VM, in
+# alternating order, to tell whether lifecycle.maximize_restore fails for one
+# build or for both: ~/src/agent-desktop-bin/main and
+# ~/src/agent-desktop-bin/candidate, each with its clipboard helper.
+#
+# Order: the private session checks once, then AB_TIER_ROUNDS rounds of the
+# x11-openbox tier as test/all runs it (main, candidate, main, candidate, ...),
+# then AB_LIFECYCLE_ROUNDS rounds of the lifecycle legs in the same order.
+# The leg records the target's _NET_WM_STATE, the root client list, wmctrl and
+# list-windows before every restore, for both builds.
+#
+# Writes to ~/out: versions.txt, private-session.log, ab/<n>-<label>/<kind>.log
+# with its suite, and ab/summary.txt with one line per maximize_restore run.
+# Exits 1 when any maximize_restore run did not pass.
+set -uo pipefail
+
+[[ -n ${OMARCHY_VM_CHANNEL:-} ]] || { echo "test/ab: run this in an Omarchy VM" >&2; exit 2; }
+
+cd "$(dirname "$0")/.." || exit 2
+out=$HOME/out
+bins=$HOME/src/agent-desktop-bin
+tier_rounds=${AB_TIER_ROUNDS:-2}
+lifecycle_rounds=${AB_LIFECYCLE_ROUNDS:-5}
+labels=(main candidate)
+lifecycle=lifecycle.close_app_undelivered_report,lifecycle.focus_window_active_reads,lifecycle.minimize_restore,lifecycle.maximize_restore,lifecycle.window_operation_delivery_reports
+
+for label in "${labels[@]}"; do
+  [[ -x $bins/$label/agent-desktop && -x $bins/$label/agent-desktop-linux-clipboard-owner ]] ||
+    { echo "test/ab: no prebuilt agent-desktop and clipboard helper in $bins/$label" >&2; exit 2; }
+done
+
+openbox_legs=$(sed -n '/^openbox_drift=(/,/^)/p' test/all | sed '1d;$d' | xargs python3 -I -c '
+import sys
+sys.path.insert(0, "tests/e2e-linux")
+from runner.legs import REGISTRY
+skip = set(sys.argv[1:])
+ids = [leg.id for leg in REGISTRY if "x11-openbox" in leg.tiers]
+unknown = sorted(skip - set(ids))
+if unknown:
+    sys.exit(f"test/ab: not registered for x11-openbox: {unknown}")
+print(",".join(leg for leg in ids if leg not in skip))')
+[[ -n $openbox_legs ]] || { echo "test/ab: no x11-openbox legs" >&2; exit 2; }
+
+mkdir -p "$out/ab"
+{
+  echo "channel: $OMARCHY_VM_CHANNEL"
+  echo "image: ${OMARCHY_VM_VERSION:-unknown}"
+  echo "omarchy: $(omarchy-version 2>/dev/null || echo unknown)"
+  echo "kernel: $(uname -r)"
+  echo "harness commit: $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  for label in "${labels[@]}"; do
+    echo "$label: $(cat "$bins/$label/source.txt" 2>/dev/null || echo unknown)" \
+      "$("$bins/$label/agent-desktop" --version) $(sha256sum "$bins/$label/agent-desktop" | cut -d' ' -f1)"
+  done
+  pacman -Q gnome-calculator openbox gtk4 at-spi2-core xorg-server-xvfb 2>&1
+} >"$out/versions.txt"
+cat "$out/versions.txt"
+
+echo "==> private session checks"
+bash scripts/test-private-session.sh >"$out/private-session.log" 2>&1 || true
+
+run=0
+# run_one <kind> <label> <legs>: one run.sh call with one build.
+run_one() {
+  local kind=$1 label=$2 legs=$3 dir started result
+  run=$((run + 1))
+  dir=$out/ab/$(printf '%02d' "$run")-$label
+  mkdir -p "$dir"
+  started=$(date -u +%FT%T.%3NZ)
+  echo "==> run $run $kind $label $started"
+  AGENT_DESKTOP_E2E_BIN=$bins/$label/agent-desktop AGENT_DESKTOP_E2E_SUITE=$dir/suite \
+    bash tests/e2e-linux/run.sh --tier x11-openbox --leg "$legs" >"$dir/$kind.log" 2>&1
+  echo "rc=$?" >>"$dir/$kind.log"
+  result=$(grep -m1 -E '^ +[a-z_]+ +lifecycle\.maximize_restore( |$)' "$dir/$kind.log" | awk '{print $1}')
+  printf '%02d %s %-9s %-9s maximize_restore=%s %s\n' "$run" "$started" "$kind" "$label" "${result:-missing}" \
+    "$(grep -m1 '^summary:' "$dir/$kind.log")" | tee -a "$out/ab/summary.txt"
+}
+
+for ((round = 1; round <= tier_rounds; round++)); do
+  for label in "${labels[@]}"; do
+    run_one tier "$label" "$openbox_legs"
+  done
+done
+for ((round = 1; round <= lifecycle_rounds; round++)); do
+  for label in "${labels[@]}"; do
+    run_one lifecycle "$label" "$lifecycle"
+  done
+done
+
+echo "==> summary"
+cat "$out/ab/summary.txt"
+! grep -q 'maximize_restore=\(fail\|error\|missing\)' "$out/ab/summary.txt"

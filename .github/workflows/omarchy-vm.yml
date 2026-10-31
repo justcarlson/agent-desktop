@@ -11,31 +11,32 @@ name: Omarchy VM
 # end-to-end tiers in the VM with a CLI built on the runner. It is not a
 # required check.
 
+# Diagnostic only, not for merge: this copy runs test/ab, which alternates a
+# CLI built from base_ref and one built from candidate_ref (this checkout when
+# empty) over the x11-openbox tier and the lifecycle legs, in one VM per
+# channel, to tell whether lifecycle.maximize_restore fails for either build
+# on the runner.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/omarchy-vm.yml
-      - test/**
-      - tests/e2e-linux/**
-      - scripts/private-*.sh
-      - crates/core/**
-      - crates/linux/**
-      - src/**
-      - Cargo.toml
-      - Cargo.lock
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/omarchy-vm.yml
-      - test/**
-      - tests/e2e-linux/**
-      - scripts/private-*.sh
-      - crates/core/**
-      - crates/linux/**
-      - src/**
-      - Cargo.toml
-      - Cargo.lock
   workflow_dispatch:
+    inputs:
+      base_repository:
+        description: Repository of the base build
+        default: vercel-labs/agent-desktop
+      base_ref:
+        description: Commit of the base build, labelled main
+        default: 5261b5287b5208e7c4bf3713df6f66faaaf2c4cc
+      candidate_repository:
+        description: Repository of the candidate build when candidate_ref is set
+        default: justcarlson/agent-desktop
+      candidate_ref:
+        description: Commit of the candidate build; empty builds this checkout
+        default: ""
+      tier_rounds:
+        description: Alternating x11-openbox tier rounds
+        default: "2"
+      lifecycle_rounds:
+        description: Alternating lifecycle-leg rounds
+        default: "5"
 
 permissions:
   contents: read
@@ -47,7 +48,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -62,16 +63,45 @@ jobs:
           path: src/${{ github.event.repository.name }}
           persist-credentials: false
 
-      # The VM gets the CLI built here: omarchy-vm leaves */target out of the
-      # copy, and the image has no Rust toolchain.
-      - name: Build the CLI and its clipboard helper
-        working-directory: src/${{ github.event.repository.name }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.base_repository }}
+          ref: ${{ inputs.base_ref }}
+          path: build/main
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: inputs.candidate_ref != ''
+        with:
+          repository: ${{ inputs.candidate_repository }}
+          ref: ${{ inputs.candidate_ref }}
+          path: build/candidate
+          persist-credentials: false
+
+      # The VM gets both CLIs built here: omarchy-vm leaves */target out of the
+      # copy, and the image has no Rust toolchain. Each build has its own
+      # target directory: cargo fingerprints a workspace member by its dep-info
+      # paths and mtimes, so a shared one reports the second tree as fresh and
+      # copies the first tree's binary.
+      - name: Build the main and candidate CLIs and their clipboard helpers
         run: |
-          rustup show
-          cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
-          mkdir -p "$GITHUB_WORKSPACE/agent-desktop-bin"
-          cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
-            "$GITHUB_WORKSPACE/agent-desktop-bin/"
+          [[ -d build/candidate ]] || ln -s "$GITHUB_WORKSPACE/src/$REPO" build/candidate
+          for label in main candidate; do
+            target=$GITHUB_WORKSPACE/target-$label
+            (
+              cd "build/$label"
+              rustup show
+              CARGO_TARGET_DIR=$target cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
+            )
+            dir=$GITHUB_WORKSPACE/agent-desktop-bin/$label
+            mkdir -p "$dir"
+            cp "$target/release/agent-desktop" "$target/release/agent-desktop-linux-clipboard-owner" "$dir/"
+            echo "$(git -C "build/$label" remote get-url origin) $(git -C "build/$label" rev-parse HEAD)" >"$dir/source.txt"
+            echo "$label: $(cat "$dir/source.txt") $(sha256sum "$dir/agent-desktop" | cut -d' ' -f1)" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          if cmp -s agent-desktop-bin/main/agent-desktop agent-desktop-bin/candidate/agent-desktop; then
+            echo "::warning::the main and candidate CLIs are byte-identical"
+          fi
 
       - name: Install the fetch tools
         run: |
@@ -118,6 +148,7 @@ jobs:
           sudo chmod 0666 /dev/kvm
           docker run --rm --device /dev/kvm -v "$PWD:/w" -v "$OMARCHY_VM_CACHE:$OMARCHY_VM_CACHE:ro" -w /w \
             -e CHANNEL -e REPO -e OMARCHY_VM_CACHE -e VM_STATE_DIR=/tmp -e MEM -e SMP \
+            -e AB_TIER_ROUNDS="${{ inputs.tier_rounds }}" -e AB_LIFECYCLE_ROUNDS="${{ inputs.lifecycle_rounds }}" \
             ghcr.io/archlinux/archlinux:latest bash -euo pipefail -c '
               # pacman 7 fails every sync on a kernel without Landlock.
               if ! grep -qw landlock /sys/kernel/security/lsm 2>/dev/null; then
@@ -147,7 +178,7 @@ jobs:
                 pkgs+=(--pkg "$pkg")
               done
               "src/$REPO/test/omarchy-vm" run --channel "$CHANNEL" --copy "src/$REPO" --copy agent-desktop-bin \
-                "${pkgs[@]}" --out out -- bash -c "cd \"\$1\" && ./test/all" _ "$REPO"
+                "${pkgs[@]}" --out out -- bash -c "cd \"\$1\" && AB_TIER_ROUNDS=\"\$2\" AB_LIFECYCLE_ROUNDS=\"\$3\" ./test/ab" _ "$REPO" "$AB_TIER_ROUNDS" "$AB_LIFECYCLE_ROUNDS"
             '
 
       # The container ran as root: its output belongs to root until here.
@@ -158,7 +189,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: omarchy-vm-${{ matrix.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: omarchy-vm-ab-${{ matrix.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: out/
           if-no-files-found: ignore
           retention-days: 14
