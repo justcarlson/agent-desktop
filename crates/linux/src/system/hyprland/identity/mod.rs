@@ -7,4 +7,5 @@ pub(crate) mod compositor_windows;
 pub(crate) mod identity_bind;
 pub(crate) mod identity_refusal;
 pub(crate) mod inventory;
+pub(crate) mod inventory_read;
 pub(crate) mod window_evidence;

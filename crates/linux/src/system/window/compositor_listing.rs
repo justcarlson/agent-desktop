@@ -7,10 +7,10 @@ use super::accessible_frames::AccessibleFrames;
 use crate::system::app::app_name::name_matches;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::bind::routed_binding::routed_binding;
-use crate::system::hyprland::clients::client_read::{read_clients, read_desktop};
+use crate::system::hyprland::clients::client_read::read_desktop;
 use crate::system::hyprland::identity::compositor_windows::compositor_windows;
 use crate::system::hyprland::identity::inventory::Inventory;
-use crate::system::hyprland::toplevel::toplevel_read::read_toplevels;
+use crate::system::hyprland::identity::inventory_read::read_inventory;
 use crate::system::process::process_facts::{self, ProcessFacts};
 use crate::system::process::process_lookup::Lookup;
 
@@ -48,20 +48,19 @@ fn read_windows(
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
-    let clients = read_clients(binding, deadline)?;
-    let toplevels = read_toplevels(binding, deadline)?;
+    let (clients, toplevels) = read_inventory(binding, deadline)?;
     let desktop = read_desktop(binding, deadline)?;
     let inventory = Inventory {
         clients: &clients,
         toplevels: &toplevels,
     };
-    let represented = frames.represented(inventory);
+    let represented = frames.represented(inventory, live_instance);
     let windows = compositor_windows(
         inventory,
         &desktop,
         (binding.pid, binding.start_time),
         |client| represented.contains(&client.address),
-        |pid| facts_of(pid).map(|facts| facts.instance),
+        live_instance,
     );
     Ok(match query {
         Some(query) => windows
@@ -70,6 +69,11 @@ fn read_windows(
             .collect(),
         None => windows,
     })
+}
+
+/// The instance token of `pid` read now, independent of any earlier read.
+pub(crate) fn live_instance(pid: u32) -> Option<String> {
+    facts_of(pid).map(|facts| facts.instance)
 }
 
 fn facts_of(pid: u32) -> Option<ProcessFacts> {

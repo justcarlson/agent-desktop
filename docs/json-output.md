@@ -144,13 +144,17 @@ exposes no frame for:
   restart the old id is `WINDOW_NOT_FOUND`.
 - The row has no `minimized` and no refs. `snapshot --window-id` and
   `find --window-id` refuse the id with `INVALID_ARGS`.
+- An accessible window id resolves only to exactly one toplevel. With none,
+  or with a changed process, it is `WINDOW_NOT_FOUND`; with several it is
+  `AMBIGUOUS_TARGET`, and `error.details.candidates` lists each toplevel's
+  `address` and `workspace`.
 
 ## Hyprland binding
 
 On Hyprland, `list-displays` reads the Wayland socket of the one Hyprland
 instance it binds, and `list-windows` reads that instance's clients. Both
-commands, and a `w-hypr-` window id, report a refused binding with
-`PLATFORM_NOT_SUPPORTED` and a cause in `error.details.display_unavailable`.
+commands, and every command that resolves a window id, report a refused
+binding with `PLATFORM_NOT_SUPPORTED` and a cause in `error.details.display_unavailable`.
 `hyprland_ambiguous` means several instances answer and none is named;
 `details.signatures` lists them. `hyprland_mismatch` means the named instance
 is not live, or it and the Wayland socket belong to different compositor

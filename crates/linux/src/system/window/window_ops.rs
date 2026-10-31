@@ -3,7 +3,7 @@ use serde_json::json;
 
 use std::collections::HashSet;
 
-use super::accessible_frames::AccessibleFrames;
+use super::accessible_frames::{AccessibleFrames, frame_evidence};
 use super::compositor_listing::{hyprland_windows, unregistered_target};
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
@@ -111,7 +111,7 @@ pub(crate) fn list_windows(
         desktops.finish(deadline).flatten().as_ref(),
     );
     let mut windows = pass.windows;
-    let frames: Vec<WindowInfo> = windows.iter().map(|window| window.info.clone()).collect();
+    let frames: Vec<_> = windows.iter().map(frame_evidence).collect();
     if filter.focused_only {
         windows.retain(|window| window.info.state.is_focused);
     }
@@ -125,7 +125,11 @@ pub(crate) fn list_windows(
             Some(_) => registered_pids(bus, deadline)?,
             None => registered.clone(),
         };
-        Ok(AccessibleFrames::from_listed(&frames, registered, all))
+        Ok(AccessibleFrames {
+            frames,
+            read: registered,
+            registered: all,
+        })
     };
     let compositor = hyprland_windows(represented, filter.app.as_deref(), deadline)?;
     listed.append(&mut keep_focused(compositor, filter));
@@ -159,6 +163,18 @@ pub(crate) fn windows_of_process(
     pid: u32,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
+    Ok(listed_of_process(bus, pid, deadline)?
+        .into_iter()
+        .map(|window| window.info)
+        .collect())
+}
+
+/// [`windows_of_process`] with each window's frame facts kept.
+pub(crate) fn listed_of_process(
+    bus: &SharedBus,
+    pid: u32,
+    deadline: Deadline,
+) -> Result<Vec<ListedWindow>, AdapterError> {
     let pending = x11::start(|| DisplayReader.read());
     let desktops = x11::start(desktops::read);
     let registry = read_registry_for(bus, Some(pid), deadline)?;
@@ -170,7 +186,7 @@ pub(crate) fn windows_of_process(
         &state,
         desktops.finish(deadline).flatten().as_ref(),
     );
-    Ok(pass.windows.into_iter().map(|window| window.info).collect())
+    Ok(pass.windows)
 }
 
 /// The focused window, or none when the available sources do not agree.

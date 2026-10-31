@@ -1,11 +1,14 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
-use super::accessible_frames::AccessibleFrames;
+use super::accessible_frames::{AccessibleFrames, frame_evidence};
+use super::compositor_identity::require_toplevel;
 use super::compositor_listing::hyprland_windows;
 use super::window_id;
-use super::window_ops::windows_of_process;
+use super::window_ops::listed_of_process;
 use crate::system::hyprland::identity::compositor_window_id::{is_compositor_id, is_well_formed};
+use crate::system::hyprland::identity::window_evidence::WindowEvidence;
 use crate::system::process::liveness::{Liveness, liveness};
+use crate::system::registry::listed_window::ListedWindow;
 use crate::system::{SharedBus, shell};
 
 fn not_found(detail: &str) -> AdapterError {
@@ -62,8 +65,34 @@ pub(crate) fn resolve_window_strict(
         shell::window_gate::verify(bus, &expected.id, deadline)?;
         return Ok(expected.clone());
     }
-    let live = windows_of_process(bus, expected.pid.get(), deadline)?;
-    verify(expected, live, process_of(expected))
+    let listed = listed_of_process(bus, expected.pid.get(), deadline)?;
+    resolve_accessible(expected, listed, process_of(expected), |evidence| {
+        require_toplevel(evidence, deadline)
+    })
+}
+
+/// Verifies a stored accessibility window against its process's fresh
+/// windows, then lets `identity` refuse the window found. On a bound
+/// Hyprland, `identity` requires exactly one compositor toplevel.
+pub(crate) fn resolve_accessible(
+    expected: &WindowInfo,
+    listed: Vec<ListedWindow>,
+    process: Liveness,
+    identity: impl FnOnce(&WindowEvidence) -> Result<(), AdapterError>,
+) -> Result<WindowInfo, AdapterError> {
+    let evidence = listed
+        .iter()
+        .find(|window| window.info.id == expected.id)
+        .map(frame_evidence);
+    let found = verify(
+        expected,
+        listed.into_iter().map(|window| window.info).collect(),
+        process,
+    )?;
+    if let Some(evidence) = evidence {
+        identity(&evidence)?;
+    }
+    Ok(found)
 }
 
 /// Resolves a compositor-only window against the bound compositor's
