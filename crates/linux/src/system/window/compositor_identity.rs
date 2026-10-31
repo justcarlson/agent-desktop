@@ -30,10 +30,8 @@ pub(crate) fn require_toplevel(
     bound_toplevel(evidence, live_instance(evidence.pid).as_deref(), inventory).map(|_| ())
 }
 
-/// The address of the one toplevel `evidence` binds to. A process that
-/// changed and a window with no toplevel are `WINDOW_NOT_FOUND`, and
-/// several candidates are `AMBIGUOUS_TARGET` naming each one. Nothing was
-/// sent, so every refusal is safe to retry after a fresh `list-windows`.
+/// The address of the one toplevel `evidence` binds to, refused as
+/// `resolution_error` says.
 pub(crate) fn bound_toplevel(
     evidence: &WindowEvidence,
     live_instance: Option<&str>,
@@ -42,13 +40,24 @@ pub(crate) fn bound_toplevel(
     bind_frame(evidence, live_instance, inventory).map_err(resolution_error)
 }
 
-fn resolution_error(refusal: IdentityRefusal) -> AdapterError {
+/// The error for a window that is not exactly one compositor toplevel. A
+/// process that changed, a window with no toplevel and a compositor id
+/// whose compositor or toplevel is gone are `WINDOW_NOT_FOUND`, and several
+/// candidates are `AMBIGUOUS_TARGET` naming each one. Nothing was sent, so
+/// every refusal is safe to retry after a fresh `list-windows`.
+pub(crate) fn resolution_error(refusal: IdentityRefusal) -> AdapterError {
     let error = match refusal {
         IdentityRefusal::ProcessChanged => {
             not_found("The window's process is no longer the one that showed it")
         }
         IdentityRefusal::NoCandidate => {
             not_found("The compositor shows no toplevel for this window")
+        }
+        IdentityRefusal::OtherCompositor => {
+            not_found("The window id was issued by a compositor that no longer runs this session")
+        }
+        IdentityRefusal::ToplevelGone => {
+            not_found("The compositor no longer has the toplevel this window id names")
         }
         IdentityRefusal::Ambiguous(candidates) => ambiguous(&candidates),
     };

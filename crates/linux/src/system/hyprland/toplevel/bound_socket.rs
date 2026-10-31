@@ -4,7 +4,7 @@
 
 use std::os::unix::net::UnixStream;
 
-use agent_desktop_core::AdapterError;
+use agent_desktop_core::{AdapterError, ErrorCode};
 
 use crate::system::display::display_server::{DisplayCause, display_cause_error};
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
@@ -28,4 +28,15 @@ pub(crate) fn connect_bound(binding: &HyprlandBinding) -> Result<UnixStream, Ada
         }));
     }
     Ok(stream)
+}
+
+/// The refusal for a compositor that does not advertise `interface`, which
+/// `need` names the use of.
+pub(crate) fn unadvertised(interface: &str, need: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::PlatformNotSupported,
+        format!("The compositor does not advertise {interface}, which {need} needs"),
+    )
+    .with_suggestion("Update Hyprland to a release that advertises it")
+    .with_platform_detail(format!("missing Wayland global {interface}"))
 }

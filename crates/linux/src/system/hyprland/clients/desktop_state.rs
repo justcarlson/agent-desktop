@@ -1,6 +1,8 @@
-//! What the bound instance shows: the active window and every monitor's
-//! active and special workspace, from `j/activewindow` and `j/monitors`.
+//! What the bound instance shows: the active window, every monitor's
+//! active and special workspace and the cursor, from `j/activewindow`,
+//! `j/monitors` and `j/cursorpos`.
 
+use agent_desktop_core::Point;
 use serde_json::Value;
 
 use super::client_workspace::ClientWorkspace;
@@ -8,11 +10,13 @@ use super::monitor_workspaces::MonitorWorkspaces;
 
 const SPECIAL_PREFIX: &str = "special:";
 
-/// The active window's address and every monitor's workspaces at one read.
+/// The active window's address, every monitor's workspaces and the cursor
+/// position at one read.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DesktopState {
     pub(crate) active: Option<u64>,
     pub(crate) monitors: Vec<MonitorWorkspaces>,
+    pub(crate) cursor: Option<Point>,
 }
 
 impl DesktopState {
@@ -62,11 +66,21 @@ fn monitor_of(monitor: &Value) -> Option<MonitorWorkspaces> {
             .and_then(Value::as_str)
     };
     Some(MonitorWorkspaces {
+        monitor: monitor.get("name")?.as_str()?.to_owned(),
         id: monitor.get("id").and_then(Value::as_i64),
         active: name_of("activeWorkspace")?.to_owned(),
         special: name_of("specialWorkspace")
             .filter(|name| !name.is_empty())
             .map(str::to_owned),
+    })
+}
+
+/// The cursor position from a `j/cursorpos` reply.
+pub(crate) fn parse_cursor(body: &[u8]) -> Option<Point> {
+    let cursor: Value = serde_json::from_slice(body).ok()?;
+    Some(Point {
+        x: cursor.get("x")?.as_f64()?,
+        y: cursor.get("y")?.as_f64()?,
     })
 }
 

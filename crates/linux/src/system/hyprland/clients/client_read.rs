@@ -1,9 +1,9 @@
 //! Live reads of the bound instance's clients and desktop state.
 
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, Point};
 
 use super::client_parse::{parse_active, parse_clients};
-use super::desktop_state::{DesktopState, parse_monitors};
+use super::desktop_state::{DesktopState, parse_cursor, parse_monitors};
 use super::hypr_client::HyprClient;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::ipc::bound_request::bound_request;
@@ -11,6 +11,7 @@ use crate::system::hyprland::ipc::bound_request::bound_request;
 const CLIENTS_COMMAND: &str = "j/clients";
 const ACTIVE_COMMAND: &str = "j/activewindow";
 const MONITORS_COMMAND: &str = "j/monitors";
+const CURSOR_COMMAND: &str = "j/cursorpos";
 
 /// Every client of the bound instance.
 pub(crate) fn read_clients(
@@ -22,6 +23,8 @@ pub(crate) fn read_clients(
 }
 
 /// The active window and every monitor's workspaces of the bound instance.
+/// The cursor is left unread; `read_cursor` reads it for a caller that needs
+/// it.
 pub(crate) fn read_desktop(
     binding: &HyprlandBinding,
     deadline: Deadline,
@@ -30,7 +33,21 @@ pub(crate) fn read_desktop(
     let active = parse_active(&active).ok_or_else(|| unreadable("active window"))?;
     let monitors = bound_request(binding, MONITORS_COMMAND, deadline)?;
     let monitors = parse_monitors(&monitors).ok_or_else(|| unreadable("monitor list"))?;
-    Ok(DesktopState { active, monitors })
+    Ok(DesktopState {
+        active,
+        monitors,
+        cursor: None,
+    })
+}
+
+/// The cursor position of the bound instance in global compositor
+/// coordinates.
+pub(crate) fn read_cursor(
+    binding: &HyprlandBinding,
+    deadline: Deadline,
+) -> Result<Point, AdapterError> {
+    let cursor = bound_request(binding, CURSOR_COMMAND, deadline)?;
+    parse_cursor(&cursor).ok_or_else(|| unreadable("cursor position"))
 }
 
 fn unreadable(what: &str) -> AdapterError {
