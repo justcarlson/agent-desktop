@@ -218,14 +218,46 @@ fn a_discovered_instance_behind_another_compositor_keeps_the_generic_route() {
 }
 
 #[test]
-fn a_dead_explicit_signature_falls_back_to_discovery() {
+fn a_dead_explicit_signature_refuses_instead_of_binding_another_instance() {
     let fake = Fake::default()
         .instance("old", IpcAnswer::Gone)
         .instance("live", IpcAnswer::Live(LIVE))
         .socket("wayland-1", LIVE);
+    for wayland in [Some("wayland-1"), None] {
+        assert!(
+            matches!(
+                bound(&request(Some("old"), wayland), &fake),
+                Err(BindRefusal::Mismatch { .. })
+            ),
+            "{wayland:?}"
+        );
+    }
+}
+
+#[test]
+fn a_signature_that_climbs_out_of_the_instance_directory_refuses() {
+    let fake = Fake::default()
+        .instance("live", IpcAnswer::Live(LIVE))
+        .socket("wayland-1", LIVE);
+    for signature in ["..", "../live", "."] {
+        assert!(
+            matches!(
+                bound(&request(Some(signature), Some("wayland-1")), &fake),
+                Err(BindRefusal::Mismatch { .. })
+            ),
+            "{signature}"
+        );
+    }
+}
+
+#[test]
+fn a_dead_explicit_signature_behind_another_compositor_keeps_the_generic_route() {
+    let fake = Fake::default()
+        .instance("old", IpcAnswer::Gone)
+        .socket("wayland-0", GNOME);
     assert_eq!(
-        bound(&request(Some("old"), Some("wayland-1")), &fake),
-        Ok(Some(binding("wayland-1", LIVE)))
+        bound(&request(Some("old"), Some("wayland-0")), &fake),
+        Ok(None)
     );
 }
 
