@@ -182,42 +182,52 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     return found
 
 
+def _stat(pid: int) -> str | None:
+    try:
+        return (Path("/proc") / str(pid) / "stat").read_text()
+    except FileNotFoundError:
+        return None
+
+
+def _running(stat: str | None) -> bool:
+    return stat is not None and stat[stat.rindex(")") + 2:].split()[0] != "Z"
+
+
+def _exiting_generation_alive(app: OwnedApp) -> bool:
+    """An exiting process can lose its environ before it is a zombie; it stays alive until then."""
+    stat = _stat(app.pid)
+    return _running(stat) and proc.stat_fields(stat)[0] == app.start_time
+
+
+def _alive(app: OwnedApp, tier: Tier) -> bool:
+    if not _running(_stat(app.pid)):
+        return False
+    try:
+        start, _, _, env = proc.facts(app.pid)
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return _exiting_generation_alive(app)
+    if start != app.start_time:
+        return False
+    if attributable(tier, app.pid, start, env):
+        return True
+    child = _SPAWNED.get(app.pid)
+    if not env and child is not None:
+        try:
+            child.wait(timeout=2.0)
+            return False
+        except subprocess.TimeoutExpired:
+            pass
+    if not _running(_stat(app.pid)):
+        return False
+    raise AssertionError("owned process left its runtime directory")
+
+
 def stop(app: OwnedApp) -> None:
     tier = _TIERS.get((app.pid, app.start_time))
     if tier is None:
         raise ValueError("refusing to stop an unattributed process")
-
-    def alive():
-        stat = ""
-        try:
-            stat = (Path("/proc") / str(app.pid) / "stat").read_text()
-            if stat[stat.rindex(")") + 2:].split()[0] == "Z":
-                return False
-            start, group, _, env = proc.facts(app.pid)
-        except (FileNotFoundError, ProcessLookupError):
-            return False
-        except PermissionError:
-            # An exiting process can revoke environ before it becomes a zombie.
-            # Attribution was established at launch; retain only that generation.
-            if not stat:
-                raise
-            start, group, _ = proc.stat_fields(stat)
-            return group if start == app.start_time else False
-        if start != app.start_time:
-            return False
-        if not attributable(tier, app.pid, start, env):
-            child = _SPAWNED.get(app.pid)
-            if not env and child is not None:
-                try:
-                    child.wait(timeout=2.0)
-                    return False
-                except subprocess.TimeoutExpired:
-                    pass
-            raise AssertionError("owned process left its runtime directory")
-        return group
-
-    group = alive()
-    if group:
+    alive = lambda: _alive(app, tier)
+    if alive():
         os.kill(app.pid, signal.SIGTERM)
         if raw.poll(lambda: not alive(), 2.0) is not True:
             os.kill(app.pid, signal.SIGKILL)
