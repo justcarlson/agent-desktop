@@ -59,7 +59,11 @@ impl CaptureWorld for FakeWorld {
         self.frame.clone()
     }
 
-    fn still_bound(&mut self, bound: &BoundToplevel) -> Result<bool, AdapterError> {
+    fn still_bound(
+        &mut self,
+        _win: &WindowInfo,
+        bound: &BoundToplevel,
+    ) -> Result<bool, AdapterError> {
         note(&self.log, format!("still {:#x}", bound.client.address));
         Ok(self.still)
     }

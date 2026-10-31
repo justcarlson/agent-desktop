@@ -16,9 +16,13 @@ pub(crate) trait CaptureWorld {
         identifier: &str,
         composition: Composition,
     ) -> Result<RawFrame, AdapterError>;
-    /// Whether the compositor still has the toplevel `bound` names, at the
-    /// same address.
-    fn still_bound(&mut self, bound: &BoundToplevel) -> Result<bool, AdapterError>;
+    /// Whether `bound` is still the toplevel of `win`: the same toplevel at
+    /// the same address, owned by the same process and class.
+    fn still_bound(
+        &mut self,
+        win: &WindowInfo,
+        bound: &BoundToplevel,
+    ) -> Result<bool, AdapterError>;
     fn displays(&mut self) -> Result<Vec<DisplayInfo>, AdapterError>;
     fn capture_output(&mut self, name: &str) -> Result<RawFrame, AdapterError>;
 }

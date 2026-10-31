@@ -267,7 +267,7 @@ written.
 | `TIMEOUT` | No frame arrived before the deadline | `kind: "capture_frame"` |
 | `ACTION_FAILED` | The compositor refused every frame; a refused window buffer is retried on new sessions for up to 2 s while a moved window's size settles | `kind: "capture_refused"`, `reason: "buffer_constraints"` or `"unknown"` |
 | `ACTION_FAILED` | The frame came from before the request, its size did not match the display, or no buffer layout was readable | |
-| `WINDOW_NOT_FOUND` | The window matches no toplevel, its process was replaced, its toplevel closed or changed before or during the capture, or its id came from another compositor | |
+| `WINDOW_NOT_FOUND` | The window matches no toplevel, its process was replaced, its toplevel closed, changed or had its address passed to another window before or during the capture, or its id came from another compositor | |
 | `AMBIGUOUS_TARGET` | The window matches more than one toplevel | `candidates`, each with `address` and `workspace` |
 | `ACTION_NOT_SUPPORTED` | The compositor lacks a global capture needs; `platform_detail` names it | |
 | `INVALID_ARGS` | The display is gone or changed during the capture | `display` when the compositor no longer offers it |
