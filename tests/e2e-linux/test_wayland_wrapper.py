@@ -37,3 +37,22 @@ class WaylandWrapperTests(unittest.TestCase):
             pid, socket = (root / "payload").read_text().split(":")
             self.assertEqual(socket, "wayland-test")
             self.assertIn(pid, signals, "the shell PID was lost before EXIT cleanup")
+
+    def test_portals_are_found_where_the_distribution_installs_them(self):
+        source = (Path(__file__).resolve().parents[2] / "scripts/private-wayland-shell.sh").read_text()
+        match = re.search(r"(?ms)^def executable\(.*?\n\n", source)
+        self.assertIsNotNone(match)
+        scope = {"os": os, "sys": __import__("sys")}
+        exec(match[0], scope)
+        with tempfile.TemporaryDirectory() as directory:
+            libexec, lib = Path(directory, "libexec"), Path(directory, "lib")
+            for root in (libexec, lib):
+                root.mkdir()
+            portal = lib / "xdg-desktop-portal-gnome"
+            portal.write_text("")
+            portal.chmod(0o755)
+            roots = (str(libexec), str(lib))
+            self.assertEqual(scope["executable"]("xdg-desktop-portal-gnome", roots), str(portal))
+            with self.assertRaises(SystemExit):
+                scope["executable"]("xdg-desktop-portal", roots)
+            self.assertIn("/usr/lib", scope["executable"].__defaults__[0])
