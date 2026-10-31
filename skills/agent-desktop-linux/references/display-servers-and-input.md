@@ -40,8 +40,8 @@ command that resolves a window id report the refusal:
 | `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance is not live, the named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
 | `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
 
-What a bound Hyprland adds to `list-windows`, to resolving a window id and to
-`focus-window` is in `windows-and-lifecycle.md`.
+What a bound Hyprland adds to `list-windows`, to resolving a window id, to
+`focus-window` and to `close-app` is in `windows-and-lifecycle.md`.
 Other commands on Hyprland behave as on a generic Wayland session.
 
 ## X11 versus Wayland
