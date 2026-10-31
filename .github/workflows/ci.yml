@@ -37,7 +37,7 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$EVENT" = pull_request ]; then
-            git diff --name-only HEAD^1 HEAD | scripts/ci-scope.sh scope . | tee -a "$GITHUB_OUTPUT"
+            scripts/ci-scope.sh paths HEAD^1 HEAD | scripts/ci-scope.sh scope . | tee -a "$GITHUB_OUTPUT"
           else
             echo "code=true" | tee -a "$GITHUB_OUTPUT"
           fi

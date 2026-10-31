@@ -49,6 +49,31 @@ expect_scope true "workflow" ".github/workflows/ci.yml"
 expect_scope true "docs page next to rust" $'apps/docs/content/a.mdx\ncrates/core/src/lib.rs\n'
 expect_scope true "empty change list" ""
 
+REPO="$WORK/repo"
+mkdir -p "$REPO/src" "$REPO/docs"
+git -C "$REPO" init -q
+printf 'x\n' > "$REPO/src/viewer.js"
+git -C "$REPO" add -A
+git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm base
+git -C "$REPO" mv src/viewer.js docs/viewer.js
+git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm move
+got=$(cd "$REPO" && "$SCOPE" paths HEAD^1 HEAD | "$SCOPE" scope "$REPO")
+if [ "$got" = "code=true" ]; then
+  echo "ok   scope: source file moved into docs"
+else
+  echo "FAIL scope: source file moved into docs: want code=true, got $got"
+  failures=$((failures + 1))
+fi
+
+status=0
+seq 1 50000 | sed 's|^|src/f|' | "$SCOPE" scope "$WORK" >/dev/null || status=$?
+if [ "$status" -eq 0 ]; then
+  echo "ok   scope: a large code change reads its whole path list"
+else
+  echo "FAIL scope: a large code change reads its whole path list: pipeline exited $status"
+  failures=$((failures + 1))
+fi
+
 ok='{"changes":{"result":"success"},"fmt":{"result":"success"},"test":{"result":"success"}}'
 skipped='{"changes":{"result":"success"},"fmt":{"result":"success"},"test":{"result":"skipped"}}'
 expect_verdict pass "every job passed" true "$ok"

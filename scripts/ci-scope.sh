@@ -2,6 +2,9 @@
 #
 # Decides which CI jobs a change needs, and whether the ci-ok gate passes.
 #
+#   ci-scope.sh paths BASE HEAD
+#     Prints every path changed between two commits, with renames split into
+#     their source and destination.
 #   ci-scope.sh scope ROOT < changed-paths
 #     Prints code=false when the change can skip the Rust jobs, else code=true.
 #   ci-scope.sh verdict CODE ALWAYS... < needs-json
@@ -26,7 +29,8 @@ is_read_by_checks() {
 }
 
 scope() {
-  local root=$1 path seen=0
+  local root=$1 paths path seen=0
+  paths=$(cat)
   while IFS= read -r path || [ -n "$path" ]; do
     [ -n "$path" ] || continue
     seen=1
@@ -43,7 +47,7 @@ scope() {
         return 0
         ;;
     esac
-  done
+  done <<<"$paths"
   if [ "$seen" -eq 1 ]; then
     echo "code=false"
   else
@@ -66,6 +70,10 @@ verdict() {
 }
 
 case "${1:-}" in
+  paths)
+    [ $# -eq 3 ] || { echo "usage: $0 paths BASE HEAD" >&2; exit 2; }
+    git diff --no-renames --name-only "$2" "$3"
+    ;;
   scope)
     [ $# -eq 2 ] || { echo "usage: $0 scope ROOT < paths" >&2; exit 2; }
     scope "$2"
@@ -75,7 +83,7 @@ case "${1:-}" in
     verdict "${@:2}"
     ;;
   *)
-    echo "usage: $0 scope ROOT | verdict CODE ALWAYS..." >&2
+    echo "usage: $0 paths BASE HEAD | scope ROOT | verdict CODE ALWAYS..." >&2
     exit 2
     ;;
 esac
