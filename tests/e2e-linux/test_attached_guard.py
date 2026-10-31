@@ -13,7 +13,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import attached_guard, attached_session, main, session
+from runner import attached_guard, attached_session, main, prepare, session
 
 BOOT = "5d2f6a1e-0c1b-4d7e-9a43-6f1e2b3c4d5e"
 ROOT_DIR = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
@@ -193,6 +193,33 @@ class GuardOrderTests(unittest.TestCase):
         self.assertEqual(code, 2)
         for spy in (lease, sweep, start, gate):
             self.assertFalse(spy.called)
+
+    def test_a_refused_run_sh_writes_nothing_before_it_exits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory) / "sessions"
+            env = {"AGENT_DESKTOP_SESSION_BASE": str(base), "AGENT_DESKTOP_E2E_BIN": "/nonexistent/bin"}
+            for argv in (["--tier", "hyprland"], ["--tier=hyprland", "--leg", "x"]):
+                with self.subTest(argv=argv), mock.patch.dict(os.environ, env, clear=False), \
+                     mock.patch.object(attached_guard, "refusals", return_value=["no marker"]), \
+                     mock.patch.object(prepare.stage, "stage_binary", side_effect=AssertionError("stage_binary ran")) as stage_binary, \
+                     mock.patch.object(prepare.tempfile, "mkdtemp", side_effect=AssertionError("mkdtemp ran")) as mkdtemp, \
+                     mock.patch.object(prepare.os, "execv", side_effect=AssertionError("execv ran")) as execv:
+                    with self.assertRaises(SystemExit) as raised:
+                        prepare.main(argv)
+                self.assertEqual(raised.exception.code, 2)
+                self.assertFalse(base.exists())
+                for spy in (stage_binary, mkdtemp, execv):
+                    self.assertFalse(spy.called)
+
+    def test_run_sh_does_not_consult_the_guard_for_private_tiers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {"AGENT_DESKTOP_SESSION_BASE": directory, "AGENT_DESKTOP_E2E_SUITE": directory}
+            with mock.patch.dict(os.environ, env, clear=False), \
+                 mock.patch.object(attached_guard, "refusals") as guard, \
+                 mock.patch.object(prepare.os, "execv") as execv:
+                prepare.main(["--tier", "x11-openbox", "--lying-actions"])
+        self.assertFalse(guard.called)
+        self.assertTrue(execv.called)
 
     def test_private_tiers_do_not_consult_the_guard(self):
         with mock.patch.object(attached_guard, "refusals") as guard, \
