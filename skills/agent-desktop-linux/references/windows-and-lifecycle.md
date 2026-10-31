@@ -256,7 +256,8 @@ safe to repeat.
   every window. Send a global `--headed press escape` (no `--app`), then call
   `focus-window --app <name>` again. A headed ref action runs `focus-window` for
   you and ends the same way.
-- A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
+- On a bound Hyprland, see [Hyprland focus](#hyprland-focus).
+  Any other Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
   evidence and leaves it minimized. On X11, `--headed click`, `--headed hover`
   and `--headed drag` first focus the ref's exact source window, restoring it if
@@ -304,6 +305,35 @@ no toplevel, or whose process changed since it was listed, is
 and `details.candidates` names each toplevel's `address` and `workspace`.
 Nothing is sent before a refusal, so run `list-windows` and retry.
 
+## Hyprland focus
+
+```bash
+agent-desktop --headed focus-window --app foot
+```
+
+- `focus-window` works on AT-SPI windows and on `w-hypr-` windows. It first
+  binds the window to exactly one compositor toplevel, before anything is
+  sent. Twins it cannot tell apart are `AMBIGUOUS_TARGET` with
+  `details.candidates`; a window with no toplevel or a changed process is
+  `WINDOW_NOT_FOUND`.
+- Only `--headed` activates. A headless `focus-window` succeeds when the window
+  already has focus and otherwise is `POLICY_DENIED`, cause
+  `window_not_focused` or `hidden_special_workspace`, `not_delivered`.
+- `data.activation` says whether an activation was sent (`activated`), how
+  focus was proven (`proof`: `compositor_and_accessibility` or
+  `compositor_only`) and what else changed (`side_effects`): a workspace switch,
+  a special workspace revealed or closed, and the cursor, which Hyprland moves
+  into the window it activates. `docs/json-output.md` has every cause.
+- An open special workspace over the window's monitor is `ACTION_FAILED`, cause
+  `special_workspace_open`, `not_delivered`: Hyprland keeps it in front. Close
+  it, then retry.
+- An activation that Hyprland, the toplevel state and the application never
+  agree on within 6 s is `ACTION_FAILED`, `delivered_unverified`, with each
+  witness's last read in `details`. Read the desktop before you retry.
+- A compositor that lacks `zwlr_foreign_toplevel_manager_v1`,
+  `hyprland_toplevel_mapping_manager_v1` or `wl_seat` is
+  `PLATFORM_NOT_SUPPORTED`; `platform_detail` names the missing global.
+
 ## Workspaces
 
 A window on another workspace lists `visible: false` and cannot take a headless
@@ -317,8 +347,9 @@ active window. On X11 a background or minimized app is refused: `ACTION_FAILED`,
 `check: window_active`, cause `display_active_window`, `not_delivered`; the
 message says the application's active window could not be confirmed. `--headed`
 brings the window forward, un-minimizes it and sends the keys (X11). On Wayland,
-`focus-window` and headed app- or window-scoped `press` refuse with
-`ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included.
+headed app- or window-scoped `press` refuses with `ACTION_NOT_SUPPORTED`, cause
+`wayland_session`, Xwayland clients included, and so does `focus-window`
+everywhere but a bound Hyprland.
 
 Headless scoped `press` does not activate a window: it requires the live focus
 guard to confirm the target. If focus cannot be confirmed, bring the target

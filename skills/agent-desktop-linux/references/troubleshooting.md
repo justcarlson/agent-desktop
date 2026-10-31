@@ -19,7 +19,9 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `POLICY_DENIED` on `click` or `type` | A required policy or capability is absent. Read the failed check. Headed policy gives physical input only where the receiver can be proven |
 | Tray item lists no `Activate` or `ContextMenu` | No primary protocol action. Use an advertised virtual menu entry. Headed input does not prove a native receiver from the item's title |
 | `POLICY_DENIED` on `press` | Blocked combo. Do not use `--force` unless you mean it |
-| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Bring the target forward yourself; use global `press` or the app's own UI |
+| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Bring the target forward yourself; use global `press` or the app's own UI. A bound Hyprland focuses through the compositor instead |
+| `POLICY_DENIED` `window_not_focused` or `hidden_special_workspace` | A headless `focus-window` on Hyprland found the window unfocused and sent nothing. Pass `--headed` to activate it |
+| `ACTION_FAILED` `special_workspace_open` | A Hyprland special workspace covers the window's monitor. Close it, then retry `focus-window` |
 | `PLATFORM_NOT_SUPPORTED` `hyprland_ambiguous` | Several Hyprland instances run and none is named. Set `HYPRLAND_INSTANCE_SIGNATURE` to one of `details.signatures` |
 | `PLATFORM_NOT_SUPPORTED` `hyprland_mismatch` | `HYPRLAND_INSTANCE_SIGNATURE` names no live instance, it and `WAYLAND_DISPLAY` name different compositors, or the bound Hyprland was replaced. Take both from the same Hyprland session |
 | `AMBIGUOUS_TARGET` with `details.candidates` on Hyprland | Several same-titled windows of one process match and their sizes do not tell them apart. Give them distinct titles or sizes, then run `list-windows` and retry |
