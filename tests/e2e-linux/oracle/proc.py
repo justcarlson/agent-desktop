@@ -36,13 +36,30 @@ def may_match(pid: int, comm: str, names) -> bool:
     return any(Path(arg.decode(errors="surrogateescape")).name in names for arg in args if arg)
 
 
-def members(runtime_dir: Path) -> list[tuple[int, int, str]]:
+def owned(tier, pid: int, start: int, env: dict) -> bool:
+    """Whether a process belongs to the tier: a recorded run member, or a private-runtime process."""
+    from runner import attached
+
+    if pid <= 1 or start <= 0:
+        return False
+    record = attached.load(tier.runtime_dir)
+    if record is not None:
+        return attached.is_member(record, pid, start, attached.PROC_ROOT)
+    return env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir)
+
+
+def members(runtime_dir: Path, root: Path = Path("/proc")) -> list[tuple[int, int, str]]:
+    from runner import attached
+
+    record = attached.load(runtime_dir)
+    if record is not None:
+        return attached.members(record, root)
     result = []
-    for directory in Path("/proc").iterdir():
+    for directory in root.iterdir():
         if not directory.name.isdecimal():
             continue
         try:
-            start, _, comm, env = facts(int(directory.name))
+            start, _, comm, env = facts(int(directory.name), root)
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
         if env.get("XDG_RUNTIME_DIR") == str(runtime_dir):

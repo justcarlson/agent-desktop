@@ -275,6 +275,42 @@ class ProcessOracleTests(unittest.TestCase):
             self.assertEqual(send.call_count, int(start == 40))
             group.assert_not_called()
 
+    @staticmethod
+    def stat_line(state: str, start: int = 40) -> str:
+        return "123 (cal) " + " ".join([state, "1", "123"] + ["0"] * 16 + [str(start)])
+
+    def test_stop_waits_until_an_exiting_process_is_a_zombie(self):
+        app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":1")
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        states, killed = ["R"], []
+
+        def stat():
+            if killed and len(states) < 4:
+                states.append("R")
+            elif killed:
+                states.append("Z")
+            return self.stat_line(states[-1])
+
+        with patch.dict(apps._TIERS, {(123, 40): tier}), patch.dict(apps._SPAWNED, clear=True), \
+             patch.object(Path, "read_text", side_effect=stat), \
+             patch.object(proc, "facts", side_effect=ProcessLookupError(3, "No such process")), \
+             patch.object(apps.os, "kill", side_effect=lambda *args: killed.append(args)):
+            apps.stop(app)
+        self.assertEqual(len(killed), 1)
+        self.assertEqual(states[-1], "Z")
+
+    def test_stop_accepts_a_process_that_became_a_zombie_during_the_membership_read(self):
+        app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":1")
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        states = iter(["S", "R", "Z", "Z"])
+        with patch.dict(apps._TIERS, {(123, 40): tier}), patch.dict(apps._SPAWNED, clear=True), \
+             patch.object(Path, "read_text", side_effect=lambda: self.stat_line(next(states))), \
+             patch.object(proc, "facts", return_value=(40, 123, "cal", {"XDG_RUNTIME_DIR": "/private/a"})), \
+             patch.object(apps, "attributable", side_effect=[True, False]), \
+             patch.object(apps.os, "kill") as kill:
+            apps.stop(app)
+        kill.assert_called_once()
+
     def test_oracle_tool_uses_the_private_environment_and_checks_exit(self):
         tier = SimpleNamespace(env=dict(os.environ, ORACLE_TEST_VALUE="private-value"))
         value = gsettings.tool(tier, [sys.executable, "-c", "import os; print(os.environ['ORACLE_TEST_VALUE'])"])

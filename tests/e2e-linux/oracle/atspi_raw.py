@@ -27,6 +27,9 @@ def decode_states(words: list[int]) -> frozenset[str]:
                      if bit // 32 < len(words) and words[bit // 32] & (1 << (bit % 32)))
 
 
+DEADLINE_EXPIRED = "oracle responsiveness deadline expired"
+
+
 @contextmanager
 def bounded_until(deadline):
     token = _DEADLINE.set(deadline)
@@ -40,7 +43,7 @@ def remaining_timeout(seconds):
     deadline = _DEADLINE.get()
     remaining = seconds if deadline is None else min(seconds, deadline - time.monotonic())
     if remaining <= 0:
-        raise TimeoutError("oracle responsiveness deadline expired")
+        raise TimeoutError(DEADLINE_EXPIRED)
     return remaining
 
 
@@ -156,10 +159,15 @@ def owner_pid(node: RawNode) -> int:
 
 
 def app_root(tier: Tier, owner_name: str) -> RawNode:
-    from oracle.proc import facts, may_match
+    from oracle import proc
+
+    def private(pid: int) -> bool:
+        start, _, _, env = proc.facts(pid)
+        return proc.owned(tier, pid, start, env)
+
     if re.fullmatch(r":\d+\.\d+", owner_name):
         node = RawNode(connect(tier.a11y_bus_address), owner_name, ROOT)
-        if facts(owner_pid(node))[3].get("XDG_RUNTIME_DIR") != str(tier.runtime_dir):
+        if not private(owner_pid(node)):
             raise LookupError(f"owner {owner_name!r} is not private")
         return node
     matches = []
@@ -168,20 +176,19 @@ def app_root(tier: Tier, owner_name: str) -> RawNode:
         pid = None
         try:
             pid = owner_pid(node)
-            _, _, process_name, env = facts(pid)
-            if env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir) and node.name == owner_name:
+            start, _, process_name, env = proc.facts(pid)
+            if proc.owned(tier, pid, start, env) and node.name == owner_name:
                 matches.append(node)
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
         except Exception as error:
             if "org.freedesktop.DBus.Error.NameHasNoOwner" in str(error):
                 continue
-            if pid is None or may_match(pid, process_name, (owner_name,)):
+            if pid is None or proc.may_match(pid, process_name, (owner_name,)):
                 raise
             if not unresponsive(error) and "NameHasNoOwner" not in str(error):
                 raise
-    matches = [node for node in matches
-               if facts(owner_pid(node))[3].get("XDG_RUNTIME_DIR") == str(tier.runtime_dir)]
+    matches = [node for node in matches if private(owner_pid(node))]
     if len(matches) != 1:
         raise LookupError(f"expected one private owner {owner_name!r}, found {len(matches)}")
     return matches[0]

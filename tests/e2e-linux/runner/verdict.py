@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from copy import deepcopy
+from pathlib import Path
+from copy import copy, deepcopy
 from typing import Callable
 
 from runner import apps
@@ -13,6 +14,16 @@ from runner.session import Tier, _proc_members
 @dataclass(frozen=True)
 class OwnedSet:
     members: frozenset[tuple[int, int]]
+
+
+def describe(pid: int, proc_root: Path = Path("/proc")) -> str:
+    """A process's pid, name, state and cgroup, for a failure that names it."""
+    try:
+        stat = (proc_root / str(pid) / "stat").read_text()
+        cgroup = (proc_root / str(pid) / "cgroup").read_text().strip()
+    except OSError:
+        return f"{pid} gone"
+    return f"{pid} {stat[stat.index('('):stat.rindex(')') + 1]} {stat[stat.rindex(')') + 2:].split()[0]} {cgroup}"
 
 
 def _session_members(tier: Tier) -> frozenset[tuple[int, int]]:
@@ -58,9 +69,14 @@ class LegContext:
     def restored(self, channel: str, value: object) -> None:
         self._record("restored", channel, value)
 
-    def product(self, argv: list[str], **kw) -> Envelope:
+    def product(self, argv: list[str], *, env: dict[str, str] | None = None, **kw) -> Envelope:
+        """Run the product in the tier's environment, or in `env` when a leg sets one."""
         kw.setdefault("headed", self.mode == "headed")
-        envelope = run_product(self.tier, argv, **kw)
+        tier = self.tier
+        if env is not None:
+            tier = copy(self.tier)
+            tier.env = dict(env)
+        envelope = run_product(tier, argv, **kw)
         self._products.append(envelope)
         return envelope
 
@@ -113,7 +129,7 @@ def evaluate(ctx: LegContext) -> list[str]:
     if extra or gone:
         detail = []
         if extra:
-            detail.append(f"joined {[pid for pid, _ in extra]}")
+            detail.append(f"joined {[describe(pid) for pid, _ in extra]}")
         if gone:
             detail.append(f"left {[pid for pid, _ in gone]}")
         failures.append(f"the owned-process set changed during the leg ({'; '.join(detail)})")

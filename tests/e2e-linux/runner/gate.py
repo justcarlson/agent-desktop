@@ -26,6 +26,7 @@ TIER_TOOLS = {
     "x11-openbox": ("xdotool", "wmctrl", "xclip"),
     "x11-mutter": ("gnome-shell", "xdotool", "wmctrl", "xclip"),
     "wayland": ("gnome-shell", "wl-copy", "wl-paste"),
+    "hyprland": ("Hyprland", "hyprctl", "systemd-run", "systemctl", "foot", "gdbus", "timeout"),
 }
 
 TIER_SCRIPTS = {
@@ -73,9 +74,10 @@ def check_prerequisites(
     missing = []
     if not platform.startswith("linux"):
         return ["a linux host is required for the live harness"]
-    for tool in BASE_TOOLS:
-        if not _tool_found(tool, extra_paths, which):
-            missing.append(f"missing tool: {tool}")
+    if any(tier in session._INNER_WRAPPERS for tier in selected):
+        for tool in BASE_TOOLS:
+            if not _tool_found(tool, extra_paths, which):
+                missing.append(f"missing tool: {tool}")
     for tier in selected:
         for tool in TIER_TOOLS.get(tier, ()):
             if not _tool_found(tool, extra_paths, which):
@@ -93,11 +95,7 @@ def check_prerequisites(
     )
     if not Path(binary).is_file():
         missing.append(f"missing release binary: {binary}")
-    session_base = Path(
-        env.get("AGENT_DESKTOP_SESSION_BASE")
-        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
-            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
-    )
+    session_base = session.session_base(env)
     try:
         session_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as error:

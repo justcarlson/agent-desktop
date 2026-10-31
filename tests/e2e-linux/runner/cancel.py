@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from runner import session
+from runner import attached, session
 
 
 def publish(suite: Path, tier) -> Path:
@@ -19,6 +19,9 @@ def publish(suite: Path, tier) -> Path:
         raise RuntimeError("the runtime marker does not name this runner generation")
     receipt = {"pid": pid, "start": start, "runtime": str(tier.runtime_dir),
                "marker": str(marker), "runner": str(Path(__file__).with_name("main.py").resolve())}
+    record = attached.load(tier.runtime_dir)
+    if record is not None:
+        receipt["attached"] = record["mirror"]
     path = suite / f"{tier.name}.ready.json"
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(receipt) + "\n")
@@ -55,6 +58,21 @@ def wait_for(predicate, seconds: float) -> None:
         time.sleep(0.1)
 
 
+def check_attached_cleanup(runtime: Path, mirror: Path, seconds: float,
+                           proc_root: Path = Path("/proc")) -> None:
+    from runner import attached_session
+
+    def clean():
+        record = json.loads(mirror.read_text())
+        return (not runtime.exists() and record.get("torn_down")
+                and not attached_session.remaining(record, proc_root))
+
+    wait_for(clean, seconds)
+    dead = attached_session.dead_survivors(json.loads(mirror.read_text()), proc_root)
+    if dead:
+        raise RuntimeError("; ".join(dead))
+
+
 def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(description="Signal only the ready runner's verified generation")
     parser.add_argument("receipt", type=Path)
@@ -65,7 +83,10 @@ def main(argv: list[str]) -> None:
     receipt = json.loads(args.receipt.read_text())
     if args.check_cleanup:
         runtime = Path(receipt["runtime"])
-        wait_for(lambda: not runtime.exists() and not session._proc_members(runtime), args.wait)
+        if receipt.get("attached"):
+            check_attached_cleanup(runtime, Path(receipt["attached"]), args.wait)
+        else:
+            wait_for(lambda: not runtime.exists() and not session._proc_members(runtime), args.wait)
         print(f"cleanup verified: {runtime}")
     else:
         terminate(receipt)
