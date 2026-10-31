@@ -31,6 +31,27 @@ Keep failed suites for diagnosis; the runner removes a successful suite. Use ano
 
 The runner inherits the caller's tool paths and libraries: supply tools through `PATH` and shared libraries through `LD_LIBRARY_PATH`. Qt legs run under `python3`; set `AGENT_DESKTOP_QT_PYTHON` when PyQt6 lives in a separate interpreter. That does not change the harness interpreter.
 
+### In an Omarchy VM
+
+`test/all` runs the tiers inside a throwaway Omarchy VM, the way Omarchy tests itself. The `Omarchy VM` workflow runs it on every change to the Linux desktop path, on the `stable` and `edge` images. It needs `/dev/kvm`, about 10 GB of free memory, and the host packages that `test/omarchy-vm` names. Build on the host, because the VM has no Rust toolchain and `test/omarchy-vm` leaves `target/` out of the copy:
+
+```sh
+cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
+bin=$(mktemp -d)/agent-desktop-bin && mkdir "$bin"
+cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner "$bin"
+test/omarchy-vm fetch stable
+pkgs=()
+for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd fuse2 \
+    python-gobject python-pyqt6 gnome-calculator gnome-text-editor nautilus gnome-terminal \
+    gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard; do
+  pkgs+=(--pkg "$pkg")
+done
+test/omarchy-vm run --channel stable --copy . --copy "$bin" "${pkgs[@]}" --out vm-out \
+  -- bash -c 'cd "$1" && ./test/all' _ "$(basename "$PWD")"
+```
+
+Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift` and `wayland_drift`: they fail on upstream `main` and on the branch alike on the Arch image, because the app versions differ. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. Arch installs the portals in `/usr/lib`, so `test/all` links them into `/usr/libexec` for `scripts/private-wayland-shell.sh`. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
+
 ## Tiers
 
 - `--tier x11-openbox`: private Xvfb and openbox.
