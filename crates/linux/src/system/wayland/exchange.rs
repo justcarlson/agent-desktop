@@ -34,6 +34,14 @@ impl Exchange {
     pub(crate) fn has_finished(&self, round: u32) -> bool {
         self.finished >= round
     }
+
+    #[cfg(test)]
+    pub(crate) fn advertising(globals: Vec<Global>) -> Self {
+        Self {
+            globals,
+            finished: 0,
+        }
+    }
 }
 
 /// A reader state that carries an `Exchange`.
