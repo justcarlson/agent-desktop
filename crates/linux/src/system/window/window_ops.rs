@@ -3,7 +3,7 @@ use serde_json::json;
 
 use std::collections::HashSet;
 
-use super::compositor_listing::{hyprland_windows, unregistered_target};
+use super::compositor_listing::{hyprland_windows, represented_by, unregistered_target};
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
@@ -86,8 +86,10 @@ pub(crate) fn list_windows(
     let stopped = match filter.app.as_deref() {
         Some(query) => {
             if let Err(missing) = require_known_target(&registry, select, query, find_running) {
-                let compositor =
-                    || hyprland_windows(|| registered_pids(bus, deadline), Some(query), deadline);
+                let registered = || {
+                    registered_pids(bus, deadline).map(|all| move |pid, _: &str| all.contains(&pid))
+                };
+                let compositor = || hyprland_windows(registered, Some(query), deadline);
                 return unregistered_target(missing, compositor)
                     .map(|windows| keep_focused(windows, filter));
             }
@@ -105,6 +107,10 @@ pub(crate) fn list_windows(
         desktops.finish(deadline).flatten().as_ref(),
     );
     let mut windows = pass.windows;
+    let frames: HashSet<(u32, String)> = windows
+        .iter()
+        .map(|window| (window.info.pid.get(), window.info.title.clone()))
+        .collect();
     if filter.focused_only {
         windows.retain(|window| window.info.state.is_focused);
     }
@@ -113,11 +119,14 @@ pub(crate) fn list_windows(
         .into_iter()
         .map(|window| window.info)
         .collect();
-    let registered = || match filter.app {
-        Some(_) => registered_pids(bus, deadline),
-        None => Ok(registered),
+    let represented = || {
+        let all = match filter.app {
+            Some(_) => registered_pids(bus, deadline)?,
+            None => registered.clone(),
+        };
+        Ok(represented_by(frames, registered, all))
     };
-    let compositor = hyprland_windows(registered, filter.app.as_deref(), deadline)?;
+    let compositor = hyprland_windows(represented, filter.app.as_deref(), deadline)?;
     listed.append(&mut keep_focused(compositor, filter));
     Ok(listed)
 }

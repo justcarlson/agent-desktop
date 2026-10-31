@@ -228,3 +228,52 @@ fn a_compositor_window_from_another_compositor_or_owner_or_gone_is_refused() {
         Err(IdentityRefusal::ToplevelGone)
     );
 }
+
+#[test]
+fn a_twin_without_a_toplevel_mapping_still_counts_against_its_sibling() {
+    let clients = [
+        client(0x10, 7, "Notes", (400.0, 300.0), "1"),
+        client(0x20, 7, "Notes", (400.0, 300.0), "2"),
+        client(0x30, 7, "Notes", (800.0, 600.0), "3"),
+    ];
+    let toplevels = [view("a", 0x10), view("c", 0x30)];
+    let inventory = Inventory {
+        clients: &clients,
+        toplevels: &toplevels,
+    };
+
+    assert_eq!(
+        bind_frame(&frame(7, "Notes", Some((400.0, 300.0))), LIVE, inventory),
+        Err(IdentityRefusal::Ambiguous(vec![
+            (0x10, "1".into()),
+            (0x20, "2".into()),
+            (0x30, "3".into()),
+        ]))
+    );
+    assert_eq!(
+        bind_frame(&frame(7, "Notes", None), LIVE, inventory),
+        Err(IdentityRefusal::Ambiguous(vec![
+            (0x10, "1".into()),
+            (0x20, "2".into()),
+            (0x30, "3".into()),
+        ]))
+    );
+}
+
+#[test]
+fn the_one_matching_client_without_a_toplevel_mapping_binds_nothing() {
+    let clients = [
+        client(0x10, 7, "Notes", (400.0, 300.0), "1"),
+        client(0x20, 7, "Notes", (800.0, 600.0), "2"),
+    ];
+    let toplevels = [view("a", 0x10)];
+    let inventory = Inventory {
+        clients: &clients,
+        toplevels: &toplevels,
+    };
+
+    assert_eq!(
+        bind_frame(&frame(7, "Notes", Some((800.0, 600.0))), LIVE, inventory),
+        Err(IdentityRefusal::NoCandidate)
+    );
+}

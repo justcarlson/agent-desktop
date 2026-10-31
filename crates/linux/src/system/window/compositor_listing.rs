@@ -17,18 +17,34 @@ use crate::system::process::process_facts::{self, ProcessFacts};
 use crate::system::process::process_lookup::Lookup;
 use crate::system::wayland::toplevel::toplevel_session::ToplevelSession;
 
-/// The toplevels of processes that registered no accessibility
-/// application, when the session is Hyprland; empty on any other route.
-/// `registered` is read only on that route. `query` keeps those whose
-/// class, command name or executable matches.
-pub(crate) fn hyprland_windows(
-    registered: impl FnOnce() -> Result<HashSet<u32>, AdapterError>,
+/// The toplevels no accessibility frame represents, when the session is
+/// Hyprland; empty on any other route. `represented` is built only on that
+/// route and judges a toplevel by its owner's pid and title. `query` keeps
+/// those whose class, command name or executable matches.
+pub(crate) fn hyprland_windows<R: Fn(u32, &str) -> bool>(
+    represented: impl FnOnce() -> Result<R, AdapterError>,
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     match routed_binding()? {
-        Some(binding) => read_windows(&binding, &registered()?, query, deadline),
+        Some(binding) => read_windows(&binding, represented()?, query, deadline),
         None => Ok(Vec::new()),
+    }
+}
+
+/// Whether an accessibility frame already lists a toplevel. A process the
+/// listing read is judged by its frames' titles, so a toplevel it exposes
+/// no frame for, such as every window of an application whose tree is off,
+/// stays listed. A process the listing's filter skipped is judged by
+/// registration alone.
+pub(crate) fn represented_by(
+    frames: HashSet<(u32, String)>,
+    read: HashSet<u32>,
+    registered: HashSet<u32>,
+) -> impl Fn(u32, &str) -> bool {
+    move |pid, title| match read.contains(&pid) {
+        true => frames.contains(&(pid, title.to_owned())),
+        false => registered.contains(&pid),
     }
 }
 
@@ -48,7 +64,7 @@ pub(crate) fn unregistered_target(
 
 fn read_windows(
     binding: &HyprlandBinding,
-    registered: &HashSet<u32>,
+    represented: impl Fn(u32, &str) -> bool,
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
@@ -67,7 +83,7 @@ fn read_windows(
         inventory,
         active,
         (binding.pid, binding.start_time),
-        |pid| registered.contains(&pid),
+        represented,
         |pid| facts_of(pid).map(|facts| facts.instance),
     );
     Ok(match query {

@@ -1,7 +1,5 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
-use std::collections::HashSet;
-
 use super::compositor_listing::hyprland_windows;
 use super::window_id;
 use super::window_ops::windows_of_process;
@@ -55,7 +53,7 @@ pub(crate) fn resolve_window_strict(
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
     if is_compositor_id(&expected.id) {
-        let live = hyprland_windows(|| Ok(HashSet::new()), None, deadline)?;
+        let live = hyprland_windows(|| Ok(|_: u32, _: &str| false), None, deadline)?;
         return verify(expected, live, process_of(expected));
     }
     window_id::decode(&expected.id)?;

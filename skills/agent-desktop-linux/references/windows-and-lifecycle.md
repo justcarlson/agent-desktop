@@ -271,8 +271,9 @@ safe to repeat.
 
 ## Hyprland
 
-On a bound Hyprland, `list-windows` also lists toplevels whose process has no
-accessibility tree, such as foot and Alacritty. They carry `accessible: false`
+On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
+frame represents: windows of processes with no accessibility tree, such as foot
+and Alacritty, and windows an accessible application exposes no frame for. They carry `accessible: false`
 and an id that starts with `w-hypr-`. `focus-window --window-id` accepts that id.
 Such a window has no refs: `snapshot --window-id` and `find --window-id` refuse
 it with `INVALID_ARGS`. `list-windows --app` matches it by its class (foot's

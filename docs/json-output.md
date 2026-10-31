@@ -129,8 +129,9 @@ to `role` or `value`.
 
 ## Hyprland windows and focus
 
-On Hyprland, `list-windows` also lists toplevels whose process exposes no
-accessibility tree, such as foot or Alacritty. Such a window carries
+On Hyprland, `list-windows` also lists toplevels that no accessibility frame
+represents, such as foot or Alacritty, or a window its application exposes no
+frame for. Such a window carries
 `"accessible": false` and an id of the form
 `w-hypr-<compositor pid>-<compositor start>-<toplevel identifier>`, and it has
 `bounds`, `visible` and `is_focused` but no `minimized`. It has no refs:

@@ -1,26 +1,26 @@
-//! Compositor toplevels whose process exposes no accessibility tree. They
-//! are listed and focused by compositor id, with `accessible: false`.
+//! Compositor toplevels that no accessibility frame represents. They are
+//! listed and focused by compositor id, with `accessible: false`.
 
 use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use super::compositor_window_id::encode;
 use super::inventory::Inventory;
 
-/// The windows of every toplevel whose owner `has_tree` rejects, in client
-/// order, named by ids issued for `compositor`. A toplevel whose owner has
+/// The windows of every toplevel that `represented` rejects for its owner's
+/// pid and title, in client order, named by ids issued for `compositor`. A toplevel whose owner has
 /// no readable instance token is left out, because it could not be
 /// verified later.
 pub(crate) fn compositor_windows(
     inventory: Inventory<'_>,
     active: Option<u64>,
     compositor: (u32, u64),
-    has_tree: impl Fn(u32) -> bool,
+    represented: impl Fn(u32, &str) -> bool,
     instance_of: impl Fn(u32) -> Option<String>,
 ) -> Vec<WindowInfo> {
     inventory
         .clients
         .iter()
-        .filter(|client| !has_tree(client.pid))
+        .filter(|client| !represented(client.pid, &client.title))
         .filter_map(|client| {
             let toplevel = inventory
                 .toplevels

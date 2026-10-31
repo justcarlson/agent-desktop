@@ -43,3 +43,15 @@ fn a_compositor_that_cannot_be_read_reports_its_own_error() {
     let error = unregistered_target(missing(), || Err(AdapterError::timeout("silent"))).err();
     assert_eq!(error.map(|error| error.code), Some(ErrorCode::Timeout));
 }
+
+#[test]
+fn a_read_process_hides_only_the_toplevels_its_frames_name() {
+    let frames = HashSet::from([(7, "Notes".to_owned())]);
+    let represented = represented_by(frames, HashSet::from([7, 8]), HashSet::from([7, 8, 9]));
+
+    assert!(represented(7, "Notes"));
+    assert!(!represented(7, "Preferences"));
+    assert!(!represented(8, "Slack"));
+    assert!(represented(9, "Skipped by the filter"));
+    assert!(!represented(10, "Ghostty"));
+}

@@ -13,28 +13,26 @@ const SIZE_TOLERANCE: f64 = 1.0;
 /// The one toplevel of `frame`'s process whose title is exactly the frame's
 /// title. Twins are told apart by size only when exactly one size matches;
 /// a sole title match binds whatever its size, because tiling resizes a
-/// client without resizing its accessibility extents. Never chooses by
-/// enumeration order.
+/// client without resizing its accessibility extents. A twin with no
+/// toplevel mapping still counts, so a missing mapping never hands the frame
+/// to its sibling. Never chooses by enumeration order.
 pub(crate) fn bind_frame(
     frame: &WindowEvidence,
     live_instance: Option<&str>,
     inventory: Inventory<'_>,
 ) -> Result<BoundToplevel, IdentityRefusal> {
     check_process(frame, live_instance)?;
-    let candidates: Vec<BoundToplevel> = inventory
+    let matches: Vec<&HyprClient> = inventory
         .clients
         .iter()
         .filter(|client| client.pid == frame.pid && client.title == frame.title)
-        .filter_map(|client| with_toplevel(client, inventory.toplevels))
         .collect();
-    match candidates.len() {
-        0 => Err(IdentityRefusal::NoCandidate),
-        1 => Ok(candidates
-            .into_iter()
-            .next()
-            .ok_or(IdentityRefusal::NoCandidate)?),
-        _ => pick_by_size(candidates, frame.size),
-    }
+    let chosen = match matches.as_slice() {
+        [] => return Err(IdentityRefusal::NoCandidate),
+        [only] => *only,
+        _ => pick_by_size(&matches, frame.size)?,
+    };
+    with_toplevel(chosen, inventory.toplevels).ok_or(IdentityRefusal::NoCandidate)
 }
 
 /// The toplevel `id` names, after checking that the compositor that issued
@@ -89,30 +87,24 @@ fn with_toplevel(client: &HyprClient, toplevels: &[ToplevelView]) -> Option<Boun
         })
 }
 
-fn pick_by_size(
-    candidates: Vec<BoundToplevel>,
+fn pick_by_size<'a>(
+    matches: &[&'a HyprClient],
     size: Option<(f64, f64)>,
-) -> Result<BoundToplevel, IdentityRefusal> {
-    let mut sized: Vec<&BoundToplevel> = match size {
-        Some(size) => candidates
+) -> Result<&'a HyprClient, IdentityRefusal> {
+    let sized: Vec<&HyprClient> = match size {
+        Some(size) => matches
             .iter()
-            .filter(|candidate| same_size(&candidate.client, size))
+            .copied()
+            .filter(|client| same_size(client, size))
             .collect(),
         None => Vec::new(),
     };
-    if sized.len() == 1 {
-        if let Some(only) = sized.pop() {
-            return Ok(only.clone());
-        }
+    if let [only] = sized.as_slice() {
+        return Ok(only);
     }
-    let mut named: Vec<(u64, String)> = candidates
+    let mut named: Vec<(u64, String)> = matches
         .iter()
-        .map(|candidate| {
-            (
-                candidate.client.address,
-                candidate.client.workspace.name.clone(),
-            )
-        })
+        .map(|client| (client.address, client.workspace.name.clone()))
         .collect();
     named.sort();
     Err(IdentityRefusal::Ambiguous(named))
