@@ -12,6 +12,34 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 `DISPLAY`. With neither reachable, display-dependent commands fail with cause
 `not_configured`, `missing` or `refused` and list the variables they tried.
 
+### Hyprland
+
+On Wayland the CLI binds one Hyprland instance before it reads that
+instance's Wayland socket. It checks `$XDG_RUNTIME_DIR/hypr/<signature>/.socket.sock` and binds the
+instance only when that IPC socket answers and the Wayland socket is served by
+the same compositor process. The bind has a 1 s budget across every socket it
+tries, and the CLI never runs `hyprctl`.
+
+- With `HYPRLAND_INSTANCE_SIGNATURE` set, only that instance is read, even
+  when others run. A signature whose instance has exited is ignored and the
+  CLI searches for one.
+- With no display variables set, as in an SSH shell, the CLI searches the
+  user's runtime directory (`/run/user/<uid>` when `XDG_RUNTIME_DIR` is
+  unset). One live instance is bound and the session is treated as Wayland.
+  Stale `hypr/` folders are skipped.
+- A Wayland session whose socket another compositor serves keeps the generic
+  Wayland behavior.
+
+The bind refuses instead of guessing. `list-displays` reports the refusal:
+
+| Cause in `details.display_unavailable` | Code | When |
+|---|---|---|
+| `hyprland_ambiguous` | `PLATFORM_NOT_SUPPORTED` | Several instances answer, none is named, and `WAYLAND_DISPLAY` is unset or served by one of them. `details.signatures` lists them; set `HYPRLAND_INSTANCE_SIGNATURE` to choose |
+| `hyprland_mismatch` | `PLATFORM_NOT_SUPPORTED` | The named instance and `WAYLAND_DISPLAY` belong to different compositors, the instance serves no Wayland socket, or the bound compositor was replaced |
+| `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
+
+Other commands on Hyprland behave as on a generic Wayland session.
+
 ## X11 versus Wayland
 
 | Capability | X11 | Wayland (GNOME) |
@@ -183,7 +211,9 @@ empty insertion is dispatched.
 `list-displays` asks GNOME's Mutter `DisplayConfig` interface first. When no
 Mutter answers, it connects to the session's Wayland socket and reads the
 compositor's `wl_output` and `zxdg_output_manager_v1` globals. wlroots-family
-compositors such as Sway and Hyprland advertise both.
+compositors such as Sway and Hyprland advertise both. On a bound Hyprland it
+reads the bound instance's Wayland socket, which also covers a session found
+by discovery without `WAYLAND_DISPLAY`.
 
 ```bash
 agent-desktop list-displays

@@ -157,6 +157,15 @@ Every ref is re-identified from its stored entry or refused, and `details.kind` 
 The fifth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a live field could not be read, so the identity count stayed unproven. It is retryable. Linux menu and tray refs report the same kind as `STALE_REF`.
 
 After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer. Every one of these is `not_delivered`.
+## Hyprland binding
+
+On Hyprland, `list-displays` reads the Wayland socket of the one Hyprland
+instance it binds. The binding refuses with `PLATFORM_NOT_SUPPORTED` and a
+cause in `error.details.display_unavailable`. `hyprland_ambiguous` means
+several instances answer and none is named; `details.signatures` lists them.
+`hyprland_mismatch` means the named instance and the Wayland socket belong to
+different compositor processes. A socket that accepts the connection and never
+answers is `TIMEOUT` with cause `silent`, and `details.detail` names it.
 
 ## Error codes
 
