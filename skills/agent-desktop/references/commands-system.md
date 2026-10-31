@@ -81,6 +81,7 @@ agent-desktop minimize --app "TextEdit"   # maximize, restore likewise
 - `list-windows` returns `{ id, title, app_name, pid, bounds, is_focused, accessible }`. Use a `w-<id>` with `--window-id` when an app has several windows.
 - `accessible: false` means semantic commands cannot reach that window. Targeting it returns `ACTION_NOT_SUPPORTED` with `kind: "window_without_accessibility_element"`. It still accepts screenshots and coordinate input. Choose another window.
 - `focus-window` needs at least one identifier. It confirms the OS reports that window as focused. Otherwise it returns `ACTION_FAILED`.
+- Where the platform reports how focus was proven (Linux on Hyprland), `data.activation` carries `activated`, `proof` and any `side_effects`, such as a workspace switch. There, only `--headed` activates a window; a headless call proves existing focus or refuses with `POLICY_DENIED`.
 - `restore` undoes a minimize and returns the window to its earlier placement. It does not promise to un-maximize.
 
 ## Notifications

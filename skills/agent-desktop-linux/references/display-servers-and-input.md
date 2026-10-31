@@ -41,8 +41,9 @@ The bind refuses instead of guessing:
 `list-displays` on a bound Hyprland reads `j/monitors` from that instance.
 `bounds` are layout coordinates: the mode, turned by the monitor's transform,
 divided by its scale. Hyprland has no primary monitor, so the monitor with the
-lowest id is primary. Other commands on Hyprland behave as on a generic
-Wayland session.
+lowest id is primary. `list-windows` and `focus-window` on a bound Hyprland
+are described in `windows-and-lifecycle.md`. Other commands on Hyprland behave
+as on a generic Wayland session.
 
 ## X11 versus Wayland
 
@@ -52,7 +53,8 @@ Wayland session.
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused |
-| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
+| `focus-window` | EWMH activation | Bound Hyprland: `--headed` activates through `zwlr_foreign_toplevel_handle_v1`, headless proves existing focus. Other compositors: refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
+| Headed scoped `press` | EWMH activation, then keys | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |

@@ -127,6 +127,65 @@ Earlier output synthesized a display name, falling back to `value` or
 `name` as always present must tolerate its absence and apply their own fallback
 to `role` or `value`.
 
+## Hyprland windows and focus
+
+On Hyprland, `list-windows` also lists toplevels whose process exposes no
+accessibility tree, such as foot or Alacritty. Such a window carries
+`"accessible": false` and an id of the form
+`w-hypr-<compositor pid>-<compositor start>-<toplevel identifier>`, and it has
+`bounds`, `visible` and `is_focused` but no `minimized`. It has no refs, so
+`snapshot` and ref actions do not apply to it. Only the compositor instance
+that issued the id accepts it.
+
+`focus-window` binds the window to exactly one compositor toplevel before it
+sends anything, and adds `data.activation` next to `data.focused`:
+
+```json
+{
+  "focused": { "id": "w-hypr-658-344-18000006", "accessible": false, "is_focused": true },
+  "activation": {
+    "activated": true,
+    "proof": "compositor_only",
+    "side_effects": [
+      { "kind": "workspace_switched", "monitor": "Virtual-1", "from": "1", "to": "3" },
+      { "kind": "cursor_moved", "from": { "x": 322.0, "y": 413.0 }, "to": { "x": 957.0, "y": 604.0 } }
+    ]
+  }
+}
+```
+
+- `activated` is `false` when the window already had focus and nothing was
+  sent. Only a `--headed` command activates. A headless one proves existing
+  focus or refuses.
+- `proof` is `compositor_and_accessibility` for an AT-SPI window. That needs
+  Hyprland's active window, the toplevel's `activated` state and the frame's
+  ACTIVE state to agree. It is `compositor_only` for an `accessible: false`
+  window, which has no AT-SPI frame to read.
+- `side_effects` lists every desktop change the activation caused, and is
+  omitted when there is none. The kinds are `workspace_switched` (`monitor`,
+  `from`, `to`), `special_workspace_revealed` and `special_workspace_closed`
+  (`monitor`, `workspace`), and `cursor_moved` (`from`, `to`). Hyprland warps
+  the cursor into the window it activates.
+
+A refusal names its cause in `error.details.cause`:
+
+| Cause | Code | Delivery | Meaning |
+|-------|------|----------|---------|
+| `window_not_focused` | `POLICY_DENIED` | `not_delivered` | A headless command found the window unfocused |
+| `hidden_special_workspace` | `POLICY_DENIED` | `not_delivered` | A headless command found the window on a hidden special workspace; `details.workspace` names it |
+| `special_workspace_open` | `ACTION_FAILED` | `not_delivered` | A special workspace is open over the window's monitor, and Hyprland keeps it in front; `details.workspace` and `details.monitor` name it |
+| `ambiguous_window` | `ACTION_FAILED` | `not_delivered` | Several toplevels match the window; `details.candidates` lists each `address` and `workspace` |
+| `window_not_mapped` | `ACTION_FAILED` | `not_delivered` | No toplevel matches the window |
+| `activation_refused` | `ACTION_FAILED` | `delivered_unverified` | The activation was sent and Hyprland left another window active |
+| `frame_not_active` | `ACTION_FAILED` | `delivered_unverified` when sent | Hyprland made the window active but its AT-SPI frame does not report ACTIVE |
+
+A refusal after an activation carries `details.activation_sent: true`, the last
+`compositor_active`, `toplevel_activated` and `frame_active` reads, the
+`side_effects` already observed and, when the last read failed,
+`last_read_error`. A window whose process restarted is `STALE_REF`. A
+compositor id from another compositor instance, or one whose toplevel closed,
+is `WINDOW_NOT_FOUND`.
+
 ## Error codes
 
 | Code | Meaning |

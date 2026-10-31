@@ -256,7 +256,8 @@ safe to repeat.
   every window. Send a global `--headed press escape` (no `--app`), then call
   `focus-window --app <name>` again. A headed ref action runs `focus-window` for
   you and ends the same way.
-- A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
+- A Wayland session other than a bound Hyprland is `ACTION_NOT_SUPPORTED`,
+  cause `wayland_session`. Hyprland is described in the next section.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
   evidence and leaves it minimized. On X11, `--headed click`, `--headed hover`
   and `--headed drag` first focus the ref's exact source window, restoring it if
@@ -268,11 +269,49 @@ safe to repeat.
   with cause `wayland_session` before delivery. Use `restore` to restore a window
   without clicking it.
 
+## Hyprland
+
+On a bound Hyprland, `list-windows` also lists toplevels whose process has no
+accessibility tree, such as foot and Alacritty. They carry `accessible: false`
+and an id that starts with `w-hypr-`. `focus-window --window-id` accepts that id.
+`snapshot` and ref actions do not apply to such a window, because it has no refs.
+
+```bash
+agent-desktop list-windows --app foot
+agent-desktop --headed focus-window --window-id w-hypr-658-344-18000006
+```
+
+`focus-window` binds the window to exactly one Hyprland toplevel before it
+sends anything. It matches the process and its start time, the exact title and,
+between same-titled windows, the size. Zero matches refuse with
+`window_not_mapped`. Several matches refuse with `ambiguous_window` and list
+`details.candidates`. A restarted process is `STALE_REF`.
+
+- Only `--headed` activates. A headless `focus-window` succeeds with
+  `data.activation.activated: false` when the window already has focus, and
+  otherwise refuses with `POLICY_DENIED`: cause `window_not_focused`, or
+  `hidden_special_workspace` for a window on a hidden special workspace.
+- A headed activation succeeds when Hyprland's active window and the
+  toplevel's `activated` state name the window. For an AT-SPI window its frame
+  must also report `ACTIVE`; `data.activation.proof` is then
+  `compositor_and_accessibility`. A window with `accessible: false` is proven by
+  the compositor alone: `compositor_only`.
+- `data.activation.side_effects` reports what else changed:
+  `workspace_switched`, `special_workspace_revealed`, `special_workspace_closed`
+  and `cursor_moved`. Hyprland moves the cursor into the window it activates.
+- A special workspace open over the window's monitor refuses with
+  `ACTION_FAILED`, cause `special_workspace_open`, before anything is sent,
+  because Hyprland keeps it in front of the window. Close it and retry.
+- Proof that disagrees or does not arrive in time ends `ACTION_FAILED`,
+  `delivered_unverified`, with `details.activation_sent: true` and the side
+  effects already seen. Run `list-windows` before you retry.
+
 ## Workspaces
 
 A window on another workspace lists `visible: false` and cannot take a headless
 `press`. `focus-window` brings it forward by switching the user's workspace:
-decide whether that is acceptable before you call it.
+decide whether that is acceptable before you call it. On Hyprland the switch
+is reported in `data.activation.side_effects`.
 
 ## `press --app` and background targets
 
@@ -281,8 +320,9 @@ active window. On X11 a background or minimized app is refused: `ACTION_FAILED`,
 `check: window_active`, cause `display_active_window`, `not_delivered`; the
 message says the application's active window could not be confirmed. `--headed`
 brings the window forward, un-minimizes it and sends the keys (X11). On Wayland,
-`focus-window` and headed app- or window-scoped `press` refuse with
-`ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included.
+headed app- or window-scoped `press` refuses with `ACTION_NOT_SUPPORTED`, cause
+`wayland_session`, Xwayland clients included. `focus-window` refuses the same
+way except on a bound Hyprland.
 
 Headless scoped `press` does not activate a window: it requires the live focus
 guard to confirm the target. If focus cannot be confirmed, bring the target

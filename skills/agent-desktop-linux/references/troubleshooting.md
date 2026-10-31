@@ -19,7 +19,9 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `POLICY_DENIED` on `click` or `type` | A required policy or capability is absent. Read the failed check. Headed policy gives physical input only where the receiver can be proven |
 | Tray item lists no `Activate` or `ContextMenu` | No primary protocol action. Use an advertised virtual menu entry. Headed input does not prove a native receiver from the item's title |
 | `POLICY_DENIED` on `press` | Blocked combo. Do not use `--force` unless you mean it |
-| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Bring the target forward yourself; use global `press` or the app's own UI |
+| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus outside a bound Hyprland, headed scoped `press` or control of native Wayland windows is unavailable. Bring the target forward yourself; use global `press` or the app's own UI |
+| `POLICY_DENIED` `window_not_focused` or `hidden_special_workspace` on `focus-window` | Hyprland: a headless `focus-window` does not activate. Pass `--headed` |
+| `ACTION_FAILED` `special_workspace_open` on `focus-window` | Hyprland keeps an open special workspace in front of the window. Close that special workspace and retry |
 | `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland. Use a semantic action, `set-value` or a global `press` |
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | Notification protocol missing, or its owner is not the detected shell backend. Run inside the supported desktop session; see the shell reference |
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | No SNI watcher exists. Start the session's tray backend providing `org.kde.StatusNotifierWatcher`; extension advice requires a detected backend |
