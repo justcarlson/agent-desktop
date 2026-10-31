@@ -164,6 +164,7 @@ class FakeInstances:
     def __init__(self, settles: bool = True):
         self.settles = settles
         self.commands = []
+        self.env = {"WAYLAND_DISPLAY": "wayland-1", "HYPRLAND_INSTANCE_SIGNATURE": "main"}
         self.state = {"main": [monitor("Virtual-1", 0, 0)],
                       "nested": [monitor("WAYLAND-1", 0, 0, width=1256, height=750),
                                  monitor("AGENT-DESKTOP-1", 1280, 0)]}
@@ -180,13 +181,13 @@ class FakeInstances:
         return "ok"
 
     def product(self, argv, env=None, headed=None):
-        signature = "nested" if env and env.get("WAYLAND_DISPLAY") == "wayland-2" else "main"
+        signature = (env or self.env)["HYPRLAND_INSTANCE_SIGNATURE"]
         return answer(*wayland_outputs.expected_from_monitors(self.state[signature]))
 
 
 class RecordingContext:
     def __init__(self, fake: FakeInstances):
-        self.tier = SimpleNamespace(env={"WAYLAND_DISPLAY": "wayland-1"})
+        self.tier = SimpleNamespace(env=fake.env)
         self.product = fake.product
         self.reads = {"before": {}, "after": {}, "restored": {}}
 
