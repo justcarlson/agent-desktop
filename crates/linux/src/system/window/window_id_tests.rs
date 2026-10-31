@@ -59,3 +59,28 @@ fn anything_but_its_own_format_is_invalid_args() {
         assert_eq!(error.code, ErrorCode::InvalidArgs, "{id}");
     }
 }
+
+#[test]
+fn a_compositor_window_id_is_refused_as_a_window_without_an_accessibility_tree() {
+    let error = decode("w-hypr-662-352-18000002").expect_err("compositor id");
+
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    assert!(
+        error.message.contains("no accessibility tree"),
+        "{}",
+        error.message
+    );
+    assert!(
+        !error.message.contains("not a window id"),
+        "{}",
+        error.message
+    );
+    assert!(
+        error
+            .suggestion
+            .as_deref()
+            .is_some_and(|text| text.contains("focus-window")),
+        "{:?}",
+        error.suggestion
+    );
+}

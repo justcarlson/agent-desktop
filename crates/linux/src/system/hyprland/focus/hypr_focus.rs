@@ -1,7 +1,7 @@
 //! Hyprland `focus-window`. The window is bound to exactly one toplevel
 //! before anything is sent. Focus is proven by Hyprland's active window,
-//! the toplevel's `activated` state and, for an accessibility frame, the
-//! frame's ACTIVE state. Only a headed command activates, through
+//! the toplevel's `activated` state, its workspace being in view and, for
+//! an accessibility frame, the frame's ACTIVE state. Only a headed command activates, through
 //! `zwlr_foreign_toplevel_handle_v1.activate`; a headless one proves
 //! existing focus or refuses.
 
@@ -12,6 +12,7 @@ use agent_desktop_core::{
 use super::focus_refusal::{not_focused, proof_refusal, special_open};
 use super::hypr_world::HyprWorld;
 use super::proof_read::ProofRead;
+use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::side_effects::side_effects;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
@@ -38,8 +39,7 @@ pub(crate) fn focus_reported(
     } else {
         FocusProof::CompositorOnly
     };
-    let address = bound.client.address;
-    let (read, before) = witness(world, win, address, accessible)?;
+    let (read, before) = witness(world, win, &bound, accessible)?;
     if read.agrees() {
         return Ok(outcome(win, false, proof, Vec::new()));
     }
@@ -49,11 +49,11 @@ pub(crate) fn focus_reported(
     if !policy.is_headed() {
         return Err(headless_refusal(read, &bound, &before));
     }
-    world.activate(address)?;
+    world.activate(bound.client.address)?;
     let mut last = (read, before.clone());
     let mut last_error: Option<AdapterError>;
     loop {
-        match witness(world, win, address, accessible) {
+        match witness(world, win, &bound, accessible) {
             Ok((read, after)) if read.agrees() => {
                 return Ok(outcome(win, true, proof, side_effects(&before, &after)));
             }
@@ -109,9 +109,10 @@ fn bind(world: &mut impl HyprWorld, win: &WindowInfo) -> Result<BoundToplevel, A
 fn witness(
     world: &mut impl HyprWorld,
     win: &WindowInfo,
-    address: u64,
+    bound: &BoundToplevel,
     accessible: bool,
 ) -> Result<(ProofRead, DesktopState), AdapterError> {
+    let address = bound.client.address;
     let desktop = world.desktop()?;
     let toplevel_activated = world
         .toplevels()?
@@ -125,18 +126,27 @@ fn witness(
     let read = ProofRead {
         compositor_active: desktop.active == Some(address),
         toplevel_activated,
+        in_view: in_view(&desktop, &bound.client.workspace),
         frame_active,
     };
     Ok((read, desktop))
 }
 
+/// Whether a monitor shows `workspace` with no special workspace in front
+/// of it.
+fn in_view(desktop: &DesktopState, workspace: &ClientWorkspace) -> bool {
+    desktop.shows(&workspace.name) && desktop.covering_special(workspace).is_none()
+}
+
 fn headless_refusal(read: ProofRead, bound: &BoundToplevel, before: &DesktopState) -> AdapterError {
+    let workspace = bound.client.workspace.name.as_str();
+    if workspace.starts_with(SPECIAL_PREFIX) && !before.shows(workspace) {
+        return not_focused(Some(workspace));
+    }
     if read.compositor_active || read.toplevel_activated {
         return proof_refusal(read, false, &[], None);
     }
-    let workspace = bound.client.workspace.name.as_str();
-    let hidden_special = workspace.starts_with(SPECIAL_PREFIX) && !before.shows(workspace);
-    not_focused(hidden_special.then_some(workspace))
+    not_focused(None)
 }
 
 fn outcome(
@@ -160,3 +170,7 @@ fn outcome(
 #[cfg(test)]
 #[path = "hypr_focus_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "hypr_focus_view_tests.rs"]
+mod view_tests;

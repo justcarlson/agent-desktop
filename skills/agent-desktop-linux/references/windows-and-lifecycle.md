@@ -274,7 +274,9 @@ safe to repeat.
 On a bound Hyprland, `list-windows` also lists toplevels whose process has no
 accessibility tree, such as foot and Alacritty. They carry `accessible: false`
 and an id that starts with `w-hypr-`. `focus-window --window-id` accepts that id.
-`snapshot` and ref actions do not apply to such a window, because it has no refs.
+Such a window has no refs: `snapshot --window-id` and `find --window-id` refuse
+it with `INVALID_ARGS`. `list-windows --app` matches it by its class (foot's
+`--app-id`), command name or executable.
 
 ```bash
 agent-desktop list-windows --app foot
@@ -285,14 +287,17 @@ agent-desktop --headed focus-window --window-id w-hypr-658-344-18000006
 sends anything. It matches the process and its start time, the exact title and,
 between same-titled windows, the size. Zero matches refuse with
 `window_not_mapped`. Several matches refuse with `ambiguous_window` and list
-`details.candidates`. A restarted process is `STALE_REF`.
+`details.candidates`. A restarted process gives its windows new ids, so the
+old id is `WINDOW_NOT_FOUND`; run `list-windows` again.
 
 - Only `--headed` activates. A headless `focus-window` succeeds with
   `data.activation.activated: false` when the window already has focus, and
   otherwise refuses with `POLICY_DENIED`: cause `window_not_focused`, or
   `hidden_special_workspace` for a window on a hidden special workspace.
 - A headed activation succeeds when Hyprland's active window and the
-  toplevel's `activated` state name the window. For an AT-SPI window its frame
+  toplevel's `activated` state name the window and a monitor shows its
+  workspace with no special workspace in front. Hyprland keeps a window active
+  after it moves to a hidden special workspace; that window is not focused. For an AT-SPI window its frame
   must also report `ACTIVE`; `data.activation.proof` is then
   `compositor_and_accessibility`. A window with `accessible: false` is proven by
   the compositor alone: `compositor_only`.

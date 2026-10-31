@@ -12,8 +12,8 @@ use crate::system::hyprland::focus::fake_snapshot::FakeSnapshot;
 use crate::system::hyprland::focus::hypr_world_fake::FakeHyprWorld;
 use crate::system::wayland::toplevel::toplevel_view::ToplevelView;
 
-const TARGET: u64 = 0x10;
-const BYSTANDER: u64 = 0x30;
+pub(super) const TARGET: u64 = 0x10;
+pub(super) const BYSTANDER: u64 = 0x30;
 
 fn client(address: u64, pid: u32, title: &str, workspace: &str) -> HyprClient {
     HyprClient {
@@ -35,7 +35,7 @@ fn client(address: u64, pid: u32, title: &str, workspace: &str) -> HyprClient {
     }
 }
 
-fn snapshot(
+pub(super) fn snapshot(
     active: u64,
     workspace: &str,
     special: Option<&str>,
@@ -63,7 +63,7 @@ fn snapshot(
     }
 }
 
-fn world(
+pub(super) fn world(
     target_workspace: &str,
     before: FakeSnapshot,
     after: Option<FakeSnapshot>,
@@ -83,7 +83,7 @@ fn world(
     }
 }
 
-fn frame_window() -> WindowInfo {
+pub(super) fn frame_window() -> WindowInfo {
     WindowInfo {
         id: "w-1.2-3".into(),
         title: "Notes".into(),
@@ -100,7 +100,7 @@ fn frame_window() -> WindowInfo {
     }
 }
 
-fn compositor_window(identifier: &str) -> WindowInfo {
+pub(super) fn compositor_window(identifier: &str) -> WindowInfo {
     let mut window = frame_window();
     window.id = format!("w-hypr-50-60-{identifier}");
     window.title = "foot".into();
@@ -108,11 +108,11 @@ fn compositor_window(identifier: &str) -> WindowInfo {
     window
 }
 
-fn headless() -> InteractionPolicy {
+pub(super) fn headless() -> InteractionPolicy {
     InteractionPolicy::headless()
 }
 
-fn headed() -> InteractionPolicy {
+pub(super) fn headed() -> InteractionPolicy {
     InteractionPolicy::headed()
 }
 

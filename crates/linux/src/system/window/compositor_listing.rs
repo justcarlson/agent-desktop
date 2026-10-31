@@ -19,15 +19,30 @@ use crate::system::wayland::toplevel::toplevel_session::ToplevelSession;
 
 /// The toplevels of processes that registered no accessibility
 /// application, when the session is Hyprland; empty on any other route.
-/// `query` keeps those whose class, command name or executable matches.
+/// `registered` is read only on that route. `query` keeps those whose
+/// class, command name or executable matches.
 pub(crate) fn hyprland_windows(
-    registered: &HashSet<u32>,
+    registered: impl FnOnce() -> Result<HashSet<u32>, AdapterError>,
     query: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     match routed_binding()? {
-        Some(binding) => read_windows(&binding, registered, query, deadline),
+        Some(binding) => read_windows(&binding, &registered()?, query, deadline),
         None => Ok(Vec::new()),
+    }
+}
+
+/// A name that no accessibility application or process answers to still
+/// names the compositor-only toplevels whose class matches it. With none,
+/// the name stays `missing`.
+pub(crate) fn unregistered_target(
+    missing: AdapterError,
+    compositor: impl FnOnce() -> Result<Vec<WindowInfo>, AdapterError>,
+) -> Result<Vec<WindowInfo>, AdapterError> {
+    let windows = compositor()?;
+    match windows.is_empty() {
+        true => Err(missing),
+        false => Ok(windows),
     }
 }
 
@@ -81,3 +96,7 @@ fn matches(query: &str, window: &WindowInfo) -> bool {
         .unwrap_or_default();
     name_matches(query, &window.app, &aliases)
 }
+
+#[cfg(test)]
+#[path = "compositor_listing_tests.rs"]
+mod tests;

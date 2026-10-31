@@ -133,9 +133,10 @@ On Hyprland, `list-windows` also lists toplevels whose process exposes no
 accessibility tree, such as foot or Alacritty. Such a window carries
 `"accessible": false` and an id of the form
 `w-hypr-<compositor pid>-<compositor start>-<toplevel identifier>`, and it has
-`bounds`, `visible` and `is_focused` but no `minimized`. It has no refs, so
-`snapshot` and ref actions do not apply to it. Only the compositor instance
-that issued the id accepts it.
+`bounds`, `visible` and `is_focused` but no `minimized`. It has no refs:
+`snapshot --window-id` and `find --window-id` refuse it with `INVALID_ARGS`. Only the compositor instance
+that issued the id accepts it. `list-windows --app` matches it by its class, command
+name or executable.
 
 `focus-window` binds the window to exactly one compositor toplevel before it
 sends anything, and adds `data.activation` next to `data.focused`:
@@ -159,7 +160,9 @@ sends anything, and adds `data.activation` next to `data.focused`:
   focus or refuses.
 - `proof` is `compositor_and_accessibility` for an AT-SPI window. That needs
   Hyprland's active window, the toplevel's `activated` state and the frame's
-  ACTIVE state to agree. It is `compositor_only` for an `accessible: false`
+  ACTIVE state to agree, and a monitor to show the window's workspace with no
+  special workspace in front of it. Hyprland keeps a window active after it
+  moves to a hidden special workspace, so that window is not proven focused. It is `compositor_only` for an `accessible: false`
   window, which has no AT-SPI frame to read.
 - `side_effects` lists every desktop change the activation caused, and is
   omitted when there is none. The kinds are `workspace_switched` (`monitor`,
@@ -178,13 +181,15 @@ A refusal names its cause in `error.details.cause`:
 | `window_not_mapped` | `ACTION_FAILED` | `not_delivered` | No toplevel matches the window |
 | `activation_refused` | `ACTION_FAILED` | `delivered_unverified` | The activation was sent and Hyprland left another window active |
 | `frame_not_active` | `ACTION_FAILED` | `delivered_unverified` when sent | Hyprland made the window active but its AT-SPI frame does not report ACTIVE |
+| `window_hidden` | `ACTION_FAILED` | `delivered_unverified` when sent | Hyprland reports the window active, but no monitor shows its workspace |
 
 A refusal after an activation carries `details.activation_sent: true`, the last
-`compositor_active`, `toplevel_activated` and `frame_active` reads, the
+`compositor_active`, `toplevel_activated`, `in_view` and `frame_active` reads, the
 `side_effects` already observed and, when the last read failed,
-`last_read_error`. A window whose process restarted is `STALE_REF`. A
-compositor id from another compositor instance, or one whose toplevel closed,
-is `WINDOW_NOT_FOUND`.
+`last_read_error`. An id the fresh `list-windows` no longer reports is
+`WINDOW_NOT_FOUND`: a closed toplevel, a restarted process (its windows get new
+ids), or a compositor id from another compositor instance. A process that
+changes between that listing and the bind is `STALE_REF`.
 
 ## Error codes
 

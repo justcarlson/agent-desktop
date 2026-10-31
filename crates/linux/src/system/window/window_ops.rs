@@ -3,7 +3,7 @@ use serde_json::json;
 
 use std::collections::HashSet;
 
-use super::compositor_listing::hyprland_windows;
+use super::compositor_listing::{hyprland_windows, unregistered_target};
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
@@ -85,7 +85,12 @@ pub(crate) fn list_windows(
     let registered: HashSet<u32> = registry.apps.iter().map(|app| app.root.pid()).collect();
     let stopped = match filter.app.as_deref() {
         Some(query) => {
-            require_known_target(&registry, select, query, find_running)?;
+            if let Err(missing) = require_known_target(&registry, select, query, find_running) {
+                let compositor =
+                    || hyprland_windows(|| registered_pids(bus, deadline), Some(query), deadline);
+                return unregistered_target(missing, compositor)
+                    .map(|windows| keep_focused(windows, filter));
+            }
             stopped_target(&registry, select, proc_stat::is_stopped)
         }
         None => None,
@@ -108,12 +113,33 @@ pub(crate) fn list_windows(
         .into_iter()
         .map(|window| window.info)
         .collect();
-    let mut compositor = hyprland_windows(&registered, filter.app.as_deref(), deadline)?;
-    if filter.focused_only {
-        compositor.retain(|window| window.state.is_focused);
-    }
-    listed.append(&mut compositor);
+    let registered = || match filter.app {
+        Some(_) => registered_pids(bus, deadline),
+        None => Ok(registered),
+    };
+    let compositor = hyprland_windows(registered, filter.app.as_deref(), deadline)?;
+    listed.append(&mut keep_focused(compositor, filter));
     Ok(listed)
+}
+
+fn keep_focused(mut windows: Vec<WindowInfo>, filter: &WindowFilter) -> Vec<WindowInfo> {
+    if filter.focused_only {
+        windows.retain(|window| window.state.is_focused);
+    }
+    windows
+}
+
+/// Every process with a registered accessibility application, whatever the
+/// listing's filter, so a filtered listing never shows an accessible
+/// application's toplevel as compositor-only.
+fn registered_pids(bus: &SharedBus, deadline: Deadline) -> Result<HashSet<u32>, AdapterError> {
+    let query = AppQuery {
+        pid: None,
+        select: &|_| true,
+        enrich: false,
+    };
+    let registry = read_registry_query(bus, &query, deadline)?;
+    Ok(registry.apps.iter().map(|app| app.root.pid()).collect())
 }
 
 /// The windows of one process, placed as `list_windows` places them. Only

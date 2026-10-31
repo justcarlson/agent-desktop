@@ -65,7 +65,9 @@ pub(crate) fn proof_refusal(
     side_effects: &[FocusSideEffect],
     read_error: Option<&AdapterError>,
 ) -> AdapterError {
-    let cause = if read.compositor_active && read.toplevel_activated {
+    let cause = if read.compositor_active && read.toplevel_activated && !read.in_view {
+        Cause::WindowHidden
+    } else if read.compositor_active && read.toplevel_activated {
         Cause::FrameNotActive
     } else if activation_sent {
         Cause::ActivationRefused
@@ -78,6 +80,7 @@ pub(crate) fn proof_refusal(
         "activation_sent": activation_sent,
         "compositor_active": read.compositor_active,
         "toplevel_activated": read.toplevel_activated,
+        "in_view": read.in_view,
     });
     if let Some(fields) = details.as_object_mut() {
         if let Some(frame_active) = read.frame_active {
@@ -115,6 +118,9 @@ fn cause_message(cause: Cause) -> &'static str {
             "Hyprland made the window active but the application does not report it active"
         }
         Cause::ActivationRefused => "Hyprland left another window active",
+        Cause::WindowHidden => {
+            "Hyprland reports the window active, but no monitor shows its workspace"
+        }
         _ => "Hyprland and its foreign toplevel state disagree about which window is active",
     }
 }

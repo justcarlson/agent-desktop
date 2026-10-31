@@ -1,5 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
+use crate::system::hyprland::identity::compositor_window_id::is_compositor_id;
+
 const PREFIX: &str = "w-";
 const BUS_SEPARATOR: char = '-';
 const PATH_SEPARATOR: char = '/';
@@ -39,6 +41,13 @@ pub(crate) fn encode(bus: &str, path: &str) -> Option<String> {
 }
 
 fn invalid(id: &str) -> AdapterError {
+    if is_compositor_id(id) {
+        return AdapterError::new(
+            ErrorCode::InvalidArgs,
+            format!("'{id}' is a compositor window with no accessibility tree, so it has no elements to read or act on"),
+        )
+        .with_suggestion("Use it with list-windows and focus-window, or pick a window that lists \"accessible\": true");
+    }
     AdapterError::new(
         ErrorCode::InvalidArgs,
         format!("'{id}' is not a window id this adapter issued"),
