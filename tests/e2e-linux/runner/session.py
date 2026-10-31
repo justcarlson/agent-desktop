@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import proc as process
-from runner.session_environment import _PAYLOAD, _ENV_KEYS
+from runner import attached
+from runner.session_environment import _ENV_KEYS, _PAYLOAD, _parse_env_file, _stderr_tail
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -76,16 +77,10 @@ def _tier_argv(name: str) -> list[str]:
     return argv
 
 
-def _parse_env_file(text: str) -> dict[str, str]:
-    env = {}
-    for line in text.splitlines():
-        key, sep, value = line.partition("=")
-        if sep and key in _ENV_KEYS:
-            env[key] = value
-    return env
-
-
 def _proc_members(runtime_dir: Path, proc_root: Path = Path("/proc")) -> list[tuple[int, int]]:
+    record = attached.load(runtime_dir)
+    if record is not None:
+        return [member[:2] for member in attached.members(record, proc_root)]
     members = []
     for directory in proc_root.glob("[0-9]*"):
         try:
@@ -111,6 +106,12 @@ def _process_start_time(pid_dir: Path) -> int | None:
 
 
 def _kill(pid: int, sig: int, start: int, runtime_dir: Path, proc_root: Path) -> None:
+    record = attached.load(runtime_dir)
+    if record is not None:
+        if attached.is_member(record, pid, start, proc_root):
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, sig)
+        return
     try:
         current, _, _, env = process.facts(pid, proc_root)
         if current == start and env.get("XDG_RUNTIME_DIR") == str(runtime_dir):
@@ -226,6 +227,14 @@ def _build_tier(name: str, env_values: dict[str, str]) -> Tier:
     )
 
 
+def session_base(env: dict[str, str]) -> Path:
+    return Path(
+        env.get("AGENT_DESKTOP_SESSION_BASE")
+        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
+    )
+
+
 def sweep_strays(session_base: Path, proc_root: Path = Path("/proc")) -> list[Path]:
     swept = []
     for marker in sorted(session_base.glob("rt.*/" + OWNER_MARKER)):
@@ -236,6 +245,12 @@ def sweep_strays(session_base: Path, proc_root: Path = Path("/proc")) -> list[Pa
             continue
         pid_dir = proc_root / runner_pid
         if pid_dir.exists() and _process_start_time(pid_dir) == int(runner_start):
+            continue
+        if attached.load(runtime_dir) is not None:
+            from runner import attached_session
+            with contextlib.suppress(TeardownError):
+                attached_session.teardown(runtime_dir, check_survivors=False, proc_root=proc_root)
+            swept.append(runtime_dir)
             continue
         _sweep_members(runtime_dir, proc_root)
         _remove_tree(runtime_dir)
@@ -259,17 +274,6 @@ def _wait_for_health(
         time.sleep(0.2)
     _signal_process(proc.pid, signal.SIGTERM)
     raise TierUnavailable(f"{name}: the health gate did not pass in {int(deadline)}s")
-
-
-def _stderr_tail(proc: subprocess.Popen) -> str:
-    if proc.stderr is None:
-        return ""
-    try:
-        os.set_blocking(proc.stderr.fileno(), False)
-        data = proc.stderr.read() or b""
-    except (OSError, ValueError):
-        return ""
-    return data[-800:].decode("utf-8", "replace").strip()
 
 
 def _env_runtime_dir(env_file: Path, base: Path, existing: set[Path]) -> Path | None:
@@ -325,6 +329,11 @@ def _teardown(
 
 @contextlib.contextmanager
 def start_tier(name: str, deadline: float):
+    if name == "hyprland":
+        from runner import attached_session
+        with attached_session.start(deadline) as tier:
+            yield tier
+        return
     argv = _tier_argv(name)
     work_dir = Path(os.environ.get("AGENT_DESKTOP_E2E_SUITE") or tempfile.mkdtemp(prefix="ad-tier-"))
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -332,11 +341,7 @@ def start_tier(name: str, deadline: float):
     release_file = work_dir / f"{name}.release"
     for marker in (env_file, Path(f"{env_file}.tmp"), release_file):
         marker.unlink(missing_ok=True)
-    base = Path(
-        os.environ.get("AGENT_DESKTOP_SESSION_BASE")
-        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
-            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
-    )
+    base = session_base(os.environ)
     existing = set(base.glob("rt.*"))
     child_env = dict(os.environ)
     child_env.update({

@@ -12,7 +12,7 @@ bash tests/e2e-linux/run.sh --tier x11-openbox
 
 Each run builds (`cargo build --locked --release`) into its own suite's temporary Cargo target, stages both executables in `<suite>/bin/`, and records their SHA256s in adjacent `.sha256` files and in the startup `image:` lines. It then removes the build intermediates. Every leg uses that pinned pair. A staged hash mismatch fails the run, and other worktrees' builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN` (or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its adjacent helper before the interaction lease is taken.
 
-Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `$AGENT_DESKTOP_SESSION_BASE` when nonempty, otherwise `$XDG_RUNTIME_DIR/agent-desktop-sessions` when `XDG_RUNTIME_DIR` is nonempty, otherwise `/tmp/agent-desktop-sessions-<uid>` with the numeric user ID. The base is created with mode 0700. The runner starts its own private sessions and takes the interaction lease.
+Omit `--tier` to run the three private tiers in sequence; `hyprland` runs only when named. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `$AGENT_DESKTOP_SESSION_BASE` when nonempty, otherwise `$XDG_RUNTIME_DIR/agent-desktop-sessions` when `XDG_RUNTIME_DIR` is nonempty, otherwise `/tmp/agent-desktop-sessions-<uid>` with the numeric user ID. The base is created with mode 0700. The runner starts its own private sessions and takes the interaction lease.
 
 Exit codes: `0` every leg passed or asserted its refusal; `1` any other outcome (see Outcomes); `2` the gate refused to start (missing prerequisite, unknown leg, leg not registered for the tier, staging failure, or the interaction lease is already held). Nothing ran on exit 2.
 
@@ -27,6 +27,7 @@ Keep failed suites for diagnosis; the runner removes a successful suite. Use ano
 - `x11-openbox`: `xdotool`, `wmctrl`, `xclip`, and the openbox binary at `$AGENT_DESKTOP_WM_ROOT/usr/bin/openbox` (`AGENT_DESKTOP_WM_ROOT` defaults to `/`).
 - `x11-mutter`: `gnome-shell`, `xdotool`, `wmctrl`, `xclip`.
 - `wayland`: `gnome-shell`, `wl-copy`, `wl-paste`.
+- `hyprland`: `Hyprland`, `hyprctl`, `systemd-run`, `systemctl`, `foot`, `gdbus`, `timeout`. The base tools are not needed. The runner must start inside a Hyprland session, with `HYPRLAND_INSTANCE_SIGNATURE`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` set.
 - The legs also drive the GNOME apps Calculator, Text Editor, Files, Terminal and Settings, and a PyQt6 test window. AT-SPI must be available in the private session.
 
 The runner inherits the caller's tool paths and libraries: supply tools through `PATH` and shared libraries through `LD_LIBRARY_PATH`. Qt legs run under `python3`; set `AGENT_DESKTOP_QT_PYTHON` when PyQt6 lives in a separate interpreter. That does not change the harness interpreter.
@@ -50,17 +51,30 @@ test/omarchy-vm run --channel stable --copy . --copy "$bin" "${pkgs[@]}" --out v
   -- bash -c 'cd "$1" && ./test/all' _ "$(basename "$PWD")"
 ```
 
-Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift` and `wayland_drift`: they fail on upstream `main` and on the branch alike on the Arch image, because the app versions differ. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
+Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift`, `wayland_drift` and `hyprland_drift`: they fail on upstream `main` and on the branch alike on the Arch image. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. It then opens a `foot` window titled `ad-bystander`, waits for it to take focus, and runs the `hyprland` tier against the VM's own session. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
 
 ## Tiers
 
 - `--tier x11-openbox`: private Xvfb and openbox.
 - `--tier x11-mutter`: private Xvfb and the private mutter shell wrapper.
 - `--tier wayland`: private bus and a health-gated headless GNOME Wayland shell.
+- `--tier hyprland`: attaches to the Hyprland session the runner starts in. Run it only in a throwaway VM.
 
 Each tier runs the headless and headed modes registered for that leg. A headed mode on a headless compositor sends synthetic input inside that private session, not to the user's desktop.
 
 `events.open_and_close_inside_one_wait` and `ref_actions.drag` are registered on openbox only. On Mutter, the first leg tore down against a vanished AT-SPI node. The second timed out during editor registry setup before it dispatched a product command. Neither counts as a Mutter pass. A leg that is not registered for a tier makes no live claim there.
+
+### Hyprland tier
+
+The `hyprland` tier uses the session's own compositor, buses and AT-SPI registry; it starts none of them. Before any leg, it checks that the IPC socket, the Wayland socket and the accessibility bus answer.
+
+- Apps start through the compositor on a silent special workspace, inside a transient `systemd --user` slice that the run owns. The runner records each process with its start token. An app that D-Bus activates counts as a new generation. Cleanup stops the slice and kills only recorded generations.
+- Product state goes to a private `AGENT_DESKTOP_HOME` under the run's directory.
+- Start a window that the runner did not launch, for example `foot`, and focus it before the run. The legs require it to keep focus, with the cursor, workspaces and monitors unchanged, and read those through `hyprctl` while each command runs.
+- `non_interference.headed_changes_only_target` and `session.cancel_cleanup_recorded_generations` start a second, headless Hyprland in the run's slice, with an output named `AGENT-DESKTOP-1` and a sentinel window. The attached record names it before it is created.
+- Teardown removes only recorded paths. It never removes or sweeps the shared runtime directory. It fails when the compositor, a bus, a shell process or the bystander did not survive.
+
+The receipt `<suite>/hyprland.ready.json` also names the attached record. `cancel.py --check-cleanup` waits for teardown to finish, then checks that no recorded generation, second instance or fixture remains and that every survivor still runs. `session.cancel_cleanup_recorded_generations` runs that check against a second runner on the same session.
 
 ## Legs
 
@@ -89,7 +103,7 @@ for leg in REGISTRY:
 PYLIST
 ```
 
-Change the tier string to `x11-mutter` or `wayland` for those inventories.
+Change the tier string to `x11-mutter`, `wayland` or `hyprland` for those inventories.
 
 ### Outcomes
 

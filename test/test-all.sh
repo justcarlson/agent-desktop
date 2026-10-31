@@ -35,4 +35,17 @@ check "a log that stops before the last check fails" \
   "$([[ $(verdict 'ok   a' "FAIL $m0" "FAIL $m1") == fail ]] && echo ok)"
 check "a log with no passing check fails" "$([[ $(verdict 'private-session: crashed') == fail ]] && echo ok)"
 
+# Each drift list names only legs its tier registers, and leaves them out.
+eval "$(sed -n '/^[a-z]*_drift=(/,/^)/p; /^legs_except() {/,/^}/p' "$here/all")"
+cd "$here/.."
+for pair in x11-openbox:openbox_drift wayland:wayland_drift hyprland:hyprland_drift; do
+  tier=${pair%%:*} list="${pair#*:}[@]"
+  legs=$(legs_except "$tier" "${!list}" 2>/dev/null)
+  left_out=ok
+  for leg in "${!list}"; do [[ ,$legs, != *",$leg,"* ]] || left_out=; done
+  check "$tier drift legs are registered and left out" "$([[ -n $legs && $left_out == ok ]] && echo ok)"
+done
+check "a drift leg the tier does not register is refused" \
+  "$(legs_except hyprland no.such_leg >/dev/null 2>&1 || echo ok)"
+
 exit "$failed"

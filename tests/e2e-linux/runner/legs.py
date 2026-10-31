@@ -3,16 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Callable
 
-TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland")
+TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland", "hyprland")
 MODE_NAMES = ("headless", "headed")
-ORACLE_NAMES = ("atspi", "gsettings", "x11", "proc", "pixels", "clipboard", "dbus", "applog")
+ORACLE_NAMES = ("atspi", "gsettings", "x11", "proc", "pixels", "clipboard", "dbus", "applog",
+                "hyprland")
 DISPOSITIONS = ("pass", "asserted-refusal", "owner-decision", "outstanding")
 
 X11 = ("x11-openbox", "x11-mutter")
 OPENBOX_ONLY = ("x11-openbox",)
 MUTTER_ONLY = ("x11-mutter",)
 WAYLAND_ONLY = ("wayland",)
-ALL_TIERS = TIER_NAMES
+ALL_TIERS = ("x11-openbox", "x11-mutter", "wayland")
+HYPRLAND_ONLY = ("hyprland",)
 HEADLESS = ("headless",)
 HEADED = ("headed",)
 BOTH_MODES = MODE_NAMES
@@ -105,7 +107,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('modal.calculator_about_blocks_parent', 'About blocks a ref action on its parent', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headed',), ('atspi', 'x11'), 'asserted-refusal', 'ACTION_FAILED, blocked_by_modal_dialog; parent effect unchanged'),
     Leg('observation.qualified_refs_survive_snapshots', 'A qualified ref still resolves after unrelated snapshots', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.stale_ref_after_app_killed', 'A ref held across an app kill answers STALE_REF or ELEMENT_NOT_FOUND', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
-    Leg('observation.stale_ref_after_ui_change', 'A ref to a menu item whose menu closed answers STALE_REF with a refresh-snapshot recovery, not_delivered and exit 1 while the app stays alive, then a fresh snapshot mints a new ref', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'asserted-refusal', 'the stale click is refused with STALE_REF before any input; display and owned processes unchanged'),
+    Leg('observation.stale_ref_after_ui_change', 'A ref to a menu item whose menu closed answers STALE_REF with a refresh-snapshot recovery, not_delivered and exit 1 while the app stays alive, then a fresh snapshot mints a new ref', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'proc'), 'asserted-refusal', 'the stale click is refused with STALE_REF before any input; display and owned processes unchanged'),
     Leg('observation.selector_wait_resolves', 'A selector wait returns once the element appears', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.enabled_state_canonical_and_raw', 'is enabled reads canonical enabled while the raw SENSITIVE bit holds', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.session_namespace_isolation', 'A snapshot taken in one session is not visible from another', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
@@ -142,7 +144,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('text_entry.typed_text_reaches_document', 'Typed text reaches the document', 'Text Editor', ('x11-openbox',), ('headed',), ('atspi', 'x11'), 'pass', ''),
     Leg('text_entry.held_key_released', 'A held key is not left pressed', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headed',), ('atspi', 'x11'), 'pass', ''),
     Leg('text_entry.press_combos_edit_document', 'press return inserts one newline, ctrl+a then backspace empties the document, and no modifier stays down', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headed',), ('atspi', 'x11'), 'pass', ''),
-    Leg('non_interference.active_window_unchanged_by_semantic_click', 'A semantic click leaves the active window and the pointer as they were', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi'), 'pass', ''),
+    Leg('non_interference.active_window_unchanged_by_semantic_click', 'A semantic click leaves the active window and the pointer as they were', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('x11', 'atspi', 'hyprland'), 'pass', ''),
     Leg('lifecycle.close_app_undelivered_report', 'close-app reports not delivered when the process stays', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.focus_window_active_reads', 'focus-window makes the target active by the X11 reads', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.minimize_restore', 'minimize and restore change the window state the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
@@ -194,8 +196,15 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('gaps.timeout_default', 'default disabled-action timeout without an effect', 'Calculator Undo', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('atspi',), 'asserted-refusal', 'Disabled Undo: TIMEOUT, details.kind=actionability_timeout, unchanged state/text, default 5000 ms budget.'),
     Leg('wayland_actions.semantic_click_without_seat', 'A semantic click succeeds without a keyboard seat and restores the display', 'Calculator', ('wayland',), ('headless',), ('atspi',), 'pass', ''),
     Leg('wayland_actions.headed_ref_refusal', 'Headed ref action refuses Wayland focus before dispatch', 'Calculator', ('wayland',), ('headed',), ('atspi',), 'asserted-refusal', 'ACTION_NOT_SUPPORTED, cause=wayland_session, not_delivered with unchanged raw display'),
-    Leg('error_contract.recoverable_error_envelopes', 'A bare @e1 is INVALID_ARGS with the qualified-ref suggestion, an unknown snapshot is SNAPSHOT_NOT_FOUND with a refresh-snapshot recovery, an unknown app is APP_NOT_FOUND with a list-apps suggestion, each not_delivered and exit 1 with the app untouched', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'asserted-refusal', 'INVALID_ARGS, SNAPSHOT_NOT_FOUND and APP_NOT_FOUND envelopes carry suggestion and disposition with exit 1; display and owned processes unchanged'),
-    Leg('batch_contract.entry_failure_and_stop_on_error', 'A failed batch entry reports its own STALE_REF and later entries still run; --stop-on-error halts with stopped.reason and the failing index; the display shows exactly the entries that ran', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', 'the failing entry answers STALE_REF inside an ok batch envelope; stopped.reason stop_on_error at index 1; display 78 without the flag and 7 with it'),
+    Leg('error_contract.recoverable_error_envelopes', 'A bare @e1 is INVALID_ARGS with the qualified-ref suggestion, an unknown snapshot is SNAPSHOT_NOT_FOUND with a refresh-snapshot recovery, an unknown app is APP_NOT_FOUND with a list-apps suggestion, each not_delivered and exit 1 with the app untouched', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'proc'), 'asserted-refusal', 'INVALID_ARGS, SNAPSHOT_NOT_FOUND and APP_NOT_FOUND envelopes carry suggestion and disposition with exit 1; display and owned processes unchanged'),
+    Leg('batch_contract.entry_failure_and_stop_on_error', 'A failed batch entry reports its own STALE_REF and later entries still run; --stop-on-error halts with stopped.reason and the failing index; the display shows exactly the entries that ran', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi',), 'asserted-refusal', 'the failing entry answers STALE_REF inside an ok batch envelope; stopped.reason stop_on_error at index 1; display 78 without the flag and 7 with it'),
+)
+
+REGISTRY += (
+    Leg('non_interference.headed_changes_only_target', 'Headed commands leave the bystander focus, the cursor, the workspaces and the second instance as they were; the comparison detects a drifted bystander and a drifted second instance', 'Calculator, bystander and a second instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
+    Leg('non_interference.headless_route_preserves_desktop', 'Every headless inventory, snapshot, display and semantic command keeps focus, cursor and workspaces, polled while it runs, and its own effect is read from AT-SPI', 'Calculator and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi'), 'pass'),
+    Leg('session.cancel_cleanup_recorded_generations', 'Cancelling a ready runner through its receipt removes its slice, adopted generations, state and second instance, and leaves the compositor, buses, shell processes and bystander alive', 'Hyprland session', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'proc'), 'pass'),
+    Leg('error_contract.hyprland_delivery_boundaries', 'Refusals on Hyprland carry upstream codes, exit 1 and physical_delivery_started false with not_delivered and safe retry, and the app, bystander and cursor show no effect', 'Calculator and bystander', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'atspi', 'proc'), 'pass'),
 )
 
 RESTORED_MUTTER_EVENTS = (

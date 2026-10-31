@@ -167,6 +167,21 @@ class RuntimeReadinessTests(unittest.TestCase):
                         readiness.wait_ready(self.tier, seconds=0.5)
                     self.assertLessEqual(clock[0], 0.6)
 
+    def test_an_expired_deadline_does_not_hide_the_cause_that_used_it_up(self):
+        from runner import readiness
+        clock = [0.0]
+        def probe(tier, app):
+            if clock[0] < 0.4:
+                raise LookupError("expected one private owner 'Registry', found 0")
+            raise TimeoutError("oracle responsiveness deadline expired")
+        with patch.object(readiness, "probe", side_effect=probe), \
+             patch.object(readiness.time, "monotonic", side_effect=lambda: clock[0]), \
+             patch.object(readiness.time, "sleep", side_effect=lambda n: clock.__setitem__(0, clock[0] + n)):
+            with self.assertRaises(session.TierUnavailable) as raised:
+                readiness.wait_ready(self.tier, seconds=0.5)
+        self.assertIn("found 0", str(raised.exception))
+        self.assertIn("deadline expired", str(raised.exception))
+
     def test_overview_escape_requires_observed_true(self):
         from runner import readiness
         for active in (False, True):
