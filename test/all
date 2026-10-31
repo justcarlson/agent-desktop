@@ -92,11 +92,15 @@ mutter_checks=(
 
 step() { printf '==> %s\n' "$*"; }
 
-# Passes when the log has a passing check and every failed check is a
-# mutter check.
+# Passes when the log has a passing check, every mutter check reported a
+# result, and every failed check is a mutter check. The last mutter check is
+# the script's last check, so a log that stops early fails.
 private_session_ok() {
   local line name known
   grep -q '^ok ' "$1" || return 1
+  for name in "${mutter_checks[@]}"; do
+    grep -Fqx -e "ok   $name" -e "FAIL $name" "$1" || return 1
+  done
   while IFS= read -r line; do
     known=0
     for name in "${mutter_checks[@]}"; do
