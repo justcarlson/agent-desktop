@@ -60,10 +60,13 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   A window on a hidden special workspace, on a workspace out of view, or with
   no accessibility tree is captured where it is. Nothing is activated, shown
   or moved.
-- The image is drawn after the request, never an earlier frame. Hyprland
-  draws a window that is out of view from the buffer it last drew, so the
-  capture makes the window draw again and waits up to 25 ms for it. A window
-  with nothing new to draw returns its unchanged content.
+- Hyprland draws a window that is out of view from the buffer it last drew,
+  which can be seconds old. The capture makes the window draw, then returns
+  the first frame whose pixels changed; those pixels were drawn after the
+  request. A window whose pixels stay the same for at least 250 ms returns
+  that unchanged frame, which can be older than the request. A drawing that
+  lands later is not waited for, so capture again to see it. An unchanged
+  window takes about 460 ms to capture.
 - `--screen N` captures the output `list-displays` names at index `N`, at its
   full pixel size. `data.scale_factor` is the output's scale; fractional
   scales and outputs at negative origins work.
@@ -73,8 +76,10 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   `details.enforced: true`. Nothing is requested and no dialog appears. The
   refusal holds even for a client the config allows. Set the option to false
   to capture.
-- No frame before the deadline is `TIMEOUT` with `details.kind:
-  "capture_frame"`. Retry once the compositor draws again.
+- No frame before the deadline, or a deadline that ends the wait for a new
+  drawing or for a refused buffer's retry, is `TIMEOUT` with `details.kind:
+  "capture_frame"`. Retry with a longer budget, or once the compositor draws
+  again.
 - A frame the compositor refuses is `ACTION_FAILED` with `details.kind:
   "capture_refused"` and `details.reason`. Right after a window moves,
   Hyprland 0.56 can refuse frames until the size settles. The CLI retries on

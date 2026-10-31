@@ -202,11 +202,15 @@ It never asks the desktop portal, so no dialog appears.
   A window on a hidden special workspace, on a workspace out of view, or with
   no accessibility tree is captured where it is. Nothing is activated, shown
   or moved. The image is the window's size times its monitor's scale.
-- The image is drawn after the request. Hyprland draws a window that is out of
-  view from the buffer it last drew, so the capture takes one frame to make the
-  window draw again, waits up to 25 ms, and returns a frame from a new capture
-  session. A window with nothing new to draw returns its unchanged content. An
-  earlier frame is never returned.
+- Hyprland draws a window that is out of view from the buffer it last drew,
+  which can be seconds old, and does not say when the window draws again. So
+  the capture takes one frame to make the window draw, then opens a new capture
+  session every 25 ms. It returns the first frame whose pixels differ from that
+  first one; those pixels were drawn after the request. A window whose pixels
+  stay the same for 10 sessions, at least 250 ms, returns that unchanged
+  frame, which can be older than the request. A drawing that lands later is
+  not waited for. An unchanged window takes about 460 ms to capture, so a
+  budget too short for the wait answers `TIMEOUT`.
 - `--screen N`, or no selector for the primary display, captures the output
   `list-displays` names, through `zwlr_screencopy_v1`, at its full pixel size.
   `data.scale_factor` is the output's scale, fractional scales included.
@@ -217,7 +221,7 @@ It never asks the desktop portal, so no dialog appears.
 | Code | `details` | Meaning |
 |------|-----------|---------|
 | `PERM_DENIED` | `option: "ecosystem:enforce_permissions"`, `enforced: true` | Hyprland enforces permissions and would withhold the frame without asking. Nothing was requested |
-| `TIMEOUT` | `kind: "capture_frame"` | The compositor sent no frame before the deadline. A compositor that does not answer at all gives `display_unavailable: "silent"` |
+| `TIMEOUT` | `kind: "capture_frame"` | The compositor sent no frame before the deadline, or the deadline ended the wait for a window's new drawing or for a refused buffer's retry. A compositor that does not answer at all gives `display_unavailable: "silent"` |
 | `ACTION_FAILED` | `kind: "capture_refused"`, `reason: "buffer_constraints"` or `"unknown"` | The compositor refused every frame. A refused buffer is retried on new sessions for up to 2 s, while a moved window's size settles |
 | `ACTION_FAILED` | none | The frame size does not match the display, or the compositor offered no buffer layout this tool reads |
 | `WINDOW_NOT_FOUND` | none | The window closed before or during the capture, or the id belongs to another compositor instance |
