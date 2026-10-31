@@ -149,6 +149,34 @@ export DISPLAY=":$display_number"
 dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_DATA_HOME \
   XDG_CACHE_HOME TMPDIR GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION AGENT_DESKTOP_HOME
 
+# Arch's at-spi-bus-launcher runs the accessibility bus as `dbus-broker-launch --scope user`, which
+# activates the registry through systemd. The private bus has no systemd, so activation answers
+# `unit failed` and every app's tree stays unreachable. Activation is asked first, so a distribution
+# whose bus can activate the registry keeps doing it; only a failed activation starts the registry here.
+a11y_call() {
+  gdbus call --address "$1" --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+    --method "org.freedesktop.DBus.$2" "${@:3}" 2>/dev/null
+}
+registry_owned() { a11y_call "$1" NameHasOwner org.a11y.atspi.Registry | grep -q true; }
+a11y_bus=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+  --method org.a11y.Bus.GetAddress 2>/dev/null | sed -n "s/^('\(.*\)',)$/\1/p") || a11y_bus=
+if [ -n "$a11y_bus" ] && ! registry_owned "$a11y_bus" &&
+   ! a11y_call "$a11y_bus" StartServiceByName org.a11y.atspi.Registry 0 > /dev/null; then
+  registryd=
+  for candidate in ${AGENT_DESKTOP_ATSPI_REGISTRYD:-} /usr/libexec/at-spi2-registryd \
+      /usr/lib/at-spi2-registryd /usr/lib/at-spi2-core/at-spi2-registryd; do
+    [ -x "$candidate" ] && { registryd=$candidate; break; }
+  done
+  [ -n "$registryd" ] || { echo "private-session: the AT-SPI registry cannot be activated or found" >&2; exit 1; }
+  "$registryd" > "$rt/registryd.log" 2>&1 < /dev/null &
+  pids+=("$!")
+  for _ in $(seq 1 50); do
+    registry_owned "$a11y_bus" && break
+    sleep 0.1
+  done
+  registry_owned "$a11y_bus" || { echo "private-session: the AT-SPI registry did not start" >&2; exit 1; }
+fi
+
 if [ "$wm" = 1 ]; then
   wm_root=${AGENT_DESKTOP_WM_ROOT:-/}
   [ -x "$wm_root/usr/bin/openbox" ] || {
