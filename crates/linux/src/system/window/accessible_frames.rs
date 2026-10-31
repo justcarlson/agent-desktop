@@ -3,12 +3,11 @@
 
 use std::collections::HashSet;
 
-use agent_desktop_core::WindowInfo;
-
 use crate::system::hyprland::identity::identity_bind::bind_frame;
 use crate::system::hyprland::identity::identity_refusal::IdentityRefusal;
 use crate::system::hyprland::identity::inventory::Inventory;
 use crate::system::hyprland::identity::window_evidence::WindowEvidence;
+use crate::system::registry::listed_window::ListedWindow;
 
 /// The frames a listing read, the processes it read them from, and every
 /// registered process. A process the listing's filter skipped is judged by
@@ -20,36 +19,42 @@ pub(crate) struct AccessibleFrames {
     pub(crate) registered: HashSet<u32>,
 }
 
-impl AccessibleFrames {
-    /// The frames of `listed`, read from the processes in `read`.
-    pub(crate) fn from_listed(
-        listed: &[WindowInfo],
-        read: HashSet<u32>,
-        registered: HashSet<u32>,
-    ) -> Self {
-        let frames = listed
-            .iter()
-            .map(|window| WindowEvidence {
-                pid: window.pid.get(),
-                instance: window.process_instance.clone(),
-                title: window.title.clone(),
-                size: window.bounds.map(|bounds| (bounds.width, bounds.height)),
-            })
-            .collect();
-        Self {
-            frames,
-            read,
-            registered,
-        }
+/// What a listed window says about itself. The size is the placed bounds
+/// when placement found them, else the frame's own extents: a native
+/// GTK 4 window has no global bounds after placement, and without a size its
+/// same-titled twins could not be told apart.
+pub(crate) fn frame_evidence(window: &ListedWindow) -> WindowEvidence {
+    let extents = window
+        .frame
+        .extents
+        .map(|extents| (f64::from(extents.width), f64::from(extents.height)));
+    WindowEvidence {
+        pid: window.info.pid.get(),
+        instance: window.info.process_instance.clone(),
+        title: window.info.title.clone(),
+        size: window
+            .info
+            .bounds
+            .map(|bounds| (bounds.width, bounds.height))
+            .or(extents),
     }
+}
 
+impl AccessibleFrames {
     /// The addresses of the toplevels these frames represent. Each frame
     /// hides the toplevel it binds to by process, title and size.
     /// A frame whose twins cannot be told apart hides every twin, and a
     /// frame that cannot be bound hides the toplevels of its process that
     /// carry its title, so an accessible window is not listed twice for want
-    /// of evidence.
-    pub(crate) fn represented(&self, inventory: Inventory<'_>) -> HashSet<u64> {
+    /// of evidence. `live_instance` reads each frame's process again; a frame
+    /// whose recorded process has gone or changed since it was read
+    /// represents nothing, so a replacement process with the same pid and
+    /// title keeps its own toplevel.
+    pub(crate) fn represented(
+        &self,
+        inventory: Inventory<'_>,
+        live_instance: impl Fn(u32) -> Option<String>,
+    ) -> HashSet<u64> {
         let mut addresses: HashSet<u64> = inventory
             .clients
             .iter()
@@ -59,7 +64,11 @@ impl AccessibleFrames {
             .map(|client| client.address)
             .collect();
         for frame in &self.frames {
-            match bind_frame(frame, frame.instance.as_deref(), inventory) {
+            let live = live_instance(frame.pid);
+            if frame.instance.is_some() && live != frame.instance {
+                continue;
+            }
+            match bind_frame(frame, live.as_deref(), inventory) {
                 Ok(address) => {
                     addresses.insert(address);
                 }
