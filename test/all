@@ -18,7 +18,7 @@ out=$HOME/out
 bin=${AGENT_DESKTOP_E2E_BIN:-$HOME/src/agent-desktop-bin/agent-desktop}
 apps=(gnome-calculator gnome-text-editor nautilus gnome-terminal gnome-control-center gnome-shell
   python-pyqt6 python-gobject openbox xorg-server-xvfb gtk3 gtk4 glib2 at-spi2-core
-  xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard)
+  xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard hyprland foot)
 
 # Legs that fail on upstream main and on this branch alike, in
 # separate fresh VMs on the same image version: Arch's app versions differ
@@ -80,6 +80,15 @@ wayland_drift=(
   ref_contract.zoo_qt
 )
 
+# Fails the same way on x11-openbox with upstream main's binary and with this
+# branch: STALE_REF for a closed menu has details.kind menu_closed and no
+# recovery block, as skills/agent-desktop-linux/references/troubleshooting.md
+# documents, while the leg expects refresh_snapshot_then_retry_original.
+# Measured on stable 4.0.6 and edge 2026.10.27.467.
+hyprland_drift=(
+  observation.stale_ref_after_ui_change
+)
+
 # x11-mutter cannot start on the Arch image, so test/all does not run it:
 # scripts/private-mutter-shell.sh runs gnome-shell --x11, and GNOME Shell 51
 # has only --no-x11. The private session checks below that start the mutter
@@ -127,6 +136,23 @@ print(",".join(leg for leg in ids if leg not in skip))
 PY
 }
 
+# The hyprland tier attaches to this desktop session and needs a focused window
+# it did not launch. Lua configs take hl.dsp calls; older configs take exec.
+start_bystander() {
+  local title=ad-bystander i
+  if [[ $(hyprctl eval 'return 1' 2>&1) == ok ]]; then
+    hyprctl dispatch "hl.dsp.exec_cmd(\"foot --title $title\")" >/dev/null
+  else
+    hyprctl dispatch exec "foot --title $title" >/dev/null
+  fi
+  for i in $(seq 80); do
+    hyprctl -j activewindow | grep -q "\"$title\"" && return 0
+    sleep 0.25
+  done
+  echo "test/all: the bystander window did not take focus" >&2
+  return 1
+}
+
 rc=0
 # run_tier <tier> [<leg,leg,...>]: one run.sh call, one private session.
 run_tier() {
@@ -141,6 +167,7 @@ run_tier() {
   { echo "test/all: no prebuilt agent-desktop and clipboard helper in $(dirname "$bin")" >&2; exit 2; }
 openbox_legs=$(legs_except x11-openbox "${openbox_drift[@]}")
 wayland_legs=$(legs_except wayland "${wayland_drift[@]}")
+hyprland_legs=$(legs_except hyprland "${hyprland_drift[@]}")
 mkdir -p "$out/suites"
 
 {
@@ -165,5 +192,6 @@ fi
 
 run_tier x11-openbox "$openbox_legs"
 run_tier wayland "$wayland_legs"
+if start_bystander; then run_tier hyprland "$hyprland_legs"; else rc=1; fi
 
 exit "$rc"

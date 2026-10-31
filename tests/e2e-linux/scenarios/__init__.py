@@ -41,6 +41,8 @@ from scenarios import controlled_targets
 from scenarios import gaps_decisions
 from scenarios import error_contract
 from scenarios import batch_contract
+from scenarios import hyprland_cancel
+from scenarios import hyprland_desktop
 
 __all__ = [
     "batch_contract",
@@ -50,6 +52,8 @@ __all__ = [
     "error_contract",
     "events",
     "headed_actions",
+    "hyprland_cancel",
+    "hyprland_desktop",
     "identity",
     "launch",
     "lifecycle",

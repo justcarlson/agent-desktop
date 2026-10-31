@@ -5,6 +5,7 @@ from runner import apps
 from runner.helper import activate, changed, display, one
 from runner.legs import implementation
 from runner.verdict import LegContext
+from scenarios.hyprland_desktop import semantic_click_preserves_desktop
 from scenarios.headed_actions import assert_ok, live_root, ref_for, window_of
 
 
@@ -33,6 +34,9 @@ def _semantic_click(ctx: LegContext, app, window: str) -> None:
 
 @implementation("non_interference.active_window_unchanged_by_semantic_click")
 def active_window_unchanged_by_semantic_click(ctx: LegContext) -> None:
+    if getattr(ctx.tier, "name", None) == "hyprland":
+        semantic_click_preserves_desktop(ctx)
+        return
     app = apps.launch(ctx.tier, "Calculator")
     other = apps.launch(ctx.tier, "Text Editor")
     try:

@@ -14,7 +14,8 @@ from pathlib import Path
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HARNESS_ROOT))
 
-TIER_CHOICES = ("x11-openbox", "x11-mutter", "wayland")
+DEFAULT_TIERS = ("x11-openbox", "x11-mutter", "wayland")
+TIER_CHOICES = DEFAULT_TIERS + ("hyprland",)
 TIER_DEADLINE_S = 90.0
 LEASE_FD_ENV = "AGENT_DESKTOP_INTERACTION_LEASE_FD"
 SUITE_ENV = "AGENT_DESKTOP_E2E_SUITE"
@@ -260,7 +261,7 @@ def main(argv: list[str]) -> int:
     import scenarios
     from runner import gate, legs, report, session, stage, verdict
 
-    tiers = (args.tier,) if args.tier else TIER_CHOICES
+    tiers = (args.tier,) if args.tier else DEFAULT_TIERS
     selected_ids = ({name.strip() for name in args.leg.split(",")} if args.leg
                     else {leg.id for leg in legs.REGISTRY})
     for leg_id in sorted(selected_ids):
@@ -305,11 +306,7 @@ def main(argv: list[str]) -> int:
             return report.exit_code(0, True)
     os.environ["AGENT_DESKTOP_E2E_BIN"] = str(binary)
 
-    session_base = Path(
-        env.get("AGENT_DESKTOP_SESSION_BASE")
-        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
-            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
-    )
+    session_base = session.session_base(env)
     session.sweep_strays(session_base)
 
     impls = legs.implementations()
