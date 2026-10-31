@@ -187,12 +187,17 @@ fn the_wayland_route_waits_for_a_person_whatever_the_command_deadline_is() {
         };
         let rig = Rig::standard();
         let command = Deadline::after(command_ms).expect("a deadline");
+        let backends = WaylandBackends {
+            binding: &|| Ok(None),
+            portal: &portal,
+            hyprland: &|_, _, _| panic!("a generic compositor reached Hyprland capture"),
+        };
         let _ = capture_through(
             &rig.env(),
             &Route::Wayland,
             ScreenshotTarget::FullScreen,
             command,
-            &portal,
+            &backends,
         );
         let waited = seen.get().expect("the portal was called");
         assert!(
@@ -201,3 +206,6 @@ fn the_wayland_route_waits_for_a_person_whatever_the_command_deadline_is() {
         );
     }
 }
+
+#[path = "screenshot_hyprland_tests.rs"]
+mod hyprland;
