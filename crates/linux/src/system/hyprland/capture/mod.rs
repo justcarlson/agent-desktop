@@ -11,3 +11,4 @@ pub(crate) mod frame_image;
 pub(crate) mod hypr_capture;
 pub(crate) mod live_capture_world;
 pub(crate) mod no_cursor_hider;
+pub(crate) mod toplevel_composition;

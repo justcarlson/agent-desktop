@@ -1,9 +1,10 @@
 //! Hyprland `screenshot`. A window is captured through
 //! `ext_image_copy_capture_v1` from its own foreign toplevel, so a window
 //! on a hidden or special workspace is captured without being shown or
-//! activated. A display is captured through `zwlr_screencopy_v1` from the
-//! output Hyprland names it by. The permission setting is read before
-//! anything is sent, and no portal is ever asked.
+//! activated. A window Hyprland composes is answered with its first frame;
+//! any other waits for a redraw. A display is captured through
+//! `zwlr_screencopy_v1` from the output Hyprland names it by. The permission
+//! setting is read before anything is sent, and no portal is ever asked.
 
 use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ScreenshotTarget, WindowInfo};
 
@@ -23,7 +24,8 @@ pub(crate) fn capture_window(
 ) -> Result<ImageBuffer, AdapterError> {
     refuse_enforced(world)?;
     let bound = world.bind(win)?;
-    let frame = world.capture_toplevel(&bound.toplevel.identifier)?;
+    let composition = world.composition(&bound)?;
+    let frame = world.capture_toplevel(&bound.toplevel.identifier, composition)?;
     if !world.still_bound(&bound)? {
         return Err(AdapterError::new(
             ErrorCode::WindowNotFound,

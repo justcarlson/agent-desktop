@@ -7,7 +7,8 @@ use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, WindowInfo};
 use super::capture_error::capture_error;
 use super::capture_world::CaptureWorld;
 use super::enforce_option::read_enforced;
-use crate::system::hyprland::clients::client_read::read_clients;
+use super::toplevel_composition::composition_of;
+use crate::system::hyprland::clients::client_read::{read_clients, read_desktop, read_filling};
 use crate::system::hyprland::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
 use crate::system::hyprland::identity::inventory::Inventory;
@@ -17,6 +18,7 @@ use crate::system::process::process_facts;
 use crate::system::process::process_lookup::Lookup;
 use crate::system::wayland::bound_connection::connect_bound;
 use crate::system::wayland::capture::capture_fault::CaptureFault;
+use crate::system::wayland::capture::composition::Composition;
 use crate::system::wayland::capture::frame_failure::FrameFailure;
 use crate::system::wayland::capture::output_frame::capture_output;
 use crate::system::wayland::capture::raw_frame::RawFrame;
@@ -72,14 +74,24 @@ impl CaptureWorld for LiveCaptureWorld {
         bind_window(win, inventory, live.as_deref(), compositor)
     }
 
-    fn capture_toplevel(&mut self, identifier: &str) -> Result<RawFrame, AdapterError> {
+    fn composition(&mut self, bound: &BoundToplevel) -> Result<Composition, AdapterError> {
+        let desktop = read_desktop(&self.binding, self.deadline)?;
+        let filling = read_filling(&self.binding, self.deadline)?;
+        Ok(composition_of(&bound.client, &desktop, filling.as_deref()))
+    }
+
+    fn capture_toplevel(
+        &mut self,
+        identifier: &str,
+        composition: Composition,
+    ) -> Result<RawFrame, AdapterError> {
         let socket = self.socket();
         let deadline = self.deadline;
         let session = self.session()?;
         let handle = session
             .ext_handle(identifier)
             .ok_or_else(|| capture_error(&CaptureFault::Failed(FrameFailure::Stopped), &socket))?;
-        capture_toplevel(session.connection(), &handle, deadline)
+        capture_toplevel(session.connection(), &handle, composition, deadline)
             .map_err(|fault| capture_error(&fault, &socket))
     }
 

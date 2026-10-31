@@ -11,12 +11,14 @@ use super::*;
 use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
+use crate::system::wayland::capture::composition::Composition;
 use crate::system::wayland::capture::shm_layout::XRGB8888;
 use crate::system::wayland::toplevel::toplevel_view::ToplevelView;
 
 struct FakeWorld {
     enforced: bool,
     bound: Result<BoundToplevel, AdapterError>,
+    composition: Result<Composition, AdapterError>,
     frame: Result<RawFrame, AdapterError>,
     still: bool,
     displays: VecDeque<Vec<DisplayInfo>>,
@@ -40,8 +42,20 @@ impl CaptureWorld for FakeWorld {
         self.bound.clone()
     }
 
-    fn capture_toplevel(&mut self, identifier: &str) -> Result<RawFrame, AdapterError> {
-        note(&self.log, format!("toplevel {identifier}"));
+    fn composition(&mut self, bound: &BoundToplevel) -> Result<Composition, AdapterError> {
+        note(
+            &self.log,
+            format!("composition {:#x}", bound.client.address),
+        );
+        self.composition.clone()
+    }
+
+    fn capture_toplevel(
+        &mut self,
+        identifier: &str,
+        composition: Composition,
+    ) -> Result<RawFrame, AdapterError> {
+        note(&self.log, format!("toplevel {identifier} {composition:?}"));
         self.frame.clone()
     }
 
@@ -162,6 +176,7 @@ fn world(frame: RawFrame) -> FakeWorld {
     FakeWorld {
         enforced: false,
         bound: Ok(bound()),
+        composition: Ok(Composition::Stale),
         frame: Ok(frame),
         still: true,
         displays: VecDeque::from([layout()]),
@@ -211,12 +226,37 @@ fn the_window_is_captured_from_its_own_toplevel_at_its_buffer_scale() {
     let image = capture_window(&mut world, &window()).unwrap();
     assert_eq!(
         entries(&world),
-        ["enforced", "bind", "toplevel abc", "still 0x10"]
+        [
+            "enforced",
+            "bind",
+            "composition 0x10",
+            "toplevel abc Stale",
+            "still 0x10"
+        ]
     );
     assert_eq!(
         (image.width, image.height, image.scale_factor),
         (800, 600, 2.0)
     );
+}
+
+#[test]
+fn a_composed_window_is_captured_as_current_and_any_other_as_stale() {
+    for composition in [Composition::Current, Composition::Stale] {
+        let mut world = world(frame(800, 600));
+        world.composition = Ok(composition);
+        capture_window(&mut world, &window()).unwrap();
+        assert_eq!(entries(&world)[3], format!("toplevel abc {composition:?}"));
+    }
+}
+
+#[test]
+fn a_composition_that_cannot_be_read_captures_nothing() {
+    let mut world = world(frame(800, 600));
+    world.composition = Err(AdapterError::internal("no clients"));
+    let error = capture_window(&mut world, &window()).unwrap_err();
+    assert_eq!(error.message, "no clients");
+    assert_eq!(entries(&world), ["enforced", "bind", "composition 0x10"]);
 }
 
 #[test]
@@ -242,7 +282,10 @@ fn a_frame_error_is_returned_as_it_is() {
     world.frame = Err(AdapterError::timeout("no frame"));
     let error = capture_window(&mut world, &window()).unwrap_err();
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(entries(&world), ["enforced", "bind", "toplevel abc"]);
+    assert_eq!(
+        entries(&world),
+        ["enforced", "bind", "composition 0x10", "toplevel abc Stale"]
+    );
 }
 
 #[test]

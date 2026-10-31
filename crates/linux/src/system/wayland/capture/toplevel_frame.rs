@@ -1,6 +1,7 @@
 //! One toplevel through `ext_image_copy_capture_v1`. Each frame is the
-//! first frame of its own session; `frame_redraw` decides which frame is
-//! the answer and when a refused buffer is retried.
+//! first frame of its own session; `frame_redraw` decides, from how the
+//! compositor composes the toplevel, which frame is the answer and when a
+//! refused buffer is retried.
 
 use agent_desktop_core::Deadline;
 use wayland_client::protocol::wl_shm::WlShm;
@@ -16,11 +17,12 @@ use super::buffer_layout::BufferLayout;
 use super::capture_fault::CaptureFault;
 use super::capture_globals;
 use super::capture_queue::CaptureQueue;
+use super::composition::Composition;
 use super::frame_failure::FrameFailure;
 use super::frame_freshness::monotonic_now;
 use super::frame_outcome::FrameOutcome;
 use super::frame_record::FrameRecord;
-use super::frame_redraw::capture_after_redraw;
+use super::frame_redraw::capture_fresh;
 use super::frame_settle::settle_frame;
 use super::raw_frame::RawFrame;
 use super::session_record::SessionRecord;
@@ -33,10 +35,12 @@ struct Managers {
     copy: ExtImageCopyCaptureManagerV1,
 }
 
-/// Captures one fresh frame of the toplevel behind `toplevel`.
+/// Captures one fresh frame of the toplevel behind `toplevel`, which the
+/// compositor composes as `composition` says.
 pub(crate) fn capture_toplevel(
     connection: &Connection,
     toplevel: &ExtForeignToplevelHandleV1,
+    composition: Composition,
     deadline: Deadline,
 ) -> Result<RawFrame, CaptureFault> {
     let mut capture = CaptureQueue::open(connection, deadline)?;
@@ -54,8 +58,9 @@ pub(crate) fn capture_toplevel(
             .registry
             .bind(chosen.copy.name, chosen.copy.version, &handle, ()),
     };
-    let outcome = capture_after_redraw(
+    let outcome = capture_fresh(
         deadline,
+        composition,
         |deadline| one_session(&mut capture, &managers, toplevel, deadline),
         std::thread::sleep,
     );

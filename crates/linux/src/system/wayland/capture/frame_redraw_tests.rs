@@ -34,9 +34,14 @@ impl Script {
     }
 
     fn run(&self, budget_ms: u64) -> Result<RawFrame, CaptureFault> {
+        self.run_as(Composition::Stale, budget_ms)
+    }
+
+    fn run_as(&self, composition: Composition, budget_ms: u64) -> Result<RawFrame, CaptureFault> {
         let deadline = Deadline::detached_after(budget_ms).unwrap();
-        capture_after_redraw(
+        capture_fresh(
             deadline,
+            composition,
             |_| {
                 *self.sessions.borrow_mut() += 1;
                 self.answers
@@ -47,6 +52,28 @@ impl Script {
             |pause| self.pauses.borrow_mut().push(pause),
         )
     }
+}
+
+#[test]
+fn a_current_toplevel_is_answered_with_its_first_frame() {
+    let script = Script::new(vec![Ok(frame(1)), Ok(frame(2))]);
+    assert_eq!(script.run_as(Composition::Current, 5000), Ok(frame(1)));
+    assert_eq!(*script.sessions.borrow(), 1);
+    assert!(script.pauses.borrow().is_empty());
+}
+
+#[test]
+fn a_current_toplevel_is_answered_on_a_budget_too_short_for_the_redraw_wait() {
+    let script = Script::new(vec![Ok(frame(1)), Ok(frame(2))]);
+    assert_eq!(script.run_as(Composition::Current, 90), Ok(frame(1)));
+}
+
+#[test]
+fn a_current_toplevel_with_a_refused_buffer_answers_with_the_first_frame_after_it() {
+    let script = Script::new(vec![REFUSED, Ok(frame(1)), Ok(frame(2))]);
+    assert_eq!(script.run_as(Composition::Current, 5000), Ok(frame(1)));
+    assert_eq!(*script.sessions.borrow(), 2);
+    assert_eq!(*script.pauses.borrow(), vec![CONSTRAINTS_PAUSE]);
 }
 
 #[test]

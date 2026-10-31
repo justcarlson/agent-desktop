@@ -1,7 +1,9 @@
-//! Live reads of the bound instance's clients and desktop state.
+//! Live reads of the bound instance's clients, the clients that fill their
+//! workspace, and its desktop state.
 
 use agent_desktop_core::{AdapterError, Deadline};
 
+use super::client_fullscreen::parse_filling;
 use super::client_parse::{parse_active, parse_clients};
 use super::desktop_state::{DesktopState, parse_cursor, parse_monitors};
 use super::hypr_client::HyprClient;
@@ -20,6 +22,16 @@ pub(crate) fn read_clients(
 ) -> Result<Vec<HyprClient>, AdapterError> {
     let body = bound_request(binding, CLIENTS_COMMAND, deadline)?;
     parse_clients(&body).ok_or_else(|| unreadable("client list"))
+}
+
+/// The address and workspace of every client of the bound instance that
+/// fills its workspace, or `None` when the reply does not say.
+pub(crate) fn read_filling(
+    binding: &HyprlandBinding,
+    deadline: Deadline,
+) -> Result<Option<Vec<(u64, String)>>, AdapterError> {
+    let body = bound_request(binding, CLIENTS_COMMAND, deadline)?;
+    Ok(parse_filling(&body))
 }
 
 /// The active window, every monitor's workspaces and the cursor of the

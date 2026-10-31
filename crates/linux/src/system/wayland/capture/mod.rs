@@ -8,6 +8,7 @@ pub(crate) mod capture_fault;
 pub(crate) mod capture_globals;
 pub(crate) mod capture_queue;
 pub(crate) mod capture_state;
+pub(crate) mod composition;
 pub(crate) mod frame_failure;
 pub(crate) mod frame_freshness;
 pub(crate) mod frame_outcome;

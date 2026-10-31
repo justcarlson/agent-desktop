@@ -1,25 +1,30 @@
 //! How a toplevel capture gets a frame drawn after the request. Hyprland
-//! composes a toplevel that is not in view from the buffer it drew when it
-//! was last shown or captured, which can be seconds old, and asks it to draw
-//! again only while it composes a frame of it. Hyprland serves the first
-//! frame of a session at once, but holds a later frame of the same session
-//! until the output repaints for some other reason, which an idle desktop
-//! never does, and it tells a capture client nothing when the toplevel
-//! commits: the damage covers the whole buffer and the presentation time is
-//! the composition's, on both Hyprland releases Omarchy ships.
+//! composes a toplevel it shows from the buffer the toplevel last committed,
+//! and asks it for every frame, so that buffer is current and the first
+//! frame of a session is the answer. Hyprland composes a toplevel it does
+//! not show from the buffer it drew when it was last shown or captured,
+//! which can be seconds old, and asks it to draw again only while it
+//! composes a frame of it. Hyprland serves the first frame of a session at
+//! once, but holds a later frame of the same session until the output
+//! repaints for some other reason, which an idle desktop never does, and it
+//! tells a capture client nothing when the toplevel commits: the damage
+//! covers the whole buffer and the presentation time is the composition's,
+//! on both Hyprland releases Omarchy ships.
 //!
-//! So a capture takes the first frame of one session to make the toplevel
-//! redraw, then opens a new session at each redraw pause and returns the
-//! first frame whose pixels differ from that first frame: those pixels were
-//! drawn after the request. A toplevel whose pixels stay the same for
-//! `REDRAW_POLLS` pauses drew nothing new in that time, and its unchanged
-//! frame is the answer. A drawing that lands later is not waited for.
+//! So a capture of a toplevel Hyprland does not show takes the first frame
+//! of one session to make the toplevel redraw, then opens a new session at
+//! each redraw pause and returns the first frame whose pixels differ from
+//! that first frame: those pixels were drawn after the request. A toplevel
+//! whose pixels stay the same for `REDRAW_POLLS` pauses drew nothing new in
+//! that time, and its unchanged frame is the answer. A drawing that lands
+//! later is not waited for.
 
 use std::time::Duration;
 
 use agent_desktop_core::Deadline;
 
 use super::capture_fault::CaptureFault;
+use super::composition::Composition;
 use super::frame_failure::FrameFailure;
 use super::raw_frame::RawFrame;
 use crate::system::wayland::wayland_fault::WaylandFault;
@@ -51,12 +56,14 @@ pub(crate) fn redraw_wait(remaining: Duration) -> Duration {
     REDRAW_SETTLE.min(remaining / 4)
 }
 
-/// Takes frames through `take`, each the first frame of a new session. The
-/// first frame is never the answer. The answer is the first later frame that
+/// Takes frames through `take`, each the first frame of a new session. For a
+/// `Current` toplevel the first frame is the answer. For a `Stale` one the
+/// first frame is never the answer: the answer is the first later frame that
 /// differs from it, or the last of `REDRAW_POLLS` unchanged ones. `pause`
 /// waits without sending anything.
-pub(crate) fn capture_after_redraw(
+pub(crate) fn capture_fresh(
     deadline: Deadline,
+    composition: Composition,
     mut take: impl FnMut(Deadline) -> Result<RawFrame, CaptureFault>,
     mut pause: impl FnMut(Duration),
 ) -> Result<RawFrame, CaptureFault> {
@@ -69,6 +76,7 @@ pub(crate) fn capture_after_redraw(
         }
         match take(deadline) {
             Ok(frame) => match &first {
+                None if composition == Composition::Current => return Ok(frame),
                 None => {
                     first = Some(frame);
                     pause(redraw_wait(deadline.remaining()));

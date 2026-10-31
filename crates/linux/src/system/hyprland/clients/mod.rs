@@ -1,5 +1,7 @@
-//! The bound instance's clients and what its monitors show, read over IPC.
+//! The bound instance's clients, which of them fill their workspace, and
+//! what its monitors show, read over IPC.
 
+pub(crate) mod client_fullscreen;
 pub(crate) mod client_parse;
 pub(crate) mod client_read;
 pub(crate) mod client_workspace;
