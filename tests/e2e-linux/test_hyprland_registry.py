@@ -23,6 +23,7 @@ NEW_LEGS = {
     "capture.hyprland_bound_toplevel_pixels": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_hidden_counter_frame_after_request": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_static_frame_after_request": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_in_view_first_frame": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_screen_exact_output": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_permission_denied_no_dialog": (("hyprland",), ("headless",), "asserted-refusal"),
     "capture.hyprland_deadline_or_cancel_released": (("hyprland",), ("headless",), "asserted-refusal"),

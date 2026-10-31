@@ -8,7 +8,9 @@ older than the last one the ticker had written, with a margin for the
 terminal to draw it, before the product was asked. A slow painter is a GTK
 window that draws only when the compositor asks and takes a set time to do
 it; a capture of one is drawn after the request only when the tick it shows
-was first drawn at or after the request, with no margin.
+was first drawn at or after the request, with no margin. A slow painter in
+view draws for every frame, so a capture of it is current when it shows the
+newest tick committed before the request, drawn within one draw of it.
 """
 
 from __future__ import annotations
@@ -31,6 +33,8 @@ PAINTER = HARNESS_ROOT / "apps" / "terminal_painter.py"
 SLOW_PAINTER = HARNESS_ROOT / "apps" / "slow_painter.py"
 TICK_BLUE = 0x40
 DRAW_MARGIN_NS = 100_000_000
+COMMIT_MARGIN_NS = 10_000_000
+IN_VIEW_AGE_NS = 300_000_000
 CHANNEL_DELTA = 3
 SAMPLE_STEP = 7
 
@@ -114,6 +118,18 @@ def drawn_after(tick: int | None, ticks: list[tuple[int, int]], mark_ns: int) ->
     """The tick was first drawn at or after `mark_ns`, so no pixel of it is older than the request."""
     at = first_drawn(tick, ticks)
     return at is not None and at >= mark_ns
+
+
+def newest_drawn(tick: int | None, ticks: list[tuple[int, int]], mark_ns: int) -> bool:
+    """The tick is no older than the newest one committed before `mark_ns`, and was drawn one draw before it at most.
+
+    A window Hyprland shows draws for every frame, so the capture holds its
+    newest commit. A window Hyprland stopped asking for frames holds a tick
+    drawn seconds before, which this rejects.
+    """
+    at = first_drawn(tick, ticks)
+    return (at is not None and tick >= settled_tick(ticks, mark_ns, COMMIT_MARGIN_NS)
+            and at >= mark_ns - IN_VIEW_AGE_NS)
 
 
 def saved_image(envelope, path: Path) -> pixels.Image:
