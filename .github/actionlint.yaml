@@ -1,3 +1,4 @@
 self-hosted-runner:
   labels:
     - agent-desktop-e2e
+    - ubuntu-26.04
