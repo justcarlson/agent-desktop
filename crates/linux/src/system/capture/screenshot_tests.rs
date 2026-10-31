@@ -10,14 +10,23 @@ fn x11() -> Route {
     Route::X11(":0".to_owned())
 }
 
+fn generic() -> WaylandBackends<'static> {
+    WaylandBackends {
+        binding: &|| Ok(None),
+        portal: &|_, _| panic!("a window request reached the portal"),
+        hyprland: &|_, _, _| panic!("a generic compositor reached Hyprland capture"),
+    }
+}
+
 #[test]
-fn a_window_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
+fn a_window_on_a_generic_wayland_session_is_unsupported_and_reaches_no_backend() {
     let rig = Rig::standard();
-    let error = capture_with(
+    let error = capture_through(
         &rig.env(),
         &Route::Wayland,
         ScreenshotTarget::ExactWindow(target()),
         deadline(),
+        &generic(),
     )
     .expect_err("unsupported");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
@@ -27,10 +36,16 @@ fn a_window_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
 }
 
 #[test]
-fn the_debug_frame_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
+fn the_debug_frame_on_a_generic_wayland_session_is_unsupported_and_touches_no_x11() {
     let rig = Rig::standard();
-    let error = capture_frame_with(&rig.env(), &Route::Wayland, &target(), deadline())
-        .expect_err("unsupported");
+    let error = capture_frame_through(
+        &rig.env(),
+        &Route::Wayland,
+        &target(),
+        deadline(),
+        &generic(),
+    )
+    .expect_err("unsupported");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert_eq!(rig.x11_touched(), 0);
 }
