@@ -44,7 +44,7 @@ test/omarchy-vm fetch stable
 pkgs=()
 for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd fuse2 \
     python-gobject python-pyqt6 gnome-calculator gnome-text-editor nautilus gnome-terminal \
-    gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard; do
+    gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard foot; do
   pkgs+=(--pkg "$pkg")
 done
 test/omarchy-vm run --channel stable --copy . --copy "$bin" "${pkgs[@]}" --out vm-out \
@@ -67,6 +67,14 @@ Each tier runs the headless and headed modes registered for that leg. A headed m
 ### Hyprland tier
 
 The `hyprland` tier uses the session's own compositor, buses and AT-SPI registry; it starts none of them. Before any leg, it checks that the IPC socket, the Wayland socket and the accessibility bus answer.
+
+The tier refuses to start unless all three conditions hold. It checks them before it reads the session, connects to a socket, launches an app or cleans up, and exits 2 with a line for each condition that fails:
+
+- `AGENT_DESKTOP_E2E_ATTACHED_HYPRLAND=1` is set.
+- `/var/lib/agent-desktop-e2e/attached-hyprland-vm` is a regular file that holds the current boot id (`/proc/sys/kernel/random/boot_id`). The file and each directory above it are owned by root and not writable by group or others. The path is fixed, outside `$HOME` and `$XDG_RUNTIME_DIR`.
+- `systemd-detect-virt --vm` names a hypervisor. When that tool cannot run, the DMI vendor or product name must name one.
+
+`test/omarchy-vm` writes the marker as root inside the guest and sets the variable for the command it runs. `python3 -I tests/e2e-linux/runner/attached_guard.py` prints the same checks without starting anything; `test/all` runs it before it opens the bystander window.
 
 - Apps start through the compositor on a silent special workspace, inside a transient `systemd --user` slice that the run owns. The runner records each process with its start token. An app that D-Bus activates counts as a new generation. Cleanup stops the slice and kills only recorded generations.
 - Product state goes to a private `AGENT_DESKTOP_HOME` under the run's directory.

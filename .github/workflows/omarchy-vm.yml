@@ -142,7 +142,8 @@ jobs:
               pkgs=()
               for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd \
                   fuse2 python-gobject python-pyqt6 gnome-calculator gnome-text-editor nautilus gnome-terminal \
-                  gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard; do
+                  gnome-control-center glib2 gtk3 gtk4 at-spi2-core gnome-shell xdg-desktop-portal-gnome wl-clipboard \
+                  foot; do
                 pkgs+=(--pkg "$pkg")
               done
               "src/$REPO/test/omarchy-vm" run --channel "$CHANNEL" --copy "src/$REPO" --copy agent-desktop-bin \
