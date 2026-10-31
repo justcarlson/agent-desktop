@@ -5,7 +5,7 @@ const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSyn
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
-const { PLATFORMS, helperNames, tarballName } = require('../../npm/lib/platform');
+const { PLATFORMS, archiveMembers, helperNames, tarballName } = require('../../npm/lib/platform');
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'agent-desktop-bundled-'));
@@ -27,8 +27,11 @@ function fixture() {
         : `#!/bin/sh\nprintf '%s' '${key}/${name}'\n`;
       writeFileSync(join(stage, name), contents, { mode: 0o755 });
     }
+    for (const notice of entry.notices ?? []) {
+      writeFileSync(join(stage, notice), 'notices\n', { mode: 0o644 });
+    }
     const name = tarballName(version, entry.target);
-    execFileSync('tar', ['-czf', join(archives, name), '-C', stage, ...entry.entries]);
+    execFileSync('tar', ['-czf', join(archives, name), '-C', stage, ...archiveMembers(entry)]);
     hashes.push(`${createHash('sha256').update(readFileSync(join(archives, name))).digest('hex')}  ${name}`);
   }
   writeFileSync(join(archives, 'checksums.txt'), hashes.join('\n'));

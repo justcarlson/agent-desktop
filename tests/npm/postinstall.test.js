@@ -261,12 +261,14 @@ const EXPECTED_PLATFORM_ROWS = {
     target: 'aarch64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-arm64',
     entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    notices: ['THIRD_PARTY_NOTICES.md'],
     released: true,
   },
   'linux-x64': {
     target: 'x86_64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-x64',
     entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    notices: ['THIRD_PARTY_NOTICES.md'],
     released: true,
   },
   'win32-arm64': {

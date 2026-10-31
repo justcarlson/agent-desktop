@@ -245,7 +245,8 @@ jobs:
           DIR="target/${{ matrix.target }}/release"
           BINARY_SHA=$(sha256sum "${DIR}/agent-desktop" | awk '{print $1}')
           HELPER_SHA=$(sha256sum "${DIR}/agent-desktop-linux-clipboard-owner" | awk '{print $1}')
-          tar -czf "${TARBALL}" -C "${DIR}" agent-desktop agent-desktop-linux-clipboard-owner
+          install -m 0644 THIRD_PARTY_NOTICES.md "${DIR}/THIRD_PARTY_NOTICES.md"
+          tar -czf "${TARBALL}" -C "${DIR}" agent-desktop agent-desktop-linux-clipboard-owner THIRD_PARTY_NOTICES.md
           if [ "$BINARY_SHA" != "$(sha256sum "${DIR}/agent-desktop" | awk '{print $1}')" ] || \
              [ "$HELPER_SHA" != "$(sha256sum "${DIR}/agent-desktop-linux-clipboard-owner" | awk '{print $1}')" ]; then
             echo "Release executable changed while packaging" >&2
@@ -463,6 +464,9 @@ jobs:
             cat scripts/ffi-archive-readme-linux.md >> "$STAGE/README.md"
             # shellcheck disable=SC2016
             echo '- `lib/agent-desktop-linux-clipboard-owner` — clipboard owner helper, colocated for library-image discovery' >> "$STAGE/README.md"
+            install -m 0644 THIRD_PARTY_NOTICES.md "$STAGE/THIRD_PARTY_NOTICES.md"
+            # shellcheck disable=SC2016
+            echo '- `THIRD_PARTY_NOTICES.md` — licenses of the third-party protocol files the library is generated from' >> "$STAGE/README.md"
           elif [ "$RUNNER_OS" = "Windows" ]; then
             cat >> "$STAGE/README.md" <<'WINEOF'
 
@@ -472,7 +476,9 @@ jobs:
           beside it — that import library is what you link against at build time.
           WINEOF
           fi
-          if [ "$RUNNER_OS" != "Windows" ]; then
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            (cd "$STAGE" && shasum -a 256 lib/* include/* LICENSE THIRD_PARTY_NOTICES.md > SHA256SUMS)
+          elif [ "$RUNNER_OS" != "Windows" ]; then
             (cd "$STAGE" && shasum -a 256 lib/* include/* LICENSE > SHA256SUMS)
           fi
           echo "STAGE=$STAGE" >> "$GITHUB_ENV"
@@ -817,6 +823,7 @@ jobs:
           "
           echo "npm package version set to ${VERSION}"
           cp ../README.md README.md
+          cp ../THIRD_PARTY_NOTICES.md THIRD_PARTY_NOTICES.md
           cp ../CHANGELOG.md CHANGELOG.md 2>/dev/null || true
 
       - name: Download built release archives

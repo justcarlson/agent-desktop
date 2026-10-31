@@ -15,7 +15,7 @@ const {
 const { join } = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const { LINUX_HELPER_NAME, resolve, tarballName } = require('../../npm/lib/platform.js');
+const { LINUX_HELPER_NAME, LINUX_NOTICE_NAME, resolve, tarballName } = require('../../npm/lib/platform.js');
 const {
   createTemporaryRoots,
   postinstallAs,
@@ -87,6 +87,7 @@ function packageCopy() {
 const GOOD_MEMBERS = {
   'agent-desktop': 'cli-linux-build',
   [LINUX_HELPER_NAME]: 'helper-linux-build',
+  [LINUX_NOTICE_NAME]: 'notices',
 };
 
 // Runs the installer as a subprocess on a stubbed linux-x64 identity against a
@@ -196,7 +197,8 @@ for (const [name, options, expected] of [
   ['a corrupt archive with a matching checksum', null, /tar|gzip|not in gzip format|Unrecognized archive/i],
   ['a checksum that does not match', { checksum: 'f'.repeat(64) }, /Checksum verification failed/],
   ['a checksums file with no entry for the archive', { serveChecksumsAs: `${'a'.repeat(64)}  other.tar.gz\n` }, /Checksum entry missing/],
-  ['an archive with an unexpected member', { members: { ...GOOD_MEMBERS, extra: 'x' } }, /unexpected entries: agent-desktop, agent-desktop-linux-clipboard-owner, extra/],
+  ['an archive with an unexpected member', { members: { ...GOOD_MEMBERS, extra: 'x' } }, /unexpected entries: THIRD_PARTY_NOTICES\.md, agent-desktop, agent-desktop-linux-clipboard-owner, extra/],
+  ['an archive that omits the third-party notices', { members: { 'agent-desktop': 'cli', [LINUX_HELPER_NAME]: 'helper' } }, /unexpected entries: agent-desktop, agent-desktop-linux-clipboard-owner$/m],
   ['an archive that omits the helper', { members: { 'agent-desktop': 'cli-only' } }, /unexpected entries: agent-desktop$/m],
   ['no curl on PATH', { withCurl: false }, /spawnSync curl ENOENT/],
   ['no tar on PATH', { withTar: false }, /spawnSync tar ENOENT/],

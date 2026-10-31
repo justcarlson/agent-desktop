@@ -20,6 +20,7 @@ const { execFileSync } = require('child_process');
 const { createHash } = require('crypto');
 const {
   MACOS_HELPER_NAME,
+  archiveMembers,
   helperNames,
   releasedKeys,
   resolve,
@@ -140,7 +141,7 @@ function validateArchive(tarballPath, expectedEntries) {
 
 function installArchive(tarballPath, binaryPath, helperPath, entry) {
   const [helperName] = helperNames(entry);
-  validateArchive(tarballPath, entry.entries);
+  validateArchive(tarballPath, archiveMembers(entry));
   const staging = mkdtempSync(join(binDir, '.extract-'));
   try {
     execFileSync(tarCommand(platform(), process.env), ['-xzf', tarballPath, '-C', staging], {
@@ -148,7 +149,7 @@ function installArchive(tarballPath, binaryPath, helperPath, entry) {
       timeout: 30000,
     });
     const entries = readdirSync(staging).sort();
-    const expected = [...entry.entries].sort();
+    const expected = archiveMembers(entry).sort();
     if (JSON.stringify(entries) !== JSON.stringify(expected)) {
       throw new Error(`Extracted archive has unexpected entries: ${entries.join(', ')}`);
     }
