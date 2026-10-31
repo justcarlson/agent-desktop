@@ -120,10 +120,10 @@ def lua_string(text: str) -> str:
 def exec_silently(runtime: Path, signature: str, command: str, workspace: str) -> None:
     """Start a command through the compositor on a special workspace, without focus."""
     target = f"special:{workspace} silent"
+    quoted = lua_string(command)
     if uses_lua(runtime, signature):
-        argv = ["dispatch", f"hl.dsp.exec_cmd({lua_string(command)}, {{ workspace = {lua_string(target)} }})"]
+        argv = ["dispatch", f"hl.dsp.exec_cmd({quoted}, {{ workspace = {lua_string(target)} }})"]
     else:
-        lua_string(command)
         argv = ["dispatch", "exec", f"[workspace {target}] {command}"]
     output = control(runtime, signature, argv)
     if output != "ok":

@@ -102,8 +102,10 @@ class HyprlandOracleTests(unittest.TestCase):
 
     def test_commands_that_could_escape_the_lua_string_are_refused(self):
         for bad in ('a"b', "a\\b", "a\nb", "a;b", "$(x)"):
-            with self.subTest(command=bad), self.assertRaises(ValueError):
-                hyprland.exec_silently(self.runtime, "sig_1", bad, "ad_e2e")
+            with self.subTest(command=bad), mock.patch.object(hyprland, "control") as control:
+                with self.assertRaises(ValueError):
+                    hyprland.exec_silently(self.runtime, "sig_1", bad, "ad_e2e")
+                control.assert_not_called()
 
 
 if __name__ == "__main__":
