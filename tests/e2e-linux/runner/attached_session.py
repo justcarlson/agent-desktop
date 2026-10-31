@@ -218,12 +218,13 @@ def launcher(tier: Tier, argv: list[str], env: dict[str, str], log: Path) -> Pat
     return script
 
 
-def spawn(tier: Tier, argv: list[str], env: dict[str, str], log: Path) -> None:
-    """Start a process in the run's slice, through the compositor, without taking focus."""
+def spawn(tier: Tier, argv: list[str], env: dict[str, str], log: Path, workspace: str = WORKSPACE) -> None:
+    """Start a process in the run's slice, through the compositor, without taking focus, on the
+    special workspace `workspace`."""
     record = attached.load(tier.runtime_dir)
     script = launcher(tier, argv, env, log)
     hyprland.exec_silently(Path(record["shared_runtime"]), record["signature"],
-                           f"/bin/sh {script}", WORKSPACE)
+                           f"/bin/sh {script}", workspace)
 
 
 def boot_ticks() -> int:

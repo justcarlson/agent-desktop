@@ -7,11 +7,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import attached, second_instance, socket_fixture
+from runner import attached, attached_session, second_instance, socket_fixture
 from test_hyprland_lifecycle import make_proc
 
 
@@ -131,6 +132,31 @@ class SecondInstanceTests(Workspace):
                 command = " ".join(second_instance.output_command(lua))
                 self.assertIn(second_instance.OUTPUT, command)
                 self.assertIn("1280x0", command)
+
+    def test_the_instance_window_gets_an_outer_workspace_no_leg_app_shares(self):
+        tier = SimpleNamespace(runtime_dir=self.work, env={"WAYLAND_DISPLAY": "wayland-1"})
+        instance = {"signature": "nested", "pid": 70, "start": 700, "wayland": None}
+        spawned = []
+        with mock.patch.object(second_instance.hyprland, "uses_lua", return_value=False), \
+                mock.patch.object(second_instance.hyprland, "instances", return_value=[]), \
+                mock.patch.object(second_instance.hyprland, "control", return_value="ok"), \
+                mock.patch.object(second_instance.attached_session, "spawn",
+                                  side_effect=lambda tier, argv, env, log, *where: spawned.append(where)), \
+                mock.patch.object(second_instance, "find_new", return_value=instance), \
+                mock.patch.object(second_instance, "wayland_of", return_value="wayland-2"), \
+                mock.patch.object(second_instance, "_sentinel", return_value=[71, 710]):
+            second_instance.ensure(tier, 0.2)
+        self.assertEqual(spawned, [(second_instance.OUTER_WORKSPACE,)])
+        self.assertNotEqual(second_instance.OUTER_WORKSPACE, second_instance.attached_session.WORKSPACE)
+
+    def test_spawn_execs_on_the_named_special_workspace(self):
+        tier = SimpleNamespace(runtime_dir=self.work)
+        with mock.patch.object(attached_session, "launcher", return_value=Path("/tmp/launch.sh")), \
+                mock.patch.object(attached_session.hyprland, "exec_silently") as exec_silently:
+            attached_session.spawn(tier, ["foot"], {}, self.work / "log")
+            attached_session.spawn(tier, ["foot"], {}, self.work / "log", "elsewhere")
+        self.assertEqual([call.args[3] for call in exec_silently.call_args_list],
+                         [attached_session.WORKSPACE, "elsewhere"])
 
     def test_the_sentinel_is_found_by_the_title_it_started_with(self):
         retitled = {"title": "user@host:~", "initialTitle": second_instance.SENTINEL, "pid": 81}

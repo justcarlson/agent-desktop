@@ -13,7 +13,8 @@ from runner import second_instance
 from runner.helper import activate, changed, display, managed, one, ref, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
+from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance, shared
+from scenarios.wayland_outputs import display_problems, expected_from_monitors, monitors
 
 NOT_DELIVERED = {"delivery": "not_delivered", "retry": "safe"}
 
@@ -90,7 +91,7 @@ def headless_route_preserves_desktop(ctx: LegContext) -> None:
         problems = []
         try:
             with Sampler({"desktop": read}) as sampler:
-                problems += _read_only_commands(ctx, app)
+                problems += _read_only_commands(ctx, app, main)
                 seven = ref(ctx, app, role="button", name="7")
                 clicked = ctx.product(["click", seven])
                 require(clicked.ok, f"the semantic click failed: {clicked.raw}")
@@ -104,7 +105,7 @@ def headless_route_preserves_desktop(ctx: LegContext) -> None:
         ctx.restored("hyprland.desktop", read())
 
 
-def _read_only_commands(ctx: LegContext, app) -> list[str]:
+def _read_only_commands(ctx: LegContext, app, main: dict) -> list[str]:
     problems = []
     listed = ctx.product(["list-apps"])
     if not listed.ok or app.pid not in {item.get("pid") for item in (listed.data or {}).get("apps", ())}:
@@ -115,6 +116,8 @@ def _read_only_commands(ctx: LegContext, app) -> list[str]:
     snapshot = ctx.product(["snapshot", "-i", "--window-id", app.windows[0]])
     if not snapshot.ok or (snapshot.data or {}).get("complete") is not True:
         problems.append(f"the snapshot is not complete: {snapshot.raw[:400]}")
+    problems += display_problems("list-displays", ctx.product(["list-displays"]),
+                                 expected_from_monitors(monitors(shared(ctx.tier), main["signature"])))
     status = ctx.product(["status"])
     if not status.ok:
         problems.append(f"status failed: {status.raw[:400]}")
