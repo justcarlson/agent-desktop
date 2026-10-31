@@ -54,6 +54,7 @@ regexes = [
   '''^fixture@example\.invalid$''',
   '''^org\.gnome\.Shell@(x11|wayland)\.service$''',
   '''^user@[0-9]+\.service$''',
+  '''^wayland-wm@hyprland\.desktop\.service$''',
   '''^ubuntu-appindicators@ubuntu\.com$''',
   '''^ubuntu-dock@ubuntu\.com$''',
 ]
