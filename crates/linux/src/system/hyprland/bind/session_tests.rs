@@ -42,6 +42,8 @@ fn bound(at: Instant) -> SessionDecision {
     SessionDecision {
         request: request("a"),
         outcome: Ok(Some(HyprlandBinding {
+            signature: "a".into(),
+            ipc_socket: PathBuf::from("/run/user/1000/hypr/a/.socket.sock"),
             wayland_socket: PathBuf::from("/run/user/1000/wayland-1"),
             pid: 4100,
             start_time: 77,
