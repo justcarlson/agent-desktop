@@ -218,7 +218,7 @@ python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" \
 
 ## Portable self-tests
 
-These need no Linux session. The checks that start a live session are opt-in: they run only with `AGENT_DESKTOP_E2E_LIVE_SESSIONS=1`, which `test/all` sets inside the VM. Never set it on a host. `AGENT_DESKTOP_E2E_SKIP_LIVE=1`, as CI sets it, still skips them:
+These need no Linux session. The checks that start a live session are opt-in: they run only with `AGENT_DESKTOP_E2E_LIVE_SESSIONS=1`, which `test/all` sets inside the VM. Never set it on a host. `AGENT_DESKTOP_E2E_SKIP_LIVE=1`, as CI sets it, still skips them. `test_plain_discover.py` runs the whole suite again with neither variable set and every tier launcher replaced by a recorder that refuses, and fails if any test reaches one:
 
 ```sh
 AGENT_DESKTOP_E2E_SKIP_LIVE=1 python3 -I -m unittest discover -s tests/e2e-linux -p 'test_*.py'
