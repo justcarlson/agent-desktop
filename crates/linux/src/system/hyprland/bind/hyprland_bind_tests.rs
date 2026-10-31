@@ -18,6 +18,7 @@ struct Fake {
     ipc: HashMap<PathBuf, IpcAnswer>,
     peers: HashMap<PathBuf, u32>,
     silent_wayland: Vec<PathBuf>,
+    no_mapping: Vec<u32>,
     dead: Vec<u32>,
     reads: RefCell<Vec<PathBuf>>,
 }
@@ -71,7 +72,10 @@ impl Observe for Fake {
             Some(_) if self.silent_wayland.iter().any(|path| path == socket) => {
                 WaylandAnswer::Silent
             }
-            Some(_) => WaylandAnswer::Live,
+            Some(pid) => WaylandAnswer::Live {
+                pid: *pid,
+                mapping: !self.no_mapping.contains(pid),
+            },
         }
     }
 
@@ -100,8 +104,10 @@ fn bound(request: &BindRequest, fake: &Fake) -> Result<Option<HyprlandBinding>, 
     bind(request, fake, Deadline::after(1_000).expect("deadline"))
 }
 
-fn binding(socket: &str, pid: u32) -> HyprlandBinding {
+fn binding(signature: &str, socket: &str, pid: u32) -> HyprlandBinding {
     HyprlandBinding {
+        signature: signature.to_owned(),
+        ipc_socket: ipc_path(signature),
         wayland_socket: runtime().join(socket),
         pid,
         start_time: u64::from(pid) * 10,
@@ -115,7 +121,7 @@ fn the_single_live_instance_is_found_without_any_environment() {
         .socket("wayland-1", LIVE);
     assert_eq!(
         bound(&request(None, None), &fake),
-        Ok(Some(binding("wayland-1", LIVE)))
+        Ok(Some(binding("live", "wayland-1", LIVE)))
     );
 }
 
@@ -129,7 +135,7 @@ fn stale_instance_directories_never_select_a_dead_compositor() {
         .socket("wayland-1", LIVE);
     assert_eq!(
         bound(&request(None, None), &fake),
-        Ok(Some(binding("wayland-1", LIVE)))
+        Ok(Some(binding("live", "wayland-1", LIVE)))
     );
 }
 
@@ -165,11 +171,11 @@ fn an_explicit_instance_binds_while_others_are_live() {
         .socket("wayland-2", OTHER);
     assert_eq!(
         bound(&request(Some("b"), Some("wayland-2")), &fake),
-        Ok(Some(binding("wayland-2", OTHER)))
+        Ok(Some(binding("b", "wayland-2", OTHER)))
     );
     assert_eq!(
         bound(&request(Some("a"), None), &fake),
-        Ok(Some(binding("wayland-1", LIVE)))
+        Ok(Some(binding("a", "wayland-1", LIVE)))
     );
 }
 
@@ -320,7 +326,7 @@ fn a_silent_socket_of_another_process_is_never_read() {
     fake.silent_wayland.push(runtime().join("wayland-0"));
     assert_eq!(
         bound(&request(None, None), &fake),
-        Ok(Some(binding("wayland-1", LIVE)))
+        Ok(Some(binding("live", "wayland-1", LIVE)))
     );
     assert!(!fake.reads.borrow().contains(&runtime().join("wayland-0")));
 }
@@ -334,6 +340,15 @@ fn an_instance_without_its_own_wayland_socket_is_a_mismatch() {
         bound(&request(None, None), &fake),
         Err(BindRefusal::Mismatch { .. })
     ));
+}
+
+#[test]
+fn a_compositor_without_the_toplevel_mapping_global_keeps_the_generic_route() {
+    let mut fake = Fake::default()
+        .instance("live", IpcAnswer::Live(LIVE))
+        .socket("wayland-1", LIVE);
+    fake.no_mapping.push(LIVE);
+    assert_eq!(bound(&request(None, Some("wayland-1")), &fake), Ok(None));
 }
 
 #[test]

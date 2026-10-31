@@ -208,6 +208,8 @@ fn a_socket_nobody_serves_is_a_missing_display_server() {
 
 fn bound(socket: &str) -> HyprlandBinding {
     HyprlandBinding {
+        signature: "sig_1".into(),
+        ipc_socket: PathBuf::from("/run/hypr/sig_1/.socket.sock"),
         wayland_socket: PathBuf::from(socket),
         pid: 1,
         start_time: 2,

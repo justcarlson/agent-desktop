@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{decode, encode};
+use super::{decode, encode, invalid};
 
 const GTK_PATH: &str = "/org/gnome/Calculator/a11y/0e38ec41_eddb_4179_b361_673b342c2260";
 const QT_PATH: &str = "/org/a11y/atspi/accessible/2147483649";
@@ -57,5 +57,37 @@ fn anything_but_its_own_format_is_invalid_args() {
     ] {
         let error = decode(id).expect_err(id);
         assert_eq!(error.code, ErrorCode::InvalidArgs, "{id}");
+    }
+}
+
+#[test]
+fn a_compositor_window_id_is_refused_as_having_no_accessibility_tree() {
+    let error = decode("w-hypr-10-20-a1").expect_err("not an accessibility id");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    assert!(
+        error.message.contains("no accessibility tree"),
+        "{}",
+        error.message
+    );
+    assert!(!invalid("w-9.9-x").message.contains("no accessibility tree"));
+}
+
+#[test]
+fn a_malformed_compositor_window_id_is_refused_as_never_issued() {
+    for id in [
+        "w-hypr-garbage",
+        "w-hypr-10-20-",
+        "w-hypr-10-20-a b",
+        "w-hypr-x-20-a1",
+    ] {
+        let error = decode(id).expect_err(id);
+        assert_eq!(error.code, ErrorCode::InvalidArgs, "{id}");
+        assert!(
+            error
+                .message
+                .contains("is not a window id this adapter issued"),
+            "{id}: {}",
+            error.message
+        );
     }
 }
