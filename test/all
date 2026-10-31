@@ -1,0 +1,178 @@
+#!/bin/bash
+# Runs the Linux end-to-end tiers in a throwaway Omarchy VM. It runs inside the
+# VM from ~/src/agent-desktop, through `test/omarchy-vm run` or the Omarchy VM
+# workflow, with the unchanged tests/e2e-linux runner. The CLI and its
+# clipboard helper are built outside the VM and copied in as
+# ~/src/agent-desktop-bin; AGENT_DESKTOP_E2E_BIN overrides that path. Never run
+# it on a host: the tiers start desktop sessions and drive apps.
+#
+# Writes to ~/out: versions.txt (channel, image, app versions),
+# private-session.log, <tier>.log, and suites/<tier>/ with report.txt and
+# per-leg evidence when a tier fails (the runner removes a passing suite).
+set -euo pipefail
+
+[[ -n ${OMARCHY_VM_CHANNEL:-} ]] || { echo "test/all: run this in an Omarchy VM (test/omarchy-vm run), not on a host" >&2; exit 2; }
+
+cd "$(dirname "$0")/.."
+out=$HOME/out
+bin=${AGENT_DESKTOP_E2E_BIN:-$HOME/src/agent-desktop-bin/agent-desktop}
+apps=(gnome-calculator gnome-text-editor nautilus gnome-terminal gnome-control-center gnome-shell
+  python-pyqt6 python-gobject openbox xorg-server-xvfb gtk3 gtk4 glib2 at-spi2-core
+  xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard)
+
+# Legs that fail on upstream main and on this branch alike, in
+# separate fresh VMs on the same image version: Arch's app versions differ
+# from the Ubuntu lane the legs were written on. They stay registered and stay
+# failures; test/all leaves them out so the lane shows new failures. Change
+# the list only with a new A/B measurement, named in the pull request.
+# Measured on stable 4.0.6 and edge 2026.10.27.467.
+openbox_drift=(
+  capture.window_pixels_match_xwd
+  duplicates.main_menu_nodes_separate
+  gaps.display_capture
+  gaps.event_surface-appeared_scoped_success
+  gaps.event_surface-appeared_unscoped_success
+  gaps.event_surface-dismissed_scoped_quiet
+  gaps.event_surface-dismissed_scoped_success
+  gaps.event_surface-dismissed_unscoped_success
+  gaps.event_window-opened_scoped_success
+  headed_actions.type_text
+  launch.launch_terminal_owner
+  menus.hidden_bar_timeout_message
+  modal.calculator_about_blocks_parent
+  observation.selector_wait_resolves
+  observation.stale_ref_after_ui_change
+  occlusion.above_cover_refused_no_effect
+  occlusion.above_flag_dropped_click_lands
+  occlusion.ordinary_cover_removed_click_lands
+  placeholder.files_search_none
+  ref_actions.collapse
+  ref_actions.double_click
+  ref_actions.drag
+  ref_actions.expand
+  ref_actions.right_click
+  ref_actions.scroll
+  ref_actions.scroll_headless_refusal
+  ref_actions.scroll_to
+  ref_actions.triple_click
+  ref_contract.zoo_gtk4
+  ref_contract.zoo_qt
+  select.refusal_without_semantic_route
+  select.screen_blank_value
+  state.terminal_copy_follows_selection
+  state.text_editor_semantic_type
+  surfaces.baseline_after_opener_fails
+  surfaces.batch_seed_opener_about
+  text_entry.press_combos_edit_document
+  text_entry.typed_text_reaches_document
+  toolkit_qt.menu_already_open
+  toolkit_qt.wait_menu_closes
+  toolkit_qt.wait_menu_opens
+  values.hot_corner_flip_restore
+  values.terminal_read_only_flip
+  zero_bounds.files_container_raw_only
+)
+
+# Wayland legs that fail on both sides the same way. Measured on stable 4.0.6
+# and edge 2026.10.27.467.
+wayland_drift=(
+  ref_contract.zoo_gtk4
+  ref_contract.zoo_qt
+)
+
+# x11-mutter cannot start on the Arch image, so test/all does not run it:
+# scripts/private-mutter-shell.sh runs gnome-shell --x11, and GNOME Shell 51
+# has only --no-x11. The private session checks below that start the mutter
+# shell fail for the same reason and are not counted.
+mutter_checks=(
+  "the setsid-started shell is gone after the session group is cancelled"
+  "a bus-activated Terminal under the mutter wrapper maps on its display"
+  "the mutter shell runs in the session mode without the polkit agent"
+)
+
+step() { printf '==> %s\n' "$*"; }
+
+# Passes when the log has a passing check and every failed check is a
+# mutter check.
+private_session_ok() {
+  local line name known
+  grep -q '^ok ' "$1" || return 1
+  while IFS= read -r line; do
+    known=0
+    for name in "${mutter_checks[@]}"; do
+      [[ $line != "FAIL $name" ]] || known=1
+    done
+    (( known )) || return 1
+  done < <(grep '^FAIL ' "$1")
+}
+
+# Every registered leg of a tier except the named ones, comma-separated for
+# run.sh --leg. A named leg the tier does not register is an error, so the
+# list cannot outlive the registry.
+legs_except() {
+  python3 -I - "$PWD/tests/e2e-linux" "$@" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+from runner.legs import REGISTRY
+tier, skip = sys.argv[2], set(sys.argv[3:])
+ids = [leg.id for leg in REGISTRY if tier in leg.tiers]
+unknown = sorted(skip - set(ids))
+if unknown:
+    sys.exit(f"test/all: not registered for {tier}: {', '.join(unknown)}")
+print(",".join(leg for leg in ids if leg not in skip))
+PY
+}
+
+# scripts/private-wayland-shell.sh starts the portals from /usr/libexec; Arch
+# installs them in /usr/lib. The VM is throwaway, so link them where the
+# script looks. The password is the image's default, as in test/omarchy-vm.
+link_portals() {
+  local name
+  for name in xdg-desktop-portal xdg-desktop-portal-gnome; do
+    if [[ ! -e /usr/libexec/$name && -x /usr/lib/$name ]]; then
+      echo omarchy | sudo -S -p '' sh -c 'mkdir -p /usr/libexec && ln -s "/usr/lib/$1" "/usr/libexec/$1"' _ "$name"
+    fi
+  done
+}
+
+rc=0
+# run_tier <tier> [<leg,leg,...>]: one run.sh call, one private session.
+run_tier() {
+  local tier=$1 args=(--tier "$1")
+  [[ -z ${2:-} ]] || args+=(--leg "$2")
+  step "tier $tier"
+  AGENT_DESKTOP_E2E_BIN=$bin AGENT_DESKTOP_E2E_SUITE=$out/suites/$tier \
+    bash tests/e2e-linux/run.sh "${args[@]}" 2>&1 | tee "$out/$tier.log" || rc=1
+}
+
+[[ -x $bin && -x $(dirname "$bin")/agent-desktop-linux-clipboard-owner ]] ||
+  { echo "test/all: no prebuilt agent-desktop and clipboard helper in $(dirname "$bin")" >&2; exit 2; }
+openbox_legs=$(legs_except x11-openbox "${openbox_drift[@]}")
+wayland_legs=$(legs_except wayland "${wayland_drift[@]}")
+mkdir -p "$out/suites"
+
+{
+  echo "channel: $OMARCHY_VM_CHANNEL"
+  echo "image: ${OMARCHY_VM_VERSION:-unknown}"
+  echo "omarchy: $(omarchy-version 2>/dev/null || echo unknown)"
+  echo "kernel: $(uname -r)"
+  echo "commit: $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "binary: $("$bin" --version) $(sha256sum "$bin" | cut -d' ' -f1)"
+  pacman -Q "${apps[@]}" 2>&1
+} >"$out/versions.txt"
+cat "$out/versions.txt"
+
+step "private session checks"
+bash scripts/test-private-session.sh 2>&1 | tee "$out/private-session.log" || true
+if private_session_ok "$out/private-session.log"; then
+  echo "private session checks passed; not counted: the ${#mutter_checks[@]} mutter checks"
+else
+  echo "test/all: a private session check failed" >&2
+  rc=1
+fi
+
+run_tier x11-openbox "$openbox_legs"
+link_portals
+run_tier wayland "$wayland_legs"
+
+exit "$rc"
