@@ -127,7 +127,7 @@ Earlier output synthesized a display name, falling back to `value` or
 `name` as always present must tolerate its absence and apply their own fallback
 to `role` or `value`.
 
-## Hyprland windows
+## Hyprland windows and focus
 
 On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
 frame represents, such as foot or Alacritty, or a window its application
@@ -148,6 +148,61 @@ exposes no frame for:
   or with a changed process, it is `WINDOW_NOT_FOUND`; with several it is
   `AMBIGUOUS_TARGET`, and `error.details.candidates` lists each toplevel's
   `address` and `workspace`.
+
+`focus-window` binds the window to exactly one compositor toplevel before it
+sends anything, with the same codes as resolving an accessible window id
+above. A `w-hypr-` id whose compositor or toplevel is gone is also
+`WINDOW_NOT_FOUND`. On success it adds `data.activation` next to
+`data.focused`:
+
+```json
+{
+  "focused": { "id": "w-hypr-658-344-18000006", "accessible": false, "is_focused": true },
+  "activation": {
+    "activated": true,
+    "proof": "compositor_only",
+    "side_effects": [
+      { "kind": "workspace_switched", "monitor": "Virtual-1", "from": "1", "to": "3" },
+      { "kind": "cursor_moved", "from": { "x": 322.0, "y": 413.0 }, "to": { "x": 957.0, "y": 604.0 } }
+    ]
+  }
+}
+```
+
+- `activated` is `false` when the window already had focus and nothing was
+  sent. Only a `--headed` command activates, through
+  `zwlr_foreign_toplevel_handle_v1.activate`. A headless one proves existing
+  focus or refuses.
+- `proof` is `compositor_and_accessibility` for an AT-SPI window: Hyprland's
+  active window, the toplevel's `activated` state and the frame's ACTIVE state
+  agree, and a monitor shows the window's workspace with no special workspace
+  in front of it. Hyprland keeps a window active after it moves to a hidden
+  special workspace, so that window is not proven focused. `proof` is
+  `compositor_only` for an `accessible: false` window, which has no frame.
+- `side_effects` lists every desktop change the activation caused and is
+  omitted when there is none. The kinds are `workspace_switched` (`monitor`,
+  `from`, `to`), `special_workspace_revealed` and `special_workspace_closed`
+  (`monitor`, `workspace`), and `cursor_moved` (`from`, `to`). Hyprland moves
+  the cursor into the window it activates.
+
+A refusal names its cause in `error.details.cause`:
+
+| Cause | Code | Delivery | Meaning |
+|-------|------|----------|---------|
+| `window_not_focused` | `POLICY_DENIED` | `not_delivered` | A headless command found the window unfocused |
+| `hidden_special_workspace` | `POLICY_DENIED` | `not_delivered` | A headless command found the window on a hidden special workspace; `details.workspace` names it |
+| `special_workspace_open` | `ACTION_FAILED` | `not_delivered` | A special workspace is open over the window's monitor, and Hyprland keeps it in front; `details.workspace` and `details.monitor` name it |
+| `activation_refused` | `ACTION_FAILED` | `delivered_unverified` | The activation was sent and Hyprland left another window active |
+| `frame_not_active` | `ACTION_FAILED` | `delivered_unverified` when sent | Hyprland made the window active but its frame does not report ACTIVE |
+| `window_hidden` | `ACTION_FAILED` | `delivered_unverified` when sent | Hyprland reports the window active, but no monitor shows its workspace |
+
+A refusal after an activation carries `details.activation_sent: true`, the last
+`compositor_active`, `toplevel_activated`, `in_view` and `frame_active` reads,
+the `side_effects` already observed and, when the last read failed,
+`last_read_error`. A compositor that does not advertise
+`zwlr_foreign_toplevel_manager_v1`, `hyprland_toplevel_mapping_manager_v1` or
+`wl_seat` is `PLATFORM_NOT_SUPPORTED`, and `platform_detail` names the missing
+global.
 
 ## Hyprland binding
 

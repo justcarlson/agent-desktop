@@ -42,7 +42,7 @@ Observation and semantic actions need no helper tool.
 | Focus | `focus` | Needs `--headed` for the focus permission. Calls AT-SPI `Component.GrabFocus` on a focusable node that is not yet `focused`, not the pointer, and verifies the state; a GTK4 app rejects the call, so `focus` ends `ACTION_FAILED` `grab_focus_rejected` there and `focus-window` is the way to focus its window |
 | Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and capability-detected Mutter Wayland sessions; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
-| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; on a bound Hyprland, `list-windows` also lists windows without an accessibility tree, such as foot. `focus-window` requires X11. Other window control and graceful close need an X11 client. See `references/windows-and-lifecycle.md` |
+| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; on a bound Hyprland, `list-windows` also lists windows without an accessibility tree, such as foot. `focus-window` needs X11 or a bound Hyprland; there it activates only with `--headed` and reports `data.activation`. Other window control and graceful close need an X11 client. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | X11; GNOME Wayland through Mutter; other Wayland compositors through `wl_output` and `zxdg_output_manager_v1`. See `references/display-servers-and-input.md` |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
@@ -201,8 +201,8 @@ cursor; on Wayland none is drawn.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names. `press` takes mapped keys only; `type`
   handles characters the layout cannot produce.
-- Window ops act on X11 clients; `focus-window` and headed scoped `press` require
-  an X11 session. Headless scoped `press` requires live target focus on either
+- Window ops act on X11 clients; headed scoped `press` requires an X11
+  session, and `focus-window` an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
   current desktop.
 - Linux exact FFI refs carrying bounds or a bounds hash require window-relative
