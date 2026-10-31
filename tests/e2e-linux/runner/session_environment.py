@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import os
+import subprocess
+
 _PAYLOAD = r"""
 rt=$AGENT_DESKTOP_PRIVATE_SESSION
 mkdir -p "$rt/ad-home"
@@ -25,3 +30,23 @@ _ENV_KEYS = (
     "DISPLAY",
     "WAYLAND_DISPLAY",
 )
+
+
+def _parse_env_file(text: str) -> dict[str, str]:
+    env = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key in _ENV_KEYS:
+            env[key] = value
+    return env
+
+
+def _stderr_tail(proc: subprocess.Popen) -> str:
+    if proc.stderr is None:
+        return ""
+    try:
+        os.set_blocking(proc.stderr.fileno(), False)
+        data = proc.stderr.read() or b""
+    except (OSError, ValueError):
+        return ""
+    return data[-800:].decode("utf-8", "replace").strip()

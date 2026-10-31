@@ -50,8 +50,7 @@ def window_id(node) -> str:
 
 
 def attributable(tier, pid, start, env) -> bool:
-    return (pid > 1 and start > 0 and
-            env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir))
+    return proc.owned(tier, pid, start, env)
 
 
 def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedApp]:
@@ -144,12 +143,20 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     if "code" in Path(command[0]).name:
         env["ACCESSIBILITY_ENABLED"] = "1"
     log = tier.runtime_dir / "app-launch.log"
-    with log.open("ab") as stream:
-        child = subprocess.Popen(command + list(args), env=env, stdout=stream, stderr=stream,
-                                 start_new_session=True)
-    _SPAWNED[child.pid] = child
+    child = None
+    if tier.name == "hyprland":
+        from runner import attached_session
+        since = attached_session.boot_ticks()
+        attached_session.spawn(tier, command + list(args), env, log)
+    else:
+        with log.open("ab") as stream:
+            child = subprocess.Popen(command + list(args), env=env, stdout=stream, stderr=stream,
+                                     start_new_session=True)
+        _SPAWNED[child.pid] = child
 
     def locate():
+        if child is None:
+            attached_session.adopt_activated(tier, (Path(command[0]).name, *names), since)
         candidates = [item for item in _owners(tier, names=names) if item.windows and
                       set(item.windows) - before.get((item.pid, item.start_time), set())]
         if len(candidates) > 1:
@@ -162,7 +169,7 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     with raw.bounded_until(deadline):
         found = raw.poll(locate, settle_s)
     if not found:
-        raise AssertionError(f"no new private window for {app}; launcher exit={child.poll()}; log={log}")
+        raise AssertionError(f"no new private window for {app}; launcher exit={child and child.poll()}; log={log}")
     _TIERS[found.pid, found.start_time] = tier
     try:
         if time.monotonic() >= deadline:

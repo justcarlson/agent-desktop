@@ -41,6 +41,10 @@ from scenarios import controlled_targets
 from scenarios import gaps_decisions
 from scenarios import error_contract
 from scenarios import batch_contract
+from scenarios import hyprland_binding
+from scenarios import hyprland_cancel
+from scenarios import hyprland_desktop
+from scenarios import wayland_route
 
 __all__ = [
     "batch_contract",
@@ -50,6 +54,9 @@ __all__ = [
     "error_contract",
     "events",
     "headed_actions",
+    "hyprland_binding",
+    "hyprland_cancel",
+    "hyprland_desktop",
     "identity",
     "launch",
     "lifecycle",
@@ -77,5 +84,6 @@ __all__ = [
     "wayland_actions",
     "wayland_focus",
     "wayland_input",
+    "wayland_route",
     "zero_bounds",
 ]

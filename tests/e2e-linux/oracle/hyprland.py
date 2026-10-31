@@ -1,0 +1,137 @@
+"""Independent reads of a Hyprland instance over its own IPC socket.
+
+Every read checks the socket's peer process first, so a stale or foreign
+listener at an instance path never answers for the compositor.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import socket
+import struct
+import subprocess
+import time
+from pathlib import Path
+
+SIGNATURE = re.compile(r"[A-Za-z0-9_]+")
+
+
+def instance_dir(runtime: Path, signature: str) -> Path:
+    if not SIGNATURE.fullmatch(signature):
+        raise ValueError(f"invalid instance signature: {signature!r}")
+    return Path(runtime) / "hypr" / signature
+
+
+def socket_path(runtime: Path, signature: str) -> Path:
+    return instance_dir(runtime, signature) / ".socket.sock"
+
+
+def wayland_path(runtime: Path, display: str) -> Path:
+    return Path(display) if os.path.isabs(display) else Path(runtime) / display
+
+
+def _connect(path: Path, timeout: float) -> socket.socket:
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    client.settimeout(timeout)
+    try:
+        client.connect(str(path))
+    except OSError:
+        client.close()
+        raise
+    return client
+
+
+def peer_pid(path: Path, timeout: float = 1.0) -> int:
+    with _connect(path, timeout) as client:
+        credentials = client.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+        return struct.unpack("3i", credentials)[0]
+
+
+def listening(path: Path) -> bool:
+    try:
+        peer_pid(path, 0.5)
+    except OSError:
+        return False
+    return True
+
+
+def request(runtime: Path, signature: str, command: str, *, pid: int | None = None,
+            timeout: float = 2.0) -> bytes:
+    deadline = time.monotonic() + timeout
+    with _connect(socket_path(runtime, signature), timeout) as client:
+        if pid is not None:
+            credentials = client.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            peer = struct.unpack("3i", credentials)[0]
+            if peer != pid:
+                raise RuntimeError(f"instance {signature} answers from pid {peer}, expected {pid}")
+        client.sendall(command.encode())
+        chunks = []
+        while True:
+            client.settimeout(max(0.01, deadline - time.monotonic()))
+            chunk = client.recv(65536)
+            if not chunk:
+                return b"".join(chunks)
+            chunks.append(chunk)
+
+
+def query(runtime: Path, signature: str, name: str, *, pid: int | None = None):
+    return json.loads(request(runtime, signature, f"j/{name}", pid=pid))
+
+
+def desktop(runtime: Path, signature: str, *, pid: int | None = None) -> dict:
+    """The user-visible state a run must leave alone."""
+    active = query(runtime, signature, "activewindow", pid=pid)
+    monitors = query(runtime, signature, "monitors", pid=pid)
+    return {
+        "active_window": {key: active.get(key) for key in ("address", "pid", "class", "title")},
+        "cursor": query(runtime, signature, "cursorpos", pid=pid),
+        "workspace": query(runtime, signature, "activeworkspace", pid=pid).get("name"),
+        "monitors": sorted((item["name"], item.get("focused"), item["activeWorkspace"]["name"],
+                            (item.get("specialWorkspace") or {}).get("name", ""))
+                           for item in monitors),
+    }
+
+
+def control(runtime: Path, signature: str, argv: list[str], *, timeout: float = 5.0) -> str:
+    """Run one hyprctl command against exactly one instance."""
+    instance_dir(runtime, signature)
+    env = {"PATH": os.environ.get("PATH", os.defpath), "XDG_RUNTIME_DIR": str(runtime),
+           "HYPRLAND_INSTANCE_SIGNATURE": signature}
+    result = subprocess.run(["hyprctl", *argv], env=env, capture_output=True, text=True,
+                            timeout=timeout, check=False)
+    output = (result.stdout + result.stderr).strip()
+    if result.returncode != 0:
+        raise RuntimeError(f"hyprctl {argv[0]} failed: {output}")
+    return output
+
+
+def uses_lua(runtime: Path, signature: str) -> bool:
+    return control(runtime, signature, ["eval", "return 1"]) == "ok"
+
+
+def lua_string(text: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_ ./:=,@+-]*", text):
+        raise ValueError(f"refusing to embed {text!r} in a compositor command")
+    return f'"{text}"'
+
+
+def exec_silently(runtime: Path, signature: str, command: str, workspace: str) -> None:
+    """Start a command through the compositor on a special workspace, without focus."""
+    target = f"special:{workspace} silent"
+    if uses_lua(runtime, signature):
+        argv = ["dispatch", f"hl.dsp.exec_cmd({lua_string(command)}, {{ workspace = {lua_string(target)} }})"]
+    else:
+        lua_string(command)
+        argv = ["dispatch", "exec", f"[workspace {target}] {command}"]
+    output = control(runtime, signature, argv)
+    if output != "ok":
+        raise RuntimeError(f"compositor refused to start {command!r}: {output}")
+
+
+def instances(runtime: Path) -> list[str]:
+    directory = Path(runtime) / "hypr"
+    if not directory.is_dir():
+        return []
+    return sorted(entry.name for entry in directory.iterdir() if SIGNATURE.fullmatch(entry.name))
