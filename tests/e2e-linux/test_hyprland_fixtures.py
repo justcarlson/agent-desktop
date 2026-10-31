@@ -132,6 +132,11 @@ class SecondInstanceTests(Workspace):
                 self.assertIn(second_instance.OUTPUT, command)
                 self.assertIn("1280x0", command)
 
+    def test_the_sentinel_runs_a_command_that_cannot_retitle_it(self):
+        argv = second_instance.sentinel_argv()
+        self.assertEqual(argv[:3], ["foot", "--title", second_instance.SENTINEL])
+        self.assertEqual(argv[3:], ["sleep", "infinity"])
+
     def test_the_sentinel_is_found_by_the_title_it_started_with(self):
         retitled = {"title": "user@host:~", "initialTitle": second_instance.SENTINEL, "pid": 81}
         other = {"title": second_instance.SENTINEL, "initialTitle": "foot", "pid": 82}

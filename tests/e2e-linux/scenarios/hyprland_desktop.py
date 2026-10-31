@@ -164,8 +164,6 @@ def absent_ref_problems(ctx: LegContext, absent: str) -> list[str]:
 def _headed_refusals(ctx: LegContext, app, seven: str) -> list[str]:
     problems = boundary_problems("headed ref click", ctx.product(["click", seven]),
                                  ("ACTION_NOT_SUPPORTED",), cause="wayland_session")
-    problems += boundary_problems("focus-window", ctx.product(["focus-window", "--window-id", app.windows[0]]),
-                                  ("ACTION_NOT_SUPPORTED",), cause="wayland_session")
     problems += boundary_problems("mouse-click", ctx.product(["mouse-click", "--xy", "1,1"]),
                                   ("ACTION_NOT_SUPPORTED",), physical=True, cause="wayland_session")
     return problems

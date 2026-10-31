@@ -103,17 +103,22 @@ def _env(tier) -> dict[str, str]:
 
 
 def sentinel_pid(clients: list[dict]) -> int | None:
-    """The sentinel's pid, matched on the title it started with: its shell may retitle it."""
+    """The sentinel's pid, matched on the title it started with."""
     for client in clients:
         if client.get("initialTitle") == SENTINEL and client.get("pid", 0) > 1:
             return client["pid"]
     return None
 
 
+def sentinel_argv() -> list[str]:
+    """A terminal whose command never writes a title, so the second instance's state holds still."""
+    return ["foot", "--title", SENTINEL, "sleep", "infinity"]
+
+
 def _sentinel(tier, instance: dict, seconds: float) -> list[int]:
     shared = Path(attached.load(tier.runtime_dir)["shared_runtime"])
     env = dict(_env(tier), WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND="wayland")
-    attached_session.spawn(tier, ["foot", "--title", SENTINEL], env, tier.runtime_dir / "sentinel.log")
+    attached_session.spawn(tier, sentinel_argv(), env, tier.runtime_dir / "sentinel.log")
 
     def mapped():
         try:
