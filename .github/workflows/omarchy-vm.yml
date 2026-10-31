@@ -127,10 +127,19 @@ jobs:
           node=
           for dev in /sys/class/drm/renderD*; do
             [[ -e $dev ]] || continue
+            # On 7.0 kernels vgem is a faux device: its driver link reads faux_driver.
+            path=$(readlink -f "$dev")
             driver=$(basename "$(readlink -f "$dev/device/driver")")
-            echo "$(basename "$dev"): driver $driver"
-            [[ $driver == vgem ]] && node=/dev/dri/$(basename "$dev")
+            echo "$(basename "$dev"): driver $driver, path $path"
+            if [[ $driver == vgem || $path == */vgem/* ]]; then
+              node=/dev/dri/$(basename "$dev")
+            fi
           done
+          nodes=(/dev/dri/renderD*)
+          if [[ -z $node && ${#nodes[@]} -eq 1 && -e ${nodes[0]} ]]; then
+            echo "::warning::no render node names vgem; using the only one, ${nodes[0]}"
+            node=${nodes[0]}
+          fi
           [[ -n $node && -e $node ]] || { echo "::error::vgem loaded but no vgem render node appeared in /dev/dri"; exit 1; }
           echo "Render node: $node"
           ls -l /dev/dri
