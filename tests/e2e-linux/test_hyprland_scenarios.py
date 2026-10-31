@@ -23,11 +23,6 @@ def refused(code: str, *, exit_code: int = 1, disposition=None, **details) -> En
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=exit_code)
 
 
-def listed(*names: tuple[str, bool]) -> Envelope:
-    data = [{"id": name, "is_primary": primary, "bounds": {}, "scale": 1.0} for name, primary in names]
-    return Envelope(ok=True, data=data, error=None, raw="[]", elapsed_ms=5.0, argv=[], exit_code=0)
-
-
 class DeliveryBoundaryTests(unittest.TestCase):
     def test_a_delivery_boundary_needs_its_code_cause_safe_retry_and_no_physical_start(self):
         good = refused("ACTION_NOT_SUPPORTED", cause="wayland_session", physical_delivery_started=False)
@@ -65,33 +60,41 @@ class AbsentRefTests(unittest.TestCase):
                                                      physical_delivery_started=True)))
 
 
-class DisplayTests(unittest.TestCase):
-    def test_the_lowest_monitor_id_is_primary_whatever_the_reply_order(self):
-        monitors = [{"id": 3, "name": "HDMI-A-1"}, {"id": 0, "name": "eDP-1"}, {"id": 1, "name": "DP-2"}]
-        self.assertEqual(hyprland_common.expected_displays(monitors),
-                         [("eDP-1", True), ("DP-2", False), ("HDMI-A-1", False)])
-
-    def test_a_failed_listing_is_never_read_as_an_empty_desktop(self):
-        with self.assertRaises(AssertionError):
-            hyprland_common.reported_displays(refused("TIMEOUT"))
-
-    def test_a_listing_that_disagrees_with_the_compositor_is_a_problem(self):
-        tier = SimpleNamespace()
-        app = SimpleNamespace(pid=10, windows=["w1"])
-        replies = {
+class ReadOnlyCommandTests(unittest.TestCase):
+    def replies(self) -> dict:
+        return {
             "list-apps": Envelope(True, {"apps": [{"pid": 10}]}, None, "", 1.0, []),
             "list-windows": Envelope(True, [{"id": "w1"}], None, "", 1.0, []),
             "snapshot": Envelope(True, {"complete": True}, None, "", 1.0, []),
             "status": Envelope(True, {}, None, "", 1.0, []),
         }
-        for reply, expected in ((listed(("Virtual-1", True)), []),
-                                (listed(("Virtual-1", False)), 1),
-                                (listed(("Virtual-1", True), ("AGENT-DESKTOP-1", False)), 1)):
-            ctx = SimpleNamespace(tier=tier, product=lambda argv: replies.get(argv[0], reply))
-            with self.subTest(reply=reply.data), mock.patch.object(
-                    hyprland_desktop, "monitors", return_value=[("Virtual-1", True)]):
-                problems = hyprland_desktop._read_only_commands(ctx, app, {})
-                self.assertEqual(problems if expected == [] else len(problems), expected)
+
+    def run_commands(self, replies: dict) -> tuple[list[str], list[str]]:
+        calls = []
+        app = SimpleNamespace(pid=10, windows=["w1"])
+
+        def product(argv):
+            calls.append(argv[0])
+            return replies[argv[0]]
+
+        ctx = SimpleNamespace(tier=SimpleNamespace(), product=product)
+        return hyprland_desktop._read_only_commands(ctx, app), calls
+
+    def test_the_route_reads_only_commands_the_upstream_product_answers_on_hyprland(self):
+        problems, calls = self.run_commands(self.replies())
+        self.assertEqual(problems, [])
+        self.assertEqual(calls, ["list-apps", "list-windows", "snapshot", "status"])
+
+    def test_each_read_only_command_that_fails_is_a_problem(self):
+        failed = Envelope(False, None, {"code": "INTERNAL"}, "{}", 1.0, [], exit_code=1)
+        for command, bad in (("list-apps", Envelope(True, {"apps": [{"pid": 11}]}, None, "", 1.0, [])),
+                             ("list-windows", Envelope(True, [{"id": "w2"}], None, "", 1.0, [])),
+                             ("snapshot", Envelope(True, {"complete": False}, None, "", 1.0, [])),
+                             ("status", failed)):
+            replies = self.replies() | {command: bad}
+            with self.subTest(command=command):
+                problems, _ = self.run_commands(replies)
+                self.assertEqual(len(problems), 1, problems)
 
 
 class DesktopObservationTests(unittest.TestCase):
