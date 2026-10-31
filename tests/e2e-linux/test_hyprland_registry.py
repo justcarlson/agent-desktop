@@ -14,6 +14,13 @@ NEW_LEGS = {
     "non_interference.headless_route_preserves_desktop": (("hyprland",), ("headless",), "pass"),
     "session.cancel_cleanup_recorded_generations": (("hyprland",), ("headless", "headed"), "pass"),
     "error_contract.hyprland_delivery_boundaries": (("hyprland",), ("headless", "headed"), "pass"),
+    "capture.hyprland_bound_toplevel_pixels": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_hidden_counter_frame_after_request": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_static_frame_after_request": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_in_view_first_frame": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_screen_exact_output": (("hyprland",), ("headless",), "pass"),
+    "capture.hyprland_permission_denied_no_dialog": (("hyprland",), ("headless",), "asserted-refusal"),
+    "capture.hyprland_deadline_or_cancel_released": (("hyprland",), ("headless",), "asserted-refusal"),
 }
 REUSED = (
     "non_interference.active_window_unchanged_by_semantic_click",
@@ -76,7 +83,7 @@ class HyprlandRegistryTests(unittest.TestCase):
         missing = gate.check_prerequisites(("hyprland",), which=lambda tool: None, env={},
                                            gi_probe=lambda: None, platform="linux")
         named = {line.rsplit(": ", 1)[-1] for line in missing}
-        for tool in ("Hyprland", "hyprctl", "systemd-run", "systemctl", "foot", "gdbus"):
+        for tool in ("Hyprland", "hyprctl", "systemd-run", "systemctl", "foot", "grim", "gdbus"):
             self.assertIn(tool, named)
         for tool in ("Xvfb", "xwd", "xprop"):
             self.assertNotIn(tool, named)
