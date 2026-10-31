@@ -204,6 +204,10 @@ REGISTRY: tuple[Leg, ...] = (
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_FIRST_ROWS)
 REGISTRY += (
     Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
+    Leg('identity.hyprland_accessible_listed_once', 'list-windows lists each accessible frame once, accessible true under its frame id, with no compositor-only entry for its toplevel, even for same-titled twins; filtering by the compositor class shows no compositor-only entry; the bystander is listed once per toplevel', 'Calculator, Twin Windows and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi'), 'pass'),
+    Leg('identity.hyprland_twins_by_size_or_ambiguous', 'A window operation binds a frame to exactly one toplevel: same-titled same-sized native Wayland twins refuse with AMBIGUOUS_TARGET naming both addresses and workspaces; once their sizes differ each twin binds and reaches the Wayland boundary; the twins, focus and cursor are unchanged', 'Twin Windows, foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi'), 'pass'),
+    Leg('identity.hyprland_closed_window_not_found', 'A window operation on a closed accessible frame, a closed compositor-only toplevel, a restarted process and another compositor instance refuses with WINDOW_NOT_FOUND, not_delivered, after the compositor shows the toplevel gone', 'Twin Windows, foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi', 'proc'), 'pass'),
+    Leg('identity.hyprland_compositor_only_id', 'list-windows lists a toplevel with no accessibility tree once, accessible false, under a w-hypr id of this compositor with its pid, title, class and geometry and no refs; --app filters to it; snapshot and find refuse it as having no accessibility tree', 'foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi', 'proc'), 'pass'),
 )
 
 RESTORED_MUTTER_EVENTS = (
