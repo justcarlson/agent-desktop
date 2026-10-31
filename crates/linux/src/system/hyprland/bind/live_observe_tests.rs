@@ -53,6 +53,16 @@ fn the_start_time_of_this_process_is_read_and_a_dead_pid_has_none() {
     assert_eq!(LiveObserve.start_time(u32::MAX - 1), None);
 }
 
+#[test]
+fn the_generated_binding_names_the_hyprland_mapping_global() {
+    use wayland_client::Proxy;
+    use crate::system::hyprland::protocol::hyprland_toplevel_mapping::hyprland_toplevel_mapping_manager_v1::HyprlandToplevelMappingManagerV1;
+    assert_eq!(
+        HyprlandToplevelMappingManagerV1::interface().name,
+        MAPPING_INTERFACE
+    );
+}
+
 fn served(globals: Vec<(&'static str, u32)>) -> WaylandAnswer {
     use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
     let compositor = FakeCompositor::start(Script::Answer {
@@ -64,8 +74,19 @@ fn served(globals: Vec<(&'static str, u32)>) -> WaylandAnswer {
 }
 
 #[test]
-fn a_wayland_socket_that_answers_a_registry_read_is_live() {
-    assert_eq!(served(vec![("wl_compositor", 6)]), WaylandAnswer::Live);
+fn a_live_wayland_socket_reports_whether_it_advertises_the_mapping_global() {
+    let pid = std::process::id();
+    assert_eq!(
+        served(vec![("wl_compositor", 6), (MAPPING_INTERFACE, 1)]),
+        WaylandAnswer::Live { pid, mapping: true }
+    );
+    assert_eq!(
+        served(vec![("wl_compositor", 6)]),
+        WaylandAnswer::Live {
+            pid,
+            mapping: false
+        }
+    );
 }
 
 #[test]

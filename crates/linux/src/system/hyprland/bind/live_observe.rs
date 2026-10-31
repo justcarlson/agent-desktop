@@ -12,6 +12,7 @@ use super::ipc_answer::IpcAnswer;
 use super::observe::Observe;
 use super::wayland_answer::WaylandAnswer;
 use crate::system::hyprland::ipc::{self, IpcFault};
+use crate::system::hyprland::protocol::MAPPING_INTERFACE;
 use crate::system::process::proc_stat::read_stat;
 use crate::system::wayland::registry_read::read_registry;
 use crate::system::wayland::socket_peer::{connect_peer, peer_pid};
@@ -62,7 +63,7 @@ impl Observe for LiveObserve {
 
     fn ipc(&self, socket: &Path, deadline: Deadline) -> IpcAnswer {
         match ipc::request(socket, LIVENESS_COMMAND, deadline) {
-            Ok(pid) => IpcAnswer::Live(pid),
+            Ok(reply) => IpcAnswer::Live(reply.pid),
             Err(IpcFault::Silent) => IpcAnswer::Silent,
             Err(IpcFault::Gone | IpcFault::Oversized) => IpcAnswer::Gone,
         }
@@ -78,7 +79,10 @@ impl Observe for LiveObserve {
             return WaylandAnswer::Other(pid);
         }
         match read_registry(stream, deadline) {
-            Ok(_) => WaylandAnswer::Live,
+            Ok(exchange) => WaylandAnswer::Live {
+                pid,
+                mapping: exchange.find(MAPPING_INTERFACE, 1).is_some(),
+            },
             Err(WaylandFault::Silent) => WaylandAnswer::Silent,
             Err(WaylandFault::Gone | WaylandFault::Protocol(_)) => WaylandAnswer::Gone,
         }

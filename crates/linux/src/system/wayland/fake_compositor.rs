@@ -1,13 +1,16 @@
 //! A scripted compositor for unit tests. It speaks just enough of the
-//! Wayland wire protocol to answer a registry read, `wl_output` binds and
-//! `zxdg_output_manager_v1.get_xdg_output`, or it accepts the connection and
-//! stays silent, or hangs up.
+//! Wayland wire protocol to answer a registry read, `wl_output` binds,
+//! `zxdg_output_manager_v1.get_xdg_output` and the toplevel globals in
+//! `fake_toplevels`, or it accepts the connection and stays silent, or hangs
+//! up.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+use super::fake_toplevels::{self, FakeToplevel};
 
 const OUTPUT: &str = "wl_output";
 const MANAGER: &str = "zxdg_output_manager_v1";
@@ -29,6 +32,10 @@ pub(crate) enum Script {
     Answer {
         globals: Vec<(&'static str, u32)>,
         outputs: Vec<FakeOutput>,
+    },
+    Toplevels {
+        globals: Vec<(&'static str, u32)>,
+        toplevels: Vec<FakeToplevel>,
     },
     Silent,
     HangUp,
@@ -56,7 +63,10 @@ impl FakeCompositor {
                 return;
             };
             match script {
-                Script::Answer { globals, outputs } => serve(stream, &globals, &outputs),
+                Script::Answer { globals, outputs } => serve(stream, &globals, &outputs, &[]),
+                Script::Toplevels { globals, toplevels } => {
+                    serve(stream, &globals, &[], &toplevels)
+                }
                 Script::Silent => {
                     let _ = (&stream).read_to_end(&mut Vec::new());
                 }
@@ -73,7 +83,7 @@ impl Drop for FakeCompositor {
     }
 }
 
-enum Arg<'a> {
+pub(super) enum Arg<'a> {
     Uint(u32),
     Int(i32),
     Text(&'a str),
@@ -85,10 +95,12 @@ enum Kind {
     Registry,
     Output(usize, u32),
     Manager(u32),
+    List,
+    Mapper,
     Other,
 }
 
-fn message(object: u32, opcode: u16, args: &[Arg<'_>]) -> Vec<u8> {
+pub(super) fn message(object: u32, opcode: u16, args: &[Arg<'_>]) -> Vec<u8> {
     let mut body = Vec::new();
     for arg in args {
         match arg {
@@ -179,6 +191,7 @@ fn xdg_events(id: u32, manager: u32, output: (u32, u32), fake: &FakeOutput) -> V
 struct Server<'a> {
     globals: &'a [(&'static str, u32)],
     outputs: &'a [FakeOutput],
+    toplevels: &'a [FakeToplevel],
     objects: HashMap<u32, Kind>,
 }
 
@@ -215,6 +228,10 @@ impl Server<'_> {
                     _ => Vec::new(),
                 }
             }
+            (Kind::Mapper, 0) => {
+                let handle = word(bytes, 8);
+                fake_toplevels::mapping_reply(handle, word(bytes, 12), self.toplevels)
+            }
             _ => Vec::new(),
         }
     }
@@ -238,6 +255,14 @@ impl Server<'_> {
                 self.objects.insert(id, Kind::Manager(version));
                 Vec::new()
             }
+            fake_toplevels::LIST => {
+                self.objects.insert(id, Kind::List);
+                fake_toplevels::list_events(id, self.toplevels)
+            }
+            fake_toplevels::MAPPER => {
+                self.objects.insert(id, Kind::Mapper);
+                Vec::new()
+            }
             _ => {
                 self.objects.insert(id, Kind::Other);
                 Vec::new()
@@ -246,10 +271,16 @@ impl Server<'_> {
     }
 }
 
-fn serve(mut stream: UnixStream, globals: &[(&'static str, u32)], outputs: &[FakeOutput]) {
+fn serve(
+    mut stream: UnixStream,
+    globals: &[(&'static str, u32)],
+    outputs: &[FakeOutput],
+    toplevels: &[FakeToplevel],
+) {
     let mut server = Server {
         globals,
         outputs,
+        toplevels,
         objects: HashMap::from([(1, Kind::Display)]),
     };
     let mut pending = Vec::new();

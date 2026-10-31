@@ -1,7 +1,10 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
+use super::accessible_frames::AccessibleFrames;
+use super::compositor_listing::hyprland_windows;
 use super::window_id;
 use super::window_ops::windows_of_process;
+use crate::system::hyprland::identity::compositor_window_id::{is_compositor_id, is_well_formed};
 use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::{SharedBus, shell};
 
@@ -50,19 +53,41 @@ pub(crate) fn resolve_window_strict(
     expected: &WindowInfo,
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
+    if is_compositor_id(&expected.id) {
+        let live = || hyprland_windows(|| Ok(AccessibleFrames::default()), None, deadline);
+        return resolve_compositor(expected, live);
+    }
     window_id::decode(&expected.id)?;
     if shell::is_shell_window(expected) {
         shell::window_gate::verify(bus, &expected.id, deadline)?;
         return Ok(expected.clone());
     }
-    let pid = expected.pid.get();
-    let live = windows_of_process(bus, pid, deadline)?;
-    let process = expected
+    let live = windows_of_process(bus, expected.pid.get(), deadline)?;
+    verify(expected, live, process_of(expected))
+}
+
+/// Resolves a compositor-only window against the bound compositor's
+/// listing. Its id names the compositor process and start that issued it,
+/// so after a compositor restart the old id is no longer listed. A
+/// malformed id is refused before the compositor is read.
+pub(crate) fn resolve_compositor(
+    expected: &WindowInfo,
+    live: impl FnOnce() -> Result<Vec<WindowInfo>, AdapterError>,
+) -> Result<WindowInfo, AdapterError> {
+    if !is_well_formed(&expected.id) {
+        return Err(window_id::invalid(&expected.id));
+    }
+    verify(expected, live()?, process_of(expected))
+}
+
+fn process_of(expected: &WindowInfo) -> Liveness {
+    expected
         .process_instance
         .as_deref()
         .filter(|instance| !instance.is_empty())
-        .map_or(Liveness::Alive, |instance| liveness(pid, instance));
-    verify(expected, live, process)
+        .map_or(Liveness::Alive, |instance| {
+            liveness(expected.pid.get(), instance)
+        })
 }
 
 #[cfg(test)]

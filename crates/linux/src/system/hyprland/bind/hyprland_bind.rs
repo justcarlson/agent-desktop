@@ -7,7 +7,7 @@
 //! more than one answers. A silent endpoint refuses instead of being skipped, because
 //! skipping it could bind a compositor the caller did not mean.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use agent_desktop_core::Deadline;
 
@@ -24,6 +24,7 @@ const IPC_SOCKET: &str = ".socket.sock";
 
 struct Instance {
     signature: String,
+    ipc_socket: PathBuf,
     pid: u32,
 }
 
@@ -96,6 +97,7 @@ fn answering(
     match observe.ipc(&ipc_socket, deadline) {
         IpcAnswer::Live(pid) => Ok(Some(Instance {
             signature: signature.to_owned(),
+            ipc_socket,
             pid,
         })),
         IpcAnswer::Gone => Ok(None),
@@ -154,7 +156,7 @@ impl Pairing<'_> {
         socket: &Path,
     ) -> Result<Option<HyprlandBinding>, BindRefusal> {
         match self.observe.wayland(socket, instance.pid, self.deadline) {
-            WaylandAnswer::Live => self.finish(instance, socket),
+            WaylandAnswer::Live { mapping, .. } => self.finish(instance, socket, mapping),
             WaylandAnswer::Silent => Err(BindRefusal::Silent {
                 socket: socket.to_path_buf(),
             }),
@@ -172,7 +174,9 @@ impl Pairing<'_> {
             .filter(|socket| self.observe.peer(socket) == Ok(instance.pid));
         for socket in own {
             match self.observe.wayland(&socket, instance.pid, self.deadline) {
-                WaylandAnswer::Live => return self.finish(instance, &socket),
+                WaylandAnswer::Live { mapping, .. } => {
+                    return self.finish(instance, &socket, mapping);
+                }
                 WaylandAnswer::Silent => return Err(BindRefusal::Silent { socket }),
                 WaylandAnswer::Other(_) | WaylandAnswer::Gone => {}
             }
@@ -191,11 +195,17 @@ impl Pairing<'_> {
         &self,
         instance: Instance,
         socket: &Path,
+        mapping: bool,
     ) -> Result<Option<HyprlandBinding>, BindRefusal> {
+        if !mapping {
+            return Ok(None);
+        }
         let Some(start_time) = self.observe.start_time(instance.pid) else {
             return Ok(None);
         };
         Ok(Some(HyprlandBinding {
+            signature: instance.signature,
+            ipc_socket: instance.ipc_socket,
             wayland_socket: socket.to_path_buf(),
             pid: instance.pid,
             start_time,

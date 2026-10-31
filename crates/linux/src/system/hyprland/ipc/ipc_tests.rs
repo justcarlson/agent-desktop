@@ -34,10 +34,11 @@ fn answer_with(listener: UnixListener, reply: Vec<u8>) -> thread::JoinHandle<Str
 #[test]
 fn a_reply_is_read_to_the_end_and_names_its_server() {
     let (path, listener) = listener("reply");
-    let server = answer_with(listener, br#"{"version":"0.50.0"}"#.to_vec());
-    let pid = request(&path, "j/version", deadline(1_000)).expect("reply");
-    assert_eq!(server.join().expect("server"), "j/version");
-    assert_eq!(pid, std::process::id());
+    let server = answer_with(listener, br#"[{"name":"HEADLESS-1"}]"#.to_vec());
+    let reply = request(&path, "j/monitors", deadline(1_000)).expect("reply");
+    assert_eq!(server.join().expect("server"), "j/monitors");
+    assert_eq!(reply.pid, std::process::id());
+    assert_eq!(reply.body, br#"[{"name":"HEADLESS-1"}]"#);
 }
 
 #[test]

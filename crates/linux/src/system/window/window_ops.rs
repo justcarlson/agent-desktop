@@ -1,6 +1,10 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, WindowFilter, WindowInfo};
 use serde_json::json;
 
+use std::collections::HashSet;
+
+use super::accessible_frames::AccessibleFrames;
+use super::compositor_listing::{hyprland_windows, unregistered_target};
 use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
@@ -79,9 +83,20 @@ pub(crate) fn list_windows(
         },
         deadline,
     )?;
+    let registered: HashSet<u32> = registry.apps.iter().map(|app| app.root.pid()).collect();
     let stopped = match filter.app.as_deref() {
         Some(query) => {
-            require_known_target(&registry, select, query, find_running)?;
+            if let Err(missing) = require_known_target(&registry, select, query, find_running) {
+                let registered = || {
+                    registered_pids(bus, deadline).map(|registered| AccessibleFrames {
+                        registered,
+                        ..AccessibleFrames::default()
+                    })
+                };
+                let compositor = || hyprland_windows(registered, Some(query), deadline);
+                return unregistered_target(missing, compositor)
+                    .map(|windows| keep_focused(windows, filter));
+            }
             stopped_target(&registry, select, proc_stat::is_stopped)
         }
         None => None,
@@ -96,14 +111,45 @@ pub(crate) fn list_windows(
         desktops.finish(deadline).flatten().as_ref(),
     );
     let mut windows = pass.windows;
+    let frames: Vec<WindowInfo> = windows.iter().map(|window| window.info.clone()).collect();
     if filter.focused_only {
         windows.retain(|window| window.info.state.is_focused);
     }
     let stack = stack.finish(deadline).flatten();
-    Ok(front_to_back(windows, &state, stack.as_deref())
+    let mut listed: Vec<WindowInfo> = front_to_back(windows, &state, stack.as_deref())
         .into_iter()
         .map(|window| window.info)
-        .collect())
+        .collect();
+    let represented = || {
+        let all = match filter.app {
+            Some(_) => registered_pids(bus, deadline)?,
+            None => registered.clone(),
+        };
+        Ok(AccessibleFrames::from_listed(&frames, registered, all))
+    };
+    let compositor = hyprland_windows(represented, filter.app.as_deref(), deadline)?;
+    listed.append(&mut keep_focused(compositor, filter));
+    Ok(listed)
+}
+
+fn keep_focused(mut windows: Vec<WindowInfo>, filter: &WindowFilter) -> Vec<WindowInfo> {
+    if filter.focused_only {
+        windows.retain(|window| window.state.is_focused);
+    }
+    windows
+}
+
+/// Every process with a registered accessibility application, whatever the
+/// listing's filter, so a filtered listing never shows an accessible
+/// application's toplevel as compositor-only.
+fn registered_pids(bus: &SharedBus, deadline: Deadline) -> Result<HashSet<u32>, AdapterError> {
+    let query = AppQuery {
+        pid: None,
+        select: &|_| true,
+        enrich: false,
+    };
+    let registry = read_registry_query(bus, &query, deadline)?;
+    Ok(registry.apps.iter().map(|app| app.root.pid()).collect())
 }
 
 /// The windows of one process, placed as `list_windows` places them. Only

@@ -1,6 +1,6 @@
 use agent_desktop_core::{ErrorCode, WindowInfo, WindowState};
 
-use super::{Liveness, verify};
+use super::{Liveness, resolve_compositor, verify};
 
 fn window(id: &str, pid: u32, instance: Option<&str>, title: &str) -> WindowInfo {
     WindowInfo {
@@ -77,4 +77,47 @@ fn a_reused_process_id_keeps_the_different_process_refusal_while_the_process_ans
         assert_eq!(error.code, ErrorCode::WindowNotFound);
         assert!(error.message.contains("different process"));
     }
+}
+
+#[test]
+fn a_malformed_compositor_id_is_refused_without_reading_the_compositor() {
+    let stored = window("w-hypr-1-2-a-b", 5, None, "foot");
+    let error = resolve_compositor(&stored, || -> Result<Vec<WindowInfo>, _> {
+        unreachable!("the compositor is never read for a malformed id")
+    })
+    .expect_err("refused");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+}
+
+#[test]
+fn a_compositor_window_resolves_only_while_its_compositor_lists_it() {
+    use crate::system::process::{proc_stat::read_stat, process_facts::instance_token};
+    let pid = std::process::id();
+    let start = read_stat(pid)
+        .ok()
+        .flatten()
+        .map(|stat| stat.start_time)
+        .expect("start time");
+    let instance = instance_token(start);
+    let stored = window("w-hypr-10-20-a1", pid, Some(&instance), "foot");
+    let resolved = resolve_compositor(&stored, || {
+        Ok(vec![window(
+            "w-hypr-10-20-a1",
+            pid,
+            Some(&instance),
+            "foot ~",
+        )])
+    })
+    .expect("listed");
+    assert_eq!(resolved.title, "foot ~");
+    let restarted = resolve_compositor(&stored, || {
+        Ok(vec![window(
+            "w-hypr-11-30-a1",
+            pid,
+            Some(&instance),
+            "foot",
+        )])
+    })
+    .expect_err("old compositor id");
+    assert_eq!(restarted.code, ErrorCode::WindowNotFound);
 }

@@ -1,5 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
+use crate::system::hyprland::identity::compositor_window_id::is_well_formed;
+
 const PREFIX: &str = "w-";
 const BUS_SEPARATOR: char = '-';
 const PATH_SEPARATOR: char = '/';
@@ -38,7 +40,21 @@ pub(crate) fn encode(bus: &str, path: &str) -> Option<String> {
     })
 }
 
-fn invalid(id: &str) -> AdapterError {
+/// The refusal for an id this adapter did not issue, or for a well-formed
+/// compositor window id where an accessibility frame is needed. A malformed
+/// id with the compositor prefix was never issued, so it gets the first.
+pub(crate) fn invalid(id: &str) -> AdapterError {
+    if is_well_formed(id) {
+        return AdapterError::new(
+            ErrorCode::InvalidArgs,
+            format!(
+                "'{id}' is a compositor window with no accessibility tree, so it has no elements to read or act on"
+            ),
+        )
+        .with_suggestion(
+            "Use it with list-windows, or pick a window that lists \"accessible\": true",
+        );
+    }
     AdapterError::new(
         ErrorCode::InvalidArgs,
         format!("'{id}' is not a window id this adapter issued"),
