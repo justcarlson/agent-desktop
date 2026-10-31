@@ -43,6 +43,7 @@ from scenarios import error_contract
 from scenarios import batch_contract
 from scenarios import hyprland_cancel
 from scenarios import hyprland_desktop
+from scenarios import wayland_outputs
 
 __all__ = [
     "batch_contract",
@@ -81,5 +82,6 @@ __all__ = [
     "wayland_actions",
     "wayland_focus",
     "wayland_input",
+    "wayland_outputs",
     "zero_bounds",
 ]
