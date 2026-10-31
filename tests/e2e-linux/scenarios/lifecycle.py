@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
+from datetime import datetime, timezone
 
 from oracle import atspi_raw, proc, x11
 from runner import apps
@@ -132,9 +134,81 @@ def minimize_restore(ctx: LegContext) -> None:
         apps.stop(app)
 
 
+def _note(ctx, text: str) -> None:
+    record = getattr(ctx, "finding", None)
+    if record is not None:
+        record(text)
+
+
+def _stamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def _listed_ids(envelope) -> list[str] | None:
+    if not envelope.ok:
+        return None
+    data = envelope.data
+    windows = data if isinstance(data, list) else (data or {}).get("windows", [])
+    return [window.get("id") for window in windows]
+
+
+def _diag_dump(ctx: LegContext, window: str, label: str) -> None:
+    try:
+        _diag_dump_unguarded(ctx, window, label)
+    except Exception as error:
+        _note(ctx, f"DIAG {label} {_stamp()} dump failed: {error!r}")
+
+
+def _diag_dump_unguarded(ctx: LegContext, window: str, label: str) -> None:
+    try:
+        state = _wm_state(ctx.tier, window).strip()
+    except (ValueError, LookupError, subprocess.SubprocessError) as error:
+        state = f"unreadable: {error}"
+    _note(ctx, f"DIAG {label} {_stamp()} target _NET_WM_STATE: {state}")
+    trace = os.environ.get("AD_LISTING_TRACE")
+    if trace:
+        size = os.path.getsize(trace) if os.path.exists(trace) else "missing"
+        _note(ctx, f"DIAG {label} {_stamp()} listing trace bytes so far: {size}")
+    clients = _run(ctx.tier, ["xprop", "-root", "_NET_CLIENT_LIST", "_NET_ACTIVE_WINDOW"]).stdout.strip()
+    _note(ctx, f"DIAG {label} {_stamp()} root: {clients}")
+    _note(ctx, f"DIAG {label} {_stamp()} wmctrl -lpG: {_run(ctx.tier, ['wmctrl', '-lpG']).stdout.strip()}")
+    started = _stamp()
+    listing = ctx.product(["list-windows"])
+    ids = _listed_ids(listing)
+    present = None if ids is None else window in ids
+    _note(
+        ctx,
+        f"DIAG {label} {started} list-windows ok={listing.ok} ms={listing.elapsed_ms:.0f} "
+        f"target_present={present} raw={listing.raw.strip()}"
+    )
+
+
+def _diag_trace(ctx: LegContext, path: str) -> None:
+    try:
+        _diag_trace_unguarded(ctx, path)
+    except Exception as error:
+        _note(ctx, f"DIAG trace failed: {error!r}")
+
+
+def _diag_trace_unguarded(ctx: LegContext, path: str) -> None:
+    try:
+        with open(path, encoding="utf-8") as trace:
+            lines = trace.read().splitlines()
+    except OSError as error:
+        _note(ctx, f"DIAG trace unreadable: {error}")
+        return
+    _note(ctx, f"DIAG trace lines={len(lines)}")
+    for line in lines[-400:]:
+        _note(ctx, f"TRACE {line}")
+
+
 @implementation("lifecycle.maximize_restore")
 def maximize_restore(ctx: LegContext) -> None:
     app = apps.launch(ctx.tier, "Calculator")
+    trace = tempfile.NamedTemporaryFile(prefix="maximize-restore-", suffix=".trace", delete=False)
+    trace.close()
+    os.environ["AD_LISTING_TRACE"] = trace.name
+    failed = False
     try:
         window = _window_id(app)
         before = parse_wm_state(_wm_state(ctx.tier, window))
@@ -148,12 +222,29 @@ def maximize_restore(ctx: LegContext) -> None:
         ctx.after("x11.wm_state", parse_wm_state(_wm_state(ctx.tier, window)) & axes)
         if not maximised:
             raise AssertionError("the window did not read as maximised")
-        assert_ok(ctx.product(["restore", "--window-id", window]))
+        _diag_dump(ctx, window, "before-restore")
+        _note(ctx, f"DIAG restore start {_stamp()}")
+        restored = ctx.product(["restore", "--window-id", window])
+        _note(ctx, f"DIAG restore end {_stamp()} ok={restored.ok} ms={restored.elapsed_ms:.0f}")
+        if not restored.ok:
+            failed = True
+            _diag_dump(ctx, window, "after-failure")
+            scoped = ctx.product(["list-windows", "--app", "Calculator"])
+            _note(ctx, f"DIAG after-failure {_stamp()} list-windows --app Calculator: {scoped.raw.strip()}")
+            _diag_dump(ctx, window, "after-failure-again")
+        assert_ok(restored)
         ctx.restored(
             "x11.wm_state",
             changed(lambda: parse_wm_state(_wm_state(ctx.tier, window)) & axes, set(), seconds=6),
         )
+    except BaseException:
+        failed = True
+        raise
     finally:
+        if failed:
+            _diag_trace(ctx, trace.name)
+        os.environ.pop("AD_LISTING_TRACE", None)
+        os.unlink(trace.name)
         apps.stop(app)
 
 
