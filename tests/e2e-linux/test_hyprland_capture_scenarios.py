@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 from oracle.pixels import Image
 from runner.product import Envelope
 from scenarios import hyprland_capture, hyprland_capture_refusals, hyprland_capture_screen
-from scenarios.hyprland_capture_common import dominant, fresh, settled_tick, tick_of, written
+from scenarios.hyprland_capture_common import dominant, drawn_after, fresh, settled_tick, tick_of, written
 
 NOT_DELIVERED = {"delivery": "not_delivered", "retry": "safe"}
 MS = 1_000_000
@@ -66,9 +66,24 @@ class TickTests(unittest.TestCase):
     def test_the_oracle_check_fails_when_it_accepts_the_first_shot_for_the_last_request(self):
         ticks = [(tick, tick * 50 * MS) for tick in range(1, 40)]
         stale = [(5, 6 * 50 * MS), (30, 31 * 50 * MS)]
-        self.assertEqual(hyprland_capture._oracle_discriminates(stale, ticks), [])
+        self.assertEqual(hyprland_capture._oracle_discriminates(stale, ticks, fresh), [])
         blind = [(30, 6 * 50 * MS), (30, 31 * 50 * MS)]
-        self.assertTrue(hyprland_capture._oracle_discriminates(blind, ticks))
+        self.assertTrue(hyprland_capture._oracle_discriminates(blind, ticks, fresh))
+
+    def test_a_slow_tick_counts_only_when_first_drawn_at_or_after_the_mark(self):
+        ticks = [(1, 0), (2, 100 * MS), (2, 400 * MS), (3, 500 * MS)]
+        self.assertTrue(drawn_after(3, ticks, 500 * MS))
+        self.assertFalse(drawn_after(3, ticks, 500 * MS + 1))
+        self.assertFalse(drawn_after(2, ticks, 300 * MS))
+        self.assertFalse(drawn_after(9, ticks, 0))
+        self.assertFalse(drawn_after(None, ticks, 0))
+
+    def test_the_slow_oracle_check_fails_when_it_accepts_the_first_shot_for_the_last_request(self):
+        ticks = [(1, 0), (2, 600 * MS), (3, 1200 * MS)]
+        self.assertEqual(hyprland_capture._oracle_discriminates([(2, 500 * MS), (3, 1100 * MS)], ticks,
+                                                                drawn_after), [])
+        self.assertTrue(hyprland_capture._oracle_discriminates([(3, 500 * MS), (3, 1100 * MS)], ticks,
+                                                               drawn_after))
 
     def test_a_half_written_log_line_is_skipped(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -76,6 +91,52 @@ class TickTests(unittest.TestCase):
             log.write_text("1 100\n2 200\n\x00\x00 \x00\n3")
             self.assertEqual(written(log), [(1, 100), (2, 200)])
             self.assertEqual(written(Path(folder) / "absent.log"), [])
+
+
+class SlowRoundTests(unittest.TestCase):
+    MARK = 1000 * MS
+
+    def round(self, tick: int, ticks: list[tuple[int, int]], ok: bool = True):
+        image = solid(8, 8, (tick % 256, tick // 256, 0x40))
+        shot = (envelope(True), image) if ok else (envelope(False), None)
+        before = [(1, 0)]
+        with mock.patch.object(hyprland_capture, "written", side_effect=[before, before + ticks]), \
+                mock.patch.object(hyprland_capture, "monotonic_ns", return_value=self.MARK), \
+                mock.patch.object(hyprland_capture, "_capture", return_value=shot):
+            return hyprland_capture._slow_round(mock.Mock(), "w", Path("log"), "slow")
+
+    def test_a_tick_first_drawn_after_the_request_passes(self):
+        self.assertEqual(self.round(2, [(2, self.MARK + 230 * MS)]), ([], (2, self.MARK)))
+
+    def test_the_tick_cached_before_the_request_fails(self):
+        problems, shot = self.round(1, [(2, self.MARK + 230 * MS)])
+        self.assertEqual(shot, (1, self.MARK))
+        self.assertIn("first drawn 1000 ms before the request", problems[0])
+
+    def test_a_failed_capture_fails_the_round(self):
+        problems, shot = self.round(2, [], ok=False)
+        self.assertIn("capture failed", problems[0])
+        self.assertEqual(shot, (None, self.MARK))
+
+
+class ShortBatchTests(unittest.TestCase):
+    TIMED_OUT = {"ok": False, "error": {"code": "TIMEOUT", "details": {"kind": "capture_frame"},
+                                        "disposition": NOT_DELIVERED}}
+
+    def short_batch(self, short: dict) -> list[str]:
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.object(hyprland_capture, "saved_image", return_value=solid(8, 8, (0xa0, 0x50, 0))):
+            ctx = mock.Mock()
+            ctx.tier.runtime_dir = Path(folder)
+            ctx.product.side_effect = [batch(short, 180.0), batch({"ok": True}, 470.0)]
+            return hyprland_capture._short_batch(ctx, "w", "still", "a05000")
+
+    def test_a_short_budget_times_out_and_a_long_one_captures(self):
+        self.assertEqual(self.short_batch(self.TIMED_OUT), [])
+
+    def test_a_short_budget_that_captures_fails(self):
+        problems = self.short_batch({"ok": True})
+        self.assertIn("answered captured, not a capture_frame timeout", problems[0])
 
 
 class PaintedTests(unittest.TestCase):

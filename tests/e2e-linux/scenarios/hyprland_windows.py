@@ -153,12 +153,18 @@ def terminal_argv(app_id: str, command: list[str] | None = None) -> list[str]:
 @contextlib.contextmanager
 def terminal(tier, app_id: str, command: list[str] | None = None):
     """A foot toplevel with no accessibility tree, started in the run's slice, running `command`."""
+    with toplevel(tier, app_id, terminal_argv(app_id, command)) as started:
+        yield started
+
+
+@contextlib.contextmanager
+def toplevel(tier, app_id: str, argv: list[str], env: dict[str, str] | None = None):
+    """The one toplevel of class `app_id` that `argv` maps, started in the run's slice."""
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
-    attached_session.spawn(tier, terminal_argv(app_id, command), dict(tier.env),
-                           tier.runtime_dir / "terminal-launch.log")
+    attached_session.spawn(tier, argv, {**tier.env, **(env or {})}, tier.runtime_dir / "terminal-launch.log")
     found = raw.poll(lambda: _new_client(tier, app_id, known), 10.0)
-    require(found, f"the {app_id} terminal never mapped")
+    require(found, f"the {app_id} window never mapped")
     pid = found["pid"]
     start = proc.stat_fields((Path("/proc") / str(pid) / "stat").read_text())[0]
     require(proc.owned(tier, pid, start, {}), f"the {app_id} terminal is not in the run's slice")

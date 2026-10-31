@@ -5,7 +5,10 @@ leg chose, so a capture shows whose pixels it holds. A ticker repaints with a
 new colour every period and logs when it wrote each one, so the colour of a
 capture names the tick it shows. A capture is fresh when it shows a tick no
 older than the last one the ticker had written, with a margin for the
-terminal to draw it, before the product was asked.
+terminal to draw it, before the product was asked. A slow painter is a GTK
+window that draws only when the compositor asks and takes a set time to do
+it; a capture of one is drawn after the request only when the tick it shows
+was first drawn at or after the request, with no margin.
 """
 
 from __future__ import annotations
@@ -22,9 +25,10 @@ from runner.session import HARNESS_ROOT
 from scenarios.capture import decode
 from scenarios.hyprland_common import main_instance, shared
 from oracle import hyprland
-from scenarios.hyprland_windows import terminal
+from scenarios.hyprland_windows import terminal, toplevel
 
 PAINTER = HARNESS_ROOT / "apps" / "terminal_painter.py"
+SLOW_PAINTER = HARNESS_ROOT / "apps" / "slow_painter.py"
 TICK_BLUE = 0x40
 DRAW_MARGIN_NS = 100_000_000
 CHANNEL_DELTA = 3
@@ -59,6 +63,17 @@ def painted(tier, app_id: str, mode: str, value: str):
         yield owned, client, log
 
 
+@contextlib.contextmanager
+def slow_painted(tier, app_id: str, delay_ms: int):
+    """A slow painter on the launch special workspace that takes `delay_ms` to draw, and its log."""
+    log = tier.runtime_dir / f"painter-{app_id}.log"
+    log.unlink(missing_ok=True)
+    with toplevel(tier, app_id, [sys.executable, "-I", str(SLOW_PAINTER), app_id, str(delay_ms), str(log)]) as (
+            owned, client):
+        require(raw.poll(lambda: written(log), 5.0), f"{app_id} never painted")
+        yield owned, client, log
+
+
 def colour(text: str) -> tuple[int, int, int]:
     return (int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
 
@@ -89,6 +104,16 @@ def settled_tick(ticks: list[tuple[int, int]], mark_ns: int, margin_ns: int = DR
 
 def fresh(tick: int | None, ticks: list[tuple[int, int]], mark_ns: int) -> bool:
     return tick is not None and tick >= settled_tick(ticks, mark_ns)
+
+
+def first_drawn(tick: int | None, ticks: list[tuple[int, int]]) -> int | None:
+    return min((at for logged, at in ticks if logged == tick), default=None)
+
+
+def drawn_after(tick: int | None, ticks: list[tuple[int, int]], mark_ns: int) -> bool:
+    """The tick was first drawn at or after `mark_ns`, so no pixel of it is older than the request."""
+    at = first_drawn(tick, ticks)
+    return at is not None and at >= mark_ns
 
 
 def saved_image(envelope, path: Path) -> pixels.Image:
