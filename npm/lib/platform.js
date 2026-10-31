@@ -3,6 +3,7 @@ const { join } = require('path');
 
 const MACOS_HELPER_NAME = 'agent-desktop-macos-helper';
 const LINUX_HELPER_NAME = 'agent-desktop-linux-clipboard-owner';
+const LINUX_NOTICE_NAME = 'THIRD_PARTY_NOTICES.md';
 
 const PLATFORMS = {
   'darwin-arm64': {
@@ -21,12 +22,14 @@ const PLATFORMS = {
     target: 'aarch64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-arm64',
     entries: ['agent-desktop', LINUX_HELPER_NAME],
+    notices: [LINUX_NOTICE_NAME],
     released: true,
   },
   'linux-x64': {
     target: 'x86_64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-x64',
     entries: ['agent-desktop', LINUX_HELPER_NAME],
+    notices: [LINUX_NOTICE_NAME],
     released: true,
   },
   'win32-arm64': {
@@ -51,6 +54,12 @@ function resolve(osPlatform, osArch) {
 // that is installed beside it under its own name.
 function helperNames(entry) {
   return entry.entries.slice(1);
+}
+
+// Every member a release archive must list: the executables, then the notices
+// that ship beside them and are never installed as executables.
+function archiveMembers(entry) {
+  return [...entry.entries, ...(entry.notices ?? [])];
 }
 
 function releasedKeys() {
@@ -79,8 +88,10 @@ function tarCommand(osPlatform, environment) {
 
 module.exports = {
   LINUX_HELPER_NAME,
+  LINUX_NOTICE_NAME,
   MACOS_HELPER_NAME,
   PLATFORMS,
+  archiveMembers,
   helperNames,
   releasedKeys,
   resolve,
