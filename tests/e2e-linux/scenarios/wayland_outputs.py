@@ -175,7 +175,7 @@ def hyprland_displays_match_monitors(ctx: LegContext) -> None:
     lua = hyprland.uses_lua(runtime, main["signature"])
     read_main = lambda: monitors(runtime, main["signature"])
     read_nested = lambda: monitors(runtime, nested["signature"])
-    nested_env = dict(ctx.tier.env, WAYLAND_DISPLAY=nested["wayland"])
+    nested_env = dict(ctx.tier.env, WAYLAND_DISPLAY=nested["wayland"], HYPRLAND_INSTANCE_SIGNATURE=nested["signature"])
     settle_outputs(runtime, nested["signature"], lua)
     ctx.before("hyprland.monitors", read_main())
     ctx.before("hyprland.second_monitors", read_nested())
