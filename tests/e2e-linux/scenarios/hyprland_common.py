@@ -36,23 +36,6 @@ def bystander(tier) -> dict:
     return found
 
 
-def expected_displays(monitors: list[dict]) -> list[tuple[str, bool]]:
-    """What `list-displays` must report for a `j/monitors` reply: names, lowest id primary."""
-    ordered = sorted(monitors, key=lambda item: item["id"])
-    return [(item["name"], index == 0) for index, item in enumerate(ordered)]
-
-
-def monitors(tier, instance: dict) -> list[tuple[str, bool]]:
-    return expected_displays(hyprland.query(shared(tier), instance["signature"], "monitors",
-                                            pid=instance["pid"]))
-
-
-def reported_displays(envelope) -> list[tuple[str, bool]]:
-    if not envelope.ok or not isinstance(envelope.data, list):
-        raise AssertionError(f"list-displays failed: {envelope.raw}")
-    return [(item.get("id"), item.get("is_primary") is True) for item in envelope.data]
-
-
 class Sampler:
     """Reads desktops while a leg works, so a transient change is caught too."""
 

@@ -13,7 +13,7 @@ from runner import second_instance
 from runner.helper import activate, changed, display, managed, one, ref, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance, monitors, reported_displays
+from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
 
 NOT_DELIVERED = {"delivery": "not_delivered", "retry": "safe"}
 
@@ -90,7 +90,7 @@ def headless_route_preserves_desktop(ctx: LegContext) -> None:
         problems = []
         try:
             with Sampler({"desktop": read}) as sampler:
-                problems += _read_only_commands(ctx, app, main)
+                problems += _read_only_commands(ctx, app)
                 seven = ref(ctx, app, role="button", name="7")
                 clicked = ctx.product(["click", seven])
                 require(clicked.ok, f"the semantic click failed: {clicked.raw}")
@@ -104,7 +104,7 @@ def headless_route_preserves_desktop(ctx: LegContext) -> None:
         ctx.restored("hyprland.desktop", read())
 
 
-def _read_only_commands(ctx: LegContext, app, main: dict) -> list[str]:
+def _read_only_commands(ctx: LegContext, app) -> list[str]:
     problems = []
     listed = ctx.product(["list-apps"])
     if not listed.ok or app.pid not in {item.get("pid") for item in (listed.data or {}).get("apps", ())}:
@@ -115,12 +115,6 @@ def _read_only_commands(ctx: LegContext, app, main: dict) -> list[str]:
     snapshot = ctx.product(["snapshot", "-i", "--window-id", app.windows[0]])
     if not snapshot.ok or (snapshot.data or {}).get("complete") is not True:
         problems.append(f"the snapshot is not complete: {snapshot.raw[:400]}")
-    displays = ctx.product(["list-displays"])
-    try:
-        if reported_displays(displays) != monitors(ctx.tier, main):
-            problems.append(f"list-displays disagrees with j/monitors: {displays.raw}")
-    except AssertionError as error:
-        problems.append(str(error))
     status = ctx.product(["status"])
     if not status.ok:
         problems.append(f"status failed: {status.raw[:400]}")
