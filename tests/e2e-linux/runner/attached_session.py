@@ -27,6 +27,7 @@ from runner.session import OWNER_MARKER, TeardownError, Tier, TierUnavailable
 
 NAME = "hyprland"
 WORKSPACE = "ad_e2e"
+RULE = "ad_e2e_place"
 REQUIRED = ("XDG_RUNTIME_DIR", "HYPRLAND_INSTANCE_SIGNATURE", "WAYLAND_DISPLAY",
             "DBUS_SESSION_BUS_ADDRESS")
 PASSED = ("HOME", "PATH", "LANG", "XDG_CURRENT_DESKTOP", "XDG_CONFIG_HOME", "XDG_DATA_HOME",
@@ -218,13 +219,67 @@ def launcher(tier: Tier, argv: list[str], env: dict[str, str], log: Path) -> Pat
     return script
 
 
-def spawn(tier: Tier, argv: list[str], env: dict[str, str], log: Path, workspace: str = WORKSPACE) -> None:
+def _placed(runtime: Path, signature: str, app_class: str, known: set[str]) -> list[dict]:
+    return [item for item in hyprland.query(runtime, signature, "clients")
+            if item.get("class") == app_class and item.get("address") not in known]
+
+
+def _await_placed(runtime: Path, signature: str, toplevels: tuple[str, int], known: set[str],
+                  timeout_s: float, workspace: str = WORKSPACE) -> None:
+    app_class, count = toplevels
+    deadline = time.monotonic() + timeout_s
+    while len(found := _placed(runtime, signature, app_class, known)) < count:
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"{len(found)} of {count} {app_class} toplevels mapped in {timeout_s}s")
+        time.sleep(0.05)
+    stray = [item.get("address") for item in found
+             if (item.get("workspace") or {}).get("name") != f"special:{workspace}"]
+    if stray:
+        raise RuntimeError(f"{app_class} toplevels {stray} mapped outside special:{workspace}")
+
+
+def spawn(tier: Tier, argv: list[str], env: dict[str, str], log: Path, workspace: str = WORKSPACE, *,
+          toplevels: tuple[str, int] | None = None, timeout_s: float = 10.0) -> None:
     """Start a process in the run's slice, through the compositor, without taking focus, on the
-    special workspace `workspace`."""
+    special workspace `workspace`.
+
+    The exec rule places only the first window the process maps. For a process that maps
+    `toplevels = (class, count)` windows, a named class rule places the rest; it is enabled for
+    this call only and stays recorded until it is disabled, so teardown can disable it too."""
     record = attached.load(tier.runtime_dir)
+    runtime, signature = Path(record["shared_runtime"]), record["signature"]
     script = launcher(tier, argv, env, log)
-    hyprland.exec_silently(Path(record["shared_runtime"]), record["signature"],
-                           f"/bin/sh {script}", workspace)
+    if toplevels is None:
+        hyprland.exec_silently(runtime, signature, f"/bin/sh {script}", workspace)
+        return
+    if not hyprland.uses_lua(runtime, signature):
+        raise RuntimeError(f"{toplevels[0]}: {hyprland.LEGACY_RULES}")
+    known = {item.get("address") for item in hyprland.query(runtime, signature, "clients")}
+    if RULE not in record.setdefault("rules", []):
+        record["rules"].append(RULE)
+    attached.save(tier.runtime_dir, record)
+    try:
+        hyprland.place_class(runtime, signature, RULE, toplevels[0], workspace)
+        hyprland.exec_silently(runtime, signature, f"/bin/sh {script}", workspace)
+        _await_placed(runtime, signature, toplevels, known, timeout_s, workspace)
+    finally:
+        _disable_rules(tier.runtime_dir)
+
+
+def _disable_rules(work: Path) -> list[str]:
+    record = attached.load(work)
+    if record is None or not record.get("rules"):
+        return []
+    errors = []
+    for name in list(record.get("rules", [])):
+        try:
+            hyprland.disable_rule(Path(record["shared_runtime"]), record["signature"], name)
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            errors.append(f"window rule {name} was not disabled: {error}")
+            continue
+        record["rules"].remove(name)
+    attached.save(work, record)
+    return errors
 
 
 def boot_ticks() -> int:
@@ -310,8 +365,8 @@ def dead_survivors(record: dict, proc_root: Path = Path("/proc")) -> list[str]:
 
 def teardown(work: Path, *, check_survivors: bool = True, proc_root: Path = Path("/proc"),
              stop_slice=None) -> None:
+    errors = _disable_rules(work)
     record = attached.load(work)
-    errors = []
     if record is not None:
         (stop_slice or _stop_slice)(record)
         session._sweep_members(work, proc_root)

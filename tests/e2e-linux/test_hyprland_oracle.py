@@ -117,5 +117,32 @@ class HyprlandOracleTests(unittest.TestCase):
                 control.assert_not_called()
 
 
+    def test_the_class_rule_places_exactly_one_class_silently_and_can_be_disabled(self):
+        self.assertEqual(hyprland.class_rule_code("ad_e2e_place", "twin_windows.py", "ad_e2e"),
+                         'hl.window_rule({ name = "ad_e2e_place", enabled = true, '
+                         'match = { class = "^twin_windows[.]py$" }, workspace = "special:ad_e2e silent" })')
+        self.assertEqual(hyprland.disable_rule_code("ad_e2e_place"),
+                         'hl.window_rule({ name = "ad_e2e_place", enabled = false })')
+
+    def test_class_rules_that_could_escape_the_lua_string_are_refused(self):
+        for name, app_class in (("ad", 'a"b'), ("ad", "a\\b"), ("ad", "a b"), ("a-d", "x"), ("a\"", "x")):
+            with self.subTest(name=name, app_class=app_class), self.assertRaises(ValueError):
+                hyprland.class_rule_code(name, app_class, "ad_e2e")
+
+    def test_a_class_rule_is_evaluated_and_its_refusal_raises(self):
+        with mock.patch.object(hyprland, "control", side_effect=["ok", "ok"]) as control:
+            hyprland.place_class(self.runtime, "sig_1", "ad_e2e_place", "twin_windows.py", "ad_e2e")
+        self.assertEqual(control.call_args_list[1].args[2][0], "eval")
+        with mock.patch.object(hyprland, "control", side_effect=["ok", "error: unknown field"]):
+            with self.assertRaisesRegex(RuntimeError, "unknown field"):
+                hyprland.disable_rule(self.runtime, "sig_1", "ad_e2e_place")
+
+    def test_a_legacy_config_gets_no_class_rule_it_could_not_remove(self):
+        with mock.patch.object(hyprland, "control", side_effect=["unknown request"]) as control:
+            with self.assertRaisesRegex(RuntimeError, "legacy"):
+                hyprland.place_class(self.runtime, "sig_1", "ad_e2e_place", "twin_windows.py", "ad_e2e")
+        self.assertEqual(control.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

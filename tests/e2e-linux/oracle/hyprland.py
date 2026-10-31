@@ -131,6 +131,47 @@ def exec_silently(runtime: Path, signature: str, command: str, workspace: str) -
         raise RuntimeError(f"compositor refused to start {command!r}: {output}")
 
 
+APP_CLASS = re.compile(r"[A-Za-z0-9_.-]+")
+LEGACY_RULES = "a legacy hyprlang config cannot remove a runtime window rule without a reload"
+
+
+def class_rule_code(name: str, app_class: str, workspace: str) -> str:
+    """A named Lua rule that opens every new window of exactly `app_class` on a special workspace,
+    without focus."""
+    if not SIGNATURE.fullmatch(name) or not APP_CLASS.fullmatch(app_class):
+        raise ValueError(f"refusing rule {name!r} for class {app_class!r}")
+    pattern = "^" + app_class.replace(".", "[.]") + "$"
+    target = lua_string(f"special:{workspace} silent")
+    return (f'hl.window_rule({{ name = "{name}", enabled = true, match = {{ class = "{pattern}" }}, '
+            f"workspace = {target} }})")
+
+
+def disable_rule_code(name: str) -> str:
+    if not SIGNATURE.fullmatch(name):
+        raise ValueError(f"refusing rule {name!r}")
+    return f'hl.window_rule({{ name = "{name}", enabled = false }})'
+
+
+def _eval_rule(runtime: Path, signature: str, name: str, code: str) -> None:
+    if not uses_lua(runtime, signature):
+        raise RuntimeError(LEGACY_RULES)
+    output = control(runtime, signature, ["eval", code])
+    if output != "ok":
+        raise RuntimeError(f"compositor refused window rule {name}: {output}")
+
+
+def place_class(runtime: Path, signature: str, name: str, app_class: str, workspace: str) -> None:
+    """Hyprland consumes an exec rule on the first window its process maps (v0.56.2
+    src/desktop/rule/windowRule/WindowRuleApplicator.cpp, readStaticRules: unregisterRule), so a
+    process with more than one toplevel needs this named class rule for the rest. Only the Lua
+    config can disable a runtime rule; a legacy `keyword windowrule` stays until a config reload."""
+    _eval_rule(runtime, signature, name, class_rule_code(name, app_class, workspace))
+
+
+def disable_rule(runtime: Path, signature: str, name: str) -> None:
+    _eval_rule(runtime, signature, name, disable_rule_code(name))
+
+
 def instances(runtime: Path) -> list[str]:
     directory = Path(runtime) / "hypr"
     if not directory.is_dir():
