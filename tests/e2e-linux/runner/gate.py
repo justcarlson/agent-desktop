@@ -26,7 +26,7 @@ TIER_TOOLS = {
     "x11-openbox": ("xdotool", "wmctrl", "xclip"),
     "x11-mutter": ("gnome-shell", "xdotool", "wmctrl", "xclip"),
     "wayland": ("gnome-shell", "wl-copy", "wl-paste"),
-    "hyprland": ("Hyprland", "hyprctl", "systemd-run", "systemctl", "foot", "gdbus", "timeout"),
+    "hyprland": ("Hyprland", "hyprctl", "systemd-run", "systemctl", "foot", "grim", "gdbus", "timeout"),
 }
 
 TIER_SCRIPTS = {
