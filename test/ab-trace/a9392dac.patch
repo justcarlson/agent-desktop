@@ -1,0 +1,230 @@
+diff --git c/crates/linux/src/lib.rs i/crates/linux/src/lib.rs
+index aeb6677f..7c2f92b9 100644
+--- c/crates/linux/src/lib.rs
++++ i/crates/linux/src/lib.rs
+@@ -11,3 +11,21 @@ pub use adapter::LinuxAdapter;
+ pub use input::clipboard::owner::owner_entry::run_from_env as clipboard_owner_from_env;
+ pub use input::wayland::kept_session::end as end_input_session;
+ pub use input::x11::signal_release::enable as release_input_on_signals;
++
++#[allow(dead_code)]
++pub(crate) fn ltrace(msg: impl AsRef<str>) {
++    use std::io::Write;
++    if let Ok(path) = std::env::var("AD_LISTING_TRACE") {
++        if let Ok(mut f) = std::fs::OpenOptions::new()
++            .create(true)
++            .append(true)
++            .open(path)
++        {
++            let t = std::time::SystemTime::now()
++                .duration_since(std::time::UNIX_EPOCH)
++                .map(|d| d.as_millis())
++                .unwrap_or(0);
++            let _ = writeln!(f, "{t} pid={} {}", std::process::id(), msg.as_ref());
++        }
++    }
++}
+diff --git c/crates/linux/src/system/registry/mod.rs i/crates/linux/src/system/registry/mod.rs
+index 7533ed88..264d4394 100644
+--- c/crates/linux/src/system/registry/mod.rs
++++ i/crates/linux/src/system/registry/mod.rs
+@@ -292,3 +292,22 @@ pub(super) mod registry_frames;
+ pub(super) mod registry_live_tests;
+ 
+ pub(crate) mod app_query;
++
++#[allow(dead_code)]
++pub(crate) fn lw(ws: &[listed_window::ListedWindow]) -> String {
++    ws.iter()
++        .map(|w| {
++            format!(
++                "[{} pid={} title={:?} unshown={} ext={:?} sizeid={} gp={}]",
++                w.info.id,
++                w.frame.pid,
++                w.info.title,
++                w.unshown,
++                w.frame.extents,
++                w.frame.size_identity,
++                w.frame.global_position
++            )
++        })
++        .collect::<Vec<_>>()
++        .join(" ")
++}
+diff --git c/crates/linux/src/system/signal/signal_inventory.rs i/crates/linux/src/system/signal/signal_inventory.rs
+index 60555ca4..4067d4d8 100644
+--- c/crates/linux/src/system/signal/signal_inventory.rs
++++ i/crates/linux/src/system/signal/signal_inventory.rs
+@@ -103,12 +103,61 @@ fn read_unfiltered(
+     select: impl Fn(&RegistryApp) -> bool,
+     deadline: Deadline,
+ ) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
++    crate::ltrace(format!(
++        "registry: {}",
++        registry
++            .apps
++            .iter()
++            .map(|a| format!("{}:{}:answered={}", a.root.pid(), a.name, a.answered))
++            .collect::<Vec<_>>()
++            .join(", ")
++    ));
+     let chosen = chosen_apps(registry, select, proc_stat::is_stopped);
+-    let (windows, outcomes) = gather(&chosen, |roots| read_frames(bus, roots, deadline))?;
+-    Ok((
+-        crate::system::window::window_filter::without_helpers(windows, deadline)?,
+-        outcomes,
+-    ))
++    crate::ltrace(format!(
++        "chosen: {:?}",
++        chosen.iter().map(|(_, a)| a.root.pid()).collect::<Vec<_>>()
++    ));
++    let (windows, outcomes) = gather(&chosen, |roots| {
++        let r = read_frames(bus, roots, deadline);
++        if let Ok(frames) = &r {
++            for (root, f) in roots.iter().zip(frames) {
++                crate::ltrace(format!(
++                    "frames pid={} read={:?} nodes={}",
++                    root.pid(),
++                    f.read,
++                    f.nodes.len()
++                ));
++                for n in &f.nodes {
++                    crate::ltrace(format!(
++                        "   node {} {} name={:?} states={:?} ext={:?} ifaces={:?}",
++                        n.element.bus_name(),
++                        n.element.path(),
++                        n.properties.name,
++                        n.traits.states,
++                        n.extents,
++                        n.traits.interfaces
++                    ));
++                }
++            }
++        } else {
++            crate::ltrace("frames read error");
++        }
++        r
++    })?;
++    crate::ltrace(format!(
++        "collected: {}",
++        crate::system::registry::lw(&windows)
++    ));
++    let windows = crate::system::window::window_filter::without_helpers(windows, deadline);
++    match &windows {
++        Ok(w) => crate::ltrace(format!(
++            "after without_helpers: {}",
++            crate::system::registry::lw(w)
++        )),
++        Err(e) => crate::ltrace(format!("without_helpers err: {e:?}")),
++    }
++    let windows = windows?;
++    Ok((windows, outcomes))
+ }
+ 
+ /// Whether a selected, listable application has no outcome in the pass and no
+@@ -269,7 +318,12 @@ pub(in crate::system) fn run_pass_with(
+ ) -> Result<(Pass, X11State), AdapterError> {
+     let (windows, outcomes) = read_unfiltered(bus, registry, &select, deadline)?;
+     let state = finish(deadline);
++    crate::ltrace(format!("x11 state: {state:?}"));
+     let mut windows = without_ghosts(windows, &state);
++    crate::ltrace(format!(
++        "after without_ghosts: {}",
++        crate::system::registry::lw(&windows)
++    ));
+     let ids = WindowIds::in_runtime_dir();
+     remember_ids(&windows, &state, ids.as_ref());
+     let stopped = of_stopped_apps(
+diff --git c/crates/linux/src/system/window/window_filter.rs i/crates/linux/src/system/window/window_filter.rs
+index 6dcfb50a..e26d46a5 100644
+--- c/crates/linux/src/system/window/window_filter.rs
++++ i/crates/linux/src/system/window/window_filter.rs
+@@ -48,6 +48,26 @@ fn classified(
+     for window in windows {
+         deadline.ensure_remaining()?;
+         let pid = window.frame.pid;
++        crate::ltrace(format!(
++            "classify {} pid={} unshown={} absent={} complete={} windowed={} users={:?} helpers={:?} -> {:?}",
++            window.info.id,
++            pid,
++            window.unshown,
++            population.absent.contains(&pid),
++            population.complete.contains(&pid),
++            population.windowed.contains(&pid),
++            population.users.get(&pid),
++            population.helper_ids,
++            native_group::classify(
++                window,
++                windows,
++                &population.clients,
++                population.users.get(&pid).unwrap_or(&no_users),
++                &population.helper_ids,
++                population.complete.contains(&pid)
++            )
++            .map_err(|e| e.message)
++        ));
+         if window.unshown {
+             listed.push(window.clone());
+             continue;
+diff --git c/crates/linux/src/system/window/window_listing.rs i/crates/linux/src/system/window/window_listing.rs
+index 29b6317f..7fc07d02 100644
+--- c/crates/linux/src/system/window/window_listing.rs
++++ i/crates/linux/src/system/window/window_listing.rs
+@@ -133,6 +133,14 @@ pub(crate) fn read_frames(
+     deadline: Deadline,
+ ) -> Result<Vec<FrameRead>, AdapterError> {
+     let mut frames = crate::system::registry::registry_frames::read_frames(bus, roots, deadline)?;
++    for (root, frame) in roots.iter().zip(&frames) {
++        crate::ltrace(format!(
++            "raw frames pid={} read={:?} nodes={}",
++            root.pid(),
++            frame.read,
++            frame.nodes.len()
++        ));
++    }
+     for frame in &mut frames {
+         exclude_popup_menus(&mut frame.nodes, |node| {
+             let connection = bus.get(deadline).ok()?;
+@@ -147,6 +155,7 @@ pub(crate) fn read_frames(
+             .flatten()
+         });
+     }
++    crate::ltrace("popup exclusion done");
+     Ok(frames)
+ }
+ 
+diff --git c/crates/linux/src/system/window/window_ops.rs i/crates/linux/src/system/window/window_ops.rs
+index 64561209..128ba723 100644
+--- c/crates/linux/src/system/window/window_ops.rs
++++ i/crates/linux/src/system/window/window_ops.rs
+@@ -70,6 +70,7 @@ pub(crate) fn list_windows(
+     filter: &WindowFilter,
+     deadline: Deadline,
+ ) -> Result<Vec<WindowInfo>, AdapterError> {
++    crate::ltrace(format!("list_windows start filter app={:?}", filter.app));
+     let pending = x11::start(|| DisplayReader.read());
+     let desktops = x11::start(desktops::read);
+     let stack = x11::start(client_stack::read);
+@@ -103,6 +104,11 @@ pub(crate) fn list_windows(
+     };
+     let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
+     let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
++    crate::ltrace(format!(
++        "list_windows filter app={:?} pass windows: {}",
++        filter.app,
++        crate::system::registry::lw(&pass.windows)
++    ));
+     let windows = settle_scoped(pass.windows, stopped)?;
+     pass.windows = require_answered(windows, &pass.outcomes, filter.app.is_some())?;
+     finish_listing(
+@@ -129,6 +135,10 @@ pub(crate) fn list_windows(
+     };
+     let compositor = hyprland_windows(represented, filter.app.as_deref(), deadline)?;
+     listed.append(&mut keep_focused(compositor, filter));
++    crate::ltrace(format!(
++        "list_windows end ids: {:?}",
++        listed.iter().map(|w| w.id.as_str()).collect::<Vec<_>>()
++    ));
+     Ok(listed)
+ }
+ 

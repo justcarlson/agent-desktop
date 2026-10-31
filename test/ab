@@ -1,0 +1,104 @@
+#!/bin/bash
+# Diagnostic only, not for merge. Runs two prebuilt CLIs in one Omarchy VM, in
+# alternating order, to catch lifecycle.maximize_restore failing under the load
+# where it fails in CI: ~/src/agent-desktop-bin/main and
+# ~/src/agent-desktop-bin/candidate, each with its clipboard helper and each
+# built with the AD_LISTING_TRACE listing trace.
+#
+# Order: AB_ALL_ROUNDS rounds of the whole test/all (private session checks,
+# live session checks, x11-openbox, wayland, hyprland) as main, candidate,
+# main, candidate, ...; then AB_LIFECYCLE_ROUNDS rounds of the lifecycle legs
+# alone in the same order. The leg records the restore call's listing trace,
+# and the window state after restore, in every run of both builds.
+#
+# Writes to ~/out: ab-versions.txt, ab/<n>-<label>/ with that run's test/all
+# output (versions.txt, the session and tier logs, failing suites) or
+# lifecycle.log, and ab/summary.txt with one line per maximize_restore run.
+# Exits 1 when any maximize_restore run did not pass.
+set -uo pipefail
+
+[[ -n ${OMARCHY_VM_CHANNEL:-} ]] || { echo "test/ab: run this in an Omarchy VM" >&2; exit 2; }
+
+cd "$(dirname "$0")/.." || exit 2
+out=$HOME/out
+bins=$HOME/src/agent-desktop-bin
+all_rounds=${AB_ALL_ROUNDS:-4}
+lifecycle_rounds=${AB_LIFECYCLE_ROUNDS:-5}
+labels=(main candidate)
+lifecycle=lifecycle.close_app_undelivered_report,lifecycle.focus_window_active_reads,lifecycle.minimize_restore,lifecycle.maximize_restore,lifecycle.window_operation_delivery_reports
+all_outputs=(versions.txt private-session.log live-session.log x11-openbox.log wayland.log hyprland.log suites)
+
+for label in "${labels[@]}"; do
+  [[ -x $bins/$label/agent-desktop && -x $bins/$label/agent-desktop-linux-clipboard-owner ]] ||
+    { echo "test/ab: no prebuilt agent-desktop and clipboard helper in $bins/$label" >&2; exit 2; }
+done
+
+mkdir -p "$out/ab"
+{
+  echo "channel: $OMARCHY_VM_CHANNEL"
+  echo "image: ${OMARCHY_VM_VERSION:-unknown}"
+  echo "harness commit: $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "nproc: $(nproc) mem: $(free -m | awk '/^Mem:/ {print $2}') MB"
+  for label in "${labels[@]}"; do
+    echo "$label: $(cat "$bins/$label/source.txt" 2>/dev/null || echo unknown)" \
+      "$("$bins/$label/agent-desktop" --version) $(sha256sum "$bins/$label/agent-desktop" | cut -d' ' -f1)"
+  done
+} >"$out/ab-versions.txt"
+cat "$out/ab-versions.txt"
+
+run=0
+# record <n> <started> <kind> <label> <log>: one summary line per run.
+record() {
+  local result
+  result=$(grep -m1 -E '^ +[a-z_]+ +lifecycle\.maximize_restore( |$)' "$5" | awk '{print $1}')
+  printf '%02d %s %-9s %-9s maximize_restore=%s restore=[%s] %s load=[%s]\n' "$1" "$2" "$3" "$4" "${result:-missing}" \
+    "$(grep -m1 -oE 'DIAG restore [^ ]+ ok=[A-Za-z]+ ms=[0-9]+' "$5" | cut -d' ' -f4-)" \
+    "$(grep '^summary:' "$5" | tr '\n' ' ')" "$6" | tee -a "$out/ab/summary.txt"
+}
+
+# run_all <label>: one whole test/all with one build; its outputs move to the run's folder.
+run_all() {
+  local label=$1 dir started load
+  run=$((run + 1))
+  dir=$out/ab/$(printf '%02d' "$run")-$label
+  mkdir -p "$dir"
+  started=$(date -u +%FT%T.%3NZ)
+  load=$(cut -d' ' -f1-3 /proc/loadavg)
+  echo "==> run $run all $label $started"
+  AGENT_DESKTOP_E2E_BIN=$bins/$label/agent-desktop ./test/all >"$dir/all.log" 2>&1
+  echo "rc=$?" >>"$dir/all.log"
+  for name in "${all_outputs[@]}"; do
+    [[ ! -e $out/$name ]] || mv "$out/$name" "$dir/"
+  done
+  record "$run" "$started" all "$label" "$dir/all.log" "$load"
+}
+
+# run_lifecycle <label>: the lifecycle legs alone with one build.
+run_lifecycle() {
+  local label=$1 dir started load
+  run=$((run + 1))
+  dir=$out/ab/$(printf '%02d' "$run")-$label
+  mkdir -p "$dir"
+  started=$(date -u +%FT%T.%3NZ)
+  load=$(cut -d' ' -f1-3 /proc/loadavg)
+  echo "==> run $run lifecycle $label $started"
+  AGENT_DESKTOP_E2E_BIN=$bins/$label/agent-desktop AGENT_DESKTOP_E2E_SUITE=$dir/suite \
+    bash tests/e2e-linux/run.sh --tier x11-openbox --leg "$lifecycle" >"$dir/lifecycle.log" 2>&1
+  echo "rc=$?" >>"$dir/lifecycle.log"
+  record "$run" "$started" lifecycle "$label" "$dir/lifecycle.log" "$load"
+}
+
+for ((round = 1; round <= all_rounds; round++)); do
+  for label in "${labels[@]}"; do
+    run_all "$label"
+  done
+done
+for ((round = 1; round <= lifecycle_rounds; round++)); do
+  for label in "${labels[@]}"; do
+    run_lifecycle "$label"
+  done
+done
+
+echo "==> summary"
+cat "$out/ab/summary.txt"
+! grep -q 'maximize_restore=\(fail\|error\|missing\)' "$out/ab/summary.txt"
