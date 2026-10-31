@@ -127,6 +127,16 @@ Earlier output synthesized a display name, falling back to `value` or
 `name` as always present must tolerate its absence and apply their own fallback
 to `role` or `value`.
 
+## Hyprland binding
+
+On Hyprland, `list-displays` reads the Wayland socket of the one Hyprland
+instance it binds. The binding refuses with `PLATFORM_NOT_SUPPORTED` and a
+cause in `error.details.display_unavailable`. `hyprland_ambiguous` means
+several instances answer and none is named; `details.signatures` lists them.
+`hyprland_mismatch` means the named instance and the Wayland socket belong to
+different compositor processes. A socket that accepts the connection and never
+answers is `TIMEOUT` with cause `silent`, and `details.detail` names it.
+
 ## Error codes
 
 | Code | Meaning |

@@ -87,7 +87,7 @@ Ref actions are semantic AT-SPI calls that never move the pointer or change the 
 { "bundle_id": "org.gnome.Calculator", "name": "gnome-calculator", "pid": 8255, "presentation": "foreground", "process_instance": "6d91df60:28340" }
 ```
 
-`list-windows --app` is an exact, case-insensitive match; `list-apps --app` also matches a substring. Window ids are opaque strings such as `w-1.11-org-gnome-Calculator-a11y-...`, valid for the life of the window's process. Several instances of one app share a name; pick one with `--window-id`. `launch` accepts an absolute path, a desktop id, a bare command, or a desktop entry name.
+`list-windows --app` is an exact, case-insensitive match; `list-apps --app` also matches a substring. Window ids are opaque strings such as `w-1.11-org-gnome-Calculator-a11y-...`, valid for the life of the window's process. When several Hyprland instances run, set `HYPRLAND_INSTANCE_SIGNATURE` to choose one. Several instances of one app share a name; pick one with `--window-id`. `launch` accepts an absolute path, a desktop id, a bare command, or a desktop entry name.
 
 ## Surfaces
 
