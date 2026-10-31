@@ -229,12 +229,34 @@ with cause `silent`, and `details.detail` names it.
 
 ## Hyprland capture
 
-On a bound Hyprland, `screenshot --screen N`, or no selector for the primary
-display, captures that output through `zwlr_screencopy_v1` at its full pixel
-size. `data.scale_factor` is the output's scale. The portal is never asked and
-no dialog appears; a refusal is the answer, never a portal fallback. Only a
-frame presented after the request counts, and an unchanged frame is valid. A
-window target stays `PLATFORM_NOT_SUPPORTED`.
+On a bound Hyprland, `screenshot` uses the compositor's own capture protocols.
+The portal is never asked and no dialog appears; a refusal is the answer, never
+a portal fallback.
+
+- A window target (`--window-id` or `--app`) binds to exactly one toplevel, the
+  way `focus-window` does, and is captured from that toplevel through
+  `ext_image_copy_capture_v1`. A window on a hidden special workspace, on a
+  workspace out of view, or with no accessibility tree is captured where it is.
+  Nothing is activated, shown or moved. `data.scale_factor` is the frame's
+  pixel width over the window's logical width.
+- A window in view is answered with the first frame. In view means it is on the
+  workspace its monitor shows, or on the special workspace open over that
+  monitor, and no other window on its workspace is fullscreen or maximized.
+  Hyprland asks such a window for every frame, so the first frame holds the
+  newest drawing it committed before the request.
+- Any other window waits for a redraw, because Hyprland draws it from the
+  buffer it last drew, which can be seconds old. The capture takes one frame to
+  make the window draw, then opens a new capture session every 25 ms and
+  returns the first frame whose pixels differ from that first one. A window
+  whose pixels stay the same for 10 sessions, at least 250 ms, returns that
+  unchanged frame. A drawing that lands later is not waited for, and a budget
+  too short for the wait answers `TIMEOUT`.
+- `--screen N`, or no selector for the primary display, captures that output
+  through `zwlr_screencopy_v1` at its full pixel size. `data.scale_factor` is
+  the output's scale. Only a frame presented after the request counts, and an
+  unchanged frame is valid.
+- On any other Wayland compositor, a window target is `PLATFORM_NOT_SUPPORTED`
+  and reaches neither the portal nor X11.
 
 Every capture error is `not_delivered` with `retry: safe`, and no file is
 written.
@@ -243,8 +265,10 @@ written.
 |------|------|-----------|
 | `PERM_DENIED` | `ecosystem:enforce_permissions` is on; nothing was requested | `option`, `enforced: true` |
 | `TIMEOUT` | No frame arrived before the deadline | `kind: "capture_frame"` |
-| `ACTION_FAILED` | The compositor refused the frame | `kind: "capture_refused"`, `reason: "unknown"` |
+| `ACTION_FAILED` | The compositor refused every frame; a refused window buffer is retried on new sessions for up to 2 s while a moved window's size settles | `kind: "capture_refused"`, `reason: "buffer_constraints"` or `"unknown"` |
 | `ACTION_FAILED` | The frame came from before the request, its size did not match the display, or no buffer layout was readable | |
+| `WINDOW_NOT_FOUND` | The window matches no toplevel, its process was replaced, its toplevel closed or changed before or during the capture, or its id came from another compositor | |
+| `AMBIGUOUS_TARGET` | The window matches more than one toplevel | `candidates`, each with `address` and `workspace` |
 | `ACTION_NOT_SUPPORTED` | The compositor lacks a global capture needs; `platform_detail` names it | |
 | `INVALID_ARGS` | The display is gone or changed during the capture | `display` when the compositor no longer offers it |
 | `PLATFORM_NOT_SUPPORTED` | The compositor closed the connection | `display_unavailable: "missing"` |
