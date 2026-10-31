@@ -81,11 +81,12 @@ def query(runtime: Path, signature: str, name: str, *, pid: int | None = None):
 
 
 def desktop(runtime: Path, signature: str, *, pid: int | None = None) -> dict:
-    """The user-visible state a run must leave alone."""
+    """The user-visible state a run must leave alone. The focused window is
+    named by its initial title: a shell inside it may retitle it at any time."""
     active = query(runtime, signature, "activewindow", pid=pid)
     monitors = query(runtime, signature, "monitors", pid=pid)
     return {
-        "active_window": {key: active.get(key) for key in ("address", "pid", "class", "title")},
+        "active_window": {key: active.get(key) for key in ("address", "pid", "class", "initialTitle")},
         "cursor": query(runtime, signature, "cursorpos", pid=pid),
         "workspace": query(runtime, signature, "activeworkspace", pid=pid).get("name"),
         "monitors": sorted((item["name"], item.get("focused"), item["activeWorkspace"]["name"],

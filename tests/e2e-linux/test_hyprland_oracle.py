@@ -16,7 +16,8 @@ sys.path.insert(0, str(ROOT))
 from oracle import hyprland
 
 ANSWERS = {
-    b"j/activewindow": {"address": "0x1", "pid": 7, "class": "foot", "title": "bystander", "size": [1, 1]},
+    b"j/activewindow": {"address": "0x1", "pid": 7, "class": "foot", "title": "user@host:~",
+                        "initialTitle": "bystander", "size": [1, 1]},
     b"j/cursorpos": {"x": 640, "y": 400},
     b"j/activeworkspace": {"name": "1", "id": 1},
     b"j/monitors": [{"name": "Virtual-1", "focused": True, "activeWorkspace": {"name": "1"},
@@ -65,10 +66,18 @@ class HyprlandOracleTests(unittest.TestCase):
 
     def test_desktop_reads_focus_cursor_workspace_and_monitors(self):
         state = hyprland.desktop(self.runtime, "sig_1", pid=os.getpid())
-        self.assertEqual(state["active_window"], {"address": "0x1", "pid": 7, "class": "foot", "title": "bystander"})
+        self.assertEqual(state["active_window"],
+                         {"address": "0x1", "pid": 7, "class": "foot", "initialTitle": "bystander"})
         self.assertEqual(state["cursor"], {"x": 640, "y": 400})
         self.assertEqual(state["workspace"], "1")
         self.assertEqual(state["monitors"], [("Virtual-1", True, "1", "")])
+
+    def test_a_shell_retitling_the_focused_window_is_not_drift(self):
+        before = hyprland.desktop(self.runtime, "sig_1", pid=os.getpid())
+        retitled = dict(ANSWERS[b"j/activewindow"], title="user@host:/tmp")
+        with mock.patch.dict(ANSWERS, {b"j/activewindow": retitled}):
+            after = hyprland.desktop(self.runtime, "sig_1", pid=os.getpid())
+        self.assertEqual(before, after)
 
     def test_a_listener_from_another_process_does_not_answer_for_the_compositor(self):
         with self.assertRaisesRegex(RuntimeError, "expected 1"):
