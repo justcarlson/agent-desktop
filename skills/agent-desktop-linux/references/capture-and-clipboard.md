@@ -73,6 +73,8 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   than the request. A drawing that lands later is not waited for, so capture
   again to see it. An unchanged window out of view takes about 430 ms to
   capture.
+- A window on a workspace under an open special workspace also waits. It is
+  not in view, so its capture is correct, only slower.
 - `--screen N` captures the output `list-displays` names at index `N`, at its
   full pixel size. `data.scale_factor` is the output's scale; fractional
   scales and outputs at negative origins work.

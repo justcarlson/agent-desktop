@@ -208,17 +208,18 @@ It never asks the desktop portal, so no dialog appears.
   Hyprland asks such a window for every frame, so the first frame holds the
   newest drawing the window committed before the request, at most one drawing
   old. A window in view takes about 45 ms to capture.
-- Hyprland stops asking any other window for frames and draws it from the
-  buffer it last drew, which can be seconds old. That covers a window out of
-  view, one behind a fullscreen or maximized window, and one on a workspace
-  under an open special workspace. So the capture takes one frame to make the
-  window draw, then opens a new capture session every 25 ms. It returns the
-  first frame whose pixels differ from that first one; those pixels were drawn
-  after the request. A window whose pixels stay the same for 10 sessions, at
-  least 250 ms, returns that unchanged frame, which can be older than the
-  request. A drawing that lands later is not waited for. An unchanged window
-  out of view takes about 430 ms to capture, so a budget too short for the
-  wait answers `TIMEOUT`.
+- Any other window waits for a redraw. Hyprland stops asking a window out of
+  view, or one behind a fullscreen or maximized window, for frames and draws
+  it from the buffer it last drew, which can be seconds old. A window on a
+  workspace under an open special workspace still draws, but it is not in
+  view, so it waits too: its frame is correct, only slower. The capture takes
+  one frame to make the window draw, then opens a new capture session every
+  25 ms. It returns the first frame whose pixels differ from that first one;
+  those pixels were drawn after the request. A window whose pixels stay the
+  same for 10 sessions, at least 250 ms, returns that unchanged frame, which
+  can be older than the request. A drawing that lands later is not waited
+  for. An unchanged window out of view takes about 430 ms to capture, so a
+  budget too short for the wait answers `TIMEOUT`.
 - `--screen N`, or no selector for the primary display, captures the output
   `list-displays` names, through `zwlr_screencopy_v1`, at its full pixel size.
   `data.scale_factor` is the output's scale, fractional scales included.
