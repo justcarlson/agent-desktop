@@ -41,15 +41,16 @@ command that resolves a window id report the refusal:
 | `silent` | `TIMEOUT`, retryable | An IPC or Wayland socket accepted the connection and did not answer in time. `details.detail` names the socket |
 
 What a bound Hyprland adds to `list-windows`, to resolving a window id, to
-`focus-window` and to `close-app` is in `windows-and-lifecycle.md`.
-Other commands on Hyprland behave as on a generic Wayland session.
+`focus-window` and to `close-app` is in `windows-and-lifecycle.md`. Keys go
+through a virtual keyboard; see [Wayland keys](#wayland-keys). Other commands
+on Hyprland behave as on a generic Wayland session.
 
 ## X11 versus Wayland
 
 | Capability | X11 | Wayland (GNOME) |
 |------------|-----|-----------------|
 | Observation, semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
-| Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
+| Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms; a bound Hyprland: a virtual keyboard |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops | EWMH on the X11 display | Bound Hyprland: every window through the compositor, move and resize floating only. Other compositors: Xwayland clients only; native windows and un-minimize refused |
 | `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included; on a bound Hyprland, `--headed focus-window` activates through the compositor |
@@ -83,7 +84,8 @@ synthetic pointer path moves the user's real cursor.
   headed pointer commands are refused at once with `ACTION_NOT_SUPPORTED`, cause
   `wayland_session` and `physical_delivery_started: false` (`click`, `hover`,
   `double-click`, `mouse-wheel`, `mouse-down` and `select` included). A
-  headed `type` sends keys through `RemoteDesktop.type_text` once the Mutter
+  headed `type` sends keys through `VirtualKeyboard.type_text` on a bound
+  Hyprland, and elsewhere through `RemoteDesktop.type_text` once the Mutter
   capability probe succeeds.
 - Windows works the other way round (semantic first); do not carry that
   assumption across platforms.
@@ -186,7 +188,8 @@ empty insertion is dispatched.
   `--timeout-ms`, `type` waits 5000 ms plus 30 ms per character; an explicit
   `--timeout-ms` replaces that.
 - Under `--headed` it sends physical keys first (step `XTEST.type_text` on X11,
-  `RemoteDesktop.type_text` on Wayland, `physical_synthetic`; the result still
+  `VirtualKeyboard.type_text` on a bound Hyprland, `RemoteDesktop.type_text` on
+  other Wayland sessions, `physical_synthetic`; the result still
   reads the field back when it can) and falls back to `EditableText` only where
   keys cannot be sent. It proves focus on the field or its proven internal
   editor; focus elsewhere in the window does not authorize ref typing. Verify
@@ -244,8 +247,10 @@ agent-desktop list-displays
 
 ## Wayland keys
 
-Wayland keys use one detected backend, `org.gnome.Mutter.RemoteDesktop` on the
-session bus. Before creating a session or emitting an event, the adapter probes
+On a bound Hyprland, keys go through a virtual keyboard on that compositor; see
+[Hyprland keys](#hyprland-keys). Other Wayland sessions use one detected
+backend, `org.gnome.Mutter.RemoteDesktop` on the session bus. Before creating a
+session or emitting an event, the adapter probes
 the interface's typed `Version` property. A missing service or capability is
 `PLATFORM_NOT_SUPPORTED`, `not_delivered`, `physical_delivery_started: false`;
 another compositor never falls back to X11. A probe timeout is `TIMEOUT`. Calls
@@ -257,7 +262,7 @@ its own. Ending a session releases its held keys.
   the real keys so the compositor can attach its keyboard. It inserts no text,
   but a handler that watches bare Shift can observe it. Reusing a still-live
   session skips the lead tap.
-- **Characters.** Only printable ASCII, function, modifier and vendor keysyms;
+- **Characters.** Through Mutter, only printable ASCII, function, modifier and vendor keysyms;
   anything else is `ACTION_NOT_SUPPORTED`, cause `character_outside_layout`.
   Set the value directly with `set-value` instead. On a non-US layout, a
   character your keymap holds can still be refused. A refusal is safe: nothing
@@ -268,6 +273,42 @@ its own. Ending a session releases its held keys.
   `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window
   carries `ACTIVE`, so `focus-changed` waits time out.
+
+### Hyprland keys
+
+A bound Hyprland takes keys through `zwp_virtual_keyboard_v1`. Step labels are
+`VirtualKeyboard.type_text` and `VirtualKeyboard.press_key`. Each delivery
+creates one virtual keyboard and destroys it at the end, so none stays in the
+compositor's device list.
+
+- **Keymap.** The CLI reads the seat's keymap, adds a key for each character
+  that keymap lacks, and sends the result before the first key. The layout is
+  the compositor's main keyboard's active layout; the CLI sends that layout
+  group and every held modifier with the keys. It does not switch the user's
+  layout.
+- **Characters.** Any Unicode character, Tab and newline included. Other
+  control characters, such as `\u0007` or `\r`, are `ACTION_NOT_SUPPORTED`,
+  cause `character_outside_layout`, before any key. Use `set-value` instead.
+- **Focus.** The focus gate runs before each key-down, as on other Wayland
+  sessions. If focus moves mid-text, the CLI stops, releases every held key and
+  modifier, and returns `delivery_uncertain` with `delivered_events`. Read the
+  field before you retry. Global `press` has no target, so it goes to whichever
+  window holds keyboard focus.
+- **Lead Shift.** Each delivery starts with the lone Shift tap described above.
+- **Refusals.** Each is `ACTION_NOT_SUPPORTED`, `not_delivered`,
+  `physical_delivery_started: false`, and no key was sent:
+
+| `details.cause` | When |
+|---|---|
+| `active_layout_unknown` | The compositor's main keyboard names no layout of the seat's keymap |
+| `owner_keymap_unreadable` | The seat's keymap could not be read |
+| `owner_keymap_invalid`, `owner_keymap_unrecognized` | The seat's keymap does not compile, or lacks the keycodes or symbols section the CLI adds keys to |
+| `keysym_invalid` | A requested key has no keysym name a keymap can carry |
+| `no_free_keycode` | The text needs more new keys than the keymap has free codes |
+| `extended_keymap_invalid`, `extended_keymap_too_large` | The keymap with the added keys does not compile, or is too large to send |
+
+Without libxkbcommon, keys refuse with `PLATFORM_NOT_SUPPORTED`, cause
+`xkb_unavailable`, `not_delivered`.
 
 ## Wheel and scroll
 

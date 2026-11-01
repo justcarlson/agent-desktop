@@ -303,8 +303,9 @@ agent-desktop list-windows --app foot
   `WINDOW_NOT_FOUND`; run `list-windows` again.
 - The window has no refs. `snapshot --window-id` and `find --window-id` refuse
   the id with `INVALID_ARGS`.
-- It takes `focus-window` and `screenshot`. The CLI sends it no key or pointer
-  input.
+- It takes `focus-window` and `screenshot`. The CLI sends it no pointer input
+  and no scoped key input. Global `press` goes to the window that holds keyboard
+  focus, and that can be this window.
 - `list-windows --app` matches it by its class (foot's `--app-id`), command name
   or executable, also when no accessibility application has that name.
 
