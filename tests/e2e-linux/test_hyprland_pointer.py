@@ -410,10 +410,21 @@ class XwaylandScrollTests(unittest.TestCase):
         return [{"ev": "scroll", "widget": "scroll", "direction": "down", "t": 1.0}] * count
 
     def scrolled(self, primed: list[dict], measured: list[dict]) -> tuple[list[list[str]], list[str]]:
+        return self.replayed([primed], [primed + measured])
+
+    def replayed(self, *phases: list[list[dict]]) -> tuple[list[list[str]], list[str]]:
+        """Run the leg against a pad log that grows through each phase's states in turn; `settled`
+        returns the first state its check accepts, or the last when the settle time runs out."""
+        remaining = list(phases)
+
+        def settle(_log, check, *_args):
+            states = remaining.pop(0)
+            return next((state for state in states if check(state)), states[-1])
+
         ctx = mock.Mock()
         ctx.product.return_value = mock.Mock(ok=True)
         with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), delivered=mock.Mock(),
-                                 settled=mock.Mock(side_effect=[primed, measured])):
+                                 settled=mock.Mock(side_effect=settle)):
             problems = refs.scroll_problems(ctx, {}, Path("/dev/null"), "@s:pane")
         return [call.args[0] for call in ctx.product.call_args_list], problems
 
@@ -452,6 +463,14 @@ class XwaylandScrollTests(unittest.TestCase):
 
     def test_a_priming_notch_that_logs_two_events_fails(self):
         self.assertEqual(self.scrolled(self.smooth(1.0, 1.0), self.smooth(1.0, 1.0, 1.0))[1],
+                         ["scroll by ref: the priming notch logged 2 wheel events, expected 0 or 1"
+                          " (pad saw: scroll/scroll 2)"])
+
+    def test_a_delayed_second_priming_event_fails_and_never_counts_as_a_measured_notch(self):
+        early, late = self.smooth(1.0, 1.0)
+        primed = [[early], [early, late]]
+        measured = [[early, late] + self.smooth(1.0, 1.0)]
+        self.assertEqual(self.replayed(primed, measured)[1],
                          ["scroll by ref: the priming notch logged 2 wheel events, expected 0 or 1"
                           " (pad saw: scroll/scroll 2)"])
 
