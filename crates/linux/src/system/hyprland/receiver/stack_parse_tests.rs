@@ -6,7 +6,7 @@ const CLIENTS: &[u8] = br#"[
   "pinned":false,"fullscreen":0},
  {"address":"0x556a218cbc40","mapped":true,"hidden":false,"at":[-1012,-602],"size":[300,200],
   "workspace":{"id":7,"name":"7"},"floating":true,"monitor":1,"pid":3705,
-  "pinned":true,"fullscreen":2}
+  "pinned":true,"fullscreen":2,"allowedOverFullscreen":true}
 ]"#;
 
 const LAYERS: &[u8] = br#"{
@@ -38,6 +38,16 @@ fn clients_carry_their_stacking_state() {
     );
     assert_eq!(clients[1].workspace.name, "7");
     assert_eq!(clients[1].workspace.monitor, Some(1));
+}
+
+#[test]
+fn over_fullscreen_state_is_read_when_hyprland_reports_it() {
+    let clients = parse_stack_clients(CLIENTS).unwrap_or_default();
+    let allowed: Vec<_> = clients
+        .iter()
+        .map(|client| client.stacking.over_fullscreen)
+        .collect();
+    assert_eq!(allowed, vec![None, Some(true)]);
 }
 
 #[test]
