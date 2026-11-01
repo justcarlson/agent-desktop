@@ -74,6 +74,11 @@ class PadLogTests(unittest.TestCase):
         self.assertEqual(pad.gdk3_presses(3), [1, 1, 2, 1, 3])
         self.assertEqual(dict(refs.GESTURES)["triple-click"], [1, 1, 2, 1, 3])
 
+    def test_pad_saw_counts_each_event_kind_per_widget(self):
+        self.assertEqual(pad.pad_saw(LOG), " (pad saw: motion/area 2, press/area 1, press/button 2, "
+                                           "release/area 1, scroll/area 2)")
+        self.assertEqual(pad.pad_saw([]), " (pad saw: nothing)")
+
     def test_since_drops_the_events_before_the_mark(self):
         self.assertEqual(pad.since(LOG, 6), LOG[6:])
 
@@ -314,6 +319,17 @@ if __name__ == "__main__":
 
 class ReceiverEvidenceTests(unittest.TestCase):
     """The receiver leg scrolls the pad's scroll pane: a push button has no Scroll action."""
+
+    def test_a_lost_gesture_says_what_the_pad_saw(self):
+        log = Path(tempfile.mkdtemp()) / "pad.events"
+        log.write_text(json.dumps(LOG[0]) + "\n")
+        ctx = mock.Mock()
+        ctx.product.return_value = mock.Mock(ok=True, data={}, raw="", argv=["agent-desktop", "triple-click"])
+        with mock.patch.object(refs, "settled", lambda found_log, _check, *_: refs.events(found_log)), \
+                mock.patch.object(refs, "apart_from_last_click", mock.Mock()):
+            problems = refs.gesture_problems(ctx, {}, log, "@s:button", "triple-click", [1, 1, 2, 1, 3])
+        self.assertEqual(problems, ["triple-click by ref: the pad button logged [], expected [1, 1, 2, 1, 3]"
+                                    " (pad saw: nothing)"])
 
     def test_it_scrolls_the_pad_scroll_pane_and_clicks_the_button(self):
         scrolled, clicked = [], []
