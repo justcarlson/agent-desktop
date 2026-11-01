@@ -9,6 +9,7 @@ pub(crate) mod hypr_route;
 pub(crate) mod live_pointer_sink;
 pub(crate) mod output_map;
 pub(crate) mod output_point;
+pub(crate) mod pointer_capability;
 pub(crate) mod pointer_devices;
 pub(crate) mod pointer_event;
 pub(crate) mod pointer_run;

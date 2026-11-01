@@ -312,12 +312,7 @@ impl ActionOps for LinuxAdapter {
 }
 impl InputOps for LinuxAdapter {
     fn physical_pointer_refusal(&self) -> Option<AdapterError> {
-        match crate::input::backend::backend() {
-            Ok(crate::input::backend::Backend::Wayland) => Some(
-                crate::input::wayland::keysym_send::pointer_refusal("physical pointer input"),
-            ),
-            _ => None,
-        }
+        crate::input::hyprland::pointer_capability::session_pointer_refusal()
     }
 
     fn keyboard_needs_window_activation(&self) -> bool {
