@@ -231,3 +231,64 @@ fn the_refusal_error_is_not_delivered_with_its_cause() {
     assert_eq!(details["physical_delivery_started"], false);
     assert_eq!(details["layer_namespace"], "omarchy-bar");
 }
+
+fn floating(address: u64) -> StackClient {
+    let mut other = client(address, rect(100.0, 200.0, 300.0, 200.0), "1");
+    other.floating = true;
+    other
+}
+
+fn floating_target(stack: &mut ReceiverStack) {
+    stack.clients[0].floating = true;
+}
+
+#[test]
+fn a_floating_window_below_a_floating_target_does_not_cover() {
+    let mut stack = stack();
+    floating_target(&mut stack);
+    stack.clients.insert(0, floating(0xb2));
+    assert_eq!(check(&stack), Ok(()));
+}
+
+#[test]
+fn a_floating_window_above_a_floating_target_covers() {
+    let mut stack = stack();
+    floating_target(&mut stack);
+    stack.clients.push(floating(0xb2));
+    assert_eq!(
+        check(&stack),
+        Err(ReceiverRefusal::WindowCover { address: 0xb2 })
+    );
+}
+
+#[test]
+fn a_floating_window_listed_before_a_tiled_target_still_covers() {
+    let mut stack = stack();
+    stack.clients.insert(0, floating(0xb2));
+    assert_eq!(
+        check(&stack),
+        Err(ReceiverRefusal::WindowCover { address: 0xb2 })
+    );
+}
+
+#[test]
+fn a_pinned_window_listed_before_a_floating_target_still_covers() {
+    let mut stack = stack();
+    floating_target(&mut stack);
+    let mut pinned = floating(0xb2);
+    pinned.pinned = true;
+    stack.clients.insert(0, pinned);
+    assert_eq!(
+        check(&stack),
+        Err(ReceiverRefusal::WindowCover { address: 0xb2 })
+    );
+}
+
+#[test]
+fn a_floating_window_below_a_pinned_target_does_not_cover() {
+    let mut stack = stack();
+    floating_target(&mut stack);
+    stack.clients[0].pinned = true;
+    stack.clients.push(floating(0xb2));
+    assert_eq!(check(&stack), Ok(()));
+}

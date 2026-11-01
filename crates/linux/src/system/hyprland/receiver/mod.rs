@@ -8,6 +8,7 @@ pub(crate) mod check_receiver;
 pub(crate) mod deny_all_overlays;
 pub(crate) mod layer_info;
 pub(crate) mod overlay_filter;
+pub(crate) mod receiver_hit;
 pub(crate) mod receiver_read;
 pub(crate) mod receiver_refusal;
 pub(crate) mod stack;
