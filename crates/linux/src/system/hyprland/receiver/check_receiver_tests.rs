@@ -9,6 +9,9 @@ use crate::system::hyprland::receiver::layer_info::LayerInfo;
 use crate::system::hyprland::receiver::stack_client::StackClient;
 use crate::system::hyprland::receiver::stacking::Stacking;
 
+#[path = "check_receiver_fullscreen_tests.rs"]
+mod fullscreen_tests;
+
 const TARGET: u64 = 0xa1;
 const POINT: Point = Point { x: 162.0, y: 238.0 };
 
@@ -234,11 +237,13 @@ fn the_refusal_error_is_not_delivered_with_its_cause() {
 fn floating(address: u64) -> StackClient {
     let mut other = client(address, rect(100.0, 200.0, 300.0, 200.0), "1");
     other.stacking.floating = true;
+    other.stacking.over_fullscreen = Some(false);
     other
 }
 
 fn floating_target(stack: &mut ReceiverStack) {
     stack.clients[0].stacking.floating = true;
+    stack.clients[0].stacking.over_fullscreen = Some(false);
 }
 
 #[test]
