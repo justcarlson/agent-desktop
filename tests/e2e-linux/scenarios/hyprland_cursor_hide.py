@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, pixels
-from runner.helper import display, managed, require, root
+from runner.helper import activate, changed, display, managed, one, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_capture_common import capture_path, saved_image
@@ -27,7 +27,6 @@ from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_cursor import (NAMESPACE, TOLERANCE, _seven, alive, arrow_box, ended, kill_exactly,
                                        layers_of, monitor_at, record_of, renderer_of, start_time, started)
-from scenarios.hyprland_desktop import _undo
 from scenarios.hyprland_focus_controls import lua_call
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_pointer_pad import (covering_layers, events, instance_env, pad_client, pad_ref,
@@ -80,6 +79,17 @@ def dpms_argv(state: str, lua: bool) -> list[str]:
     if lua:
         return ["dispatch", lua_call("hl.dsp.dpms", {"action": state})]
     return ["dispatch", "dpms", state]
+
+
+def undo_all(tree, before: str, steps: int = 4) -> str:
+    """One Undo per digit the leg entered, until the display reads `before` again."""
+    for _ in range(steps):
+        current = display(tree)
+        if current == before:
+            break
+        activate(one(tree, role=43, name="Undo"))
+        raw.poll(lambda: display(tree) != current, SHOW_SETTLE_S)
+    return changed(lambda: display(tree), before)
 
 
 def holder_body(pid: int, started_at: int, nonce: str, expiry_ms: int) -> dict:
@@ -193,10 +203,13 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
     with managed(ctx, "Calculator") as app:
         tree = root(ctx, app)
         before = display(tree)
+        ctx.before("atspi.display", before)
+        ctx.before("hyprland.layers", layers_of(runtime, main))
         session = started(ctx)
         try:
             owner = renderer_of(runtime, main, session)
             registry = registry_of(runtime, session)
+            ctx.before("proc.holders", len(holders_in(registry)))
             seven, point = _seven(ctx, app, session)
             screen = Screen(ctx, main, point)
             placed = ctx.product(["--session", session, "click", seven], headed=False)
@@ -205,7 +218,7 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
                 hyprland.query(runtime, main["signature"], "layers", pid=main["pid"]), point)
             require(raw.poll(covered, SHOW_SETTLE_S), f"no cursor layer covers {point}: {layers_of(runtime, main)}")
             drawn = screen.grab()
-            ctx.before("hyprland.layers", layers_of(runtime, main))
+            ctx.after("hyprland.layers", layers_of(runtime, main))
             captures = [screen.product_capture("hide-first")]
             after_capture = screen.grab()
             with harness_holder(registry):
@@ -219,6 +232,7 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
             _power_cycle(ctx, main, screen)
             captures.append(screen.product_capture("hide-after-dpms"))
             redrawn = _unlike(screen, still)
+            ctx.after("atspi.display", display(tree))
             disabled = ctx.product(["--session", session, "cursor-overlay", "disable"])
             require(disabled.ok, f"disable failed: {disabled.raw[:400]}")
             require(raw.poll(lambda: not alive(owner), SHOW_SETTLE_S), "the renderer survived disable")
@@ -239,11 +253,12 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
                     problems.append(f"screen capture {label} shows the cursor at {point}")
             if holders_in(registry):
                 problems.append(f"holders survived their commands: {holders_in(registry)}")
+            ctx.restored("proc.holders", len(holders_in(registry)))
         finally:
             ended(ctx, session)
-        ctx.restored("atspi.display", _undo(tree, before))
-        require(not problems, "; ".join(problems))
+        ctx.restored("atspi.display", undo_all(tree, before))
         ctx.restored("hyprland.layers", layers_of(runtime, main))
+        require(not problems, "; ".join(problems))
 
 
 def _stopped(owner: dict):
@@ -282,6 +297,7 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
             registry = registry_of(runtime, session)
             seven, point = _seven(ctx, app, session)
             screen = Screen(ctx, main, point)
+            shell = shell_covers(hyprland.query(runtime, main["signature"], "layers", pid=main["pid"]), point)
             problems = []
             with _stopped(owner):
                 if headed:
@@ -309,8 +325,7 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
                     problems.append("the headless click under a stopped renderer had no effect")
             kill_exactly(renderer_of(runtime, main, session))
             dead = ctx.product(["--session", session, "click", seven])
-            if not dead.ok:
-                problems.append(f"a dead renderer blocked the click: {dead.raw[:300]}")
+            problems += _dead_click_problems(ctx, dead, shell if headed else [])
             if headed:
                 envelope, path = screen.product_capture("hide-dead")
                 if not envelope.ok:
@@ -318,8 +333,32 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
             ctx.after("atspi.display", display(tree))
         finally:
             ended(ctx, session)
-        ctx.restored("atspi.display", _undo(tree, before))
+        ctx.restored("atspi.display", undo_all(tree, before))
         require(not problems, "; ".join(problems))
+
+
+def shell_covers(layers: dict, point: tuple[float, float]) -> list[str]:
+    """The top and overlay layers over `point` that no agent cursor draws."""
+    return [name for name in covering_layers(layers, point) if name != NAMESPACE]
+
+
+def _dead_click_problems(ctx: LegContext, envelope, shell: list[str]) -> list[str]:
+    """A click under a killed renderer passes its hide; only a shell layer read before the click may cover it.
+
+    The hit test judges covers after a confirmed hide, so a cover by a layer
+    that was over the button before any headed click shows the hide passed.
+    """
+    if envelope.ok:
+        return []
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    covers = [(check.get("occluder") or {}).get("name") for check in details.get("checks") or []
+              if check.get("check") == "receives_events" and check.get("status") == "fail"]
+    if error.get("code") == "ACTION_FAILED" and covers and all(name in shell for name in covers):
+        ctx.finding(f"the headed click under a dead renderer passed its hide and met the shell layer {covers}, "
+                    "which covered the button before any headed click")
+        return []
+    return [f"a dead renderer blocked the click: {envelope.raw[:300]}"]
 
 
 def _screen_after_resume(screen: Screen) -> list[str]:
@@ -336,6 +375,7 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
     instance, _ = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
+    ctx.before("hyprland.layers", layers_of(runtime, instance))
     with pointer_pad(tier, instance, label) as (owned, client, log):
         session = started(ctx, env)
         try:
@@ -349,7 +389,6 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
             over = lambda: cursor_layer_over(hyprland.query(runtime, instance["signature"], "layers",
                                                             pid=instance["pid"]), client)
             require(raw.poll(over, SHOW_SETTLE_S), f"no cursor layer is over the pad: {layers_of(runtime, instance)}")
-            ctx.before("hyprland.layers", layers_of(runtime, instance))
             start = len(events(log))
             with keep_drawn(registry) if kept else contextlib.nullcontext():
                 clicked = ctx.product(["click", button], env=bound, headed=True)
@@ -369,6 +408,7 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
         finally:
             ended(ctx, session, env)
         require(record_of(runtime, session) is None, "the session's renderer record survived session end")
+        ctx.restored("hyprland.layers", layers_of(runtime, instance))
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
 
