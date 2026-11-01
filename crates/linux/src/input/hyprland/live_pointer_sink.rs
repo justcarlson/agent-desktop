@@ -26,6 +26,7 @@ const OUTPUT_VERSION: u32 = 4;
 const WHEEL_STEP: f64 = 15.0;
 const NEED: &str = "pointer input on Hyprland";
 const RELEASE_SETTLE_MS: u64 = 1_000;
+const ONE_LOGICAL_PIXEL: u32 = 120;
 
 /// Sends pointer frames through one virtual pointer per output. Event times
 /// come from the monotonic clock, so presses of separate commands are never
@@ -159,6 +160,11 @@ impl PointerSink for LivePointerSink {
                 .roundtrip(&mut self.state)
                 .map_err(|fault| fault.into_error(&self.socket))?;
         }
+        if self.current.is_none() {
+            let beside = one_pixel_beside(point.x);
+            pointer.motion_absolute(now_ms(), beside, point.y, point.x_extent, point.y_extent);
+            pointer.frame();
+        }
         pointer.motion_absolute(now_ms(), point.x, point.y, point.x_extent, point.y_extent);
         pointer.frame();
         self.current = Some(point.output.clone());
@@ -219,6 +225,17 @@ impl PointerSink for LivePointerSink {
             .count()
             == 0;
         sent && self.settle_release()
+    }
+}
+
+/// Hyprland skips a motion to the pixel the cursor already holds, and 0.56.2
+/// gives no pointer focus to a window mapped under a still cursor while it
+/// fades in. A first motion that starts one logical pixel away makes the
+/// compositor hit-test the aim, so the input reaches the window under it.
+fn one_pixel_beside(x: u32) -> u32 {
+    match x.checked_sub(ONE_LOGICAL_PIXEL) {
+        Some(left) => left,
+        None => x.saturating_add(ONE_LOGICAL_PIXEL),
     }
 }
 

@@ -329,6 +329,12 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
 - **Coordinates** are global logical layout points, the bounds `list-displays`
   reports. Negative origins and fractional scales work. A point on no output is
   `INVALID_ARGS`, cause `point_off_output`, `not_delivered`.
+- **The first motion** of each command starts one logical pixel left of the
+  aim (right of it at an output's left edge), then moves onto it. Hyprland
+  skips a motion to the pixel the cursor already holds, and 0.56.2 gives no
+  pointer focus to a window that maps under a still cursor. Without the step,
+  input aimed at the cursor's own pixel goes to the window that held focus
+  before.
 - **Coordinate commands** (`mouse-move`, `mouse-click`, `mouse-wheel`,
   `drag --from-xy`, `hover --xy`) prove nothing about the receiver. The report
   says `details.receiver_proof: false` and counts `details.delivered_events`.
