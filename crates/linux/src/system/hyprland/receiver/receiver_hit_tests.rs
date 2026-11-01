@@ -4,6 +4,7 @@ use super::*;
 use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::monitor_workspaces::MonitorWorkspaces;
+use crate::system::hyprland::cursor_renderer::hold_registry::{publish, withdraw};
 use crate::system::hyprland::receiver::layer_info::LayerInfo;
 use crate::system::hyprland::receiver::stack_client::StackClient;
 use crate::system::hyprland::receiver::stacking::Stacking;
@@ -104,4 +105,29 @@ fn a_missing_hidden_or_missed_target_is_unknown() {
     assert_eq!(hit_of(&hidden, TARGET, &POINT), HitTestResult::Unknown);
     let outside = Point { x: 2.0, y: 2.0 };
     assert_eq!(hit_of(&stack(), TARGET, &outside), HitTestResult::Unknown);
+}
+
+#[test]
+fn an_own_cursor_layer_under_this_threads_hide_does_not_intercept() {
+    let mut stack = stack();
+    let cursor = rect(150.0, 226.0, 32.0, 32.0);
+    stack.layers.push(LayerInfo {
+        namespace: "agent-desktop-cursor".to_owned(),
+        pid: Some(4_200_001),
+        rect: cursor,
+        level: 3,
+        output: "Virtual-1".to_owned(),
+    });
+    publish("receiver-hit-own", vec![4_200_001]);
+    let hidden = hit_of(&stack, TARGET, &POINT);
+    withdraw("receiver-hit-own");
+    assert_eq!(hidden, HitTestResult::ReachesTarget);
+    assert_eq!(
+        hit_of(&stack, TARGET, &POINT),
+        HitTestResult::InterceptedBy {
+            role: Some("layer".to_owned()),
+            name: Some("agent-desktop-cursor".to_owned()),
+            bounds: Some(cursor),
+        }
+    );
 }
