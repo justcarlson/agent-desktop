@@ -18,8 +18,8 @@ from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_close import _register, _release
-from scenarios.hyprland_common import bystander, main_instance, shared
-from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, restore_desktop, toggle_argv
+from scenarios.hyprland_common import bystander, main_instance
+from scenarios.hyprland_focus_controls import cursor, lua_call, restore_desktop, shown
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, PAD_BUTTON, PAD_SCROLL, apart_from_last_click,
@@ -31,6 +31,8 @@ from scenarios.hyprland_window_ops import float_argv
 SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
 GESTURES = (("click", gdk3_presses(1)), ("double-click", gdk3_presses(2)), ("triple-click", gdk3_presses(3)))
+OCCLUDER_ROLES = {"layer_cover": "layer", "window_cover": "window"}
+COVER_SHAPE = ("address", "at", "size", "floating", "pinned", "mapped", "hidden")
 
 
 def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int]) -> list[str]:
@@ -51,15 +53,27 @@ def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
     return [] if found == want else [f"scroll by ref: the pad scroll pane logged {found}, expected {want}"]
 
 
+def preflight_occluder(error: dict) -> dict:
+    """The occluder of core's failed `receives_events` check, which catches a cover the compositor's
+    hit test sees before the receiver proof runs; empty when the refusal came from elsewhere."""
+    checks = (error.get("details") or {}).get("checks") or []
+    failed = [check for check in checks if check.get("check") == "receives_events" and check.get("status") == "fail"]
+    return (failed[0].get("occluder") or {}) if len(failed) == 1 else {}
+
+
 def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
     error = envelope.error or {}
     details = error.get("details") or {}
     problems = []
     if envelope.ok or error.get("code") != "ACTION_FAILED":
         problems.append(f"{label}: answered {envelope.raw[:300]}")
-    if details.get("kind") != "receiver_evidence" or details.get("cause") != cause:
+    occluder = preflight_occluder(error)
+    if occluder:
+        if occluder.get("role") != OCCLUDER_ROLES.get(cause):
+            problems.append(f"{label}: occluded by {occluder.get('role')}/{occluder.get('name')}, expected {cause}")
+    elif details.get("kind") != "receiver_evidence" or details.get("cause") != cause:
         problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {cause}")
-    if details.get("physical_delivery_started") is not False:
+    if not occluder and details.get("physical_delivery_started") is not False:
         problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
     if (error.get("disposition") or {}).get("delivery") != "not_delivered":
         problems.append(f"{label}: not reported not_delivered")
@@ -143,6 +157,14 @@ def covered_click(ctx, env, log: Path, button: str, cause: str, label: str) -> l
     return problems
 
 
+def cover_changed(before: dict, after: dict | None) -> bool:
+    """Whether the cover moved, resized, changed stacking or left its workspace. Its focus history
+    may move: a headed ref click activates the pad first."""
+    shape = lambda client: ({key: client.get(key) for key in COVER_SHAPE},
+                            (client.get("workspace") or {}).get("name"))
+    return after is None or shape(before) != shape(after)
+
+
 def clients_summary(tier, instance: dict) -> list[tuple]:
     return sorted((item.get("class"), item.get("floating"), item.get("pinned"))
                   for item in instance_query(tier, instance, "clients"))
@@ -176,19 +198,21 @@ def ref_receiver_evidence(ctx: LegContext) -> None:
 
 
 def _session_refusals(ctx, owned, client: dict, log: Path) -> list[str]:
+    """A headed ref click activates the pad first, which reveals its hidden special workspace the way
+    `focus-window` does, so the click meets the stock shell layers over the output, not a hidden target."""
     tier, main = ctx.tier, main_instance(ctx.tier)
     env = instance_env(tier, main)
     button = pad_ref(ctx, env, owned)
-    problems = covered_click(ctx, env, log, button, "target_not_shown", "pad on a hidden special workspace")
     special = (client.get("workspace") or {}).get("name", "")
     require(special.startswith("special:"), f"the pad is not on a special workspace: {special}")
-    instance_control(tier, main, toggle_argv(special, hyprland.uses_lua(shared(tier), main["signature"])))
-    shown = raw.poll(lambda: pad_client(tier, main, owned.pid), 3.0)
-    aim = (shown["at"][0] + shown["size"][0] / 2, shown["at"][1] + BUTTON_AIM_Y)
+    aim = (client["at"][0] + client["size"][0] / 2, client["at"][1] + BUTTON_AIM_Y)
     layers = covering_layers(instance_query(tier, main, "layers"), aim)
     require(layers, f"no top or overlay layer holds {aim}; this leg expects the stock Omarchy shell layers")
     ctx.finding(f"shell layers over the pad button: {layers}")
-    return problems + covered_click(ctx, env, log, button, "layer_cover", f"shell layer {layers[0]}")
+    problems = covered_click(ctx, env, log, button, "layer_cover", f"shell layer {layers[0]}")
+    if not raw.poll(lambda: special in {open_ for _, open_ in shown(tier).values()}, 3.0):
+        problems.append(f"the headed click did not reveal {special}: {shown(tier)}")
+    return problems
 
 
 @implementation("pointer.cover_or_missing_evidence_refused")
@@ -212,7 +236,7 @@ def cover_or_missing_evidence_refused(ctx: LegContext) -> None:
             with window_cover(tier, instance, lua, owned.pid, pinned) as cover:
                 problems += covered_click(ctx, env, log, button, "window_cover",
                                           "pinned cover" if pinned else "floating cover")
-                if _cover_client(tier, instance) != cover:
+                if cover_changed(cover, _cover_client(tier, instance)):
                     problems.append(f"the refusal changed the cover: {_cover_client(tier, instance)}")
         ctx.after("hyprland.clients", clients_summary(tier, instance))
         ctx.after("applog.pad", len(events(log)))

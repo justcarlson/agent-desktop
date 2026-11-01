@@ -379,8 +379,13 @@ fields to `data.details`:
 | `receiver_proof` | Always `false` |
 | `delivered_events` | Events sent: motion, button and wheel |
 
-A ref command (`click`, `double-click`, `triple-click`, `scroll`) reads the
-compositor's window stack and layers before each burst. Every layer counts as a
+A ref command (`click`, `double-click`, `triple-click`, `scroll`) is headed,
+so it first activates the target window, revealing a hidden special workspace
+or switching workspace as `focus-window` does. Core's `receives_events` check
+then hit-tests the target against the compositor's stack, and a cover it sees
+fails that check with an `occluder` (`role` `layer` with the namespace as
+`name`, or `role` `window`). The command then reads the
+compositor's window stack and layers again before each burst. Every layer counts as a
 cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 `not_delivered`, with `details.kind: "receiver_evidence"`,
 `details.check: "hyprland_stack"` and `physical_delivery_started: false`:
