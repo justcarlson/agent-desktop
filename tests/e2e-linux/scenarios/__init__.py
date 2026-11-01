@@ -52,6 +52,7 @@ from scenarios import hyprland_close_dialog
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_identity
+from scenarios import hyprland_window_ops
 from scenarios import wayland_outputs
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "hyprland_desktop",
     "hyprland_focus",
     "hyprland_identity",
+    "hyprland_window_ops",
     "identity",
     "launch",
     "lifecycle",

@@ -212,12 +212,13 @@ def _ambiguous(ctx, twins, expected: dict[str, str]) -> list[str]:
 
 
 def _bound(ctx, twins) -> list[str]:
-    """Each twin binds to one toplevel, so the operation reaches the Wayland boundary instead of a tie."""
+    """Each twin binds to one toplevel, so the operation reaches the refusal for its special workspace name
+    instead of a tie, and nothing is sent."""
     problems = []
     for window_id in twins.windows:
         envelope = ctx.product(["minimize", "--window-id", window_id])
         problems += boundary_problems(f"distinct-size twin {window_id}", envelope, ("ACTION_NOT_SUPPORTED",),
-                                      physical=True, cause="wayland_session")
+                                      physical=True, cause="workspace_name_unsupported")
     return problems
 
 
