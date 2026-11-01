@@ -4,6 +4,7 @@ from oracle.atspi_raw import poll
 from oracle import x11
 from runner.helper import changed, require
 from runner.legs import implementation
+from scenarios import hyprland_pointer_refs
 from scenarios.headed_actions import assert_ok
 from scenarios.ref_effects import (LINE, centre, clear_selection, desktop_restored,
                                    editor, menus, policy_refusal, selections)
@@ -49,12 +50,16 @@ def select_text(ctx, verb):
 @implementation("ref_actions.double_click")
 @implementation("ref_actions.double_click_headless_refusal")
 def double_click(ctx):
+    if ctx.tier.name == "hyprland":
+        return hyprland_pointer_refs.ref_gesture(ctx, "double-click")
     select_text(ctx, "double-click")
 
 
 @implementation("ref_actions.triple_click")
 @implementation("ref_actions.triple_click_headless_refusal")
 def triple_click(ctx):
+    if ctx.tier.name == "hyprland":
+        return hyprland_pointer_refs.ref_gesture(ctx, "triple-click")
     select_text(ctx, "triple-click")
 
 
