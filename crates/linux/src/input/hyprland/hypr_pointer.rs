@@ -17,6 +17,7 @@ use crate::input::mouse::drag_plan::plan_drag;
 use crate::input::mouse::pointer_plan::{plan_click, plan_move};
 use crate::input::mouse::wheel_plan::plan_wheel;
 use crate::input::plan::Plan;
+use crate::input::x11::progress::Progress;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_parse::parse_active;
 use crate::system::hyprland::cursor_context::CursorContext;
@@ -44,6 +45,7 @@ pub(crate) fn send(
                 plan_gate,
                 step_gate: &mut || focus.check(),
                 deadline,
+                progress: &Progress::default(),
             },
             plans,
         )?;
