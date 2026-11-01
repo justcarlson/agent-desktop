@@ -379,6 +379,59 @@ class ReceiverEvidenceTests(unittest.TestCase):
         self.assertEqual(set(clicked), {"@s:button"})
 
 
+class CoveredClickTests(unittest.TestCase):
+    """A refused click sends nothing, but an XWayland pad that appears under the still cursor logs
+    the enter motion X sends with it."""
+
+    def covered(self, logged: list[dict]) -> list[str]:
+        ctx = mock.Mock()
+        with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), receiver_refusal=mock.Mock(return_value=[]),
+                                 settled=mock.Mock(return_value=logged)):
+            return refs.covered_click(ctx, {}, Path("/dev/null"), "@s:button", "layer_cover", "shell layer")
+
+    def test_enter_motion_under_a_cover_is_not_a_delivered_event(self):
+        self.assertEqual(self.covered([{"ev": "motion", "widget": "area", "wx": 628, "wy": 362, "t": 1.0}]), [])
+
+    def test_a_press_under_a_cover_is_a_problem_that_says_what_the_pad_saw(self):
+        logged = [LOG[0], LOG[4]]
+        self.assertEqual(self.covered(logged), ["shell layer: the pad logged an event under the cover"
+                                                " (pad saw: motion/area 1, press/button 1)"])
+
+
+class XwaylandScrollTests(unittest.TestCase):
+    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline."""
+
+    def smooth(self, *dys: float) -> list[dict]:
+        return [{"ev": "scroll", "widget": "scroll", "direction": "smooth", "dx": 0.0, "dy": dy, "t": 1.0}
+                for dy in dys]
+
+    def scrolled(self, logged: list[dict]) -> tuple[list[str], list[str]]:
+        ctx = mock.Mock()
+        ctx.product.return_value = mock.Mock(ok=True)
+        with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), delivered=mock.Mock(),
+                                 settled=mock.Mock(return_value=logged)):
+            problems = refs.scroll_problems(ctx, {}, Path("/dev/null"), "@s:pane")
+        return ctx.product.call_args.args[0], problems
+
+    def test_the_baseline_notch_may_log_nothing(self):
+        self.assertTrue(pad.gdk3_x11_wheel_matches(["down", "down"], "down", 3))
+        self.assertTrue(pad.gdk3_x11_wheel_matches(["down", "down", "down"], "down", 3))
+
+    def test_a_merged_lost_or_turned_notch_does_not_match(self):
+        for found in ([], ["down"], ["down", "up"], ["down"] * 4):
+            self.assertFalse(pad.gdk3_x11_wheel_matches(found, "down", 3), found)
+
+    def test_scroll_by_ref_sends_three_notches_and_takes_the_baseline_loss(self):
+        argv, problems = self.scrolled(self.smooth(1.0, 1.0))
+        self.assertEqual(argv, ["scroll", "@s:pane", "--direction", "down", "--amount", "3"])
+        self.assertEqual(problems, [])
+
+    def test_scroll_by_ref_that_logs_one_notch_says_what_the_pad_saw(self):
+        _, problems = self.scrolled(self.smooth(1.0))
+        self.assertEqual(problems, ["scroll by ref: the pad scroll pane logged ['down'], expected 3 notches down,"
+                                    " or 2 when GDK3 takes the first as its baseline (pad saw: scroll/scroll 1)"])
+
+
 class PadBackendTests(unittest.TestCase):
     def test_the_x_display_is_the_lock_that_names_the_compositor_or_its_child(self):
         with tempfile.TemporaryDirectory() as work:
