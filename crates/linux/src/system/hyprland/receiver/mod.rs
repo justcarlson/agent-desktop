@@ -14,3 +14,6 @@ pub(crate) mod receiver_refusal;
 pub(crate) mod stack;
 pub(crate) mod stack_client;
 pub(crate) mod stack_parse;
+
+#[cfg(test)]
+pub(crate) mod fake_stack_ipc;

@@ -286,6 +286,20 @@ pub trait ObservationOps: Send + Sync {
         let _ = (entry, point, deadline);
         Ok(())
     }
+
+    /// Strict receiver proof for a drag endpoint given by ref. An adapter
+    /// whose hit test can answer unknown proves here that the endpoint
+    /// receives the pointer, and refuses with a `not_delivered` error when
+    /// it cannot.
+    fn confirm_drag_receiver(
+        &self,
+        entry: &RefEntry,
+        point: crate::Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let _ = (entry, point, deadline);
+        Ok(())
+    }
 }
 
 #[cfg(test)]

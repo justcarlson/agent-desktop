@@ -385,14 +385,13 @@ fn positive_timeout_uses_stable_post_focus_drag_bounds() {
     assert_eq!(value["to"], json!({ "x": 120.0, "y": 230.0 }));
 }
 
-#[path = "drag_retry_tests.rs"]
-mod retry_tests;
-
 #[path = "drag_occlusion_retry_tests.rs"]
 mod occlusion_retry_tests;
-
-#[path = "drag_wait_scope_tests.rs"]
-mod wait_scope_tests;
-
 #[path = "drag_overlay_report_tests.rs"]
 mod overlay_report_tests;
+#[path = "drag_receiver_tests.rs"]
+mod receiver_tests;
+#[path = "drag_retry_tests.rs"]
+mod retry_tests;
+#[path = "drag_wait_scope_tests.rs"]
+mod wait_scope_tests;
