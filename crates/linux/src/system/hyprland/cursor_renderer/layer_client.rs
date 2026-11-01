@@ -101,9 +101,22 @@ impl LayerClient {
     /// Commits the clear frame on every surface of `cursor`, where each
     /// sits, so that cursor shows nothing; other cursors are untouched.
     pub(crate) fn clear(&mut self, cursor: &str, deadline: Deadline) -> Result<(), AdapterError> {
+        self.clear_where(|key| key.cursor == cursor, deadline)
+    }
+
+    /// Commits the clear frame on every surface, so no cursor shows.
+    pub(crate) fn clear_all(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        self.clear_where(|_| true, deadline)
+    }
+
+    fn clear_where(
+        &mut self,
+        chosen: impl Fn(&SurfaceKey) -> bool,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
         let mut last = None;
         for (key, (surface, _)) in &mut self.surfaces {
-            if key.cursor == cursor {
+            if chosen(key) {
                 let (left, top) = surface.margin();
                 last = Some(surface.commit_frame(&self.link, &mut self.state, (left, top, false)));
             }
@@ -149,7 +162,6 @@ impl LayerClient {
     }
 
     /// Waits until the compositor has handled every request sent so far.
-    #[cfg(test)]
     pub(crate) fn roundtrip(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
         self.link
             .roundtrip(&mut self.state, deadline)

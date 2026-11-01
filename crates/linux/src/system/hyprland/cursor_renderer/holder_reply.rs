@@ -15,11 +15,9 @@ use super::renderer_wire::{error_reply, ok_reply};
 
 /// How long the renderer waits for the frame of a clear commit and for the
 /// compositor to handle it.
-#[cfg_attr(not(test), allow(dead_code))]
 const HOLDER_WAIT_MS: u64 = 200;
 
 /// The renderer's surfaces as a holder canvas; `keep_drawn` skips the clear.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ProcessCanvas<'a> {
     pub(crate) process: &'a mut RendererProcess,
     pub(crate) keep_drawn: bool,
@@ -40,14 +38,15 @@ impl HolderCanvas for ProcessCanvas<'_> {
         if self.keep_drawn {
             return Ok(());
         }
-        let deadline = Deadline::detached_after(HOLDER_WAIT_MS)?;
-        cursor_keys(self.process)
-            .iter()
-            .try_for_each(|key| self.process.client.clear(key, deadline))
+        self.process
+            .client
+            .clear_all(Deadline::detached_after(HOLDER_WAIT_MS)?)
     }
 
     fn sync(&mut self) -> Result<(), AdapterError> {
-        self.process.client.pump()
+        self.process
+            .client
+            .roundtrip(Deadline::detached_after(HOLDER_WAIT_MS)?)
     }
 
     fn redraw(&mut self) -> Result<(), AdapterError> {
@@ -68,7 +67,6 @@ fn cursor_keys(process: &mut RendererProcess) -> Vec<String> {
 /// The reply to a holder's `hide` or `show`, and whether the renderer keeps
 /// serving: a cursor it cannot clear or draw ends the process, which takes
 /// its surfaces with it.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn holder_reply(
     process: &mut RendererProcess,
     watch: &mut HolderWatch,
@@ -101,7 +99,6 @@ pub(crate) fn holder_reply(
 
 /// Follows the holders on an idle tick. An error means the cursor could not
 /// be cleared or drawn, and the renderer ends.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn refresh_holders(
     process: &mut RendererProcess,
     watch: &mut HolderWatch,

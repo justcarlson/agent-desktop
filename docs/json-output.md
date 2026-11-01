@@ -361,7 +361,6 @@ otherwise:
 | `cursor_agent_id_required` | A multi-agent session's cursor control names no agent; no cursor moves |
 | `cursor_travel_superseded` | A newer control for the same agent replaced its travel before the cursor arrived |
 | `cursor_renderer_stopped` | The renderer stopped before a travel arrived |
-| `cursor_holders_not_supported` | A request to hide the cursor for a capture; the renderer does not hide it |
 | `cursor_renderer_bad_request` | The renderer could not read the request |
 | `cursor_renderer_start_timeout` | `TIMEOUT`: the renderer did not start listening in time |
 | `cursor_hide_timeout` | `TIMEOUT`, `not_delivered`: a live renderer did not acknowledge the hide before a capture or headed input within 500 ms; `details.pid` names it and nothing was sent |

@@ -1,6 +1,6 @@
 //! A scripted compositor for the renderer's unit tests. It advertises the
 //! drawing globals beside a seat, an activation global and outputs, logs
-//! every bind and every request that shapes the cursor surface (a margin
+//! every bind, every `sync` and every request that shapes the cursor surface (a margin
 //! also as `surface <id> at <left> <top>`, so tests tell cursors apart), sends a
 //! configure on a layer surface's first commit, and answers frame callbacks
 //! unless told to stay dark, as a compositor with every output off does.
@@ -135,7 +135,10 @@ impl Server<'_> {
     fn answer(&mut self, object: u32, opcode: u16, bytes: &[u8]) -> Vec<u8> {
         let kind = self.objects.get(&object).copied().unwrap_or(Kind::Other);
         match (kind, opcode) {
-            (Kind::Display, 0) => done(word(bytes, 8)),
+            (Kind::Display, 0) => {
+                self.note("sync".to_owned());
+                done(word(bytes, 8))
+            }
             (Kind::Display, 1) => {
                 let registry = word(bytes, 8);
                 self.objects.insert(registry, Kind::Registry);
