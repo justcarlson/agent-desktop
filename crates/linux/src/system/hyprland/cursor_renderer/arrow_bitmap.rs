@@ -29,7 +29,13 @@ pub(crate) struct ArrowBitmap {
 impl ArrowBitmap {
     /// Draws the arrow in `style`'s fill and rim colors at its size.
     pub(crate) fn draw(style: &CursorOverlayStyle) -> Self {
-        let scale = style.size().clamp(0.25, 8.0);
+        Self::draw_for_output(style, 1.0)
+    }
+
+    /// Draws the arrow for an output at `output_scale`: the style's size,
+    /// kept within its bounds, times the output's scale.
+    pub(crate) fn draw_for_output(style: &CursorOverlayStyle, output_scale: f64) -> Self {
+        let scale = style.size().clamp(0.25, 8.0) * output_scale;
         let outline: Vec<(f64, f64)> = OUTLINE
             .iter()
             .map(|(x, y)| (x * scale + INSET, y * scale + INSET))
