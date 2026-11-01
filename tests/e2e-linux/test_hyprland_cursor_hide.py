@@ -68,18 +68,32 @@ NESTED_SPACE = "special:ad_e2e_nested"
 GHOST = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
 
 
+APP_WINDOW, NESTED_WINDOW = "0xapp", "0xnested"
+
+
 class Outer:
     """The outer session: it shows the nested window's special workspace on a toggle it obeys, and only a
     shown nested window gets the frames that let the nested compositor drop a closed layer."""
 
-    def __init__(self, obeys: bool = True, ghost_frames: int = 3):
-        self.obeys, self.ghost_frames = obeys, ghost_frames
-        self.shown, self.toggles, self.framed = set(), [], 0
+    def __init__(self, obeys: bool = True, ghost_frames: int = 3, shown: set[str] | None = None,
+                 raises_once: bool = False):
+        self.obeys, self.ghost_frames, self.raises_once = obeys, ghost_frames, raises_once
+        self.shown, self.toggles, self.framed = set(shown or ()), [], 0
+        self.focused, self.focuses = APP_WINDOW, []
 
     def toggle(self, tier, name: str) -> None:
+        """One monitor: showing a special workspace replaces the one open there and focuses its window."""
         self.toggles.append(name)
         if self.obeys:
-            self.shown ^= {name}
+            self.shown = set() if name in self.shown else {name}
+            self.focused = NESTED_WINDOW if name == NESTED_SPACE and self.shown else ""
+        if self.raises_once:
+            self.raises_once = False
+            raise RuntimeError("hyprctl timed out after the dispatch took effect")
+
+    def focus(self, tier, address: str) -> None:
+        self.focuses.append(address)
+        self.focused = address
 
     def layers_of(self, runtime, instance):
         if NESTED_SPACE in self.shown:
@@ -111,7 +125,9 @@ def ended_reads(outer: Outer) -> tuple[list[str], list]:
             mock.patch.object(hide, "SHOW_SETTLE_S", 0.2), \
             mock.patch.object(hide, "outer_window", lambda tier, instance: window, create=True), \
             mock.patch.object(hide, "outer_shown", lambda tier: set(outer.shown), create=True), \
-            mock.patch.object(hide, "toggle_outer", outer.toggle, create=True):
+            mock.patch.object(hide, "toggle_outer", outer.toggle, create=True), \
+            mock.patch.object(hide, "outer_focus", lambda tier: outer.focused, create=True), \
+            mock.patch.object(hide, "focus_outer", outer.focus, create=True):
         problems = hide.ended_layers(ctx, Path("/nonexistent"), {"signature": "s", "pid": 1}, "run-1", owner)
     return problems, ctx.restored_reads.get("hyprland.layers", [])
 
@@ -247,6 +263,20 @@ class CursorHideLegTests(unittest.TestCase):
             ended_reads(outer)
         self.assertIn("did not show", str(raised.exception))
         self.assertEqual(outer.toggles, [NESTED_SPACE])
+
+    def test_a_special_workspace_the_nested_one_displaced_is_shown_again_with_the_focus_it_had(self):
+        outer = Outer(shown={"special:scratch"})
+        problems, _ = ended_reads(outer)
+        self.assertEqual(problems, [])
+        self.assertEqual(outer.shown, {"special:scratch"})
+        self.assertEqual(outer.focused, APP_WINDOW)
+
+    def test_a_toggle_that_takes_effect_and_then_raises_still_hides_the_nested_window(self):
+        outer = Outer(raises_once=True)
+        with self.assertRaises(RuntimeError):
+            ended_reads(outer)
+        self.assertEqual(outer.shown, set())
+        self.assertEqual(outer.focused, APP_WINDOW)
 
     def test_a_cursor_layer_that_outlives_session_end_is_a_problem_and_its_restored_read_drifts(self):
         outer = Outer(ghost_frames=10**9)
