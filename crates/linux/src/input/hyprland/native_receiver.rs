@@ -24,8 +24,16 @@ pub(crate) fn refuse_native_receiver(
     address: u64,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    let clients = bound_request(binding, "j/clients", deadline)?;
-    check_native_receiver(&clients, address)
+    check_native_read(bound_request(binding, "j/clients", deadline), address)
+}
+
+/// The same check over the `j/clients` read itself. A failed read refuses as
+/// missing evidence, or as timed out evidence when it ran out of time.
+pub(crate) fn check_native_read(
+    read: Result<Vec<u8>, AdapterError>,
+    address: u64,
+) -> Result<(), AdapterError> {
+    check_native_receiver(&read?, address)
 }
 
 /// The same check over a `j/clients` reply. A reply that does not name the
