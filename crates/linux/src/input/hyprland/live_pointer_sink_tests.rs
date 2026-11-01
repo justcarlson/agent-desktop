@@ -102,3 +102,11 @@ fn a_release_the_compositor_never_confirms_is_not_reported_released() {
         started.elapsed()
     );
 }
+
+#[test]
+fn the_first_motion_starts_inside_the_output_at_its_left_edge() {
+    assert_eq!(one_pixel_beside(953 * 120), 952 * 120);
+    assert_eq!(one_pixel_beside(120), 0);
+    assert_eq!(one_pixel_beside(60), 180);
+    assert_eq!(one_pixel_beside(0), 120);
+}
