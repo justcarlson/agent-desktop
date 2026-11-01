@@ -37,4 +37,24 @@ impl StopOutcome {
             Self::NotRunning | Self::Stopped | Self::Terminated | Self::Stale
         )
     }
+
+    /// Of two outcomes for one session, the one that leaves more behind.
+    pub(crate) const fn graver(self, other: Self) -> Self {
+        if other.weight() > self.weight() {
+            other
+        } else {
+            self
+        }
+    }
+
+    const fn weight(self) -> u8 {
+        match self {
+            Self::NotRunning => 0,
+            Self::Stale => 1,
+            Self::Stopped => 2,
+            Self::Terminated => 3,
+            Self::Incompatible => 4,
+            Self::ExitUnconfirmed => 5,
+        }
+    }
 }

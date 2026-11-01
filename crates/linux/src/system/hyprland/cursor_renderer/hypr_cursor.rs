@@ -22,6 +22,7 @@ use super::renderer_start::{StartRequest, ensure_running};
 use super::renderer_stop::stop;
 use super::renderer_target::RendererTarget;
 use super::renderer_wire::exchange;
+use super::session_stop::stop_without_route;
 use super::stop_outcome::StopOutcome;
 use super::stop_timings::StopTimings;
 use crate::system::hyprland::bind::routed_binding::routed_binding;
@@ -35,7 +36,12 @@ static OUTCOMES: Mutex<Option<HashMap<String, &'static str>>> = Mutex::new(None)
 /// on Hyprland, refused as not rendered elsewhere.
 pub(crate) fn update_wayland(control: &CursorOverlayControl) -> Result<(), AdapterError> {
     control.validate()?;
-    let target = match routed_binding()? {
+    let routed = routed_binding();
+    if control.is_disable() && !matches!(routed, Ok(Some(_))) {
+        let refusal = routed.err().unwrap_or_else(not_rendered);
+        return disable_unrouted(control.session_id(), refusal);
+    }
+    let target = match routed? {
         Some(binding) => Some(RendererTarget {
             binding,
             runtime_dir: runtime_dir()?,
@@ -54,8 +60,7 @@ pub(crate) fn update_routed(
 ) -> Result<(), AdapterError> {
     control.validate()?;
     let Some(target) = target else {
-        return Err(AdapterError::not_supported("cursor overlay on Wayland")
-            .with_details(json!({"rendered": false, "cause": "wayland_session"})));
+        return Err(not_rendered());
     };
     let paths = RendererPaths::for_session(
         &target.runtime_dir,
@@ -90,6 +95,11 @@ pub(crate) fn update_routed(
     }
 }
 
+fn not_rendered() -> AdapterError {
+    AdapterError::not_supported("cursor overlay on Wayland")
+        .with_details(json!({"rendered": false, "cause": "wayland_session"}))
+}
+
 fn reply_deadline(control: &CursorOverlayControl) -> Instant {
     let budget = if control.instruction().is_some() {
         CURSOR_ARRIVAL_TIMEOUT_MS
@@ -101,6 +111,23 @@ fn reply_deadline(control: &CursorOverlayControl) -> Instant {
 
 fn disable(session_id: &str, paths: &RendererPaths) -> Result<(), AdapterError> {
     let outcome = stop(paths, ExeIdentity::current(), &StopTimings::default())?;
+    keep(session_id, outcome)
+}
+
+/// Disables `session_id`'s renderer when no route reaches its compositor,
+/// from the registry alone. Returns `refusal` when the registry holds
+/// nothing for the session and no Hyprland instance is named.
+pub(crate) fn disable_unrouted(
+    session_id: &str,
+    refusal: AdapterError,
+) -> Result<(), AdapterError> {
+    match stop_without_route(session_id)? {
+        Some(outcome) => keep(session_id, outcome),
+        None => Err(refusal),
+    }
+}
+
+fn keep(session_id: &str, outcome: StopOutcome) -> Result<(), AdapterError> {
     OUTCOMES
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
