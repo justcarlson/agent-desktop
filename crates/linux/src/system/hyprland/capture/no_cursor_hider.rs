@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::AdapterError;
 
 use super::cursor_hider::CursorHider;
 
@@ -6,9 +6,11 @@ use super::cursor_hider::CursorHider;
 pub(crate) struct NoCursorHider;
 
 impl CursorHider for NoCursorHider {
-    fn hide(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+    fn hide(&mut self) -> Result<(), AdapterError> {
         Ok(())
     }
 
-    fn show(&mut self) {}
+    fn show(&mut self) -> Result<(), AdapterError> {
+        Ok(())
+    }
 }

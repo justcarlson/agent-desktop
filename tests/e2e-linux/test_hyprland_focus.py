@@ -172,13 +172,9 @@ class HeadlessFocusRefusalTests(unittest.TestCase):
     def test_headed_refusals_no_longer_send_focus_window(self):
         sent = []
         gate = envelope(False, code="ACTION_NOT_SUPPORTED", cause="wayland_session", physical_delivery_started=False)
-        unbound = {"WAYLAND_DISPLAY": "/run/wayland-1"}
-        envs = []
-        ctx = SimpleNamespace(product=lambda argv, env=None: sent.append(argv) or envs.append(env) or gate)
-        self.assertEqual(hyprland_desktop._headed_refusals(ctx, "@s1:e1", "300,200", unbound), [])
-        self.assertNotIn("focus-window", [argv[0] for argv in sent])
-        self.assertIn(["mouse-click", "--xy", "300,200"], sent)
-        self.assertEqual(envs, [unbound, unbound])
+        ctx = SimpleNamespace(product=lambda argv: sent.append(argv[0]) or gate)
+        self.assertEqual(hyprland_desktop._headed_refusals(ctx, "@s1:e1"), [])
+        self.assertNotIn("focus-window", sent)
 
 
 class FocusLegAccountingTests(unittest.TestCase):

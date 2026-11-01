@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DisplayInfo, ErrorCode, ProcessId, Rect, ScreenshotTarget, WindowInfo,
+    AdapterError, DisplayInfo, ErrorCode, ProcessId, Rect, ScreenshotTarget, WindowInfo,
     WindowState,
 };
 
@@ -86,21 +86,19 @@ impl CaptureWorld for FakeWorld {
 struct FakeHider {
     log: Log,
     hide: Result<(), AdapterError>,
+    show: Result<(), AdapterError>,
 }
 
 impl CursorHider for FakeHider {
-    fn hide(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+    fn hide(&mut self) -> Result<(), AdapterError> {
         note(&self.log, "hide");
         self.hide.clone()
     }
 
-    fn show(&mut self) {
+    fn show(&mut self) -> Result<(), AdapterError> {
         note(&self.log, "show");
+        self.show.clone()
     }
-}
-
-fn deadline() -> Deadline {
-    Deadline::standard().unwrap()
 }
 
 fn frame(width: u32, height: u32) -> RawFrame {
@@ -208,8 +206,9 @@ fn screen(world: &mut FakeWorld, target: ScreenshotTarget) -> Result<ImageBuffer
     let mut hider = FakeHider {
         log: world.log.clone(),
         hide: Ok(()),
+        show: Ok(()),
     };
-    capture_screen(world, &mut hider, &target, deadline())
+    capture_screen(world, &mut hider, &target)
 }
 
 #[test]
@@ -326,14 +325,9 @@ fn a_failed_hide_skips_the_capture() {
     let mut hider = FakeHider {
         log: world.log.clone(),
         hide: Err(AdapterError::internal("hide")),
+        show: Ok(()),
     };
-    let error = capture_screen(
-        &mut world,
-        &mut hider,
-        &ScreenshotTarget::FullScreen,
-        deadline(),
-    )
-    .unwrap_err();
+    let error = capture_screen(&mut world, &mut hider, &ScreenshotTarget::FullScreen).unwrap_err();
     assert_eq!(error.message, "hide");
     assert_eq!(entries(&world), ["enforced", "displays", "hide"]);
     assert!(
@@ -344,12 +338,20 @@ fn a_failed_hide_skips_the_capture() {
 }
 
 #[test]
-fn show_runs_after_a_failed_capture() {
+fn show_runs_after_a_failed_capture_and_its_own_failure_is_reported() {
     let mut world = world(frame(64, 32));
     world.frame = Err(AdapterError::timeout("no frame"));
     let error = screen(&mut world, ScreenshotTarget::FullScreen).unwrap_err();
     assert_eq!(error.code, ErrorCode::Timeout);
     assert!(entries(&world).ends_with(&["show".to_owned()]));
+    let mut world = self::world(frame(64, 32));
+    let mut hider = FakeHider {
+        log: world.log.clone(),
+        hide: Ok(()),
+        show: Err(AdapterError::internal("show")),
+    };
+    let error = capture_screen(&mut world, &mut hider, &ScreenshotTarget::FullScreen).unwrap_err();
+    assert_eq!(error.message, "show");
 }
 
 #[test]

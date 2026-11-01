@@ -42,9 +42,8 @@ command that resolves a window id report the refusal:
 
 What a bound Hyprland adds to `list-windows`, to resolving a window id, to
 `focus-window` and to `close-app` is in `windows-and-lifecycle.md`. Keys go
-through a virtual keyboard; see [Wayland keys](#wayland-keys). Pointer input
-is in [Pointer on Hyprland](#pointer-on-hyprland). Other commands on Hyprland
-behave as on a generic Wayland session.
+through a virtual keyboard; see [Wayland keys](#wayland-keys). Other commands
+on Hyprland behave as on a generic Wayland session.
 
 ## X11 versus Wayland
 
@@ -52,7 +51,7 @@ behave as on a generic Wayland session.
 |------------|-----|-----------------|
 | Observation, semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms; a bound Hyprland: a virtual keyboard |
-| App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | Bound Hyprland: a virtual pointer, `--headed`; see [Pointer on Hyprland](#pointer-on-hyprland). Other compositors: none, `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
+| App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops | EWMH on the X11 display | Bound Hyprland: every window through the compositor, move and resize floating only. Other compositors: Xwayland clients only; native windows and un-minimize refused |
 | `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included; on a bound Hyprland, `--headed focus-window` activates through the compositor |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
@@ -81,9 +80,8 @@ synthetic pointer path moves the user's real cursor.
   `not_delivered`; `details.physical_fallback` records the skipped
   `physical_input` step and refusal. Focus, policy, timeout, uncertain and
   partial-delivery refusals never fall back.
-- On a Wayland session that is not a bound Hyprland, the CLI's pointer gate
-  runs before that fallback: ordinary-app headed pointer commands are refused at
-  once with `ACTION_NOT_SUPPORTED`, cause
+- On Wayland the CLI's pointer gate runs before that fallback: ordinary-app
+  headed pointer commands are refused at once with `ACTION_NOT_SUPPORTED`, cause
   `wayland_session` and `physical_delivery_started: false` (`click`, `hover`,
   `double-click`, `mouse-wheel`, `mouse-down` and `select` included). A
   headed `type` sends keys through `VirtualKeyboard.type_text` on a bound
@@ -270,8 +268,7 @@ its own. Ending a session releases its held keys.
   character your keymap holds can still be refused. A refusal is safe: nothing
   was sent.
 - **App pointer.** AT-SPI gives no global window origin on Wayland, so ordinary
-  app pointer commands cannot be aimed (see Headed and headless above). A bound
-  Hyprland is the exception; see [Pointer on Hyprland](#pointer-on-hyprland). GNOME
+  app pointer commands cannot be aimed (see Headed and headless above). GNOME
   Shell ref clicks and popup openers refuse too; see
   `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window
@@ -312,63 +309,6 @@ compositor's device list.
 
 Without libxkbcommon, keys refuse with `PLATFORM_NOT_SUPPORTED`, cause
 `xkb_unavailable`, `not_delivered`.
-
-## Pointer on Hyprland
-
-On a bound Hyprland, `--headed` pointer commands go through a
-`zwlr_virtual_pointer_v1` bound to one output. They never pass through the
-GNOME portal.
-
-```bash
-agent-desktop list-displays
-agent-desktop --headed mouse-click --xy 640,400 --count 2
-agent-desktop --headed mouse-wheel --x 640 --y 400 --dy -2
-agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
-```
-
-- **Coordinates** are global logical layout points, the bounds `list-displays`
-  reports. Negative origins and fractional scales work. A point on no output is
-  `INVALID_ARGS`, cause `point_off_output`, `not_delivered`.
-- **Coordinate commands** (`mouse-move`, `mouse-click`, `mouse-wheel`,
-  `drag --from-xy`, `hover --xy`) prove nothing about the receiver. The report
-  says `details.receiver_proof: false` and counts `details.delivered_events`.
-  Read the effect from the app afterwards.
-- **Ref commands** (`click`, `double-click`, `triple-click`, `scroll`) aim at
-  the element inside its window and prove the receiver from the compositor
-  before each burst. The window must be mapped and shown, and the point must be
-  inside it. No `top` or `overlay` layer and no floating, pinned or fullscreen
-  window drawn above the target may cover the point. Hyprland draws pinned
-  windows above floating ones, floating ones above tiled ones, and within a
-  group the later window in `hyprctl clients` on top. Otherwise the action refuses before any event with
-  `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
-  `evidence_missing`, `target_not_shown`, `point_outside_target`, `layer_cover`
-  or `window_cover`.
-- **Every layer counts.** The tool trusts no layer namespace, its own cursor
-  namespace included. A shell bar or dock that covers the whole output, as the
-  stock Omarchy bar does, refuses every ref pointer action under it. Use a
-  semantic action, or a coordinate command and read the effect.
-- **Bounds and hit tests** come from the compositor. A ref's live bounds and
-  its `find` and `snapshot` bounds are its window rectangle at the window's
-  Hyprland origin, in the same layout points. The pre-action hit test hides the
-  agent's cursors, then reads the same window stack and layers; a cover answers
-  `InterceptedBy` with its rectangle, and evidence it cannot read answers
-  unknown.
-- **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
-  `hover_unsupported`, and sends nothing. Use `hover --xy`. `drag` by ref checks
-  both points against the window stack before it starts, then moves with no
-  further proof.
-- **Modifiers** are not held: `--modifiers` is `ACTION_NOT_SUPPORTED`, cause
-  `modifiers_unsupported`, `not_delivered`.
-- **Focus gate.** The active window is read before every button press and
-  every wheel step. If it changes mid-sequence, delivery stops with
-  `ACTION_FAILED`, kind `focus_gate`, cause `focus_changed`.
-- **Partial delivery.** A sequence that stops after its first event reports
-  `delivery_uncertain` with `retry: unsafe`, `physical_delivery_started: true`,
-  `delivered_events` and `buttons_released`. Pressed buttons are always
-  released. `buttons_released: false` means the compositor went away and the
-  release could not be sent. Take a fresh snapshot before any retry.
-- **Signals.** SIGINT, SIGTERM or SIGHUP during pointer input stops the next
-  event, releases held buttons, then ends the process with that signal.
 
 ## Wheel and scroll
 
