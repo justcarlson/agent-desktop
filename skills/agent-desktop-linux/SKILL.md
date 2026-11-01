@@ -235,10 +235,10 @@ arrow with no label, and a `--screen` capture shows it.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names. `press` takes mapped keys only; `type`
   handles characters the layout cannot produce.
-- Window ops act on X11 clients; headed scoped `press` requires an X11
-  session, and `focus-window` an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
+- Window ops act on X11 clients; headed scoped `press`, headed ref actions
+  and `focus-window` require an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
-  current desktop; on Hyprland only `--headed focus-window` does.
+  current desktop; on Hyprland only a headed activation does.
 - Linux exact FFI refs carrying bounds or a bounds hash require window-relative
   geometry, even when the ref also carries a name or identifier. Geometry-free
   identity refs are supported.
