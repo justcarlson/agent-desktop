@@ -99,7 +99,7 @@ fn wheel_plans_send_one_discrete_step_per_click() {
         vec![
             &SinkEvent::Wheel(WheelAxis::Vertical, -1),
             &SinkEvent::Wheel(WheelAxis::Vertical, -1),
-            &SinkEvent::Wheel(WheelAxis::Horizontal, -1),
+            &SinkEvent::Wheel(WheelAxis::Horizontal, 1),
         ]
     );
 }

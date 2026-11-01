@@ -4,16 +4,16 @@ use crate::input::mouse::wheel_plan::{
 };
 
 #[test]
-fn wheel_codes_map_to_the_measured_axis_signs() {
+fn wheel_codes_map_to_the_wayland_axis_signs() {
     assert_eq!(wheel_of(BUTTON_WHEEL_UP), Some((WheelAxis::Vertical, -1)));
     assert_eq!(wheel_of(BUTTON_WHEEL_DOWN), Some((WheelAxis::Vertical, 1)));
     assert_eq!(
         wheel_of(BUTTON_WHEEL_LEFT),
-        Some((WheelAxis::Horizontal, 1))
+        Some((WheelAxis::Horizontal, -1))
     );
     assert_eq!(
         wheel_of(BUTTON_WHEEL_RIGHT),
-        Some((WheelAxis::Horizontal, -1))
+        Some((WheelAxis::Horizontal, 1))
     );
     assert_eq!(wheel_of(1), None);
 }
