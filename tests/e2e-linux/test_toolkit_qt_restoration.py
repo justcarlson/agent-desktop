@@ -1,4 +1,5 @@
 import tempfile
+import time
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,21 +23,41 @@ class QtRestorationTests(unittest.TestCase):
         self.tier = SimpleNamespace(runtime_dir=Path(directory.name))
         self.present = [SESSION, PREVIEWER]
 
-    def run_leg(self, after_stop):
+    def run_leg(self, after_stop, exit_delay_s=0.0):
         ctx = LegContext(self.tier, "headed", legs.leg_by_id("gaps.gesture_qt_first_mouse-click"),
                          member_reader=lambda _: frozenset())
+        exits_at = [None]
 
         @contextmanager
         def managed(ctx, name):
             self.present = self.present + [APP]
             yield SimpleNamespace(pid=APP[0], start_time=APP[1])
-            self.present = list(after_stop)
+            exits_at[0] = time.monotonic() + exit_delay_s
 
-        with patch.object(toolkit_qt, "members", side_effect=lambda _: sorted(self.present)), \
-            patch.object(toolkit_qt, "managed", managed):
+        def members(_):
+            if exits_at[0] is not None and time.monotonic() >= exits_at[0]:
+                self.present = list(after_stop)
+            return sorted(self.present)
+
+        with patch.object(toolkit_qt, "members", side_effect=members), \
+            patch.object(toolkit_qt, "managed", managed), \
+            patch.object(toolkit_qt, "APP_EXIT_BUDGET_S", 1.0):
             with toolkit_qt.qt_app(ctx):
                 ctx.after("applog", toolkit_qt.log_state(ctx))
         return ctx
+
+    def test_an_app_that_exits_shortly_after_stop_passes(self):
+        ctx = self.run_leg([SESSION, PREVIEWER], exit_delay_s=0.3)
+        reads = ctx._reads["applog"]
+        self.assertEqual(reads["restored"], reads["before"])
+        self.assertEqual(verdict.evaluate(ctx), [])
+
+    def test_an_app_that_never_exits_fails_with_the_members(self):
+        started = time.monotonic()
+        with self.assertRaises(AssertionError) as raised:
+            self.run_leg([SESSION, PREVIEWER, APP])
+        self.assertGreaterEqual(time.monotonic() - started, 1.0)
+        self.assertIn(str(APP), str(raised.exception))
 
     def test_a_session_service_that_exits_during_the_leg_is_not_drift(self):
         ctx = self.run_leg([SESSION])

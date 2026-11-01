@@ -15,6 +15,7 @@ from runner.verdict import LegContext
 # org.gnome.NautilusPreviewer, a gjs process that exits about 10 s later,
 # so the oracle reads only the members a leg added.
 _BASELINES = weakref.WeakKeyDictionary()
+APP_EXIT_BUDGET_S = 5.0
 
 
 def log_state(ctx):
@@ -36,9 +37,22 @@ def qt_app(ctx):
             yield app
     finally:
         remove(path)
-        restored = log_state(ctx)
-        require(restored == baseline)
+        restored = settled_state(ctx, baseline)
+        require(restored == baseline,
+                f"Qt leg not restored after {APP_EXIT_BUDGET_S} s: added {restored['added']}, "
+                f"log {restored['log']!r}")
         ctx.restored("applog", restored)
+
+
+def settled_state(ctx, baseline):
+    """The leg's state once the stopped app is gone, or the last read at the budget.
+
+    apps.stop returns once the app is a zombie. The attached tier lists members
+    from /proc/<pid>/stat and is not the app's parent, so a zombie stays listed
+    until its parent reaps it."""
+    reads = []
+    poll(lambda: reads.append(log_state(ctx)) or reads[-1] == baseline, APP_EXIT_BUDGET_S)
+    return reads[-1]
 
 
 def events(path):
