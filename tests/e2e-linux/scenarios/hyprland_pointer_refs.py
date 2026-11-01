@@ -23,7 +23,7 @@ from scenarios.hyprland_focus_controls import cursor, lua_call, restore_desktop,
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, PAD_BUTTON, PAD_SCROLL, apart_from_last_click,
-                                            covering_layers, events, gdk3_presses, global_point, instance_control, instance_env,
+                                            covering_layers, events, gdk3_presses, global_point, instance_control, instance_env, pad_saw,
                                             instance_query, pad_client, pad_ref, pads_left, pointer_pad,
                                             presses, scrolls, settled, since)
 from scenarios.hyprland_window_ops import float_argv
@@ -39,9 +39,9 @@ def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int
     apart_from_last_click(log)
     start = len(events(log))
     delivered(ctx.product([verb, button], env=env))
-    found = presses(since(settled(log, lambda all_: presses(since(all_, start), "button") == want), start),
-                    "button")
-    return [] if found == want else [f"{verb} by ref: the pad button logged {found}, expected {want}"]
+    seen = since(settled(log, lambda all_: presses(since(all_, start), "button") == want), start)
+    found = presses(seen, "button")
+    return [] if found == want else [f"{verb} by ref: the pad button logged {found}, expected {want}{pad_saw(seen)}"]
 
 
 def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:

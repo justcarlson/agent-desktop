@@ -24,7 +24,7 @@ from scenarios.hyprland_common import shared
 from scenarios.hyprland_focus_controls import cursor_argv
 from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, cursor_at, events, gdk3_presses,
                                             global_point, instance_control, instance_env, instance_query, lands_at,
-                                            motions_after, pad_client, pad_ref, pads_left, pointer_pad, presses,
+                                            motions_after, pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
                                             releases,
                                             scrolls, settled, since, window_point, xy)
 from scenarios.wayland_outputs import monitor_command, settle_outputs
@@ -153,7 +153,7 @@ def drag_problems(ctx, env, log: Path, client: dict, start_at, end_at) -> list[s
     problems = no_receiver_proof("drag", data)
     pressed, released = presses(found, "area"), releases(found, "area")
     if pressed != [1] or len(released) != 1:
-        problems.append(f"drag: the pad logged presses {pressed} and {len(released)} releases")
+        problems.append(f"drag: the pad logged presses {pressed} and {len(released)} releases{pad_saw(found)}")
     elif not lands_at(released[0], window_point(end_at, client)):
         problems.append(f"drag released at {(released[0]['wx'], released[0]['wy'])}, not {window_point(end_at, client)}")
     return problems
@@ -308,7 +308,7 @@ def signal_problems(tier, env, log: Path, client: dict) -> list[str]:
     if code != -signal.SIGTERM:
         problems.append(f"the cancelled drag exited {code}, not by SIGTERM")
     if len(released) != 1:
-        problems.append(f"the cancelled drag left {len(released)} releases in the pad")
+        problems.append(f"the cancelled drag left {len(released)} releases in the pad{pad_saw(found)}")
         return problems
     if motions_after(found, released[0]["t"]):
         problems.append("motion reached the pad after the release")
