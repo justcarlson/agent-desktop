@@ -33,7 +33,15 @@ pub(crate) fn check_native_read(
     read: Result<Vec<u8>, AdapterError>,
     address: u64,
 ) -> Result<(), AdapterError> {
-    check_native_receiver(&read?, address)
+    let clients = read.map_err(|error| {
+        let check = XWAYLAND_EVIDENCE;
+        match error.code {
+            ErrorCode::Timeout => ReceiverRefusal::EvidenceTimedOut { check },
+            _ => ReceiverRefusal::EvidenceMissing { check },
+        }
+        .to_error()
+    })?;
+    check_native_receiver(&clients, address)
 }
 
 /// The same check over a `j/clients` reply. A reply that does not name the
