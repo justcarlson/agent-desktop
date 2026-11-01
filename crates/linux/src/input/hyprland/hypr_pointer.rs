@@ -1,6 +1,7 @@
 //! Pointer input on the bound Hyprland instance: cursors hidden, the virtual
 //! pointer opened on the bound socket, the active window held steady before
-//! every press and wheel step.
+//! every press and wheel step, and the hide still held before every plan,
+//! press and wheel step.
 
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, DragParams, MouseEvent, OperationReport,
@@ -22,6 +23,7 @@ use crate::input::x11::progress::Progress;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_parse::parse_active;
 use crate::system::hyprland::cursor_context::CursorContext;
+use crate::system::hyprland::cursor_renderer::hold_registry::ensure_held;
 use crate::system::hyprland::ipc::bound_request::bound_request;
 
 const ACTIVE_COMMAND: &str = "j/activewindow";
@@ -53,12 +55,13 @@ fn send_hidden(
         let displays = crate::system::list_displays(deadline).map_err(nothing_sent)?;
         let mut sink = LivePointerSink::open(binding, deadline).map_err(nothing_sent)?;
         let mut focus = FocusGate::new(|| read_active(binding, deadline), None);
+        let mut focus_check = || focus.check();
         let delivery = run_plans(
             &mut sink,
             PointerRun {
                 displays: &displays,
-                plan_gate,
-                step_gate: &mut || focus.check(),
+                plan_gate: &mut while_held(plan_gate),
+                step_gate: &mut while_held(&mut focus_check),
                 deadline,
                 progress,
             },
@@ -67,6 +70,15 @@ fn send_hidden(
         sink.finish()?;
         Ok(delivery)
     })
+}
+
+/// `gate` behind the check that this thread's cursor hide was not lost, so a
+/// failed renewal stops the run before its next gated event.
+pub(crate) fn while_held<'a>(gate: Gate<'a>) -> impl FnMut() -> Result<(), AdapterError> + 'a {
+    move || {
+        ensure_held()?;
+        gate()
+    }
 }
 
 /// A coordinate-only `mouse-move`, `mouse-click` or `mouse-wheel`. No
