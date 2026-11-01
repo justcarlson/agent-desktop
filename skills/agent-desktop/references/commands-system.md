@@ -62,7 +62,7 @@ agent-desktop close-app "TextEdit"
 agent-desktop close-app "TextEdit" --force
 ```
 
-Success is reported only after the process is seen gone: `{ "method": "graceful" | "force", "disposition": { "delivery": "delivered_unverified" | "delivered_verified" | "not_delivered" }, "target": { "kind": "app", ... } }`. `not_delivered` means the app had already exited. Read `disposition`, not `ok`, to learn what was proved. If a save dialog appears, snapshot it and answer it. `--force` ends the process. Protected system processes return `INVALID_ARGS` with `not_delivered`, not `PERM_DENIED`.
+Success is reported only after the process is seen gone: `{ "method": "graceful" | "force", "disposition": { "delivery": "delivered_unverified" | "delivered_verified" | "not_delivered" }, "target": { "kind": "app", ... } }`. `not_delivered` means the app had already exited. Read `disposition`, not `ok`, to learn what was proved. If a save dialog appears, snapshot it and answer it. `--force` ends the process and discards unsaved work: use it only when the user asks for it. Protected system processes return `INVALID_ARGS` with `not_delivered`, not `PERM_DENIED`.
 
 ## list-apps
 
@@ -79,7 +79,7 @@ agent-desktop minimize --app "TextEdit"   # maximize, restore likewise
 ```
 
 - `list-windows` returns `{ id, title, app_name, pid, bounds, is_focused, accessible }`. Use a `w-<id>` with `--window-id` when an app has several windows.
-- `accessible: false` means semantic commands cannot reach that window. Targeting it returns `ACTION_NOT_SUPPORTED` with `kind: "window_without_accessibility_element"`. It still accepts screenshots and coordinate input. Choose another window. On Linux, a Hyprland window without an accessibility tree has a `w-hypr-` id, and `snapshot` or `find` with that id returns `INVALID_ARGS`.
+- `accessible: false` means semantic commands cannot reach that window. Targeting it returns `ACTION_NOT_SUPPORTED` with `kind: "window_without_accessibility_element"`. It still accepts screenshots and, where the platform skill lists pointer input, coordinate input. Choose another window. On Linux, a Hyprland window without an accessibility tree has a `w-hypr-` id, and `snapshot` or `find` with that id returns `INVALID_ARGS`. It takes `focus-window` and `screenshot`; the CLI sends it no pointer or key input.
 - `focus-window` needs at least one identifier. It confirms the OS reports that window as focused. Otherwise it returns `ACTION_FAILED`.
 - Where the platform reports how focus was proven (Linux on Hyprland), `data.activation` carries `activated`, `proof` and any `side_effects`, such as a workspace switch. There, only `--headed` activates a window; a headless call proves existing focus or refuses with `POLICY_DENIED`.
 - `restore` undoes a minimize and returns the window to its earlier placement. It does not promise to un-maximize.

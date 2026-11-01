@@ -99,7 +99,7 @@ agent-desktop screenshot --app "Finder" out.png
 agent-desktop screenshot --screen 0 display.png
 ```
 
-With no path, the PNG returns as base64 in `data`. `--screen` takes a display index from `list-displays`; `0` is the primary display. A screenshot is evidence for you, not proof that an action worked. Permission denial returns `PERM_DENIED` (see the platform skill).
+With no path, the PNG returns as base64 in `data`. To see the screen, write the PNG to a file, then open that file with your image reader. A printed path is not the image: you have not seen the screen until you open it. `--screen` takes a display index from `list-displays`; `0` is the primary display. A screenshot is evidence for you, not proof that an action worked. Permission denial returns `PERM_DENIED` (see the platform skill).
 
 ## list-displays
 

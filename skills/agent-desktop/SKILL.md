@@ -51,7 +51,9 @@ agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact        # verify: re-read
 - Refs are valid for one snapshot. After any UI change, re-drill the affected region or take a new snapshot.
 - Only addressable elements get refs. Static text and inert containers do not.
 - `STALE_REF`: the ref no longer matches the live UI. Take a fresh snapshot and use the new ref.
-- `AMBIGUOUS_TARGET`: more than one live element matches. Narrow the target with `find --role --name --exact` or `--root`, then use the new ref.
+- Take refs and window ids only from this CLI's own `snapshot`, `find` and `list-windows` output. Never reuse a window id, element index or ref from another desktop tool.
+- `AMBIGUOUS_TARGET` on an element ref: more than one live element matches. Narrow the target with `find --role --name --exact` or `--root`, then use the new ref.
+- `AMBIGUOUS_TARGET` on a window: when `details` lists distinct window ids and you know which window the user means, pass its id with `--window-id`. Otherwise report the candidates to the user and stop. Never rename, resize, move or close the user's windows to tell them apart.
 - `SNAPSHOT_NOT_FOUND`: the snapshot id expired. Snapshot again.
 
 ## Delivery and retry
@@ -60,13 +62,14 @@ Action results carry `data.disposition` and errors carry `error.disposition`, ea
 
 - Retry or substitute an action only when `disposition.retry` is `safe`. Only `not_delivered` is safe.
 - Any other delivery value means the action may have landed. A repeat can click, type or submit twice, and `toggle` can undo itself.
-- On a result that is not safe, read the live state (`get`, `is`, or a fresh snapshot) and decide from that. `details.post_state` helps when present.
+- `delivery_uncertain` means the action may or may not have landed. Stop and report it to the user. Do not retry it.
+- On another result that is not safe, read the live state (`get`, `is`, or a fresh snapshot) and decide from that. `details.post_state` helps when present.
 - Branch on `error.code` and `error.disposition`. Message and suggestion text can change.
 - `details.retryable: false` means waiting cannot change the outcome. Try a different approach.
 
 ## Headless and headed
 
-Ref actions are headless by default. They use semantic accessibility calls and do not take focus, move the cursor, synthesize keys or use the clipboard. If no semantic path exists, the action fails closed. Use the global `--headed` flag only when the user explicitly permits physical input, such as double-click, hover, drag, or focus. Never switch to headed mode to recover from a headless failure. Raw coordinates (`--xy`) never imply focus. Which actions need `--headed` differs by OS: read the platform skill.
+Ref actions are headless by default. They use semantic accessibility calls and do not take focus, move the cursor, synthesize keys or use the clipboard. If no semantic path exists, the action fails closed. Use the global `--headed` flag only when the user explicitly permits physical input, such as double-click, hover, drag, or focus. A user's request to focus a window or bring it forward is that permission for `--headed focus-window`. Never add `--headed` to retry an unrelated headless failure. Raw coordinates (`--xy`) never imply focus. Which actions need `--headed` differs by OS: read the platform skill.
 
 ## References
 

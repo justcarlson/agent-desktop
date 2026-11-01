@@ -25,10 +25,13 @@ user and a running AT-SPI bus. Other distributions need the at-spi2-core bridge
 fix dc0dc33; Ubuntu 22.04's bridge aborts on `Action.GetActions`. The archive
 loader floor is glibc 2.35. Run the CLI inside the target apps' desktop session:
 the session bus, display and runtime directory come from its environment. A TTY
-login, an SSH shell without session variables, a container without a bus or
-another user's session sees no apps. GNOME is the measured desktop; X11 and
-Wayland sessions both work and differ in input, capture and window control.
-Observation and semantic actions need no helper tool.
+login, a container without a bus or another user's session sees no apps. On
+Hyprland, a shell without display variables, such as an SSH shell, binds the
+user's one live Hyprland instance from `/run/user/<uid>`; several live instances
+refuse with `hyprland_ambiguous`. See `references/display-servers-and-input.md`.
+GNOME is the measured desktop; X11 and Wayland sessions both work and differ in
+input, capture and window control. Observation and semantic actions need no
+helper tool.
 
 ## Capability Table
 
@@ -44,7 +47,7 @@ Observation and semantic actions need no helper tool.
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; on a bound Hyprland, `list-windows` also lists windows without an accessibility tree, such as foot. `focus-window` and graceful `close-app` need X11 or a bound Hyprland; there `focus-window` activates only with `--headed` and reports `data.activation`. Other window control needs an X11 client. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | X11; GNOME Wayland through Mutter; other Wayland compositors through `wl_output` and `zxdg_output_manager_v1`. See `references/display-servers-and-input.md` |
-| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. A bound Hyprland: any window, hidden ones included, and any display, through the compositor with no dialog. Other Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
+| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. A bound Hyprland: any window, hidden ones included, and any display, through the compositor with no dialog. Other Wayland: portal consent, with display cropping. With no `--app`, `--window-id` or `--screen`, it captures the primary display, the same as `--screen 0`. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
@@ -57,14 +60,19 @@ Observation and semantic actions need no helper tool.
 - **Run `agent-desktop status` first.** An empty `supported_surfaces` means the
   accessibility bus did not answer, not an empty desktop. Read
   `references/bus-and-permissions.md`; do not restart a bus you did not start.
+- **Use this CLI's commands, not other desktop tools.** Do not run `hyprctl`,
+  `wtype`, `grim`, the desktop portal or a similar tool yourself to focus,
+  type, capture or close. They skip the CLI's identity checks and delivery
+  report. When the CLI refuses, report the refusal.
 - **`--app` takes the name `list-apps` prints** (`gnome-calculator`,
   `nautilus`) or a desktop-entry name or id backed by verified executable and
   argument identity, never a window title or an arbitrary registry label. A
   desktop-entry name such as `Files` is accepted once the entry exists.
   `list-windows --app` is exact (aliases included); `list-apps --app` combines a
   substring of the listed name with exact adapter aliases, ignoring case.
-- **Window ids are opaque addresses** of 34 to 70 characters, valid for the
-  life of the window's process; run `list-windows` again after a restart.
+- **Window ids are opaque `w-` addresses**, valid for the life of the window's
+  process; run `list-windows` again after a restart. On a bound Hyprland, a
+  window without an accessibility tree has a `w-hypr-` id instead.
   `list-apps` rows carry `bundle_id` (desktop id when known) and
   `process_instance`.
 - **GTK4 apps nest deeply.** `--max-depth` and `--skeleton` count semantic
@@ -204,7 +212,7 @@ cursor; on Wayland none is drawn.
 - Window ops act on X11 clients; headed scoped `press` requires an X11
   session, and `focus-window` an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
-  current desktop.
+  current desktop; on Hyprland only `--headed focus-window` does.
 - Linux exact FFI refs carrying bounds or a bounds hash require window-relative
   geometry, even when the ref also carries a name or identifier. Geometry-free
   identity refs are supported.
