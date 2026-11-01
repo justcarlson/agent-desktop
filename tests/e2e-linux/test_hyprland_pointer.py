@@ -399,37 +399,61 @@ class CoveredClickTests(unittest.TestCase):
 
 
 class XwaylandScrollTests(unittest.TestCase):
-    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline."""
+    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline, so the
+    leg primes it with one notch and then wants every measured notch, one unit each."""
 
     def smooth(self, *dys: float) -> list[dict]:
         return [{"ev": "scroll", "widget": "scroll", "direction": "smooth", "dx": 0.0, "dy": dy, "t": 1.0}
                 for dy in dys]
 
-    def scrolled(self, logged: list[dict]) -> tuple[list[str], list[str]]:
+    def discrete(self, count: int) -> list[dict]:
+        return [{"ev": "scroll", "widget": "scroll", "direction": "down", "t": 1.0}] * count
+
+    def scrolled(self, primed: list[dict], measured: list[dict]) -> tuple[list[list[str]], list[str]]:
         ctx = mock.Mock()
         ctx.product.return_value = mock.Mock(ok=True)
         with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), delivered=mock.Mock(),
-                                 settled=mock.Mock(return_value=logged)):
+                                 settled=mock.Mock(side_effect=[primed, measured])):
             problems = refs.scroll_problems(ctx, {}, Path("/dev/null"), "@s:pane")
-        return ctx.product.call_args.args[0], problems
+        return [call.args[0] for call in ctx.product.call_args_list], problems
 
-    def test_the_baseline_notch_may_log_nothing(self):
-        self.assertTrue(pad.gdk3_x11_wheel_matches(["down", "down"], "down", 3))
-        self.assertTrue(pad.gdk3_x11_wheel_matches(["down", "down", "down"], "down", 3))
+    def test_wheel_notches_name_a_smooth_event_off_one_notch_by_its_deltas(self):
+        found = self.smooth(1.0, -1.0, 2.0, 0.0) + [{"ev": "scroll", "widget": "scroll", "direction": "smooth",
+                                                     "dx": 1.0, "dy": 0.0, "t": 1.0}]
+        self.assertEqual(pad.wheel_notches(found, "scroll"),
+                         ["down", "up", "smooth dx=0.0 dy=2.0", "smooth dx=0.0 dy=0.0", "right"])
 
-    def test_a_merged_lost_or_turned_notch_does_not_match(self):
-        for found in ([], ["down"], ["down", "up"], ["down"] * 4):
-            self.assertFalse(pad.gdk3_x11_wheel_matches(found, "down", 3), found)
-
-    def test_scroll_by_ref_sends_three_notches_and_takes_the_baseline_loss(self):
-        argv, problems = self.scrolled(self.smooth(1.0, 1.0))
-        self.assertEqual(argv, ["scroll", "@s:pane", "--direction", "down", "--amount", "3"])
+    def test_it_primes_one_notch_then_measures_three(self):
+        argvs, problems = self.scrolled(self.smooth(1.0), self.smooth(1.0, 1.0, 1.0))
+        self.assertEqual(argvs, [["scroll", "@s:pane", "--direction", "down", "--amount", "1"],
+                                 ["scroll", "@s:pane", "--direction", "down", "--amount", "3"]])
         self.assertEqual(problems, [])
 
-    def test_scroll_by_ref_that_logs_one_notch_says_what_the_pad_saw(self):
-        _, problems = self.scrolled(self.smooth(1.0))
-        self.assertEqual(problems, ["scroll by ref: the pad scroll pane logged ['down'], expected 3 notches down,"
-                                    " or 2 when GDK3 takes the first as its baseline (pad saw: scroll/scroll 1)"])
+    def test_a_priming_notch_that_logs_nothing_is_the_baseline(self):
+        self.assertEqual(self.scrolled([], self.smooth(1.0, 1.0, 1.0))[1], [])
+
+    def test_three_discrete_notches_pass(self):
+        self.assertEqual(self.scrolled([], self.discrete(3))[1], [])
+
+    def test_a_missing_later_notch_fails(self):
+        self.assertEqual(self.scrolled([], self.smooth(1.0, 1.0))[1],
+                         ["scroll by ref: the pad scroll pane logged ['down', 'down'],"
+                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
+
+    def test_two_discrete_notches_fail(self):
+        self.assertEqual(self.scrolled([], self.discrete(2))[1],
+                         ["scroll by ref: the pad scroll pane logged ['down', 'down'],"
+                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
+
+    def test_a_partial_merge_fails(self):
+        self.assertEqual(self.scrolled([], self.smooth(1.0, 2.0))[1],
+                         ["scroll by ref: the pad scroll pane logged ['down', 'smooth dx=0.0 dy=2.0'],"
+                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
+
+    def test_a_priming_notch_that_logs_two_events_fails(self):
+        self.assertEqual(self.scrolled(self.smooth(1.0, 1.0), self.smooth(1.0, 1.0, 1.0))[1],
+                         ["scroll by ref: the priming notch logged 2 wheel events, expected 0 or 1"
+                          " (pad saw: scroll/scroll 2)"])
 
 
 class PadBackendTests(unittest.TestCase):
