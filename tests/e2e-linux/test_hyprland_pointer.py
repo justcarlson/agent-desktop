@@ -141,6 +141,76 @@ class EnvelopeCheckTests(unittest.TestCase):
                                                            cause="layer_cover"), "layer_cover"))
 
 
+    def test_receiver_refusal_takes_the_preflight_occluder_for_a_cover(self):
+        layer = occluded("layer", "omarchy-bar")
+        window = occluded("window", None)
+        self.assertEqual(refs.receiver_refusal("c", layer, "layer_cover"), [])
+        self.assertEqual(refs.receiver_refusal("c", window, "window_cover"), [])
+        self.assertTrue(refs.receiver_refusal("c", layer, "window_cover"))
+        self.assertTrue(refs.receiver_refusal("c", window, "target_not_shown"))
+
+
+def occluded(role: str, name: str | None) -> Envelope:
+    occluder = {"role": role, "bounds": {"x": 0.0, "y": 0.0, "width": 1280.0, "height": 800.0}}
+    if name:
+        occluder["name"] = name
+    checks = [{"check": "visible", "status": "pass"},
+              {"check": "receives_events", "status": "fail", "reason": f"occluded by {role}", "occluder": occluder}]
+    error = {"code": "ACTION_FAILED", "message": f"Target is not actionable: receives_events (occluded by {role})",
+             "details": {"actionable": False, "checks": checks},
+             "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+    return Envelope(ok=False, data=None, error=error, raw=json.dumps({"error": error}), elapsed_ms=1.0,
+                    argv=["agent-desktop"], exit_code=1)
+
+
+class CoverStateTests(unittest.TestCase):
+    """A headed ref click activates the pad, so the cover's focus history moves; its box must not."""
+
+    def test_focus_history_is_not_a_cover_change(self):
+        cover = {"address": "0x1", "at": [646, 21], "size": [613, 758], "floating": True, "pinned": False,
+                 "mapped": True, "hidden": False, "workspace": {"id": 1, "name": "1"}, "focusHistoryID": 0}
+        self.assertFalse(refs.cover_changed(cover, dict(cover, focusHistoryID=1)))
+        self.assertTrue(refs.cover_changed(cover, dict(cover, at=[0, 0])))
+        self.assertTrue(refs.cover_changed(cover, dict(cover, pinned=True)))
+        self.assertTrue(refs.cover_changed(cover, None))
+
+
+class SessionRefusalTests(unittest.TestCase):
+    """A headed ref click activates the pad and so reveals its hidden special workspace, as
+    `focus-window` does; the stock shell layers over the output then refuse it."""
+
+    def run_refusals(self, revealed: str):
+        clicks, controls = [], []
+        client = {"at": [100, 50], "size": [400, 300], "workspace": {"name": "special:ad"}}
+        ctx = mock.Mock(tier=mock.Mock())
+
+        def clicked(_ctx, _env, _log, _button, cause, label):
+            clicks.append(cause)
+            return []
+
+        with mock.patch.multiple(
+                refs, main_instance=mock.Mock(return_value={"signature": "s"}),
+                instance_env=mock.Mock(return_value={}), pad_ref=mock.Mock(return_value="@s:button"),
+                covered_click=clicked, instance_query=mock.Mock(return_value={}),
+                covering_layers=mock.Mock(return_value=["omarchy-bar"]),
+                pad_client=mock.Mock(return_value=client),
+                instance_control=mock.Mock(side_effect=lambda *args: controls.append(args)),
+                shown=mock.Mock(return_value={"Virtual-1": ("1", revealed)}),
+                raw=mock.Mock(poll=lambda check, _timeout: check())):
+            problems = refs._session_refusals(ctx, mock.Mock(pid=1), client, Path("/dev/null"))
+        return clicks, controls, problems
+
+    def test_the_click_reveals_the_pad_and_the_shell_layer_refuses_it(self):
+        clicks, controls, problems = self.run_refusals("special:ad")
+        self.assertEqual(clicks, ["layer_cover"])
+        self.assertEqual(controls, [])
+        self.assertEqual(problems, [])
+
+    def test_a_click_that_leaves_the_special_workspace_hidden_is_a_problem(self):
+        _, _, problems = self.run_refusals("")
+        self.assertEqual(len(problems), 1)
+
+
 class DispatchArgvTests(unittest.TestCase):
     def test_lua_and_legacy_window_dispatchers(self):
         self.assertEqual(refs.window_argv("move", "0x10", True, 4, 5),
