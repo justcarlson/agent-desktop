@@ -13,10 +13,19 @@ pub(crate) mod cursor_surface;
 pub(crate) mod cursor_travel;
 pub(crate) mod exe_identity;
 pub(crate) mod frame_mark;
+pub(crate) mod hide_broadcast;
+pub(crate) mod hide_hold;
+pub(crate) mod hide_refusal;
+pub(crate) mod hold_registry;
+pub(crate) mod hold_renewal;
 pub(crate) mod holder_file;
+pub(crate) mod holder_lease;
+pub(crate) mod holder_reply;
 pub(crate) mod holder_view;
+pub(crate) mod holder_watch;
 pub(crate) mod hypr_cursor;
 pub(crate) mod initial_pose;
+pub(crate) mod layer_audit;
 pub(crate) mod layer_client;
 pub(crate) mod layer_globals;
 pub(crate) mod layer_link;
@@ -25,6 +34,7 @@ pub(crate) mod live_launcher;
 pub(crate) mod placement;
 pub(crate) mod record_class;
 pub(crate) mod record_read;
+pub(crate) mod renderer_census;
 pub(crate) mod renderer_entry;
 pub(crate) mod renderer_launcher;
 pub(crate) mod renderer_owner;
@@ -49,5 +59,7 @@ pub(crate) mod surface_key;
 
 #[cfg(test)]
 pub(crate) mod fake_layer_compositor;
+#[cfg(test)]
+pub(crate) mod fake_renderer;
 #[cfg(test)]
 pub(crate) mod registry_fixture;

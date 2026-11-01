@@ -281,6 +281,12 @@ REGISTRY += (
     Leg('pointer.cancel_or_disconnect_releases_buttons', 'SIGTERM during a drag stops later events and releases the held button in the pad log, and the next drag works; a nested compositor killed during a drag gives delivery_uncertain with unsafe retry, its partial counts and buttons_released false', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('applog', 'proc'), 'pass'),
 )
 
+REGISTRY += (
+    Leg('cursor.hide_ack_suppression_until_show', 'With the cursor drawn over the Calculator button it clicked, grim shows it while screenshot --screen, taken before, under a second live holder and after the outputs power off and on, matches the cursor-free screen at the arrow; a live holder clears the cursor and a click under it draws nothing; the cursor returns once the holder leaves, and no holder file outlives its command', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
+    Leg('cursor.travel_failure_proceeds_hide_failure_refuses', 'A stopped renderer leaves a headless click landing, while a headed click and screenshot --screen refuse with cursor_hide_timeout or cursor_hide_failed, not_delivered, safe retry, no file and no change to the display; once it resumes the capture works, and a killed renderer blocks neither', 'Calculator', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'atspi', 'proc'), 'asserted-refusal', 'the headed half asserts the hide refusal as its expected outcome; the headless half and the recovery steps must succeed'),
+    Leg('pointer.ref_receiver_evidence_under_cursor', 'With the session cursor layer drawn over the pad on a nested instance, a headed ref click lands one press in the pad log and the cursor layer comes back afterwards', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'pass'),
+)
+
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")

@@ -18,14 +18,15 @@ pub(crate) mod no_cursor_hider;
 pub(crate) mod placement;
 pub(crate) mod protocol;
 pub(crate) mod receiver;
+pub(crate) mod registry_cursor_hider;
 pub(crate) mod toplevel;
 pub(crate) mod window_op;
 
-/// The hider every headed Hyprland command and every display capture use.
-/// No overlay is drawn yet, so it hides nothing.
+/// The hider every headed Hyprland command and every display capture use:
+/// it hides every agent cursor on the bound compositor until `show`.
 pub(crate) fn cursor_hider(
     context: &cursor_context::CursorContext<'_>,
 ) -> Box<dyn cursor_hider::CursorHider> {
-    let _ = context.binding;
-    Box::new(no_cursor_hider::NoCursorHider)
+    let runtime = cursor_renderer::renderer_paths::runtime_dir().ok();
+    registry_cursor_hider::cursor_hider_for(context.binding, runtime.as_deref())
 }
