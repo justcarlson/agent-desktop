@@ -220,3 +220,37 @@ fn interrupted_recording_ledger_stops_writes_without_losing_recorded_events() {
     assert_eq!(trace.total_events, 2);
     assert_eq!(trace.events.last().unwrap()["event"], "before");
 }
+
+#[test]
+fn temporary_directory_is_removed_after_drop() {
+    let path;
+    {
+        let dir = directory();
+        path = dir.to_path_buf();
+        fs::create_dir(dir.join("nested")).unwrap();
+        fs::write(dir.join("nested/event.jsonl"), b"event").unwrap();
+    }
+    let remains = path.exists();
+    if remains {
+        fs::remove_dir_all(&path).unwrap();
+    }
+    assert!(!remains, "temporary directory survived its owner");
+}
+
+#[test]
+fn temporary_directory_is_removed_after_panic() {
+    let path = std::sync::Mutex::new(None);
+    let result = std::panic::catch_unwind(|| {
+        let dir = directory();
+        *path.lock().unwrap() = Some(dir.to_path_buf());
+        fs::write(dir.join("event.jsonl"), b"event").unwrap();
+        panic!("exercise temporary directory cleanup");
+    });
+    assert!(result.is_err());
+    let path = path.into_inner().unwrap().unwrap();
+    let remains = path.exists();
+    if remains {
+        fs::remove_dir_all(&path).unwrap();
+    }
+    assert!(!remains, "temporary directory survived unwinding");
+}
