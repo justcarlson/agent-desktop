@@ -76,7 +76,8 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   several toplevels is `AMBIGUOUS_TARGET` with `details.candidates`.
 
 - `--screen N` captures the output `list-displays` names at index `N`, at its
-  full pixel size. No selector captures the primary display.
+  full pixel size. With no `--app`, `--window-id` or `--screen`, the capture is
+  the primary display, as with `--screen 0`.
   `data.scale_factor` is the output's scale.
 - Only a frame the compositor presents after the request counts. A screen
   whose pixels did not change still returns its new frame.
