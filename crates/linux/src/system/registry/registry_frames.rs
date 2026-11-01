@@ -5,7 +5,8 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::stream::{self, StreamExt};
 
-use crate::system::bus::bus_slice::within_slice;
+use crate::system::registry::app_patience::AppPatience;
+use crate::system::registry::read_patience::ReadPatience;
 use crate::system::{SharedBus, within};
 use crate::tree::{AtspiElement, RawNode, ReadPurpose, list_children, read_node_for};
 
@@ -56,13 +57,13 @@ fn outcome<T>(answer: Option<Result<T, AdapterError>>) -> Outcome<T> {
     }
 }
 
-/// Reads every frame of one application, each within its own slice. A frame
-/// that is gone is left out; one that does not answer in time or fails
+/// Reads every frame of one application, each within its own `patience`. A
+/// frame that is gone is left out; one that does not answer in time or fails
 /// otherwise is left out and marks the read `TimedOut`, so one stalled frame
-/// costs one slice and never reads as a closed window.
+/// costs one wait and never reads as a closed window.
 async fn collect_frames<T, F, Fut>(
     children: Vec<(String, String)>,
-    slice: Duration,
+    patience: ReadPatience,
     is_unclassified: impl Fn(&T) -> bool,
     read: F,
 ) -> (Vec<T>, RootRead)
@@ -70,15 +71,11 @@ where
     F: Fn((String, String)) -> Fut,
     Fut: Future<Output = Result<T, AdapterError>>,
 {
-    let outcomes = stream::iter(
-        children
-            .into_iter()
-            .map(|child| within_slice(slice, read(child))),
-    )
-    .buffered(FRAMES_IN_FLIGHT)
-    .map(outcome)
-    .collect::<Vec<_>>()
-    .await;
+    let outcomes = stream::iter(children.into_iter().map(|child| patience.wait(read(child))))
+        .buffered(FRAMES_IN_FLIGHT)
+        .map(outcome)
+        .collect::<Vec<_>>()
+        .await;
     let mut complete = RootRead::Read;
     let mut nodes = Vec::new();
     for outcome in outcomes {
@@ -96,6 +93,27 @@ where
     (nodes, complete)
 }
 
+/// Reads one application: its child list, then each frame. A child list that
+/// is gone reads complete with no frames; one that does not answer within
+/// its patience reads `TimedOut` with none.
+async fn read_app<T, F, Fut>(
+    patience: AppPatience,
+    children: impl Future<Output = Result<Vec<(String, String)>, AdapterError>>,
+    is_unclassified: impl Fn(&T) -> bool,
+    read: F,
+) -> (Vec<T>, RootRead)
+where
+    F: Fn((String, String)) -> Fut,
+    Fut: Future<Output = Result<T, AdapterError>>,
+{
+    let children = match outcome(patience.children.wait(children).await) {
+        Outcome::Read(children) => children,
+        Outcome::Gone => return (Vec::new(), RootRead::Read),
+        Outcome::Slow => return (Vec::new(), RootRead::TimedOut),
+    };
+    collect_frames(children, patience.frames, is_unclassified, read).await
+}
+
 /// Reads the children of each application root in full. An application whose
 /// child list or frame is gone contributes no windows and reads complete; one
 /// that does not answer in time contributes what it did answer and reads
@@ -109,15 +127,9 @@ pub(crate) fn read_frames(
     within(deadline, async {
         let connection = shared.inner();
         let reads = roots.iter().map(|root| async move {
-            let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
-            let children = match outcome(listed) {
-                Outcome::Read(children) => children,
-                Outcome::Gone => return FrameRead::empty(RootRead::Read),
-                Outcome::Slow => return FrameRead::empty(RootRead::TimedOut),
-            };
-            let (nodes, read) = collect_frames(
-                children,
-                FRAME_SLICE,
+            let (nodes, read) = read_app(
+                AppPatience::for_process(root.pid()),
+                list_children(connection, root),
                 is_unclassified,
                 |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());
