@@ -1,6 +1,5 @@
 pub(crate) mod kept_session;
 pub(crate) mod key_session;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod keymap;
 pub(crate) mod keysym_send;
 pub(crate) mod layout;

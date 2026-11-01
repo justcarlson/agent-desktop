@@ -5,7 +5,6 @@ use agent_desktop_core::AdapterError;
 
 use super::evdev_key::EvdevKey;
 use super::press_state::PressState;
-use super::refusal::keymap_refused;
 use super::xkb_keymap::XkbKeymap;
 use crate::input::keyboard::key_names::{KEYSYM_SHIFT_L, keysym_for_char};
 
@@ -26,19 +25,6 @@ pub(crate) struct KeyTable {
 }
 
 impl KeyTable {
-    /// Reads XKB keymap text, as a compositor sends it, for layout `layout`.
-    pub(crate) fn from_keymap(keymap: &[u8], layout: u32) -> Result<Self, AdapterError> {
-        let text = keymap.strip_suffix(&[0]).unwrap_or(keymap);
-        let compiled = XkbKeymap::compile(text)?.ok_or_else(|| {
-            keymap_refused(
-                "The keyboard keymap of this Wayland session did not compile",
-                "keymap_invalid",
-                serde_json::json!({}),
-            )
-        })?;
-        Self::from_compiled(&compiled, layout)
-    }
-
     /// Reads an already compiled keymap for layout `layout`. A key with fewer
     /// layouts wraps the index, as XKB does when it resolves a key.
     pub(crate) fn from_compiled(keymap: &XkbKeymap, layout: u32) -> Result<Self, AdapterError> {

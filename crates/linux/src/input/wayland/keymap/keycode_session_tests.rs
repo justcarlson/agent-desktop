@@ -66,6 +66,10 @@ impl KeycodeSink for FakeSink {
         }
         self.record(label)
     }
+
+    fn close(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+        self.record("close".to_owned())
+    }
 }
 
 fn live() -> Deadline {
@@ -131,7 +135,7 @@ fn the_gate_runs_before_every_key_down_including_a_wrapped_shift() {
         events(&log),
         [
             "upload", "gate", "gate", "down:42", "up:42", "gate", "gate", "down:42", "down:21",
-            "up:21", "up:42",
+            "up:21", "up:42", "close",
         ]
     );
 }
@@ -154,7 +158,7 @@ fn a_gate_failure_mid_batch_releases_every_held_key_and_is_uncertain() {
         events(&log),
         [
             "upload", "gate", "gate", "down:42", "up:42", "gate", "gate", "down:42", "down:21",
-            "gate", "up:21", "up:42",
+            "gate", "up:21", "up:42", "close",
         ]
     );
     assert!(keyboard.sink().held.is_empty());
@@ -174,7 +178,15 @@ fn a_sink_failure_inside_a_wrapped_key_releases_its_shift() {
     let error = run_chunks(&mut keyboard, &chunks, &mut || Ok(()), live())
         .expect_err("the key itself failed");
     assert!(keyboard.sink().held.is_empty(), "{:?}", events(&log));
-    assert_eq!(events(&log).last().map(String::as_str), Some("up:42"));
+    assert_eq!(
+        events(&log)
+            .iter()
+            .rev()
+            .take(2)
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["close", "up:42"]
+    );
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
     let details = error.details.expect("delivery evidence");
     assert_eq!(details["delivered_events"], 2);
@@ -219,4 +231,23 @@ fn the_session_is_never_kept_or_resumed() {
     run_chunks(&mut keyboard, &chunks, &mut || Ok(()), live()).expect("keys go");
     assert!(!keyboard.retain());
     assert!(!keyboard.resumed());
+}
+
+#[test]
+fn the_keyboard_is_closed_once_after_the_keys_whether_they_all_went_or_not() {
+    for failing_gate in [0, 3] {
+        let log = Log::default();
+        let keys = tap(KEYSYM_A);
+        let chunks: [&[KeysymStep]; 1] = [&keys];
+        let mut keyboard = session(&log, &chunks);
+        let mut gate = gate_failing_at(&log, failing_gate);
+        let _ = run_chunks(&mut keyboard, &chunks, &mut gate, live());
+        let events = events(&log);
+        assert_eq!(events.iter().filter(|event| *event == "close").count(), 1);
+        assert_eq!(
+            events.last().map(String::as_str),
+            Some("close"),
+            "{events:?}"
+        );
+    }
 }

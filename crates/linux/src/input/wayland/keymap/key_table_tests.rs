@@ -1,5 +1,6 @@
 use super::super::evdev_key::EvdevKey;
 use super::super::press_state::PressState;
+use super::super::xkb_keymap::XkbKeymap;
 use super::KeyTable;
 use crate::input::keyboard::key_names::{KEYSYM_SHIFT_L, KEYSYM_TAB};
 
@@ -12,9 +13,10 @@ const EVDEV_LEFT_SHIFT: u32 = 42;
 const EVDEV_Z_ON_QWERTZ: u32 = 21;
 
 fn de() -> KeyTable {
-    let mut text = OWNER_DE.as_bytes().to_vec();
-    text.push(0);
-    KeyTable::from_keymap(&text, 0).expect("the de keymap reads")
+    let compiled = XkbKeymap::compile(OWNER_DE.as_bytes())
+        .expect("libxkbcommon loads")
+        .expect("the de keymap compiles");
+    KeyTable::from_compiled(&compiled, 0).expect("the de keymap reads")
 }
 
 #[test]

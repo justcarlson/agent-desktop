@@ -30,6 +30,8 @@ type KeyName = unsafe extern "C" fn(*mut c_void, u32) -> *const c_char;
 type KeyByName = unsafe extern "C" fn(*mut c_void, *const c_char) -> u32;
 type KeysymName = unsafe extern "C" fn(u32, *mut c_char, usize) -> c_int;
 type KeysymUtf32 = unsafe extern "C" fn(u32) -> u32;
+type NumLayouts = unsafe extern "C" fn(*mut c_void) -> u32;
+type LayoutName = unsafe extern "C" fn(*mut c_void, u32) -> *const c_char;
 
 /// One compiled XKB keymap. It holds the library open for as long as the
 /// keymap lives, so every call below reads valid memory.
@@ -65,7 +67,7 @@ impl XkbKeymap {
         Ok(NonNull::new(keymap).map(|keymap| Self { xkb, keymap }))
     }
 
-    fn raw(&self) -> *mut c_void {
+    pub(super) fn raw(&self) -> *mut c_void {
         self.keymap.as_ptr()
     }
 
@@ -127,6 +129,25 @@ impl XkbKeymap {
                 MAX_MASKS,
             );
             Ok(found[..written.min(MAX_MASKS)].to_vec())
+        }
+    }
+
+    /// The name of every layout, in layout index order. A layout without a
+    /// name reads as an empty string.
+    pub(crate) fn layout_names(&self) -> Result<Vec<String>, AdapterError> {
+        unsafe {
+            let count: NumLayouts = self.xkb.symbol(c"xkb_keymap_num_layouts")?;
+            let name: LayoutName = self.xkb.symbol(c"xkb_keymap_layout_get_name")?;
+            Ok((0..count(self.raw()))
+                .map(|layout| {
+                    let found = name(self.raw(), layout);
+                    if found.is_null() {
+                        String::new()
+                    } else {
+                        CStr::from_ptr(found).to_string_lossy().into_owned()
+                    }
+                })
+                .collect())
         }
     }
 

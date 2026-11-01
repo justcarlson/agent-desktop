@@ -5,7 +5,7 @@ use agent_desktop_core::{
 
 use crate::input::backend::Backend;
 use crate::input::deliver::{ensure_budget, ensure_keyboard_policy};
-use crate::input::delivery::Gate;
+use crate::input::delivery::{Delivery, Gate};
 use crate::input::physical::frame_active::ActiveGate;
 use crate::input::physical::target_world::PhysicalWorld;
 use crate::tree::AtspiElement;
@@ -34,28 +34,28 @@ pub(crate) fn target_steps(
         }
     };
     gate()?;
-    let operation = match action {
+    let (operation, delivery) = match action {
         Action::TypeText(text) => {
-            match &backend {
+            let delivery = match &backend {
                 Backend::X11(_) => {
                     let map = world.keymap(deadline)?;
                     let plans = crate::input::keyboard::text_plan::plan_text(&map, text)?;
-                    world.send_plans(plans, &mut gate, deadline)?;
+                    world.send_plans(plans, &mut gate, deadline)?
                 }
                 Backend::Wayland => {
                     let chunks = crate::input::keyboard::text_plan::plan_text_keysyms(text);
-                    world.send_keysyms(&chunks, &mut gate, deadline)?;
+                    world.send_keysyms(&chunks, &mut gate, deadline)?
                 }
-            }
-            "type_text"
+            };
+            ("type_text", delivery)
         }
-        Action::PressKey(combo) => {
-            send_combo(world, &backend, combo, &mut gate, deadline)?;
-            "press_key"
-        }
+        Action::PressKey(combo) => (
+            "press_key",
+            send_combo(world, &backend, combo, &mut gate, deadline)?,
+        ),
         _ => return Err(AdapterError::not_supported(action.name())),
     };
-    Ok(vec![physical_step(&backend, operation)])
+    Ok(vec![physical_step(&backend, operation, &delivery)])
 }
 
 pub(crate) fn press_key_global_steps(
@@ -65,8 +65,8 @@ pub(crate) fn press_key_global_steps(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    send_combo(world, &backend, combo, &mut || Ok(()), deadline)?;
-    Ok(vec![physical_step(&backend, "press_key")])
+    let delivery = send_combo(world, &backend, combo, &mut || Ok(()), deadline)?;
+    Ok(vec![physical_step(&backend, "press_key", &delivery)])
 }
 
 /// Presses a chord for one process under the caller's focus gate. The gate
@@ -83,10 +83,10 @@ pub(crate) fn press_for_process(
     ensure_budget(deadline)?;
     let backend = world.backend()?;
     gate().map_err(|error| worded_for(error, policy, &backend))?;
-    send_combo(world, &backend, combo, gate, deadline)?;
+    let delivery = send_combo(world, &backend, combo, gate, deadline)?;
     Ok(ActionResult::from_execution(
         &Action::PressKey(combo.clone()),
-        vec![physical_step(&backend, "press_key")],
+        vec![physical_step(&backend, "press_key", &delivery)],
     ))
 }
 
@@ -131,27 +131,28 @@ fn send_combo(
     combo: &KeyCombo,
     gate: Gate<'_>,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<Delivery, AdapterError> {
     match backend {
         Backend::X11(_) => {
             let map = world.keymap(deadline)?;
             let plan = crate::input::keyboard::key_plan::plan_combo(&map, combo)?;
-            world.send_plans(vec![plan], gate, deadline)?;
+            world.send_plans(vec![plan], gate, deadline)
         }
         Backend::Wayland => {
             let keys = crate::input::keyboard::key_plan::plan_keysyms(combo)?;
-            world.send_keysyms(&[keys], gate, deadline)?;
+            world.send_keysyms(&[keys], gate, deadline)
         }
     }
-    Ok(())
 }
 
-fn physical_step(backend: &Backend, operation: &'static str) -> ActionStep {
-    let label = match (backend, operation) {
-        (Backend::X11(_), "type_text") => "XTEST.type_text",
-        (Backend::X11(_), _) => "XTEST.press_key",
-        (Backend::Wayland, "type_text") => "RemoteDesktop.type_text",
-        (Backend::Wayland, _) => "RemoteDesktop.press_key",
+fn physical_step(backend: &Backend, operation: &'static str, delivery: &Delivery) -> ActionStep {
+    let label = match (backend, operation, delivery.virtual_keyboard) {
+        (Backend::X11(_), "type_text", _) => "XTEST.type_text",
+        (Backend::X11(_), _, _) => "XTEST.press_key",
+        (Backend::Wayland, "type_text", true) => "RemoteDesktop.type_text",
+        (Backend::Wayland, _, true) => "RemoteDesktop.press_key",
+        (Backend::Wayland, "type_text", false) => "RemoteDesktop.type_text",
+        (Backend::Wayland, _, false) => "RemoteDesktop.press_key",
     };
     ActionStep::succeeded(label)
         .with_mechanism(StepMechanism::PhysicalSynthetic)
