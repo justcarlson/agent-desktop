@@ -324,8 +324,9 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
                 if not after:
                     problems.append("the headless click under a stopped renderer had no effect")
             kill_exactly(renderer_of(runtime, main, session))
+            shown = display(tree)
             dead = ctx.product(["--session", session, "click", seven])
-            problems += _dead_click_problems(ctx, dead, shell if headed else [])
+            problems += _dead_click_problems(ctx, dead, shell if headed else [], tree, shown)
             if headed:
                 envelope, path = screen.product_capture("hide-dead")
                 if not envelope.ok:
@@ -342,11 +343,13 @@ def shell_covers(layers: dict, point: tuple[float, float]) -> list[str]:
     return [name for name in covering_layers(layers, point) if name != NAMESPACE]
 
 
-def _dead_click_problems(ctx: LegContext, envelope, shell: list[str]) -> list[str]:
+def _dead_click_problems(ctx: LegContext, envelope, shell: list[str], tree, shown: str) -> list[str]:
     """A click under a killed renderer passes its hide; only a shell layer read before the click may cover it.
 
     The hit test judges covers after a confirmed hide, so a cover by a layer
     that was over the button before any headed click shows the hide passed.
+    Such a refusal must be undelivered and safe, and the display must still
+    read `shown`, its value before the click.
     """
     if envelope.ok:
         return []
@@ -354,7 +357,12 @@ def _dead_click_problems(ctx: LegContext, envelope, shell: list[str]) -> list[st
     details = error.get("details") or {}
     covers = [(check.get("occluder") or {}).get("name") for check in details.get("checks") or []
               if check.get("check") == "receives_events" and check.get("status") == "fail"]
+    disposition = error.get("disposition") or {}
     if error.get("code") == "ACTION_FAILED" and covers and all(name in shell for name in covers):
+        if disposition.get("delivery") != "not_delivered" or disposition.get("retry") != "safe":
+            return [f"the shell-covered click under a dead renderer is {disposition}, not not_delivered and safe"]
+        if raw.poll(lambda: display(tree) != shown, 1.0):
+            return [f"the refused click under a dead renderer changed the display to {display(tree)!r}"]
         ctx.finding(f"the headed click under a dead renderer passed its hide and met the shell layer {covers}, "
                     "which covered the button before any headed click")
         return []
