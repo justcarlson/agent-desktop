@@ -241,3 +241,25 @@ fn the_layout_globals_add_outputs_and_a_viewporter_but_never_a_seat() {
         ]
     );
 }
+
+#[test]
+fn an_arrival_settles_only_once_the_output_it_is_drawn_on_shows_it() {
+    let fake = FakeLayerCompositor::start_with_slow_output(true, vec![LEFT, RIGHT], Some(1));
+    let mut client = LayerClient::over(fake.connect(), &fake.socket, deadline()).expect("client");
+    staged(&mut client, -5.0, 100.0);
+    let shown_before = shown_on_slow_output(&fake);
+    staged(&mut client, 500.0, 500.0);
+    assert!(
+        shown_on_slow_output(&fake) > shown_before,
+        "the draw settled on the left output's clear frame before the right output showed the \
+         arrow: {:?}",
+        fake.logged()
+    );
+}
+
+fn shown_on_slow_output(fake: &FakeLayerCompositor) -> usize {
+    fake.logged()
+        .iter()
+        .filter(|line| *line == "slow output shown")
+        .count()
+}
