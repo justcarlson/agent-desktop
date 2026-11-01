@@ -1,5 +1,8 @@
+use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+
+use agent_desktop_core::DeliverySemantics;
 
 use super::*;
 use crate::system::wayland::fake_compositor::{FakeCompositor, FakeOutput, Script};
@@ -24,10 +27,23 @@ fn compositor() -> FakeCompositor {
     })
 }
 
-fn opened_sink(compositor: &FakeCompositor) -> LivePointerSink {
+fn reads(points: &[(f64, f64)]) -> CursorRead {
+    let mut replies: VecDeque<Point> = points.iter().map(|&(x, y)| Point { x, y }).collect();
+    Box::new(move || {
+        replies
+            .pop_front()
+            .ok_or_else(|| AdapterError::internal("The Hyprland cursor position could not be read"))
+    })
+}
+
+fn opened_sink(compositor: &FakeCompositor, cursor: CursorRead) -> LivePointerSink {
     let stream = UnixStream::connect(&compositor.socket).expect("connects");
     let deadline = Deadline::after(2_000).expect("deadline");
-    LivePointerSink::over(stream, compositor.socket.clone(), deadline).expect("opens")
+    LivePointerSink::over(stream, compositor.socket.clone(), deadline, cursor).expect("opens")
+}
+
+fn refusal_cause(error: &AdapterError) -> Option<&str> {
+    error.details.as_ref()?.get("cause")?.as_str()
 }
 
 fn point_at(x: u32, y: u32) -> OutputPoint {
@@ -37,11 +53,12 @@ fn point_at(x: u32, y: u32) -> OutputPoint {
         y,
         x_extent: 1920 * 120,
         y_extent: 1080 * 120,
+        global: ((x / 120) as i32, (y / 120) as i32),
     }
 }
 
 fn pressed_sink(compositor: &FakeCompositor) -> LivePointerSink {
-    let mut sink = opened_sink(compositor);
+    let mut sink = opened_sink(compositor, reads(&[(0.0, 0.0), (1.0, 1.0)]));
     sink.motion(&point_at(120, 120)).expect("moves");
     sink.button(BTN_LEFT, true).expect("presses");
     sink
@@ -62,9 +79,12 @@ fn requests_for(
 #[test]
 fn the_first_motion_moves_the_cursor_even_when_it_already_rests_on_the_aim() {
     const POINTER_CREATION: usize = 2;
-    const ONE_MOTION: usize = 3;
+    const ONE_MOTION: usize = 2;
     let compositor = compositor();
-    let mut sink = opened_sink(&compositor);
+    let mut sink = opened_sink(
+        &compositor,
+        reads(&[(953.0, 81.0), (953.0, 81.0), (953.0, 81.0), (960.0, 90.0)]),
+    );
     let first = requests_for(&compositor, &mut sink, &point_at(953 * 120, 81 * 120));
     let later = requests_for(&compositor, &mut sink, &point_at(960 * 120, 90 * 120));
     assert_eq!(
@@ -104,30 +124,33 @@ fn a_release_the_compositor_never_confirms_is_not_reported_released() {
 }
 
 #[test]
-fn the_first_motion_starts_inside_the_output_at_its_left_edge() {
-    assert_eq!(one_pixel_beside(953 * 120), 952 * 120);
-    assert_eq!(one_pixel_beside(120), 0);
-    assert_eq!(one_pixel_beside(60), 180);
-    assert_eq!(one_pixel_beside(0), 120);
+fn the_first_motion_passes_beside_the_aim_inside_the_output() {
+    assert_eq!(beside_dx(953 * 120), -1);
+    assert_eq!(beside_dx(120), -1);
+    assert_eq!(beside_dx(60), 1);
+    assert_eq!(beside_dx(0), 1);
 }
 
 #[test]
-fn every_absolute_motion_shares_its_frame_with_a_still_relative_motion() {
-    use MotionRequest::{Absolute, Frame, StillRelative};
-    assert_eq!(
-        motion_requests(953 * 120, true),
-        vec![
-            StillRelative,
-            Absolute { x: 952 * 120 },
-            Frame,
-            StillRelative,
-            Absolute { x: 953 * 120 },
-            Frame
-        ],
-        "XWayland sends an absolute-only motion through its absolute pointer device and the wheel through its relative one, so the switch resets GDK3's scroll baseline and the next notch scrolls nothing"
-    );
-    assert_eq!(
-        motion_requests(960 * 120, false),
-        vec![StillRelative, Absolute { x: 960 * 120 }, Frame]
-    );
+fn a_motion_that_misses_the_aim_refuses_before_any_button_or_wheel() {
+    let compositor = compositor();
+    let mut sink = opened_sink(&compositor, reads(&[(0.0, 0.0), (6.0, 1.0)]));
+    let error = sink
+        .motion(&point_at(120, 120))
+        .expect_err("a cursor Hyprland moved elsewhere than the aim must refuse");
+    assert_eq!(refusal_cause(&error), Some("cursor_missed_aim"));
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
+#[test]
+fn a_motion_with_no_cursor_evidence_refuses() {
+    for replies in [&[][..], &[(0.0, 0.0)][..]] {
+        let compositor = compositor();
+        let mut sink = opened_sink(&compositor, reads(replies));
+        let error = sink
+            .motion(&point_at(120, 120))
+            .expect_err("a motion whose start or landing is unread must refuse");
+        assert_eq!(refusal_cause(&error), Some("cursor_unread"));
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
 }

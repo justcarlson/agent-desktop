@@ -20,6 +20,7 @@ pub(crate) mod pointer_run;
 pub(crate) mod pointer_sink;
 pub(crate) mod pointer_state;
 pub(crate) mod ref_pointer;
+pub(crate) mod relative_motion;
 pub(crate) mod run_plans;
 pub(crate) mod show_on_drop;
 pub(crate) mod step_event;

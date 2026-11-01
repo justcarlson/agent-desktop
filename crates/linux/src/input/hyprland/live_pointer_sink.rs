@@ -5,7 +5,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, Point};
 use wayland_client::protocol::{wl_output, wl_pointer, wl_seat};
 use wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1;
 use wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
@@ -17,6 +17,7 @@ use super::pointer_sink::PointerSink;
 use super::pointer_state::PointerState;
 use super::wheel_axis::WheelAxis;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
+use crate::system::hyprland::clients::client_read::read_cursor;
 use crate::system::hyprland::toplevel::bound_socket::{connect_bound, unadvertised};
 use crate::system::wayland::capture::frame_freshness::monotonic_now;
 use crate::system::wayland::link::Link;
@@ -29,6 +30,9 @@ const NEED: &str = "pointer input on Hyprland";
 const RELEASE_SETTLE_MS: u64 = 1_000;
 const ONE_LOGICAL_PIXEL: u32 = 120;
 
+/// Reads the compositor's cursor in global logical pixels.
+pub(crate) type CursorRead = Box<dyn FnMut() -> Result<Point, AdapterError> + Send>;
+
 /// Sends pointer frames through one virtual pointer per output. Event times
 /// come from the monotonic clock, so presses of separate commands are never
 /// counted as one multi-click.
@@ -39,6 +43,8 @@ pub(crate) struct LivePointerSink {
     socket: PathBuf,
     current: Option<String>,
     pressed_on: Vec<(u32, String)>,
+    #[allow(dead_code)]
+    cursor: CursorRead,
 }
 
 impl LivePointerSink {
@@ -46,15 +52,22 @@ impl LivePointerSink {
         binding: &HyprlandBinding,
         deadline: Deadline,
     ) -> Result<Self, AdapterError> {
+        let bound = binding.clone();
         Self::over(
             connect_bound(binding)?,
             binding.wayland_socket.clone(),
             deadline,
+            Box::new(move || read_cursor(&bound, deadline)),
         )
     }
 
     /// The sink over a stream already proven to reach the bound compositor.
-    fn over(stream: UnixStream, socket: PathBuf, deadline: Deadline) -> Result<Self, AdapterError> {
+    fn over(
+        stream: UnixStream,
+        socket: PathBuf,
+        deadline: Deadline,
+        cursor: CursorRead,
+    ) -> Result<Self, AdapterError> {
         let fault =
             |fault: crate::system::wayland::wayland_fault::WaylandFault| fault.into_error(&socket);
         let mut state = PointerState::default();
@@ -98,6 +111,7 @@ impl LivePointerSink {
             socket,
             current: None,
             pressed_on: Vec::new(),
+            cursor,
         })
     }
 
@@ -254,6 +268,13 @@ fn motion_requests(x: u32, first: bool) -> Vec<MotionRequest> {
             ]
         })
         .collect()
+}
+
+fn beside_dx(output_x: u32) -> i32 {
+    match output_x >= ONE_LOGICAL_PIXEL {
+        true => -1,
+        false => 1,
+    }
 }
 
 /// Hyprland skips a motion to the pixel the cursor already holds, and 0.56.2

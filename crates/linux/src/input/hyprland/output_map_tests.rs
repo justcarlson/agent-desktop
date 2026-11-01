@@ -24,13 +24,20 @@ fn layout() -> Vec<DisplayInfo> {
     ]
 }
 
-fn point(output: &str, x: u32, y: u32, extent: (u32, u32)) -> Option<OutputPoint> {
+fn point(
+    output: &str,
+    x: u32,
+    y: u32,
+    extent: (u32, u32),
+    global: (i32, i32),
+) -> Option<OutputPoint> {
     Some(OutputPoint {
         output: output.to_owned(),
         x,
         y,
         x_extent: extent.0,
         y_extent: extent.1,
+        global,
     })
 }
 
@@ -38,7 +45,13 @@ fn point(output: &str, x: u32, y: u32, extent: (u32, u32)) -> Option<OutputPoint
 fn a_point_at_scale_1_25_is_output_local_with_the_logical_extent() {
     assert_eq!(
         to_output(162, 238, &layout()),
-        point("Virtual-1", 162 * 120, 238 * 120, (1024 * 120, 640 * 120))
+        point(
+            "Virtual-1",
+            162 * 120,
+            238 * 120,
+            (1024 * 120, 640 * 120),
+            (162, 238)
+        )
     );
 }
 
@@ -46,11 +59,23 @@ fn a_point_at_scale_1_25_is_output_local_with_the_logical_extent() {
 fn a_negative_origin_output_takes_the_offset_from_its_origin() {
     assert_eq!(
         to_output(-862, 238, &layout()),
-        point("S7NEG", 162 * 120, 238 * 120, (1024 * 120, 576 * 120))
+        point(
+            "S7NEG",
+            162 * 120,
+            238 * 120,
+            (1024 * 120, 576 * 120),
+            (-862, 238)
+        )
     );
     assert_eq!(
         to_output(-1118, -482, &layout()),
-        point("S7DIAG", 162 * 120, 238 * 120, (1280 * 120, 720 * 120))
+        point(
+            "S7DIAG",
+            162 * 120,
+            238 * 120,
+            (1280 * 120, 720 * 120),
+            (-1118, -482)
+        )
     );
 }
 

@@ -41,6 +41,7 @@ fn motion() -> SinkEvent {
         y: 238 * 120,
         x_extent: 1024 * 120,
         y_extent: 640 * 120,
+        global: (162, 238),
     })
 }
 
