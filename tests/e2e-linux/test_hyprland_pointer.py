@@ -154,6 +154,19 @@ class EnvelopeCheckTests(unittest.TestCase):
         self.assertTrue(refs.receiver_refusal("c", layer, "window_cover"))
         self.assertTrue(refs.receiver_refusal("c", window, "target_not_shown"))
 
+    def test_receiver_refusal_takes_the_activation_the_cover_undoes(self):
+        def activation(cause: str, delivery: str = "not_delivered") -> Envelope:
+            return refused("ACTION_FAILED", delivery, cause=cause, activation_sent=True,
+                           physical_delivery_started=False)
+        self.assertEqual(refs.receiver_refusal("c", activation("frame_not_active"), "layer_cover"), [])
+        self.assertEqual(refs.receiver_refusal("c", activation("activation_refused"), "window_cover"), [])
+        self.assertTrue(refs.receiver_refusal("c", activation("activation_refused"), "layer_cover"))
+        self.assertTrue(refs.receiver_refusal("c", activation("frame_not_active"), "window_cover"))
+        self.assertTrue(refs.receiver_refusal("c", activation("activation_refused", "delivered_unverified"),
+                                              "window_cover"))
+        self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", cause="activation_refused",
+                                                           physical_delivery_started=False), "window_cover"))
+
 
 def occluded(role: str, name: str | None) -> Envelope:
     occluder = {"role": role, "bounds": {"x": 0.0, "y": 0.0, "width": 1280.0, "height": 800.0}}

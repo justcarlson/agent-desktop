@@ -70,3 +70,7 @@ fn required_text<'a>(value: Option<&'a str>, message: &str) -> Result<&'a str, A
             .into()
     })
 }
+
+#[cfg(test)]
+#[path = "headed_focus_tests.rs"]
+mod tests;
