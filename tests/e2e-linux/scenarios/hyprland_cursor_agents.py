@@ -15,11 +15,11 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland
-from runner.helper import activate, command, display, managed, nodes, one, require, root
+from runner.helper import activate, display, managed, one, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_common import main_instance, shared
-from scenarios.hyprland_cursor import NAMESPACE, OVERLAY_LEVEL, SETTLE_S, alive, ended, record_of
+from scenarios.hyprland_cursor import NAMESPACE, OVERLAY_LEVEL, SETTLE_S, alive, ended, live_button, record_of
 
 AGENT_ENV = "AGENT_DESKTOP_AGENT_ID"
 TIP_SLACK = 3.0
@@ -96,13 +96,7 @@ def started_multi(ctx: LegContext) -> str:
 
 
 def button(ctx: LegContext, app, session: str, name: str) -> tuple[str, tuple[float, float]]:
-    found = command(ctx, ["--session", session, "find", "--exact", "--limit", "0", "--role", "button",
-                          "--name", name], app).data
-    items = [item for item in nodes(found) if isinstance(item.get("ref_id"), str)]
-    require(len(items) == 1, f"expected one ref for button {name}, found {len(items)}")
-    bounds = items[0].get("bounds") or {}
-    require(bounds, f"button {name} has no bounds: {items[0]}")
-    return items[0]["ref_id"], (bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
+    return live_button(ctx, app, session, name)
 
 
 def agent_click(ctx: LegContext, session: str, ref: str, agent: str, by_env: bool = False):
