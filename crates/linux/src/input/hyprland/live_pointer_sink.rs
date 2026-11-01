@@ -10,6 +10,7 @@ use wayland_client::protocol::{wl_output, wl_pointer, wl_seat};
 use wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1;
 use wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
 
+use super::motion_request::MotionRequest;
 use super::output_point::OutputPoint;
 use super::pointer_devices::PointerDevices;
 use super::pointer_sink::PointerSink;
@@ -153,13 +154,15 @@ impl PointerSink for LivePointerSink {
                 .roundtrip(&mut self.state)
                 .map_err(|fault| fault.into_error(&self.socket))?;
         }
-        if self.current.is_none() {
-            let beside = one_pixel_beside(point.x);
-            pointer.motion_absolute(now_ms(), beside, point.y, point.x_extent, point.y_extent);
-            pointer.frame();
+        for request in motion_requests(point.x, self.current.is_none()) {
+            match request {
+                MotionRequest::StillRelative => pointer.motion(now_ms(), 0.0, 0.0),
+                MotionRequest::Absolute { x } => {
+                    pointer.motion_absolute(now_ms(), x, point.y, point.x_extent, point.y_extent)
+                }
+                MotionRequest::Frame => pointer.frame(),
+            }
         }
-        pointer.motion_absolute(now_ms(), point.x, point.y, point.x_extent, point.y_extent);
-        pointer.frame();
         self.current = Some(point.output.clone());
         self.flush()
     }
@@ -229,6 +232,18 @@ impl PointerSink for LivePointerSink {
     fn settle(&mut self) -> bool {
         self.settle_release()
     }
+}
+
+/// The requests for a motion to `x`, starting one pixel beside it when
+/// `first`. Each absolute motion follows a still relative one in its frame.
+fn motion_requests(x: u32, first: bool) -> Vec<MotionRequest> {
+    let aims = match first {
+        true => vec![one_pixel_beside(x), x],
+        false => vec![x],
+    };
+    aims.into_iter()
+        .flat_map(|x| [MotionRequest::Absolute { x }, MotionRequest::Frame])
+        .collect()
 }
 
 /// Hyprland skips a motion to the pixel the cursor already holds, and 0.56.2
