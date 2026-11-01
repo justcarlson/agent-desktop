@@ -25,8 +25,8 @@ from runner.verdict import LegContext
 from scenarios.hyprland_capture_common import capture_path, saved_image
 from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
-from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, arrow_box, ended, gone_problems, kill_exactly,
-                                       layers_of, monitor_at, renderer_of, start_time, started)
+from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arrow_box, ended, gone_problems,
+                                       kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
 from scenarios.hyprland_focus_controls import lua_call
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
@@ -216,7 +216,7 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
     never counts as the cursor.
     """
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
-    with managed(ctx, "Calculator") as app:
+    with managed(ctx, "Calculator") as app, app_shown(ctx.tier, app.pid):
         tree = root(ctx, app)
         before = display(tree)
         ctx.before("atspi.display", before)
