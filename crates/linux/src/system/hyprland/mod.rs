@@ -13,3 +13,4 @@ pub(crate) mod identity;
 pub(crate) mod ipc;
 pub(crate) mod protocol;
 pub(crate) mod toplevel;
+pub(crate) mod window_op;
