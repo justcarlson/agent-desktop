@@ -13,8 +13,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from oracle import pixels
 from runner import legs
 from runner.product import Envelope
+from scenarios import hyprland_cursor as cursor
 from scenarios import hyprland_cursor_hide as hide
 
 LEG_IDS = ("cursor.hide_ack_suppression_until_show", "cursor.travel_failure_proceeds_hide_failure_refuses",
@@ -47,6 +49,44 @@ class Findings:
 
     def finding(self, text: str) -> None:
         self.found.append(text)
+
+
+class Reads:
+    def __init__(self):
+        self.restored_reads = {}
+
+    def restored(self, oracle: str, value) -> None:
+        self.restored_reads.setdefault(oracle, []).append(value)
+
+
+def arrow_in(image: pixels.Image, box: tuple[int, int, int, int], color=(66, 153, 255)) -> pixels.Image:
+    """`image` with an arrow-like wedge of `color` from the box's top left."""
+    x, y, width, height = box
+    rgb = bytearray(image.rgb)
+    for row in range(3, height):
+        for column in range(1, max(1, row * 2 // 3)):
+            offset = ((y + row) * image.width + x + column) * 3
+            rgb[offset:offset + 3] = bytes(color)
+    return pixels.Image(width=image.width, height=image.height, rgb=bytes(rgb))
+
+
+def ended_reads(answers: list) -> tuple[list[str], list]:
+    """The problems and the restored layer reads after session end, while `layers_of` gives `answers`."""
+    ctx, pending = Reads(), iter(answers)
+    last = []
+
+    def layers_of(runtime, instance):
+        nonlocal last
+        last = next(pending, last)
+        return last
+
+    owner = {"pid": 5, "start_time": 1}
+    with mock.patch.object(cursor, "layers_of", layers_of), mock.patch.object(hide, "layers_of", layers_of), \
+            mock.patch.object(cursor, "alive", lambda owner: False), \
+            mock.patch.object(cursor, "record_of", lambda runtime, session: None), \
+            mock.patch.object(cursor, "SETTLE_S", 0.2):
+        problems = hide.ended_layers(ctx, Path("/nonexistent"), {"signature": "s", "pid": 1}, "run-1", owner)
+    return problems, ctx.restored_reads.get("hyprland.layers", [])
 
 
 def dead_click(envelope: Envelope, shown: str, expected: str = "7") -> tuple[list[str], list[str]]:
@@ -148,6 +188,30 @@ class CursorHideLegTests(unittest.TestCase):
     def test_the_pad_legs_under_the_cursor_drive_an_xwayland_pad(self):
         source = (Path(hide.__file__)).read_text()
         self.assertIn("pointer_pad(tier, instance, label, XWAYLAND)", source)
+
+    def test_the_arrow_shows_by_its_fill_and_never_by_a_changed_button(self):
+        box = (2, 2, 14, 14)
+        normal = pixels.solid(24, 24, (222, 222, 222))
+        pressed = pixels.solid(24, 24, (190, 190, 190))
+        focused = arrow_in(normal, box, (53, 132, 228))
+        self.assertFalse(hide.arrow_shown(normal, box))
+        self.assertFalse(hide.arrow_shown(pressed, box))
+        self.assertFalse(hide.arrow_shown(focused, box))
+        self.assertTrue(hide.arrow_shown(arrow_in(normal, box), box))
+        self.assertTrue(hide.arrow_shown(arrow_in(pressed, box), box))
+
+    def test_a_pad_leg_reads_restored_layers_after_the_closed_cursor_layer_leaves(self):
+        ghost = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
+        problems, restored = ended_reads([ghost, ghost, ghost, []])
+        self.assertEqual(problems, [])
+        self.assertEqual(restored, [[]])
+
+    def test_a_cursor_layer_that_outlives_session_end_is_a_problem_and_its_restored_read_drifts(self):
+        ghost = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
+        problems, restored = ended_reads([ghost] * 400)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("still lists", problems[0])
+        self.assertEqual(restored, [ghost])
 
 
 if __name__ == "__main__":
