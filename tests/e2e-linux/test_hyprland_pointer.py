@@ -240,3 +240,40 @@ class GlobalLayoutTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReceiverEvidenceTests(unittest.TestCase):
+    """The receiver leg scrolls the pad's scroll pane: a push button has no Scroll action."""
+
+    def test_it_scrolls_the_pad_scroll_pane_and_clicks_the_button(self):
+        scrolled, clicked = [], []
+
+        @refs.contextlib.contextmanager
+        def opened(*_):
+            yield mock.Mock(pid=1), {}, Path("/dev/null")
+
+        @refs.contextlib.contextmanager
+        def cover(*_):
+            yield {}
+
+        def ref_of(_ctx, _env, _owned, target=pad.PAD_BUTTON):
+            return {pad.PAD_BUTTON: "@s:button", pad.PAD_SCROLL: "@s:pane"}[target]
+
+        def gesture(_ctx, _env, _log, button, _verb, _want):
+            clicked.append(button)
+            return []
+
+        def scroll(_ctx, _env, _log, pane):
+            scrolled.append(pane)
+            return []
+
+        ctx = mock.Mock(tier=mock.Mock(), mode="headed")
+        with mock.patch.multiple(
+                refs, nested=mock.Mock(return_value=({"signature": "s"}, True)),
+                instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
+                pointer_pad=opened, pad_ref=ref_of, clients_summary=mock.Mock(return_value=[]),
+                gesture_problems=gesture, scroll_problems=scroll, layer_cover=cover, window_cover=cover,
+                covered_click=mock.Mock(return_value=[]), events=mock.Mock(return_value=[])):
+            refs.ref_receiver_evidence(ctx)
+        self.assertEqual(scrolled, ["@s:pane"])
+        self.assertEqual(set(clicked), {"@s:button"})
