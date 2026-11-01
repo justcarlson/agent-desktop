@@ -63,10 +63,34 @@ def presses(found: list[dict], widget: str) -> list[int]:
     return [item["n"] for item in found if item.get("ev") == "press" and item.get("widget") == widget]
 
 
+def gdk3_presses(count: int) -> list[int]:
+    """The press counts GTK3 logs for `count` fast clicks: every physical press logs 1, and the second
+    and third press each add one synthetic double or triple press, so a triple click logs [1, 1, 2, 1, 3]."""
+    found: list[int] = []
+    for press in range(1, count + 1):
+        found += [1] if press == 1 else [1, press]
+    return found
+
+
+def _smooth_direction(item: dict) -> str | None:
+    dx, dy = item.get("dx") or 0.0, item.get("dy") or 0.0
+    if dy:
+        return "down" if dy > 0 else "up"
+    if dx:
+        return "right" if dx > 0 else "left"
+    return None
+
+
 def scrolls(found: list[dict], widget: str) -> list[str]:
-    """The wheel directions one widget logged, in order; a smooth event with no direction is left out."""
-    return [item["direction"] for item in found if item.get("ev") == "scroll" and item.get("widget") == widget
-            and item.get("direction") != "smooth"]
+    """The wheel directions one widget logged, in order. A window with the smooth-scroll mask gets a
+    Wayland wheel turn as one smooth event, so its direction comes from the sign of its delta, as GDK's
+    discrete directions do; a smooth event with no delta is left out. When GDK also logged discrete
+    events, only those count, so one turn is never counted twice."""
+    wheel = [item for item in found if item.get("ev") == "scroll" and item.get("widget") == widget]
+    discrete = [item["direction"] for item in wheel if item.get("direction") != "smooth"]
+    if discrete:
+        return discrete
+    return [direction for item in wheel if (direction := _smooth_direction(item))]
 
 
 def since(found: list[dict], count: int) -> list[dict]:
@@ -150,14 +174,19 @@ def find_ref(ctx, env: dict[str, str], window: str, role: str, name: str) -> str
     return found.pop()
 
 
-def pad_ref(ctx, env: dict[str, str], owned) -> str:
-    """The pad button's qualified ref, observed through `env`."""
+PAD_BUTTON = ("button", "Pad Button")
+PAD_SCROLL = ("scrollarea", "Pad Scroll")
+
+
+def pad_ref(ctx, env: dict[str, str], owned, target: tuple[str, str] = PAD_BUTTON) -> str:
+    """The qualified ref of one pad control, the button unless `target` names another, observed
+    through `env`. Scroll by ref needs `PAD_SCROLL`: a button is no wheel target, so it has no Scroll."""
     envelope = ctx.product(["list-windows"], env=env, headed=False)
     require(envelope.ok and isinstance(envelope.data, list), f"list-windows failed: {envelope.raw[:400]}")
     windows = [item.get("id") for item in envelope.data if item.get("pid") == owned.pid]
     require(len(windows) == 1, f"the pad is listed {len(windows)} times")
     window = windows[0]
-    return find_ref(ctx, env, window, "button", "Pad Button")
+    return find_ref(ctx, env, window, *target)
 
 
 def pads_left(tier) -> list[int]:

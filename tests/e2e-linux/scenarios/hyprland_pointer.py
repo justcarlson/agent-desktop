@@ -21,8 +21,9 @@ from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_common import shared
-from scenarios.hyprland_pointer_pad import (apart_from_last_click, cursor_at, events, global_point,
-                                            instance_env, instance_query, lands_at,
+from scenarios.hyprland_focus_controls import cursor_argv
+from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, cursor_at, events, gdk3_presses,
+                                            global_point, instance_control, instance_env, instance_query, lands_at,
                                             motions_after, pad_client, pad_ref, pads_left, pointer_pad, presses,
                                             releases,
                                             scrolls, settled, since, window_point, xy)
@@ -113,14 +114,24 @@ def click_problems(ctx, env, log: Path, client: dict, point, count: int) -> list
     apart_from_last_click(log)
     start = len(events(log))
     data = delivered(ctx.product(["mouse-click", f"--xy={xy(point)}", "--count", str(count)], env=env))
-    want = list(range(1, count + 1))
+    want = gdk3_presses(count)
     found = since(settled(log, lambda all_: presses(since(all_, start), "area") == want), start)
     problems = no_receiver_proof(f"mouse-click --count {count}", data)
     if presses(found, "area") != want:
-        problems.append(f"mouse-click --count {count} at {point}: the pad logged {presses(found, 'area')}")
+        problems.append(f"mouse-click --count {count} at {point}: the pad logged {presses(found, 'area')}"
+                        f"{missed_click(found)}")
     elif not all(lands_at(item, window_point(point, client)) for item in found if item["ev"] == "press"):
         problems.append(f"mouse-click at {point} landed at {[(i['wx'], i['wy']) for i in found]}")
     return problems
+
+
+def missed_click(found: list[dict]) -> str:
+    """What the pad saw instead of the expected presses, so a lost click shows whether the pointer
+    reached the window at all."""
+    elsewhere = [(item["widget"], item.get("n")) for item in found
+                 if item.get("ev") == "press" and item.get("widget") != "area"]
+    motions = sum(1 for item in found if item.get("ev") == "motion")
+    return f" (presses elsewhere: {elsewhere}, area motions: {motions})"
 
 
 def wheel_problems(ctx, env, log: Path, point, deltas: list[str], want: list[str]) -> list[str]:
@@ -157,6 +168,8 @@ def global_layout_coordinates(ctx: LegContext) -> None:
     with pointer_pad(tier, instance, "layout") as (owned, client, log):
         output = monitor_of(tier, instance, client)["name"]
         ctx.before("hyprland.monitors", layout(tier, instance))
+        before = instance_query(tier, instance, "cursorpos")
+        ctx.before("hyprland.cursor", before)
         try:
             with moved_output(tier, instance, lua, output, NEGATIVE_ORIGIN, FRACTIONAL):
                 monitor = monitor_of(tier, instance, pad_client(tier, instance, owned.pid) or client)
@@ -178,10 +191,17 @@ def global_layout_coordinates(ctx: LegContext) -> None:
                 delivered(ctx.product(["mouse-move", f"--xy={xy(far)}"], env=env))
                 if not lands_at(dict(zip(("wx", "wy"), cursor_at(tier, instance))), far):
                     problems.append(f"mouse-move to {far} on {other[0]['name']}: j/cursorpos reads {cursor_at(tier, instance)}")
+                problems += [f"from {other[0]['name']}, {problem}" for problem in
+                             click_problems(ctx, env, log, client, global_point(client, (0.6, 0.7)), 1)]
+                ctx.after("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
                 ctx.after("applog.pad", len(events(log)))
                 require(not problems, "; ".join(problems))
         finally:
             ctx.restored("hyprland.monitors", layout(tier, instance))
+            instance_control(tier, instance, cursor_argv(before["x"], before["y"], lua))
+            require(raw.poll(lambda: instance_query(tier, instance, "cursorpos") == before, 3.0),
+                    f"the nested cursor did not return to {before}")
+            ctx.restored("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
     ctx.restored("applog.pad", pads_left(tier))
 
 
@@ -235,6 +255,7 @@ def headless_or_cancelled_input(ctx: LegContext) -> None:
     with pointer_pad(tier, instance, "headless") as (owned, client, log):
         point = global_point(client, (0.5, 0.7))
         button = pad_ref(ctx, env, owned)
+        pane = pad_ref(ctx, env, owned, PAD_SCROLL)
         cursor = cursor_at(tier, instance)
         ctx.before("hyprland.cursor", cursor)
         problems = []
@@ -242,7 +263,7 @@ def headless_or_cancelled_input(ctx: LegContext) -> None:
                      ["mouse-wheel", f"--x={int(point[0])}", f"--y={int(point[1])}", "--dy=-1"],
                      ["drag", f"--from-xy={xy(point)}", f"--to-xy={int(point[0]) + 40},{int(point[1])}"],
                      ["double-click", button], ["triple-click", button],
-                     ["scroll", button, "--direction", "down", "--amount", "1"]):
+                     ["scroll", pane, "--direction", "down", "--amount", "1"]):
             problems += refusal_problems(" ".join(argv[:1]), ctx.product(argv, env=env, headed=False))
         after = cursor_at(tier, instance)
         ctx.after("hyprland.cursor", after)
@@ -261,7 +282,8 @@ def _running_drag(tier, env, start_at, end_at) -> subprocess.Popen:
             "--duration", str(CANCEL_DRAG_MS), "--timeout-ms", str(CANCEL_DRAG_MS + 5000)]
     run_env = product._result_env(tier)
     run_env.update(env)
-    return subprocess.Popen(argv, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    return subprocess.Popen(argv, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                            pass_fds=product._load_bounded_process()._interaction_lease_fds(run_env))
 
 
 def _pressed(log: Path, start: int) -> dict | None:
