@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, DisplayInfo, MouseButton, Point, Rect,
+    AdapterError, Deadline, DeliverySemantics, DisplayInfo, DragParams, ErrorCode, MouseButton,
+    Point, Rect,
 };
 
 use super::*;
 use crate::input::hyprland::fake_pointer_sink::FakePointerSink;
 use crate::input::keyboard::keymap::Keymap;
+use crate::input::mouse::drag_plan::plan_drag;
 use crate::input::mouse::pointer_plan::plan_click;
 use crate::input::x11::progress::Progress;
 
@@ -34,6 +36,16 @@ fn click(count: u32) -> Vec<Plan> {
     vec![plan.unwrap_or_else(|error| panic!("{error:?}"))]
 }
 
+fn drag() -> Vec<Plan> {
+    let params = DragParams {
+        from: Point { x: 100.0, y: 100.0 },
+        to: Point { x: 300.0, y: 120.0 },
+        duration_ms: Some(100),
+        drop_delay_ms: Some(0),
+    };
+    vec![plan_drag(&params, deadline()).unwrap_or_else(|error| panic!("{error:?}"))]
+}
+
 fn run(
     sink: &mut FakePointerSink,
     progress: &Progress,
@@ -51,6 +63,13 @@ fn run(
         },
         plans,
     )
+}
+
+fn timed_out_finish() -> FakePointerSink {
+    FakePointerSink {
+        finish_error: Some(ErrorCode::Timeout),
+        ..FakePointerSink::default()
+    }
 }
 
 fn assert_sent_but_unconfirmed(error: AdapterError, sink: &FakePointerSink) {
@@ -79,4 +98,32 @@ fn a_cancel_in_the_pause_between_clicks_confirms_the_release_already_sent() {
         "cancelled"
     );
     assert_sent_but_unconfirmed(error, &sink);
+}
+
+#[test]
+fn a_final_roundtrip_timeout_after_a_click_is_uncertain_with_its_count() {
+    let mut sink = timed_out_finish();
+    let error = run(&mut sink, &Progress::default(), &click(1))
+        .err()
+        .unwrap_or_else(|| panic!("an unconfirmed click must not succeed"));
+    assert_eq!(sink.events.len(), 3);
+    assert_sent_but_unconfirmed(error, &sink);
+}
+
+#[test]
+fn a_final_roundtrip_timeout_after_a_drag_is_uncertain_with_its_count() {
+    let mut sink = timed_out_finish();
+    let error = run(&mut sink, &Progress::default(), &drag())
+        .err()
+        .unwrap_or_else(|| panic!("an unconfirmed drag must not succeed"));
+    assert!(sink.events.len() > 3);
+    assert_sent_but_unconfirmed(error, &sink);
+}
+
+#[test]
+fn a_confirmed_run_needs_no_separate_release_settle() {
+    let mut sink = FakePointerSink::default();
+    let delivery = run(&mut sink, &Progress::default(), &click(2));
+    assert_eq!(delivery.map(|d| d.delivered_events).ok(), Some(5));
+    assert_eq!((sink.finished, sink.settled), (1, 0));
 }
