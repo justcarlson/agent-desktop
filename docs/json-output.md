@@ -387,12 +387,12 @@ cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 
 | Cause | Meaning | Extra `details` |
 |-------|---------|-----------------|
-| `evidence_missing` | A compositor read failed or was incomplete | `evidence` names the read |
+| `evidence_missing` | A compositor read failed or was incomplete, or Hyprland did not report the over-fullscreen state that decides the order | `evidence` names the read |
 | `evidence_timed_out` | A compositor read ran out of time; the code is `TIMEOUT` | `evidence` names the read |
 | `target_not_shown` | The window is not on a workspace an output shows | |
 | `point_outside_target` | The aim point lies outside the window | |
 | `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
-| `window_cover` | A floating, pinned or fullscreen window holds the point | `cover_address` |
+| `window_cover` | A floating, pinned or fullscreen window takes the point before the target | `cover_address` |
 
 Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 `not_delivered`:

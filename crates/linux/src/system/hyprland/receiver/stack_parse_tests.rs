@@ -48,6 +48,11 @@ fn over_fullscreen_state_is_read_when_hyprland_reports_it() {
         .map(|client| client.stacking.over_fullscreen)
         .collect();
     assert_eq!(allowed, vec![None, Some(true)]);
+    let older = br#"[{"address":"0x1","mapped":true,"at":[0,0],"size":[1,1],
+      "workspace":{"name":"1"},"floating":true,"pinned":false,"fullscreen":0,
+      "overFullscreen":false}]"#;
+    let older = parse_stack_clients(older).unwrap_or_default();
+    assert_eq!(older[0].stacking.over_fullscreen, Some(false));
 }
 
 #[test]
