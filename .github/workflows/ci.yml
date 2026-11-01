@@ -221,7 +221,7 @@ jobs:
       - name: Install AT-SPI bus and virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends at-spi2-core dbus-x11 xvfb
+          sudo apt-get install -y --no-install-recommends at-spi2-core dbus-x11 libxkbcommon0 xvfb
 
       - name: Cache cargo registry
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
