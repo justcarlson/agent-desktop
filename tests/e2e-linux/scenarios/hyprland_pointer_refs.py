@@ -32,6 +32,7 @@ SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
 GESTURES = (("click", gdk3_presses(1)), ("double-click", gdk3_presses(2)), ("triple-click", gdk3_presses(3)))
 OCCLUDER_ROLES = {"layer_cover": "layer", "window_cover": "window"}
+ACTIVATION_CAUSES = {"layer_cover": "frame_not_active", "window_cover": "activation_refused"}
 COVER_SHAPE = ("address", "at", "size", "floating", "pinned", "mapped", "hidden")
 
 
@@ -62,6 +63,9 @@ def preflight_occluder(error: dict) -> dict:
 
 
 def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
+    """A cover is refused before any pointer event, by whichever check meets it first: the activation
+    the cover undoes (Hyprland moves the cursor onto a window cover, which then stays active, and slurp's
+    layer keeps the keyboard), core's hit test, or the receiver proof. Every refusal is not_delivered."""
     error = envelope.error or {}
     details = error.get("details") or {}
     problems = []
@@ -71,6 +75,9 @@ def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
     if occluder:
         if occluder.get("role") != OCCLUDER_ROLES.get(cause):
             problems.append(f"{label}: occluded by {occluder.get('role')}/{occluder.get('name')}, expected {cause}")
+    elif details.get("activation_sent") is True:
+        if details.get("cause") != ACTIVATION_CAUSES.get(cause):
+            problems.append(f"{label}: activation refused with {details.get('cause')}, expected {cause}")
     elif details.get("kind") != "receiver_evidence" or details.get("cause") != cause:
         problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {cause}")
     if not occluder and details.get("physical_delivery_started") is not False:
