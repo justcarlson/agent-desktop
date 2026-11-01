@@ -1,0 +1,89 @@
+{
+  "leg": "gaps.value_write_preserves_active_window",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1931.304670999907,
+  "exception_traceback": "",
+  "reads": {
+    "gsettings.speed": {
+      "before": [
+        "0.0"
+      ],
+      "after": [
+        "0.2"
+      ],
+      "restored": [
+        "0.0"
+      ]
+    },
+    "x11.active_window": {
+      "before": [
+        "0xa00005"
+      ],
+      "after": [
+        "0xa00005"
+      ],
+      "restored": [
+        "0xa00005"
+      ]
+    },
+    "x11.pointer": {
+      "before": [
+        [
+          640,
+          400
+        ]
+      ],
+      "after": [
+        [
+          640,
+          400
+        ]
+      ],
+      "restored": [
+        [
+          640,
+          400
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "slider",
+        "--name",
+        "Pointer Speed",
+        "--window-id",
+        "w-1.693-org-gnome-Settings-a11y-a773005b_4ea5_4b9e_a5d1_b8466f97a7e7"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 209.81776799999352,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Pointer Speed\",\"path\":[\"window:Settings\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group:Mouse & Touchpad\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"scrollarea\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"group\",\"listbox\",\"option:Pointer Speed\",\"group\",\"group\"],\"ref_id\":\"@s37a6kt04440so:e1\",\"role\":\"slider\",\"states\":[],\"value\":\"0\"}],\"snapshot_id\":\"s37a6kt04440so\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "set-value",
+        "@s37a6kt04440so:e1",
+        "0.2"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 264.73856600000545,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"set-value\",\"data\":{\"action\":\"set-value\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":149,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"slider\",\"value\":\"0.2\"},\"steps\":[{\"label\":\"Value.CurrentValue\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    }
+  ]
+}

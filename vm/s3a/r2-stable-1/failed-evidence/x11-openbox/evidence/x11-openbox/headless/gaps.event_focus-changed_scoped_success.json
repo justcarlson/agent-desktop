@@ -1,0 +1,38 @@
+{
+  "leg": "gaps.event_focus-changed_scoped_success",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 817.7280529999962,
+  "exception_traceback": "",
+  "reads": {
+    "x11.focus": {
+      "before": [
+        "0xa00005"
+      ],
+      "after": [
+        "0x800005"
+      ],
+      "restored": [
+        "0xa00005"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"focus-window\", \"args\": {\"window_id\": \"w-1.541-org-gnome-Calculator-a11y-8905cd10_5a21_4abf_8946_2094c7f7d563\"}}, {\"command\": \"wait\", \"args\": {\"event\": \"focus-changed\", \"timeout\": 8000, \"app\": \"Calculator\"}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 333.09418999999707,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":2,\"elapsed_ms\":327,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"focus-window\",\"data\":{\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.541-org-gnome-Calculator-a11y-8905cd10_5a21_4abf_8946_2094c7f7d563\",\"is_focused\":true,\"minimized\":false,\"pid\":122230,\"process_instance\":\"5589b0cb:58661\",\"title\":\"Calculator\",\"visible\":true}},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"wait\",\"data\":{\"elapsed_ms\":92,\"event\":{\"app\":\"gnome-calculator\",\"kind\":\"focus_changed_window\",\"pid\":122230,\"title\":\"Calculator\",\"window_id\":\"w-1.541-org-gnome-Calculator-a11y-8905cd10_5a21_4abf_8946_2094c7f7d563\"},\"found\":true},\"execution\":\"completed\",\"index\":1,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":2}}\n"
+    }
+  ]
+}

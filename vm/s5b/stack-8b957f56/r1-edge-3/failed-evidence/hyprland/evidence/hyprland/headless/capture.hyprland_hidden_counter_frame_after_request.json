@@ -1,0 +1,293 @@
+{
+  "leg": "capture.hyprland_hidden_counter_frame_after_request",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 7422.7387439999575,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b2fc3d21a0",
+            "pid": 148043,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b2fc3d21a0",
+            "pid": 148043,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b2fc3d21a0",
+            "pid": 148043,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement_special": {
+      "before": [
+        {
+          "ticker": "special:ad_e2e",
+          "slow": "special:ad_e2e"
+        }
+      ],
+      "after": [
+        {
+          "ticker": "special:ad_e2e",
+          "slow": "special:ad_e2e"
+        }
+      ],
+      "restored": [
+        {
+          "ticker": "special:ad_e2e",
+          "slow": "special:ad_e2e"
+        }
+      ]
+    },
+    "hyprland.placement_7": {
+      "before": [
+        {
+          "ticker": "7",
+          "slow": "7"
+        }
+      ],
+      "after": [
+        {
+          "ticker": "7",
+          "slow": "7"
+        }
+      ],
+      "restored": [
+        {
+          "ticker": "7",
+          "slow": "7"
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 156.55386800006,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.43-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":721,\"process_instance\":\"342f6e16:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.43-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":721,\"process_instance\":\"342f6e16:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.43-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":721,\"process_instance\":\"342f6e16:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.43-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":721,\"process_instance\":\"342f6e16:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"id\":\"w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12\",\"is_focused\":false,\"minimized\":false,\"pid\":149826,\"process_instance\":\"342f6e16:85061\",\"title\":\"ad-e2e-cap-slow\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-672-356-18000005\",\"is_focused\":true,\"pid\":148043,\"process_instance\":\"342f6e16:82667\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-ticker\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-672-356-18000029\",\"is_focused\":false,\"pid\":149817,\"process_instance\":\"342f6e16:85054\",\"title\":\"ad-e2e-cap-ticker\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 59.49421999991955,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 255.20150699992428,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 61.31904400001531,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 1.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 256.1613679999937,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 1.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 2.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 60.5994439999904,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e round 2.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 2.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 254.69170899998517,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-special:ad_e2e slow round 2.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 59.83462100004999,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 251.11021700001857,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 58.77572600002168,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 1.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 248.34231400006956,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 1.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-672-356-18000029",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 2.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 58.568304999994325,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 round 2.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.252-org-gtk-application-ad_e2e_cap_slow-a11y-ec9d84e4_859f_4360_ab68_565aae3a4a12",
+        "/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 2.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 248.27702900006443,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.hd9dbky6/capture-7 slow round 2.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    }
+  ]
+}

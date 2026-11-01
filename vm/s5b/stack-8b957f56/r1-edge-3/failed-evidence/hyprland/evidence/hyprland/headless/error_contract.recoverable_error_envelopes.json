@@ -1,0 +1,139 @@
+{
+  "leg": "error_contract.recoverable_error_envelopes",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 593.7391869999828,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.display": {
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "proc.members": {
+      "before": [
+        [
+          [
+            148303,
+            83042,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            148303,
+            83042,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            148303,
+            83042,
+            "gnome-calculato"
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.49-org-gnome-Calculator-a11y-56852ba2_aea6_4330_b190_309208461e73"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 103.08372800000143,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s35x1kxazwyien:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s35x1kxazwyien\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "click",
+        "@e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "INVALID_ARGS",
+        "message": "Invalid ref_id '@e1': expected @<snapshot_id>:e<N>",
+        "suggestion": "Use the snapshot-qualified ref that snapshot prints, for example @s8f3k2p9:e1. A bare @eN ref is not accepted.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 4.298132000030819,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"INVALID_ARGS\",\"message\":\"Invalid ref_id '@e1': expected @<snapshot_id>:e<N>\",\"suggestion\":\"Use the snapshot-qualified ref that snapshot prints, for example @s8f3k2p9:e1. A bare @eN ref is not accepted.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "click",
+        "@sdeadbeef:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "SNAPSHOT_NOT_FOUND",
+        "message": "Snapshot 'sdeadbeef' not found",
+        "suggestion": "Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 2.758318000019244,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"SNAPSHOT_NOT_FOUND\",\"message\":\"Snapshot 'sdeadbeef' not found\",\"suggestion\":\"Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "snapshot",
+        "--app",
+        "No Such App For Harness",
+        "-i"
+      ],
+      "ok": false,
+      "error": {
+        "code": "APP_NOT_FOUND",
+        "message": "No running application matches 'No Such App For Harness'",
+        "suggestion": "Run 'list-apps' to see running applications, or launch the app first.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 43.47146799989332,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"APP_NOT_FOUND\",\"message\":\"No running application matches 'No Such App For Harness'\",\"suggestion\":\"Run 'list-apps' to see running applications, or launch the app first.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "leg": "launch.launch_text_editor_new_window",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 751.3635230000091,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.window_ids": {
+      "before": [
+        [
+          "w-1.1631-org-gnome-TextEditor-a11y-69c40d90_b33c_4ec8_b29b_4f25e0bc2bc3"
+        ]
+      ],
+      "after": [
+        [
+          "w-1.1631-org-gnome-TextEditor-a11y-69c40d90_b33c_4ec8_b29b_4f25e0bc2bc3",
+          "w-1.1631-org-gnome-TextEditor-a11y-b55b4dcf_cf33_4243_ada1_2f6b7b3ce734"
+        ]
+      ],
+      "restored": [
+        [
+          "w-1.1631-org-gnome-TextEditor-a11y-69c40d90_b33c_4ec8_b29b_4f25e0bc2bc3"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "launch",
+        "Text Editor",
+        "--arg=--new-window"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 174.66252799999893,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"launch\",\"data\":{\"app\":\"gnome-text-editor\",\"pid\":129380,\"process_instance\":\"5589b0cb:65137\",\"window\":{\"accessible\":true,\"app_name\":\"gnome-text-editor\",\"bounds\":{\"height\":520.0,\"width\":700.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.1631-org-gnome-TextEditor-a11y-b55b4dcf_cf33_4243_ada1_2f6b7b3ce734\",\"is_focused\":true,\"minimized\":false,\"pid\":129380,\"process_instance\":\"5589b0cb:65137\",\"title\":\"New Document (Draft) - Text Editor\",\"visible\":true}}}\n"
+    }
+  ]
+}

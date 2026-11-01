@@ -1,0 +1,12 @@
+ok   a missing openbox fails and never runs the payload
+ok   inherited accessibility overrides never reach the payload
+ok   the AT-SPI registry owns its name before the payload starts
+ok   the payload's exit status passes through
+ok   SIGINT to the session group during a running payload leaves no member
+ok   SIGTERM to the session group during a running payload leaves no member
+ok   SIGHUP to the session group during a running payload leaves no member
+ok   a payload that ignores TERM is killed after the grace period
+private-mutter-shell: no healthy gnome-shell --x11
+FAIL the setsid-started shell is gone after the session group is cancelled
+FAIL a bus-activated Terminal under the mutter wrapper maps on its display
+FAIL the mutter shell runs in the session mode without the polkit agent

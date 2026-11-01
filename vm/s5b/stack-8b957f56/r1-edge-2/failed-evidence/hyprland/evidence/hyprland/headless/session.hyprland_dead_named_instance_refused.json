@@ -1,0 +1,245 @@
+{
+  "leg": "session.hyprland_dead_named_instance_refused",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 36.760977000085404,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.501112999993893,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1.6206349999947633,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 2.4558599999409125,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_no_such_instance names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1.7280839999784803,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1.9700820000707608,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_4 names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1.7764039999974557,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PLATFORM_NOT_SUPPORTED",
+        "message": "The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance",
+        "suggestion": "Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session",
+        "details": {
+          "detail": "HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance",
+          "display_unavailable": "hyprland_mismatch",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 3.0333869999594754,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"list-displays\",\"error\":{\"code\":\"PLATFORM_NOT_SUPPORTED\",\"message\":\"The Hyprland instance and the Wayland socket do not match: HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance\",\"suggestion\":\"Set HYPRLAND_INSTANCE_SIGNATURE and WAYLAND_DISPLAY from the same Hyprland session\",\"details\":{\"detail\":\"HYPRLAND_INSTANCE_SIGNATURE ad_e2e_stale_148393_5 names no live Hyprland instance\",\"display_unavailable\":\"hyprland_mismatch\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.5434010000253693,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    }
+  ]
+}

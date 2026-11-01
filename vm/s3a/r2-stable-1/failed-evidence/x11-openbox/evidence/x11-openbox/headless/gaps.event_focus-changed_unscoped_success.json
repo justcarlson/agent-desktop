@@ -1,0 +1,38 @@
+{
+  "leg": "gaps.event_focus-changed_unscoped_success",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 725.8398300000408,
+  "exception_traceback": "",
+  "reads": {
+    "x11.focus": {
+      "before": [
+        "0xa00005"
+      ],
+      "after": [
+        "0x800005"
+      ],
+      "restored": [
+        "0xa00005"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"focus-window\", \"args\": {\"window_id\": \"w-1.577-org-gnome-Calculator-a11y-20dea7e1_3939_4c24_89df_bf56f9505490\"}}, {\"command\": \"wait\", \"args\": {\"event\": \"focus-changed\", \"timeout\": 8000}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 190.53460499992525,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":2,\"elapsed_ms\":185,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"focus-window\",\"data\":{\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.577-org-gnome-Calculator-a11y-20dea7e1_3939_4c24_89df_bf56f9505490\",\"is_focused\":true,\"minimized\":false,\"pid\":122446,\"process_instance\":\"5589b0cb:58923\",\"title\":\"Calculator\",\"visible\":true}},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"wait\",\"data\":{\"elapsed_ms\":26,\"event\":{\"app\":\"gnome-calculator\",\"kind\":\"focus_changed_window\",\"pid\":122446,\"title\":\"Calculator\",\"window_id\":\"w-1.577-org-gnome-Calculator-a11y-20dea7e1_3939_4c24_89df_bf56f9505490\"},\"found\":true},\"execution\":\"completed\",\"index\":1,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":2}}\n"
+    }
+  ]
+}

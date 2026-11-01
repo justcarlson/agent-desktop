@@ -1,0 +1,156 @@
+{
+  "leg": "gaps.gesture_qt_first_mouse-click",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 283.6401179999939,
+  "exception_traceback": "",
+  "reads": {
+    "applog": {
+      "before": [
+        {
+          "added": [],
+          "log": null
+        }
+      ],
+      "after": [
+        {
+          "added": [
+            [
+              121089,
+              56927,
+              "python3"
+            ]
+          ],
+          "log": "{\"event\": \"started\", \"at\": 569.350677814}\n{\"event\": \"click\", \"at\": 569.45170254}\n"
+        }
+      ],
+      "restored": [
+        {
+          "added": [],
+          "log": null
+        }
+      ]
+    },
+    "x11.pointer": {
+      "before": [
+        [
+          640,
+          400
+        ]
+      ],
+      "after": [
+        [
+          640,
+          336
+        ]
+      ],
+      "restored": [
+        [
+          640,
+          400
+        ]
+      ]
+    },
+    "x11.geometry": {
+      "before": [
+        [
+          380,
+          277,
+          520,
+          260
+        ]
+      ],
+      "after": [
+        [
+          380,
+          277,
+          520,
+          260
+        ]
+      ],
+      "restored": [
+        [
+          380,
+          277,
+          520,
+          260
+        ]
+      ]
+    },
+    "x11.active_window": {
+      "before": [
+        "0x800007"
+      ],
+      "after": [
+        "0x800007"
+      ],
+      "restored": [
+        "0x800007"
+      ]
+    },
+    "atspi.target_geometry": {
+      "before": [
+        [
+          [
+            9,
+            46,
+            502,
+            27
+          ],
+          [
+            380,
+            277
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            9,
+            46,
+            502,
+            27
+          ],
+          [
+            380,
+            277
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            9,
+            46,
+            502,
+            27
+          ],
+          [
+            380,
+            277
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy",
+        "640,336"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 16.92993100004969,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"mouse-click\",\"data\":{\"action\":\"mouse-click\",\"count\":1,\"details\":{\"delivered_events\":3},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"pointer_click\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"pointer\",\"point\":{\"x\":640.0,\"y\":336.0}},\"x\":640.0,\"y\":336.0}}\n"
+    }
+  ]
+}

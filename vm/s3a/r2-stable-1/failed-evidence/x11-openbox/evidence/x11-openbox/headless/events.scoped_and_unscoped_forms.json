@@ -1,0 +1,57 @@
+{
+  "leg": "events.scoped_and_unscoped_forms",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2160.3253350000386,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.root_children": {
+      "before": [
+        1
+      ],
+      "after": [
+        3
+      ],
+      "restored": [
+        1
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "window-opened",
+        "--timeout",
+        "8000",
+        "--app",
+        "Text Editor"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 839.8472800000718,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"wait\",\"data\":{\"elapsed_ms\":834,\"event\":{\"app\":\"gnome-text-editor\",\"kind\":\"window_opened\",\"pid\":128346,\"title\":\"New Document (Draft) - Text Editor\",\"window_id\":\"w-1.1374-org-gnome-TextEditor-a11y-80373088_3739_4c07_b34b_3c60833cd691\"},\"found\":true}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "window-opened",
+        "--timeout",
+        "8000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 684.0317449999702,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"wait\",\"data\":{\"elapsed_ms\":678,\"event\":{\"app\":\"gnome-text-editor\",\"kind\":\"window_opened\",\"pid\":128346,\"title\":\"New Document (Draft) - Text Editor\",\"window_id\":\"w-1.1374-org-gnome-TextEditor-a11y-0825c973_1d4f_4875_9d06_591c566bee9e\"},\"found\":true}}\n"
+    }
+  ]
+}

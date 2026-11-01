@@ -1,0 +1,121 @@
+{
+  "leg": "values.pointer_speed_commit",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2451.7484629999444,
+  "exception_traceback": "",
+  "reads": {
+    "gsettings": {
+      "before": [
+        "0.0"
+      ],
+      "after": [
+        "0.25"
+      ],
+      "restored": [
+        "0.0"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "slider",
+        "--name",
+        "Pointer Speed",
+        "--window-id",
+        "w-1.848-org-gnome-Settings-a11y-6c243044_928f_4c16_b5f3_39b01f8e1b7e"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 202.46297900007448,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Pointer Speed\",\"path\":[\"window:Settings\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group:Mouse & Touchpad\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"scrollarea\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"group\",\"listbox\",\"option:Pointer Speed\",\"group\",\"group\"],\"ref_id\":\"@s1ndjlxt7mvbhh:e1\",\"role\":\"slider\",\"states\":[],\"value\":\"0\"}],\"snapshot_id\":\"s1ndjlxt7mvbhh\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "set-value",
+        "@s1ndjlxt7mvbhh:e1",
+        "0.25"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 263.2078049999791,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"set-value\",\"data\":{\"action\":\"set-value\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":161,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"slider\",\"value\":\"0.25\"},\"steps\":[{\"label\":\"Value.CurrentValue\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "set-value",
+        "@s1ndjlxt7mvbhh:e999999",
+        "0.25",
+        "--timeout-ms",
+        "0"
+      ],
+      "ok": false,
+      "error": {
+        "code": "STALE_REF",
+        "message": "@s1ndjlxt7mvbhh:e999999 not found in current RefMap",
+        "suggestion": "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 7.989331999965543,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"set-value\",\"error\":{\"code\":\"STALE_REF\",\"message\":\"@s1ndjlxt7mvbhh:e999999 not found in current RefMap\",\"suggestion\":\"Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "slider",
+        "--name",
+        "Pointer Speed",
+        "--window-id",
+        "w-1.867-org-gnome-Settings-a11y-48d992ee_dfc2_40b0_9c4c_53191cc67136"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 203.87551900000744,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Pointer Speed\",\"path\":[\"window:Settings\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group:Mouse & Touchpad\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"scrollarea\",\"group\",\"group\",\"group\",\"group:Mouse\",\"group\",\"group\",\"listbox\",\"option:Pointer Speed\",\"group\",\"group\"],\"ref_id\":\"@s2yhvofgbehd93:e1\",\"role\":\"slider\",\"states\":[],\"value\":\"0.25\"}],\"snapshot_id\":\"s2yhvofgbehd93\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "set-value",
+        "@s2yhvofgbehd93:e1",
+        "0.0"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 263.892970000029,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"set-value\",\"data\":{\"action\":\"set-value\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":157,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"slider\",\"value\":\"0\"},\"steps\":[{\"label\":\"Value.CurrentValue\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    }
+  ]
+}

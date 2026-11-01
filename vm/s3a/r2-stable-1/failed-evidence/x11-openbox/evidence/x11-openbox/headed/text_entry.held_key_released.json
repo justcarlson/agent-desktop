@@ -1,0 +1,41 @@
+{
+  "leg": "text_entry.held_key_released",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 306.6765050000413,
+  "exception_traceback": "",
+  "reads": {
+    "x11.modifiers": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "press",
+        "shift+a",
+        "--window-id",
+        "w-1.1077-org-gnome-TextEditor-a11y-13ddc707_cb3c_4b1f_bcbe_37987155453d"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 66.4423270000043,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"press\",\"data\":{\"action\":\"press\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"XTEST.press_key\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\",\"verified\":false}]}}\n"
+    }
+  ]
+}

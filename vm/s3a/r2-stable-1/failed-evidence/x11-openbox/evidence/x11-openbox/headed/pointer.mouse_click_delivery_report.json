@@ -1,0 +1,95 @@
+{
+  "leg": "pointer.mouse_click_delivery_report",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1513.9092660000415,
+  "exception_traceback": "",
+  "reads": {
+    "x11.pointer": {
+      "before": [
+        [
+          506,
+          527
+        ]
+      ],
+      "after": [
+        [
+          506,
+          527
+        ]
+      ],
+      "restored": [
+        [
+          506,
+          527
+        ]
+      ]
+    },
+    "atspi.effect": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "atspi.refused_effect": {
+      "before": [
+        "7"
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        "7"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy",
+        "506,527"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 17.89857699998265,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"mouse-click\",\"data\":{\"action\":\"mouse-click\",\"count\":1,\"details\":{\"delivered_events\":3},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"pointer_click\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"pointer\",\"point\":{\"x\":506.0,\"y\":527.0}},\"x\":506.0,\"y\":527.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy=-40,-40"
+      ],
+      "ok": false,
+      "error": {
+        "code": "INVALID_ARGS",
+        "message": "A pointer position lies outside the screen",
+        "suggestion": "Use a point inside the screen bounds",
+        "details": {
+          "screen_height": 800,
+          "screen_width": 1280
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 8.151419000000715,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"mouse-click\",\"error\":{\"code\":\"INVALID_ARGS\",\"message\":\"A pointer position lies outside the screen\",\"suggestion\":\"Use a point inside the screen bounds\",\"details\":{\"screen_height\":800,\"screen_width\":1280},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

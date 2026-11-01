@@ -1,0 +1,90 @@
+{
+  "leg": "ref_actions.hover",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 355.3468829999247,
+  "exception_traceback": "",
+  "reads": {
+    "x11.desktop": {
+      "before": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ],
+      "after": [
+        [
+          [
+            1,
+            1
+          ],
+          "0x800007"
+        ]
+      ],
+      "restored": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ]
+    },
+    "atspi.hover_status": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          "Pointer over the button"
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Press me",
+        "--window-id",
+        "w-1.127-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 28.641719999995985,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Press me\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@stslhl0skyi3u:e1\",\"role\":\"button\",\"states\":[\"focused\"],\"value\":null}],\"snapshot_id\":\"stslhl0skyi3u\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "hover",
+        "@stslhl0skyi3u:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 116.09455800009982,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"hover\",\"data\":{\"action\":\"mouse-move\",\"details\":{\"delivered_events\":1},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"focused\":true,\"steps\":[{\"label\":\"pointer_move\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"pointer\",\"point\":{\"x\":640.0,\"y\":336.5}},\"x\":640.0,\"y\":336.5}}\n"
+    }
+  ]
+}

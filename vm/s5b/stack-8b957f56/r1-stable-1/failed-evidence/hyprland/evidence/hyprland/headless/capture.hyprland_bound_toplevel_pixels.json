@@ -1,0 +1,226 @@
+{
+  "leg": "capture.hyprland_bound_toplevel_pixels",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2227.30028400008,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement": {
+      "before": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ],
+      "after": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ],
+      "restored": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ]
+    }
+  },
+  "findings": [
+    "ad-e2e-cap-special: 2 captures until the resize animation settled"
+  ],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 16.027524000037374,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-special\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000025\",\"is_focused\":false,\"pid\":148978,\"process_instance\":\"6f42f6e4:85297\",\"title\":\"ad-e2e-cap-special\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-spare\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000026\",\"is_focused\":false,\"pid\":148987,\"process_instance\":\"6f42f6e4:85304\",\"title\":\"ad-e2e-cap-spare\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-shown\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000027\",\"is_focused\":false,\"pid\":148998,\"process_instance\":\"6f42f6e4:85310\",\"title\":\"ad-e2e-cap-shown\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000025",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-special-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 136.08398400003807,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":733,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-special-0.png\",\"scale_factor\":0.9593949044585988,\"width\":1205}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000025",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-special-1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 347.08721200001946,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-special-1.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000026",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-spare-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 337.64179199999944,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-spare-0.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000027",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-shown-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.338671999994403,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-ad-e2e-cap-shown-0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-1-1-18000025",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-refused.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-1-1-18000025' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 16.43114199998763,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-1-1-18000025' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 15.731369000036466,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-special\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000025\",\"is_focused\":false,\"pid\":148978,\"process_instance\":\"6f42f6e4:85297\",\"title\":\"ad-e2e-cap-special\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-spare\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000026\",\"is_focused\":false,\"pid\":148987,\"process_instance\":\"6f42f6e4:85304\",\"title\":\"ad-e2e-cap-spare\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-shown\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000027\",\"is_focused\":false,\"pid\":148998,\"process_instance\":\"6f42f6e4:85310\",\"title\":\"ad-e2e-cap-shown\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-closed\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000028\",\"is_focused\":false,\"pid\":149064,\"process_instance\":\"6f42f6e4:85487\",\"title\":\"ad-e2e-cap-closed\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000028",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-refused.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-743-439-18000028' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 14.546354000003703,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-743-439-18000028' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

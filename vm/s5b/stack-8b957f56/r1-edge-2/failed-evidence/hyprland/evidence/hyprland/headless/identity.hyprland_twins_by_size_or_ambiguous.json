@@ -1,0 +1,217 @@
+{
+  "leg": "identity.hyprland_twins_by_size_or_ambiguous",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 520.0235550000798,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.211-org-a11y-atspi-accessible-1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "AMBIGUOUS_TARGET",
+        "message": "Several compositor toplevels match this window",
+        "suggestion": "Give the windows distinct titles or sizes, then run 'list-windows' and retry",
+        "details": {
+          "candidates": [
+            {
+              "address": "0x55da3cf14f40",
+              "workspace": "special:ad_e2e_twin_a"
+            },
+            {
+              "address": "0x55da3d910bc0",
+              "workspace": "special:ad_e2e_twin_b"
+            }
+          ]
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 22.289766000085365,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"AMBIGUOUS_TARGET\",\"message\":\"Several compositor toplevels match this window\",\"suggestion\":\"Give the windows distinct titles or sizes, then run 'list-windows' and retry\",\"details\":{\"candidates\":[{\"address\":\"0x55da3cf14f40\",\"workspace\":\"special:ad_e2e_twin_a\"},{\"address\":\"0x55da3d910bc0\",\"workspace\":\"special:ad_e2e_twin_b\"}]},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.211-org-a11y-atspi-accessible-2"
+      ],
+      "ok": false,
+      "error": {
+        "code": "AMBIGUOUS_TARGET",
+        "message": "Several compositor toplevels match this window",
+        "suggestion": "Give the windows distinct titles or sizes, then run 'list-windows' and retry",
+        "details": {
+          "candidates": [
+            {
+              "address": "0x55da3cf14f40",
+              "workspace": "special:ad_e2e_twin_a"
+            },
+            {
+              "address": "0x55da3d910bc0",
+              "workspace": "special:ad_e2e_twin_b"
+            }
+          ]
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 21.057709000046998,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"AMBIGUOUS_TARGET\",\"message\":\"Several compositor toplevels match this window\",\"suggestion\":\"Give the windows distinct titles or sizes, then run 'list-windows' and retry\",\"details\":{\"candidates\":[{\"address\":\"0x55da3cf14f40\",\"workspace\":\"special:ad_e2e_twin_a\"},{\"address\":\"0x55da3d910bc0\",\"workspace\":\"special:ad_e2e_twin_b\"}]},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.211-org-a11y-atspi-accessible-1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_NOT_SUPPORTED",
+        "message": "A Wayland session lets no client move, resize, minimize or maximize another client's window",
+        "suggestion": "Run the desktop session on X11 with a window manager, or operate the window yourself",
+        "details": {
+          "cause": "wayland_session",
+          "physical_delivery_started": false,
+          "target": {
+            "id": "w-1.211-org-a11y-atspi-accessible-1",
+            "kind": "window",
+            "process": {
+              "instance": "333fcde6:85280",
+              "pid": 149749
+            },
+            "title": "AD Twin"
+          }
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 21.01070199989863,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"A Wayland session lets no client move, resize, minimize or maximize another client's window\",\"suggestion\":\"Run the desktop session on X11 with a window manager, or operate the window yourself\",\"details\":{\"cause\":\"wayland_session\",\"physical_delivery_started\":false,\"target\":{\"id\":\"w-1.211-org-a11y-atspi-accessible-1\",\"kind\":\"window\",\"process\":{\"instance\":\"333fcde6:85280\",\"pid\":149749},\"title\":\"AD Twin\"}},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.211-org-a11y-atspi-accessible-2"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_NOT_SUPPORTED",
+        "message": "A Wayland session lets no client move, resize, minimize or maximize another client's window",
+        "suggestion": "Run the desktop session on X11 with a window manager, or operate the window yourself",
+        "details": {
+          "cause": "wayland_session",
+          "physical_delivery_started": false,
+          "target": {
+            "id": "w-1.211-org-a11y-atspi-accessible-2",
+            "kind": "window",
+            "process": {
+              "instance": "333fcde6:85280",
+              "pid": 149749
+            },
+            "title": "AD Twin"
+          }
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 22.141701999998986,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"A Wayland session lets no client move, resize, minimize or maximize another client's window\",\"suggestion\":\"Run the desktop session on X11 with a window manager, or operate the window yourself\",\"details\":{\"cause\":\"wayland_session\",\"physical_delivery_started\":false,\"target\":{\"id\":\"w-1.211-org-a11y-atspi-accessible-2\",\"kind\":\"window\",\"process\":{\"instance\":\"333fcde6:85280\",\"pid\":149749},\"title\":\"AD Twin\"}},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

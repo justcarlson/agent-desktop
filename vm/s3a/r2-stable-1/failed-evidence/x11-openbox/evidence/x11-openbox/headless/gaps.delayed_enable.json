@@ -1,0 +1,114 @@
+{
+  "leg": "gaps.delayed_enable",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1250.0023169999395,
+  "exception_traceback": "",
+  "reads": {
+    "applog": {
+      "before": [
+        {
+          "added": [],
+          "log": null
+        }
+      ],
+      "after": [
+        {
+          "added": [
+            [
+              129569,
+              65297,
+              "python3"
+            ]
+          ],
+          "log": "{\"event\": \"started\", \"at\": 653.050710252}\n{\"event\": \"delayed-click\", \"at\": 654.080904408}\n"
+        }
+      ],
+      "restored": [
+        {
+          "added": [],
+          "log": null
+        }
+      ]
+    },
+    "x11.desktop": {
+      "before": [
+        [
+          [
+            506,
+            527
+          ],
+          "0x800007"
+        ]
+      ],
+      "after": [
+        [
+          [
+            506,
+            527
+          ],
+          "0x800007"
+        ]
+      ],
+      "restored": [
+        [
+          [
+            506,
+            527
+          ],
+          "0x800007"
+        ]
+      ]
+    },
+    "atspi.delayed_target": {
+      "before": [
+        false
+      ],
+      "after": [
+        true
+      ],
+      "restored": [
+        false
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Delayed activation",
+        "--window-id",
+        "w-1.1684-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 27.902975000074548,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Delayed activation\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s3izcrb83raoik:e1\",\"role\":\"button\",\"states\":[\"disabled\"],\"value\":null}],\"snapshot_id\":\"s3izcrb83raoik\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s3izcrb83raoik:e1",
+        "--timeout-ms",
+        "3000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 851.7124829999148,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":31,\"read_only_preflight_attempts\":8,\"read_only_resolve_attempts\":8}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1684-org-a11y-atspi-accessible-2147483649\",\"title\":\"Desktop toolkit window\",\"type\":\"window\"}]}}\n"
+    }
+  ]
+}

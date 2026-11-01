@@ -1,0 +1,69 @@
+{
+  "leg": "gaps.event_surface-appeared_scoped_quiet",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1818.2461760000024,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.dialogs": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "surface-appeared",
+        "--timeout",
+        "1500",
+        "--app",
+        "Calculator"
+      ],
+      "ok": false,
+      "error": {
+        "code": "TIMEOUT",
+        "message": "Event 'surface-appeared' did not occur within 1500ms",
+        "suggestion": "The target application may be busy or unresponsive",
+        "recovery": {
+          "strategy": "inspect_state_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true,
+          "retry_after_ms": 250
+        },
+        "details": {
+          "app": "Calculator",
+          "baseline_counts": {
+            "apps": 1,
+            "surfaces": 0,
+            "windows": 1
+          },
+          "event": "surface-appeared",
+          "kind": "wait_timeout",
+          "predicate": "event",
+          "timeout_ms": 1500
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1506.0496520000015,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"wait\",\"error\":{\"code\":\"TIMEOUT\",\"message\":\"Event 'surface-appeared' did not occur within 1500ms\",\"suggestion\":\"The target application may be busy or unresponsive\",\"recovery\":{\"strategy\":\"inspect_state_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true,\"retry_after_ms\":250},\"details\":{\"app\":\"Calculator\",\"baseline_counts\":{\"apps\":1,\"surfaces\":0,\"windows\":1},\"event\":\"surface-appeared\",\"kind\":\"wait_timeout\",\"predicate\":\"event\",\"timeout_ms\":1500},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

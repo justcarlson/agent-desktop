@@ -1,0 +1,188 @@
+{
+  "leg": "capture.hyprland_in_view_first_frame",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "fail",
+  "detail": "in view slow round 1: capture failed: {\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"del; in view slow round 2: capture failed: {\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"del; in view still: an unchanged window in view took 551 ms, more than 250 ms, so it waited for a redraw; in view still: a 250 ms batch answered deadline, not a capture",
+  "elapsed_ms": 5951.605169000004,
+  "exception_traceback": "Traceback (most recent call last):\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py\", line 136, in _run_leg\n    impl(ctx)\n    ~~~~^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/scenarios/hyprland_capture_inview.py\", line 62, in in_view_first_frame\n    require(not problems, \"; \".join(problems))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/helper.py\", line 53, in require\n    raise AssertionError(message)\nAssertionError: in view slow round 1: capture failed: {\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"del; in view slow round 2: capture failed: {\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"del; in view still: an unchanged window in view took 551 ms, more than 250 ms, so it waited for a redraw; in view still: a 250 ms batch answered deadline, not a capture\n",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement": {
+      "before": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ],
+      "after": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ],
+      "restored": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 320.2930519998972,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"id\":\"w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae\",\"is_focused\":false,\"minimized\":false,\"pid\":150369,\"process_instance\":\"333fcde6:86614\",\"title\":\"ad-e2e-cap-view-slow\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":368.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000005\",\"is_focused\":true,\"pid\":148310,\"process_instance\":\"333fcde6:83114\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-view-still\",\"bounds\":{\"height\":368.0,\"width\":621.0,\"x\":12.0,\"y\":420.0},\"id\":\"w-hypr-674-357-1800002e\",\"is_focused\":false,\"pid\":150377,\"process_instance\":\"333fcde6:86645\",\"title\":\"ad-e2e-cap-view-still\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in view slow round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 616.9833180000523,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in view slow round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in view slow round 1.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 691.6512999999895,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in view slow round 2.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 703.1093199999532,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.274-org-gtk-application-ad_e2e_cap_view_slow-a11y-d29e16c4_ff28_44bb_9367_6256f43e6dae' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-1800002e",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in-view-still-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 522.5211240000363,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":368,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in-view-still-0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-1800002e",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in-view-still-timed.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 551.3425980000193,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":368,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in-view-still-timed.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-674-357-1800002e\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-in-view-still-batch.png\"}}]",
+        "--timeout-ms",
+        "250"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 254.67681999998604,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":250,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"elapsed_ms\":250,\"kind\":\"deadline\",\"timeout_ms\":5000},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"Operation exceeded its deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"The target application may be busy or unresponsive\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":250,\"total_entries\":1}}\n"
+    }
+  ]
+}

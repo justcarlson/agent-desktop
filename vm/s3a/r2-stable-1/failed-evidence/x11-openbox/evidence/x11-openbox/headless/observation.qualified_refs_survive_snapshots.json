@@ -1,0 +1,61 @@
+{
+  "leg": "observation.qualified_refs_survive_snapshots",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "fail",
+  "detail": "['snapshot', '-i']: {\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"No window with id w-1.740-org-gnome-Nautilus-a11y-0300a21a_cb04_4da9_b4a6_f94df9cac8a8\",\"suggestion\":\"Run 'list-windows' to see available window IDs.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n",
+  "elapsed_ms": 1146.922416999928,
+  "exception_traceback": "Traceback (most recent call last):\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py\", line 136, in _run_leg\n    impl(ctx)\n    ~~~~^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/scenarios/observation.py\", line 28, in qualified_refs_survive_snapshots\n    snapshot(ctx, other)\n    ~~~~~~~~^^^^^^^^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/helper.py\", line 90, in snapshot\n    data = command(ctx, [\"snapshot\", \"-i\", *extra], app).data\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/helper.py\", line 82, in command\n    require(response.ok, f\"{argv}: {response.raw}\")\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/helper.py\", line 53, in require\n    raise AssertionError(message)\nAssertionError: ['snapshot', '-i']: {\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"No window with id w-1.740-org-gnome-Nautilus-a11y-0300a21a_cb04_4da9_b4a6_f94df9cac8a8\",\"suggestion\":\"Run 'list-windows' to see available window IDs.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n\n",
+  "reads": {
+    "atspi": {
+      "before": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.729-org-gnome-Calculator-a11y-7535887a_3719_4e29_afd3_619f3472bd2d"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 113.55933599998025,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s2b2cfqyyrztn2:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s2b2cfqyyrztn2\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.740-org-gnome-Nautilus-a11y-0300a21a_cb04_4da9_b4a6_f94df9cac8a8"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "No window with id w-1.740-org-gnome-Nautilus-a11y-0300a21a_cb04_4da9_b4a6_f94df9cac8a8",
+        "suggestion": "Run 'list-windows' to see available window IDs.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 331.3211309999815,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"No window with id w-1.740-org-gnome-Nautilus-a11y-0300a21a_cb04_4da9_b4a6_f94df9cac8a8\",\"suggestion\":\"Run 'list-windows' to see available window IDs.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

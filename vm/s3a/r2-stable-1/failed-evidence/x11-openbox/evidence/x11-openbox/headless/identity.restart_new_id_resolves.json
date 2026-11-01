@@ -1,0 +1,64 @@
+{
+  "leg": "identity.restart_new_id_resolves",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 621.4242529999865,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.root_children": {
+      "before": [
+        1
+      ],
+      "after": [
+        1
+      ],
+      "restored": [
+        1
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 19.072385999947983,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.1574-org-gnome-Calculator-a11y-1193c50f_9a8c_423b_9991_cf672729e7dd\",\"is_focused\":true,\"minimized\":false,\"pid\":129062,\"process_instance\":\"5589b0cb:64950\",\"title\":\"Calculator\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 19.57964999996875,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.1584-org-gnome-Calculator-a11y-405f44a9_b7f1_4f01_8aa3_4109773af120\",\"is_focused\":true,\"minimized\":false,\"pid\":129105,\"process_instance\":\"5589b0cb:64974\",\"title\":\"Calculator\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "--window-id",
+        "w-1.1584-org-gnome-Calculator-a11y-405f44a9_b7f1_4f01_8aa3_4109773af120",
+        "-i"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 116.8831530000034,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":40,\"snapshot_id\":\"syzzbre2s4m3d\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@syzzbre2s4m3d:e2\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"ref_id\":\"@syzzbre2s4m3d:e1\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@syzzbre2s4m3d:e4\",\"role\":\"textfield\",\"states\":[\"focused\"]}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"ref_id\":\"@syzzbre2s4m3d:e3\",\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@syzzbre2s4m3d:e5\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@syzzbre2s4m3d:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@syzzbre2s4m3d:e7\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@syzzbre2s4m3d:e8\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@syzzbre2s4m3d:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@syzzbre2s4m3d:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@syzzbre2s4m3d:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@syzzbre2s4m3d:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@syzzbre2s4m3d:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@syzzbre2s4m3d:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@syzzbre2s4m3d:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@syzzbre2s4m3d:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@syzzbre2s4m3d:e17\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@syzzbre2s4m3d:e18\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@syzzbre2s4m3d:e19\",\"role\":\"button\"},{\""
+    }
+  ]
+}

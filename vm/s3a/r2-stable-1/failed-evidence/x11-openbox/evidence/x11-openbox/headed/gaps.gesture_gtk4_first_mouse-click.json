@@ -1,0 +1,141 @@
+{
+  "leg": "gaps.gesture_gtk4_first_mouse-click",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1167.8161090000003,
+  "exception_traceback": "",
+  "reads": {
+    "x11.pointer": {
+      "before": [
+        [
+          640,
+          400
+        ]
+      ],
+      "after": [
+        [
+          506,
+          527
+        ]
+      ],
+      "restored": [
+        [
+          640,
+          400
+        ]
+      ]
+    },
+    "x11.geometry": {
+      "before": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ],
+      "after": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ],
+      "restored": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ]
+    },
+    "x11.active_window": {
+      "before": [
+        "0x800005"
+      ],
+      "after": [
+        "0x800005"
+      ],
+      "restored": [
+        "0x800005"
+      ]
+    },
+    "atspi.target_geometry": {
+      "before": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            455,
+            92
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            455,
+            92
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            455,
+            92
+          ]
+        ]
+      ]
+    },
+    "atspi.effect": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy",
+        "506,527"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 20.3390289999561,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"mouse-click\",\"data\":{\"action\":\"mouse-click\",\"count\":1,\"details\":{\"delivered_events\":3},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"pointer_click\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"pointer\",\"point\":{\"x\":506.0,\"y\":527.0}},\"x\":506.0,\"y\":527.0}}\n"
+    }
+  ]
+}

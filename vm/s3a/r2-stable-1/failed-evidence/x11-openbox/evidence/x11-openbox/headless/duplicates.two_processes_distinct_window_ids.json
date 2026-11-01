@@ -1,0 +1,122 @@
+{
+  "leg": "duplicates.two_processes_distinct_window_ids",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1061.3572089999934,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        [
+          [
+            125530,
+            61293,
+            [
+              "w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4"
+            ]
+          ],
+          [
+            125562,
+            61315,
+            [
+              "w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8"
+            ]
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            125530,
+            61293,
+            [
+              "w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4"
+            ]
+          ],
+          [
+            125562,
+            61315,
+            [
+              "w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8"
+            ]
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            125530,
+            61293,
+            [
+              "w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4"
+            ]
+          ],
+          [
+            125562,
+            61315,
+            [
+              "w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8"
+            ]
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 124.56609699995624,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":40,\"snapshot_id\":\"sknhhgepwhuot\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@sknhhgepwhuot:e2\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"ref_id\":\"@sknhhgepwhuot:e1\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@sknhhgepwhuot:e4\",\"role\":\"textfield\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"ref_id\":\"@sknhhgepwhuot:e3\",\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@sknhhgepwhuot:e5\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@sknhhgepwhuot:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@sknhhgepwhuot:e7\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@sknhhgepwhuot:e8\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@sknhhgepwhuot:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@sknhhgepwhuot:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@sknhhgepwhuot:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@sknhhgepwhuot:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@sknhhgepwhuot:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@sknhhgepwhuot:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@sknhhgepwhuot:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@sknhhgepwhuot:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@sknhhgepwhuot:e17\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@sknhhgepwhuot:e18\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@sknhhgepwhuot:e19\",\"role\":\"button\"},{\"children\":[{\"availabl"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "focus-window",
+        "--window-id",
+        "w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 153.87649100000544,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.928-org-gnome-Calculator-a11y-8671ecac_175c_4bed_813d_a3a9bba3b1f4\",\"is_focused\":true,\"minimized\":false,\"pid\":125530,\"process_instance\":\"5589b0cb:61293\",\"title\":\"Calculator\",\"visible\":true}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 131.91776300004676,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":40,\"snapshot_id\":\"s1llcql4vra1ka\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@s1llcql4vra1ka:e2\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"ref_id\":\"@s1llcql4vra1ka:e1\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@s1llcql4vra1ka:e4\",\"role\":\"textfield\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"ref_id\":\"@s1llcql4vra1ka:e3\",\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@s1llcql4vra1ka:e5\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@s1llcql4vra1ka:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@s1llcql4vra1ka:e7\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@s1llcql4vra1ka:e8\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@s1llcql4vra1ka:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@s1llcql4vra1ka:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@s1llcql4vra1ka:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@s1llcql4vra1ka:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@s1llcql4vra1ka:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@s1llcql4vra1ka:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@s1llcql4vra1ka:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@s1llcql4vra1ka:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@s1llcql4vra1ka:e17\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@s1llcql4vra1ka:e18\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@s1llcql4vra1ka:e19\",\"role\":\"button\"},{\"c"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "focus-window",
+        "--window-id",
+        "w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 146.734740999932,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":42.0,\"y\":92.0},\"id\":\"w-1.937-org-gnome-Calculator-a11y-15a6dfd5_2e71_4693_8372_f9ae7d1056a8\",\"is_focused\":true,\"minimized\":false,\"pid\":125562,\"process_instance\":\"5589b0cb:61315\",\"title\":\"Calculator\",\"visible\":true}}}\n"
+    }
+  ]
+}

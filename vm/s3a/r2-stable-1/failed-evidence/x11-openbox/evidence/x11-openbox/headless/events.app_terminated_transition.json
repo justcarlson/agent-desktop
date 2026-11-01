@@ -1,0 +1,45 @@
+{
+  "leg": "events.app_terminated_transition",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1317.066893999936,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.apps": {
+      "before": [
+        [
+          "gnome-calculator"
+        ]
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        [
+          "gnome-calculator"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "app-terminated",
+        "--timeout",
+        "8000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 808.2284000000755,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"wait\",\"data\":{\"elapsed_ms\":803,\"event\":{\"app\":\"gnome-calculator\",\"kind\":\"app_terminated\",\"pid\":128230},\"found\":true}}\n"
+    }
+  ]
+}

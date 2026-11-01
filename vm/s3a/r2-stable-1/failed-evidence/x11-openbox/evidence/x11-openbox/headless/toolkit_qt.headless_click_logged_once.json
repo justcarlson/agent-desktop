@@ -1,0 +1,98 @@
+{
+  "leg": "toolkit_qt.headless_click_logged_once",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 586.3687779999509,
+  "exception_traceback": "",
+  "reads": {
+    "applog": {
+      "before": [
+        {
+          "added": [],
+          "log": null
+        }
+      ],
+      "after": [
+        {
+          "added": [
+            [
+              125804,
+              61435,
+              "python3"
+            ]
+          ],
+          "log": "{\"event\": \"started\", \"at\": 614.42424093}\n{\"event\": \"click\", \"at\": 614.637523677}\n"
+        }
+      ],
+      "restored": [
+        {
+          "added": [],
+          "log": null
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Press me",
+        "--window-id",
+        "w-1.970-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.686827999967136,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Press me\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s4qnrnc3o7e4x:e1\",\"role\":\"button\",\"states\":[\"focused\"],\"value\":null}],\"snapshot_id\":\"s4qnrnc3o7e4x\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s4qnrnc3o7e4x:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 54.78190999997423,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":35,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.970-org-a11y-atspi-accessible-2147483649\",\"title\":\"Desktop toolkit window\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s4qnrnc3o7e4x:e999999",
+        "--timeout-ms",
+        "0"
+      ],
+      "ok": false,
+      "error": {
+        "code": "STALE_REF",
+        "message": "@s4qnrnc3o7e4x:e999999 not found in current RefMap",
+        "suggestion": "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 6.324570000060703,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"STALE_REF\",\"message\":\"@s4qnrnc3o7e4x:e999999 not found in current RefMap\",\"suggestion\":\"Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

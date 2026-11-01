@@ -1,0 +1,211 @@
+{
+  "leg": "capture.hyprland_bound_toplevel_pixels",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1794.817369000043,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement": {
+      "before": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ],
+      "after": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ],
+      "restored": [
+        {
+          "ad-e2e-cap-special": "special:ad_e2e",
+          "ad-e2e-cap-spare": "7",
+          "ad-e2e-cap-shown": "1"
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 14.928717999964647,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000005\",\"is_focused\":true,\"pid\":148310,\"process_instance\":\"333fcde6:83114\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-special\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000025\",\"is_focused\":false,\"pid\":149992,\"process_instance\":\"333fcde6:85421\",\"title\":\"ad-e2e-cap-special\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-spare\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000026\",\"is_focused\":false,\"pid\":150003,\"process_instance\":\"333fcde6:85427\",\"title\":\"ad-e2e-cap-spare\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-shown\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000027\",\"is_focused\":false,\"pid\":150012,\"process_instance\":\"333fcde6:85434\",\"title\":\"ad-e2e-cap-shown\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-18000025",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-special-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 325.9723670000767,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-special-0.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-18000026",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-spare-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 327.82899800008636,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-spare-0.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-18000027",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-shown-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.635546000008617,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-ad-e2e-cap-shown-0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-1-1-18000025",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-refused.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-1-1-18000025' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 16.8005790000052,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-1-1-18000025' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 14.823303000071064,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000005\",\"is_focused\":true,\"pid\":148310,\"process_instance\":\"333fcde6:83114\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-special\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000025\",\"is_focused\":false,\"pid\":149992,\"process_instance\":\"333fcde6:85421\",\"title\":\"ad-e2e-cap-special\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-spare\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000026\",\"is_focused\":false,\"pid\":150003,\"process_instance\":\"333fcde6:85427\",\"title\":\"ad-e2e-cap-spare\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-shown\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000027\",\"is_focused\":false,\"pid\":150012,\"process_instance\":\"333fcde6:85434\",\"title\":\"ad-e2e-cap-shown\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-closed\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000028\",\"is_focused\":false,\"pid\":150076,\"process_instance\":\"333fcde6:85566\",\"title\":\"ad-e2e-cap-closed\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-18000028",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-refused.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-674-357-18000028' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 15.41580800005704,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-674-357-18000028' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

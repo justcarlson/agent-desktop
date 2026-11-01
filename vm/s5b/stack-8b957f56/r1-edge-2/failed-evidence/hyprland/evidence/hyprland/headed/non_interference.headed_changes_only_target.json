@@ -1,0 +1,256 @@
+{
+  "leg": "non_interference.headed_changes_only_target",
+  "tier": "hyprland",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1118.0045830000154,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.second_desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da6680bef0",
+            "pid": 148732,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              false,
+              "2",
+              ""
+            ],
+            [
+              "WAYLAND-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da6680bef0",
+            "pid": 148732,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              false,
+              "2",
+              ""
+            ],
+            [
+              "WAYLAND-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da6680bef0",
+            "pid": 148732,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              false,
+              "2",
+              ""
+            ],
+            [
+              "WAYLAND-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "atspi.display": {
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ],
+      "restored": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.77-org-gnome-Calculator-a11y-01d69b94_49ac_4e0a_b22f_c0db382a9ed9"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 113.62829899996996,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s3t0bp8i5t5xrt:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s3t0bp8i5t5xrt\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "click",
+        "@s3t0bp8i5t5xrt:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_NOT_SUPPORTED",
+        "message": "physical pointer input is not available through the compositor on Wayland",
+        "suggestion": "Use the semantic action on the element instead of physical input",
+        "details": {
+          "cause": "wayland_session",
+          "physical_delivery_started": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 5.059902999960286,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"physical pointer input is not available through the compositor on Wayland\",\"suggestion\":\"Use the semantic action on the element instead of physical input\",\"details\":{\"cause\":\"wayland_session\",\"physical_delivery_started\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy",
+        "1,1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_NOT_SUPPORTED",
+        "message": "physical pointer input is not available through the compositor on Wayland",
+        "suggestion": "Use the semantic action on the element instead of physical input",
+        "details": {
+          "cause": "wayland_session",
+          "physical_delivery_started": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 3.2587829999783935,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"mouse-click\",\"error\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"physical pointer input is not available through the compositor on Wayland\",\"suggestion\":\"Use the semantic action on the element instead of physical input\",\"details\":{\"cause\":\"wayland_session\",\"physical_delivery_started\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

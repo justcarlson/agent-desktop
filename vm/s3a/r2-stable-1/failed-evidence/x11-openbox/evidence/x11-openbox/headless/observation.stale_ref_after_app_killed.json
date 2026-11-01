@@ -1,0 +1,79 @@
+{
+  "leg": "observation.stale_ref_after_app_killed",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 464.1143699999475,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        [
+          ":1.12"
+        ]
+      ],
+      "after": [
+        [
+          ":1.12"
+        ]
+      ],
+      "restored": [
+        [
+          ":1.12"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.752-org-gnome-Calculator-a11y-88bbbee2_1bcc_47b4_8285_8ca901651e46"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 112.89726699999392,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s2ezpn9zmyrgwg:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s2ezpn9zmyrgwg\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s2ezpn9zmyrgwg:e1",
+        "--timeout-ms",
+        "0"
+      ],
+      "ok": false,
+      "error": {
+        "code": "STALE_REF",
+        "message": "Stored ref's owning application is not reachable on this session's accessibility bus",
+        "suggestion": "The target process exited. Run 'list-apps' to see whether the application runs again, launch it if it does not, then take a new snapshot",
+        "details": {
+          "complete": true,
+          "kind": "resolve_owner_unreachable",
+          "process_state": "exited",
+          "retryable": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 8.773866999945312,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"STALE_REF\",\"message\":\"Stored ref's owning application is not reachable on this session's accessibility bus\",\"suggestion\":\"The target process exited. Run 'list-apps' to see whether the application runs again, launch it if it does not, then take a new snapshot\",\"details\":{\"complete\":true,\"kind\":\"resolve_owner_unreachable\",\"process_state\":\"exited\",\"retryable\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

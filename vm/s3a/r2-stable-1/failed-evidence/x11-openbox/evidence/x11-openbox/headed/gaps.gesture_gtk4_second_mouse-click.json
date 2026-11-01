@@ -1,0 +1,175 @@
+{
+  "leg": "gaps.gesture_gtk4_second_mouse-click",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1673.651044000053,
+  "exception_traceback": "",
+  "reads": {
+    "x11.pointer": {
+      "before": [
+        [
+          640,
+          400
+        ]
+      ],
+      "after": [
+        [
+          131,
+          525
+        ]
+      ],
+      "restored": [
+        [
+          640,
+          400
+        ]
+      ]
+    },
+    "x11.geometry": {
+      "before": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ],
+      "after": [
+        [
+          80,
+          90,
+          370,
+          616
+        ]
+      ],
+      "restored": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ]
+    },
+    "x11.active_window": {
+      "before": [
+        "0x800005"
+      ],
+      "after": [
+        "0x800005"
+      ],
+      "restored": [
+        "0x800005"
+      ]
+    },
+    "atspi.target_geometry": {
+      "before": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            455,
+            92
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            80,
+            90
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            19,
+            413,
+            64,
+            44
+          ],
+          [
+            455,
+            92
+          ]
+        ]
+      ]
+    },
+    "atspi.effect": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "mouse-click",
+        "--xy",
+        "131,525"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 17.137886000000435,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"mouse-click\",\"data\":{\"action\":\"mouse-click\",\"count\":1,\"details\":{\"delivered_events\":3},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"pointer_click\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"pointer\",\"point\":{\"x\":131.0,\"y\":525.0}},\"x\":131.0,\"y\":525.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "resize-window",
+        "--window-id",
+        "w-1.250-org-gnome-Calculator-a11y-baf458e9_8b14_4ff1_9196_efb15b6004c6",
+        "--width",
+        "370",
+        "--height",
+        "616"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 170.52033699997082,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"resize-window\",\"data\":{\"action\":\"resize-window\",\"details\":{\"observed\":{\"height\":616,\"hidden\":false,\"maximized_horizontal\":false,\"maximized_vertical\":false,\"width\":370,\"x\":80,\"y\":90},\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_size\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"height\":616.0,\"steps\":[{\"label\":\"window_resize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.250-org-gnome-Calculator-a11y-baf458e9_8b14_4ff1_9196_efb15b6004c6\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:56754\",\"pid\":120883},\"title\":\"Calculator\"},\"width\":370.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "move-window",
+        "--window-id",
+        "w-1.250-org-gnome-Calculator-a11y-baf458e9_8b14_4ff1_9196_efb15b6004c6",
+        "--x",
+        "455",
+        "--y",
+        "92"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 198.63442099995154,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"move-window\",\"data\":{\"action\":\"move-window\",\"details\":{\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_position\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_move\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.250-org-gnome-Calculator-a11y-baf458e9_8b14_4ff1_9196_efb15b6004c6\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:56754\",\"pid\":120883},\"title\":\"Calculator\"},\"x\":455.0,\"y\":92.0}}\n"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "leg": "focus.hyprland_twin_after_sizes_differ",
+  "tier": "hyprland",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 467.13648900004046,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b2fc3d21a0",
+            "pid": 148043,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b2fc5bdbe0",
+            "pid": 151573,
+            "class": "focus_twins.py",
+            "initialTitle": "AD Focus Twin"
+          },
+          "cursor": {
+            "x": 322,
+            "y": 413
+          },
+          "workspace": "32",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "32",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b2fc3d21a0",
+            "pid": 148043,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-1.320-org-a11y-atspi-accessible-1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 21.714779999911116,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"activation\":{\"activated\":true,\"proof\":\"compositor_and_accessibility\",\"side_effects\":[{\"from\":\"1\",\"kind\":\"workspace_switched\",\"monitor\":\"Virtual-1\",\"to\":\"31\"},{\"from\":{\"x\":640.0,\"y\":400.0},\"kind\":\"cursor_moved\",\"to\":{\"x\":640.0,\"y\":413.0}}]},\"focused\":{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.320-org-a11y-atspi-accessible-1\",\"is_focused\":true,\"minimized\":false,\"pid\":151573,\"process_instance\":\"342f6e16:87243\",\"title\":\"AD Focus Twin\",\"visible\":true}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-1.320-org-a11y-atspi-accessible-2"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 23.592711999981475,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"activation\":{\"activated\":true,\"proof\":\"compositor_and_accessibility\",\"side_effects\":[{\"from\":\"31\",\"kind\":\"workspace_switched\",\"monitor\":\"Virtual-1\",\"to\":\"32\"},{\"from\":{\"x\":640.0,\"y\":413.0},\"kind\":\"cursor_moved\",\"to\":{\"x\":322.0,\"y\":413.0}}]},\"focused\":{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.320-org-a11y-atspi-accessible-2\",\"is_focused\":true,\"minimized\":false,\"pid\":151573,\"process_instance\":\"342f6e16:87243\",\"title\":\"AD Focus Twin\",\"visible\":true}}}\n"
+    }
+  ]
+}

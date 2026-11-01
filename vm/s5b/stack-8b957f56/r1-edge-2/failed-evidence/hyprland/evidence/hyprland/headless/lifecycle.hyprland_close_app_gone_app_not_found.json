@@ -1,0 +1,127 @@
+{
+  "leg": "lifecycle.hyprland_close_app_gone_app_not_found",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 588.2326370000328,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-apps"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 21.272837999958938,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-apps\",\"data\":{\"apps\":[{\"name\":\"quickshell\",\"pid\":726,\"presentation\":\"foreground\",\"process_instance\":\"333fcde6:385\"},{\"bundle_id\":\"xdg-desktop-portal-gtk\",\"name\":\"xdg-desktop-portal-gtk\",\"pid\":955,\"presentation\":\"background\",\"process_instance\":\"333fcde6:455\"},{\"name\":\"python3.14\",\"pid\":713,\"presentation\":\"background\",\"process_instance\":\"333fcde6:384\"},{\"bundle_id\":\"org.gnome.Calculator\",\"name\":\"gnome-calculator\",\"pid\":152096,\"presentation\":\"foreground\",\"process_instance\":\"333fcde6:87967\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "close-app",
+        "gnome-calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 106.54717299996719,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"close-app\",\"data\":{\"action\":\"close-app\",\"app\":\"gnome-calculator\",\"details\":{\"evidence\":\"process_instance_exited\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"method\":\"graceful\",\"steps\":[{\"label\":\"terminate_request\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"},{\"label\":\"process_exit\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"kind\":\"app\",\"name\":\"gnome-calculator\",\"process\":{\"instance\":\"333fcde6:87967\",\"pid\":152096}}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "close-app",
+        "gnome-calculator"
+      ],
+      "ok": false,
+      "error": {
+        "code": "APP_NOT_FOUND",
+        "message": "Application 'gnome-calculator' was not found with exact process identity",
+        "suggestion": "Application name as reported by list-apps",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 46.47822200001883,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"close-app\",\"error\":{\"code\":\"APP_NOT_FOUND\",\"message\":\"Application 'gnome-calculator' was not found with exact process identity\",\"suggestion\":\"Application name as reported by list-apps\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

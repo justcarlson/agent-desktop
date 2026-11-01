@@ -1,0 +1,183 @@
+{
+  "leg": "non_interference.headless_route_preserves_desktop",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1667.0679040000778,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.display": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-apps"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 20.93281100007971,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-apps\",\"data\":{\"apps\":[{\"name\":\"quickshell\",\"pid\":726,\"presentation\":\"foreground\",\"process_instance\":\"333fcde6:385\"},{\"bundle_id\":\"xdg-desktop-portal-gtk\",\"name\":\"xdg-desktop-portal-gtk\",\"pid\":955,\"presentation\":\"background\",\"process_instance\":\"333fcde6:455\"},{\"name\":\"python3.14\",\"pid\":713,\"presentation\":\"background\",\"process_instance\":\"333fcde6:384\"},{\"bundle_id\":\"org.gnome.Calculator\",\"name\":\"gnome-calculator\",\"pid\":148862,\"presentation\":\"foreground\",\"process_instance\":\"333fcde6:84110\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 14.820933999999397,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"id\":\"w-1.90-org-gnome-Calculator-a11y-952d280f_2876_4338_bc06_c4740cea15ed\",\"is_focused\":false,\"minimized\":false,\"pid\":148862,\"process_instance\":\"333fcde6:84110\",\"title\":\"Calculator\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.90-org-gnome-Calculator-a11y-952d280f_2876_4338_bc06_c4740cea15ed"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 101.15807299996504,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":36,\"snapshot_id\":\"s2ftz91eee0ody\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@s2ftz91eee0ody:e1\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@s2ftz91eee0ody:e2\",\"role\":\"textfield\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@s2ftz91eee0ody:e3\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@s2ftz91eee0ody:e4\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@s2ftz91eee0ody:e5\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@s2ftz91eee0ody:e6\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@s2ftz91eee0ody:e7\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@s2ftz91eee0ody:e8\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@s2ftz91eee0ody:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@s2ftz91eee0ody:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@s2ftz91eee0ody:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@s2ftz91eee0ody:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@s2ftz91eee0ody:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@s2ftz91eee0ody:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@s2ftz91eee0ody:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@s2ftz91eee0ody:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@s2ftz91eee0ody:e17\",\"role\":\"button\"},{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Variables and Constant"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.953165999973862,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "status"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 4.168484000047101,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"status\",\"data\":{\"permissions\":{\"accessibility\":{\"state\":\"granted\"},\"automation\":{\"state\":\"not_required\"},\"screen_recording\":{\"state\":\"unknown\"}},\"platform\":\"linux\",\"ref_count\":36,\"session_id\":null,\"snapshot_id\":\"s2ftz91eee0ody\",\"state_root\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/ad-home\",\"supported_surfaces\":[\"window\",\"sheet\",\"alert\",\"menu\"],\"tracing\":false,\"version\":\"1.0.2\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.90-org-gnome-Calculator-a11y-952d280f_2876_4338_bc06_c4740cea15ed"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 97.45201300006556,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@sum87q3xdvlxm:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"sum87q3xdvlxm\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "click",
+        "@sum87q3xdvlxm:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 155.45461199997135,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":86,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.90-org-gnome-Calculator-a11y-952d280f_2876_4338_bc06_c4740cea15ed\",\"title\":\"Calculator\",\"type\":\"window\"}]}}\n"
+    }
+  ]
+}

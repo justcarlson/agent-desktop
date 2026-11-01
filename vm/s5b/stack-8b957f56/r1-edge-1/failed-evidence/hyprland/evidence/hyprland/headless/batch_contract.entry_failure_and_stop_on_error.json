@@ -1,0 +1,88 @@
+{
+  "leg": "batch_contract.entry_failure_and_stop_on_error",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 3462.8559509999377,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "7"
+      ],
+      "restored": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.62-org-gnome-Calculator-a11y-b33b378c_c848_44aa_a25d_72cc1190052e"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 101.90583600001446,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s3nyuioo99c4ko:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s3nyuioo99c4ko\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "8",
+        "--window-id",
+        "w-1.62-org-gnome-Calculator-a11y-b33b378c_c848_44aa_a25d_72cc1190052e"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 105.63434799996685,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"8\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s3cpoylynb64zu:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s3cpoylynb64zu\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"click\", \"args\": {\"ref_id\": \"@s3nyuioo99c4ko:e1\"}}, {\"command\": \"click\", \"args\": {\"ref_id\": \"@s3nyuioo99c4ko:e999999\"}}, {\"command\": \"click\", \"args\": {\"ref_id\": \"@s3cpoylynb64zu:e1\"}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 301.4990689999877,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":3,\"elapsed_ms\":296,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":89,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.62-org-gnome-Calculator-a11y-b33b378c_c848_44aa_a25d_72cc1190052e\",\"title\":\"Calculator\",\"type\":\"window\"}]},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"click\",\"error\":{\"code\":\"STALE_REF\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"@s3nyuioo99c4ko:e999999 not found in current RefMap\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retryable\":true,\"strategy\":\"refresh_snapshot_then_retry_original\"},\"suggestion\":\"Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)\"},\"execution\":\"completed\",\"index\":1,\"ok\":false,\"version\":\"2.5\"},{\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":87,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.62-org-gnome-Calculator-a11y-b33b378c_c848_44aa_a25d_72cc1190052e\",\"title\":\"Calculator\",\"type\":\"window\"}]},\"execution\":\"completed\",\"index\":2,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":3}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"click\", \"args\": {\"ref_id\": \"@s3nyuioo99c4ko:e1\"}}, {\"command\": \"click\", \"args\": {\"ref_id\": \"@s3nyuioo99c4ko:e999999\"}}, {\"command\": \"click\", \"args\": {\"ref_id\": \"@s3cpoylynb64zu:e1\"}}]",
+        "--stop-on-error"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 157.03409500008547,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":2,\"elapsed_ms\":151,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":1,\"results\":[{\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":88,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.62-org-gnome-Calculator-a11y-b33b378c_c848_44aa_a25d_72cc1190052e\",\"title\":\"Calculator\",\"type\":\"window\"}]},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"click\",\"error\":{\"code\":\"STALE_REF\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"@s3nyuioo99c4ko:e999999 not found in current RefMap\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retryable\":true,\"strategy\":\"refresh_snapshot_then_retry_original\"},\"suggestion\":\"Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)\"},\"execution\":\"completed\",\"index\":1,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"stopped\":{\"index\":1,\"reason\":\"stop_on_error\"},\"timeout_ms\":60000,\"total_entries\":3}}\n"
+    }
+  ]
+}

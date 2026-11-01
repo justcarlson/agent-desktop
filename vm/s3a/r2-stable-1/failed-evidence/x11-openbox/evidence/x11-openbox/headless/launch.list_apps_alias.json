@@ -1,0 +1,60 @@
+{
+  "leg": "launch.list_apps_alias",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 282.45155800004795,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.apps": {
+      "before": [
+        [
+          "gnome-calculator",
+          "xdg-desktop-portal-gtk"
+        ]
+      ],
+      "after": [
+        [
+          "gnome-calculator",
+          "xdg-desktop-portal-gtk"
+        ]
+      ],
+      "restored": [
+        [
+          "gnome-calculator",
+          "xdg-desktop-portal-gtk"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-apps",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 20.133312999973896,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-apps\",\"data\":{\"apps\":[{\"bundle_id\":\"org.gnome.Calculator\",\"name\":\"gnome-calculator\",\"pid\":129450,\"presentation\":\"foreground\",\"process_instance\":\"5589b0cb:65215\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-apps",
+        "--app",
+        "calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 19.935709000037605,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-apps\",\"data\":{\"apps\":[{\"bundle_id\":\"org.gnome.Calculator\",\"name\":\"gnome-calculator\",\"pid\":129450,\"presentation\":\"foreground\",\"process_instance\":\"5589b0cb:65215\"}]}}\n"
+    }
+  ]
+}

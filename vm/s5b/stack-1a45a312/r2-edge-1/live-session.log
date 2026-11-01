@@ -1,0 +1,9 @@
+test_wayland_starts_sweeps_and_leaves_nothing (test_session_contract.LiveTierTests.test_wayland_starts_sweeps_and_leaves_nothing) ... cancel-ready: /tmp/ad-e2e-live-suite-s8sb8hlh/wayland.ready.json {"pid": 118851, "start": 54442, "runtime": "/run/user/1000/agent-desktop-sessions/rt.Jipuxo", "marker": "/run/user/1000/agent-desktop-sessions/rt.Jipuxo/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py"}
+ok
+test_x11_openbox_starts_sweeps_and_leaves_nothing (test_session_contract.LiveTierTests.test_x11_openbox_starts_sweeps_and_leaves_nothing) ... cancel-ready: /tmp/ad-e2e-live-suite-9hiwnf49/x11-openbox.ready.json {"pid": 118851, "start": 54442, "runtime": "/run/user/1000/agent-desktop-sessions/rt.zlRcF4", "marker": "/run/user/1000/agent-desktop-sessions/rt.zlRcF4/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py"}
+ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 18.511s
+
+OK

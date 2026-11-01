@@ -1,0 +1,47 @@
+{
+  "leg": "gaps.event_window-opened_unscoped_success",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1191.5894300000218,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.editor_windows": {
+      "before": [
+        [
+          1,
+          true
+        ]
+      ],
+      "after": [
+        [
+          2,
+          true
+        ]
+      ],
+      "restored": [
+        [
+          1,
+          true
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"launch\", \"args\": {\"app\": \"Text Editor\", \"args\": [\"--new-window\"]}}, {\"command\": \"wait\", \"args\": {\"event\": \"window-opened\", \"timeout\": 8000}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 186.94141999992553,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":2,\"elapsed_ms\":181,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"launch\",\"data\":{\"app\":\"gnome-text-editor\",\"pid\":121272,\"process_instance\":\"5589b0cb:57132\",\"window\":{\"accessible\":true,\"app_name\":\"gnome-text-editor\",\"bounds\":{\"height\":520.0,\"width\":700.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.319-org-gnome-TextEditor-a11y-5b749893_1af6_4da5_be94_fb8dfc9c396e\",\"is_focused\":true,\"minimized\":false,\"pid\":121272,\"process_instance\":\"5589b0cb:57132\",\"title\":\"New Document (Draft) - Text Editor\",\"visible\":true}},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"wait\",\"data\":{\"elapsed_ms\":14,\"event\":{\"app\":\"gnome-text-editor\",\"kind\":\"window_opened\",\"pid\":121272,\"title\":\"New Document (Draft) - Text Editor\",\"window_id\":\"w-1.319-org-gnome-TextEditor-a11y-5b749893_1af6_4da5_be94_fb8dfc9c396e\"},\"found\":true},\"execution\":\"completed\",\"index\":1,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":2}}\n"
+    }
+  ]
+}

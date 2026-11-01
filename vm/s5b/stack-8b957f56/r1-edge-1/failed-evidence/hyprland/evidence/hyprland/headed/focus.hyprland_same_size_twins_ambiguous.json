@@ -1,0 +1,153 @@
+{
+  "leg": "focus.hyprland_same_size_twins_ambiguous",
+  "tier": "hyprland",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 354.55745700005536,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-1.326-org-a11y-atspi-accessible-1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "AMBIGUOUS_TARGET",
+        "message": "Several compositor toplevels match this window",
+        "suggestion": "Give the windows distinct titles or sizes, then run 'list-windows' and retry",
+        "details": {
+          "candidates": [
+            {
+              "address": "0x55b3254e3be0",
+              "workspace": "31"
+            },
+            {
+              "address": "0x55b325662e40",
+              "workspace": "32"
+            }
+          ]
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 19.078916000012214,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"focus-window\",\"error\":{\"code\":\"AMBIGUOUS_TARGET\",\"message\":\"Several compositor toplevels match this window\",\"suggestion\":\"Give the windows distinct titles or sizes, then run 'list-windows' and retry\",\"details\":{\"candidates\":[{\"address\":\"0x55b3254e3be0\",\"workspace\":\"31\"},{\"address\":\"0x55b325662e40\",\"workspace\":\"32\"}]},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-1.326-org-a11y-atspi-accessible-2"
+      ],
+      "ok": false,
+      "error": {
+        "code": "AMBIGUOUS_TARGET",
+        "message": "Several compositor toplevels match this window",
+        "suggestion": "Give the windows distinct titles or sizes, then run 'list-windows' and retry",
+        "details": {
+          "candidates": [
+            {
+              "address": "0x55b3254e3be0",
+              "workspace": "31"
+            },
+            {
+              "address": "0x55b325662e40",
+              "workspace": "32"
+            }
+          ]
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 17.784711999979663,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"focus-window\",\"error\":{\"code\":\"AMBIGUOUS_TARGET\",\"message\":\"Several compositor toplevels match this window\",\"suggestion\":\"Give the windows distinct titles or sizes, then run 'list-windows' and retry\",\"details\":{\"candidates\":[{\"address\":\"0x55b3254e3be0\",\"workspace\":\"31\"},{\"address\":\"0x55b325662e40\",\"workspace\":\"32\"}]},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

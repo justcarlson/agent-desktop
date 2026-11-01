@@ -1,0 +1,99 @@
+{
+  "leg": "ref_actions.hover_headless_refusal",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 312.9104439999537,
+  "exception_traceback": "",
+  "reads": {
+    "x11.desktop": {
+      "before": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ],
+      "after": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ],
+      "restored": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ]
+    },
+    "atspi.hover_status": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Press me",
+        "--window-id",
+        "w-1.139-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 34.92555299999367,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Press me\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s3ioinra197z4i:e1\",\"role\":\"button\",\"states\":[\"focused\"],\"value\":null}],\"snapshot_id\":\"s3ioinra197z4i\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "hover",
+        "@s3ioinra197z4i:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "POLICY_DENIED",
+        "message": "hover moves the cursor and is disabled in headless mode",
+        "suggestion": "Headless mode allows only accessibility-backed actions; enable physical interaction in the policy (CLI: --headed) only if cursor/focus movement is intended, otherwise refresh the snapshot or target an element with the needed semantic action",
+        "recovery": {
+          "strategy": "request_explicit_policy_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 5.68758200006414,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"hover\",\"error\":{\"code\":\"POLICY_DENIED\",\"message\":\"hover moves the cursor and is disabled in headless mode\",\"suggestion\":\"Headless mode allows only accessibility-backed actions; enable physical interaction in the policy (CLI: --headed) only if cursor/focus movement is intended, otherwise refresh the snapshot or target an element with the needed semantic action\",\"recovery\":{\"strategy\":\"request_explicit_policy_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

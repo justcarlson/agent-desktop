@@ -1,0 +1,61 @@
+{
+  "leg": "clipboard.image_roundtrip",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2048.641861999954,
+  "exception_traceback": "",
+  "reads": {
+    "clipboard.selection": {
+      "before": [
+        null
+      ],
+      "after": [
+        "b'\\x89PNG\\r\\n\\x1a\\n\\x00\\x00\\x00\\rIHDR\\x00\\x00\\x00\\x02\\x00\\x00\\x00\\x02\\x08\\x02\\x00\\x00\\x00\\xfd\\xd4\\x9as\\x00\\x00\\x00\\x12IDATx\\x9cc\\xf8\\xcf\\xc0\\xc0\\x00\\xc2\\x0c\\xff\\x81\\x00\\x00\\x1f\\xee\\x05\\xfb\\x0b\\xd9h\\x8b\\x00\\x00\\x00\\x00IEND\\xaeB`\\x82'"
+      ],
+      "restored": [
+        null
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-get",
+        "--format",
+        "image"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 5.693411000038395,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-get\",\"data\":{\"height\":2,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.qkRCca/ad-home/tmp/clipboard-127791-1793509275400027693-0.png\",\"type\":\"image\",\"width\":2}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-set",
+        "--image",
+        "/run/user/1000/agent-desktop-sessions/rt.qkRCca/clipboard-product.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 6.216461999997591,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-set\",\"data\":{\"action\":\"clipboard-set\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"},\"type\":\"image\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-clear"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.5907610000786008,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-clear\",\"data\":{\"action\":\"clipboard-clear\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"}}}\n"
+    }
+  ]
+}

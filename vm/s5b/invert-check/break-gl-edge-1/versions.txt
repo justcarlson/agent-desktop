@@ -1,0 +1,14 @@
+channel: edge
+image: 2026.10.31.471
+omarchy: 4.0.0.r7442.gbda3aaf-1
+kernel: 7.2.14-1-omarchy
+harness commit: 1a45a3129d1c260f9ba52e5bef55d96aa4cfa975
+binary: agent-desktop 1.0.2 d0ee0168d5d167c559647dd6d5706402914e5346338db872b2d84ff0e9e79ffc
+hyprland 0.57.0-2
+gnome-shell 1:51.1-1
+mutter 51.1-1
+xdg-desktop-portal 1.22.1-2
+xdg-desktop-portal-hyprland 1.4.1-2
+xdg-desktop-portal-gnome 51.0-1
+grim 1.5.0-2
+foot 1.28.0-2

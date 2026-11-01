@@ -1,0 +1,554 @@
+{
+  "leg": "ref_contract.zoo_qt_windows",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 3144.968499000015,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.window0": {
+      "before": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window0": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "widget": "zoo-dialog-entry",
+            "event": "changed",
+            "value": "dialog-fd47cdd77263422bb40200e8cc699061",
+            "at": 739.963039701
+          },
+          {
+            "widget": "zoo-dialog-ok",
+            "event": "activate",
+            "value": null,
+            "at": 740.142551394
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    },
+    "atspi.window1": {
+      "before": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window1": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "widget": "zoo-open-chooser",
+            "event": "saved",
+            "value": "/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fdcc87b0e804a538b42689a61005217.txt",
+            "at": 741.238264672
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    },
+    "atspi.window2": {
+      "before": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window2": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    },
+    "atspi.window3": {
+      "before": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ],
+          [
+            "zoo-top-button",
+            43,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo Qt",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window3": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "widget": "zoo-top-button",
+            "event": "activate",
+            "value": null,
+            "at": 742.384906859
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [
+    "name | role | states | action | expected | observed | verdict\nzoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass\nzoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass\nzoo-open-message | button | [] | click/window workflow | land | raw Zoo Message, listed title, surface and effects verified | pass\nzoo-open-toplevel-button | button | [] | click/window workflow | land | raw Zoo Top Button, listed title, surface and effects verified | pass"
+  ],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 37.838081000018065,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s3pezcz2qupqgy\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s3pezcz2qupqgy:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s3pezcz2qupqgy:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s3pezcz2qupqgy:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s3pezcz2qupqgy:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s3pezcz2qupqgy:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s3pezcz2qupqgy:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s3pezcz2qupqgy:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s3pezcz2qupqgy:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s3pezcz2qupqgy:e11\",\"role\":\"option\"}],\"ref_id\":\"@s3pezcz2qupqgy:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s3pezcz2qupqgy:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s3pezcz2qupqgy:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s3pezcz2qupqgy:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s3pezcz2qupqgy:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s3pezcz2qupqgy:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s3pezcz2qupqgy:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s3pezcz2qupqgy:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s3pezcz2qupqgy:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s3pezcz2qupqgy:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s3pezcz2qupqgy:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3pezcz2qupqgy:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3pezcz2qupqgy:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s3pezcz2qupqgy:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s3pezcz2qupqgy:e34"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 63.40230299997529,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":37,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 23.322345999986283,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":115.0,\"width\":200.0,\"x\":200.0,\"y\":443.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483708\",\"is_focused\":true,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Dialog\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":1000.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"is_focused\":false,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Qt\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483708",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.26131100002749,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":3,\"snapshot_id\":\"slty6qt1exae5\",\"tree\":{\"children\":[{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-dialog-entry\",\"ref_id\":\"@slty6qt1exae5:e1\",\"role\":\"textfield\",\"states\":[\"focused\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-dialog-ok\",\"ref_id\":\"@slty6qt1exae5:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-dialog-cancel\",\"ref_id\":\"@slty6qt1exae5:e3\",\"role\":\"button\"}],\"name\":\"Zoo Dialog\",\"role\":\"dialog\"},\"window\":{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483708\",\"title\":\"Zoo Dialog\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "type",
+        "@slty6qt1exae5:e1",
+        "dialog-fd47cdd77263422bb40200e8cc699061"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 67.63126400005604,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"type\",\"data\":{\"action\":\"type\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":42,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"textfield\",\"states\":[\"focused\"],\"value\":\"dialog-fd47cdd77263422bb40200e8cc699061\"},\"steps\":[{\"label\":\"EditableText.InsertText\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483708",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 28.27280700000756,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":3,\"snapshot_id\":\"s21rw80on35342\",\"tree\":{\"children\":[{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-dialog-entry\",\"ref_id\":\"@s21rw80on35342:e1\",\"role\":\"textfield\",\"states\":[\"focused\"],\"value\":\"dialog-fd47cdd77263422bb40200e8cc699061\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-dialog-ok\",\"ref_id\":\"@s21rw80on35342:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-dialog-cancel\",\"ref_id\":\"@s21rw80on35342:e3\",\"role\":\"button\"}],\"name\":\"Zoo Dialog\",\"role\":\"dialog\"},\"window\":{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483708\",\"title\":\"Zoo Dialog\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s21rw80on35342:e2"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 65.23726799991891,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":42,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483708\",\"title\":\"Zoo Dialog\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483708\",\"title\":\"Zoo Dialog\",\"type\":\"sheet\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 39.469320999955926,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s1xegyzuvxj5u3\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s1xegyzuvxj5u3:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s1xegyzuvxj5u3:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s1xegyzuvxj5u3:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s1xegyzuvxj5u3:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s1xegyzuvxj5u3:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s1xegyzuvxj5u3:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s1xegyzuvxj5u3:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s1xegyzuvxj5u3:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s1xegyzuvxj5u3:e11\",\"role\":\"option\"}],\"ref_id\":\"@s1xegyzuvxj5u3:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s1xegyzuvxj5u3:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s1xegyzuvxj5u3:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s1xegyzuvxj5u3:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s1xegyzuvxj5u3:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s1xegyzuvxj5u3:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s1xegyzuvxj5u3:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s1xegyzuvxj5u3:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s1xegyzuvxj5u3:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s1xegyzuvxj5u3:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s1xegyzuvxj5u3:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1xegyzuvxj5u3:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1xegyzuvxj5u3:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s1xegyzuvxj5u3:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 40.43039300006512,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s1poblg6o3hjhs\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s1poblg6o3hjhs:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s1poblg6o3hjhs:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s1poblg6o3hjhs:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s1poblg6o3hjhs:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s1poblg6o3hjhs:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s1poblg6o3hjhs:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s1poblg6o3hjhs:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s1poblg6o3hjhs:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s1poblg6o3hjhs:e11\",\"role\":\"option\"}],\"ref_id\":\"@s1poblg6o3hjhs:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s1poblg6o3hjhs:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s1poblg6o3hjhs:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s1poblg6o3hjhs:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s1poblg6o3hjhs:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s1poblg6o3hjhs:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s1poblg6o3hjhs:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s1poblg6o3hjhs:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s1poblg6o3hjhs:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s1poblg6o3hjhs:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s1poblg6o3hjhs:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1poblg6o3hjhs:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1poblg6o3hjhs:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s1poblg6o3hjhs:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s1poblg6o3hjhs:e35"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 69.27952399996684,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":42,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 25.426270000025397,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":421.0,\"width\":643.0,\"x\":1.0,\"y\":290.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483806\",\"is_focused\":true,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Save\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":1000.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"is_focused\":false,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Qt\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483806",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 63.456927000061114,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":150,\"snapshot_id\":\"s37gdhkc4jf7au\",\"tree\":{\"children\":[{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"/home/omarchy/src/agent-desktop\",\"ref_id\":\"@s37gdhkc4jf7au:e3\",\"role\":\"option\",\"states\":[\"focused\",\"selected\",\"offscreen\"]}],\"ref_id\":\"@s37gdhkc4jf7au:e2\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"/home/omarchy/src/agent-desktop\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.lookInCombo\"},\"ref_id\":\"@s37gdhkc4jf7au:e1\",\"role\":\"combobox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go back\",\"name\":\"Back\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.backButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e4\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go forward\",\"name\":\"Forward\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.forwardButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e5\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go to the parent directory\",\"name\":\"Parent Directory\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.toParentButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Create a New Folder\",\"name\":\"Create New Folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.newFolderButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e7\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Change to list view mode\",\"name\":\"List View\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.listModeButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e8\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Change to detail view mode\",\"name\":\"Detail View\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.detailModeButton\"},\"ref_id\":\"@s37gdhkc4jf7au:e9\",\"role\":\"button\",\"states\":[\"pressed\"]},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"apps\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e11\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"assets\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e12\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"benchmarks\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e13\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"crates\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e14\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"docs\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e15\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"npm\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e16\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"probes\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s37gdhkc4jf7au:e17\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"scripts\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.pa"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "type",
+        "@s37gdhkc4jf7au:e145",
+        "/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fdcc87b0e804a538b42689a61005217.txt"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 202.83092199997554,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"type\",\"data\":{\"action\":\"type\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":124,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"textfield\",\"states\":[\"focused\"],\"value\":\"/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fdcc87b0e804a538b42689a61005217.txt\"},\"steps\":[{\"label\":\"EditableText.InsertText\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483806",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 76.66514899995036,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":150,\"snapshot_id\":\"s3u5nw05j6tdvm\",\"tree\":{\"children\":[{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"/home/omarchy/src/agent-desktop\",\"ref_id\":\"@s3u5nw05j6tdvm:e3\",\"role\":\"option\",\"states\":[\"focused\",\"selected\",\"offscreen\"]}],\"ref_id\":\"@s3u5nw05j6tdvm:e2\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"/home/omarchy/src/agent-desktop\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.lookInCombo\"},\"ref_id\":\"@s3u5nw05j6tdvm:e1\",\"role\":\"combobox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go back\",\"name\":\"Back\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.backButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e4\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go forward\",\"name\":\"Forward\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.forwardButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e5\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Go to the parent directory\",\"name\":\"Parent Directory\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.toParentButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Create a New Folder\",\"name\":\"Create New Folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.newFolderButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e7\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Change to list view mode\",\"name\":\"List View\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.listModeButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e8\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Change to detail view mode\",\"name\":\"Detail View\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.detailModeButton\"},\"ref_id\":\"@s3u5nw05j6tdvm:e9\",\"role\":\"button\",\"states\":[\"pressed\"]},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"apps\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e11\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"assets\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e12\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"benchmarks\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e13\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"crates\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e14\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"docs\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e15\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"npm\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e16\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"probes\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.page.listView\"},\"ref_id\":\"@s3u5nw05j6tdvm:e17\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"scripts\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QFileDialog.splitter.frame.stackedWidget.pa"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s3u5nw05j6tdvm:e146"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 210.36852600002476,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":121,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483806\",\"title\":\"Zoo Save\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483806\",\"title\":\"Zoo Save\",\"type\":\"sheet\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 39.32679800004735,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s3mxtqc6xuelfe\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s3mxtqc6xuelfe:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s3mxtqc6xuelfe:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s3mxtqc6xuelfe:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s3mxtqc6xuelfe:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s3mxtqc6xuelfe:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s3mxtqc6xuelfe:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s3mxtqc6xuelfe:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s3mxtqc6xuelfe:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s3mxtqc6xuelfe:e11\",\"role\":\"option\"}],\"ref_id\":\"@s3mxtqc6xuelfe:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s3mxtqc6xuelfe:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s3mxtqc6xuelfe:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s3mxtqc6xuelfe:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s3mxtqc6xuelfe:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s3mxtqc6xuelfe:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s3mxtqc6xuelfe:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s3mxtqc6xuelfe:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s3mxtqc6xuelfe:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s3mxtqc6xuelfe:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s3mxtqc6xuelfe:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3mxtqc6xuelfe:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3mxtqc6xuelfe:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s3mxtqc6xuelfe:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 41.16341700000703,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s2ovly7qsddhc3\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s2ovly7qsddhc3:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s2ovly7qsddhc3:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s2ovly7qsddhc3:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s2ovly7qsddhc3:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s2ovly7qsddhc3:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s2ovly7qsddhc3:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s2ovly7qsddhc3:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s2ovly7qsddhc3:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s2ovly7qsddhc3:e11\",\"role\":\"option\"}],\"ref_id\":\"@s2ovly7qsddhc3:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s2ovly7qsddhc3:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s2ovly7qsddhc3:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s2ovly7qsddhc3:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s2ovly7qsddhc3:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s2ovly7qsddhc3:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s2ovly7qsddhc3:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s2ovly7qsddhc3:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s2ovly7qsddhc3:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s2ovly7qsddhc3:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s2ovly7qsddhc3:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s2ovly7qsddhc3:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s2ovly7qsddhc3:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s2ovly7qsddhc3:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s2ovly7qsddhc3:e36"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 71.72690400000192,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":44,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 26.082980999944994,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":80.0,\"width\":146.0,\"x\":227.0,\"y\":460.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483957\",\"is_focused\":true,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Message\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":1000.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"is_focused\":false,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Qt\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483957",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 32.016775999977654,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":1,\"snapshot_id\":\"s19s5xif0lwhzu\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"OK\",\"ref_id\":\"@s19s5xif0lwhzu:e1\",\"role\":\"button\",\"states\":[\"focused\"]}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMessageBox.qt_msgbox_buttonbox\"},\"role\":\"group\"}],\"name\":\"Zoo Message\",\"role\":\"alert\"},\"window\":{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483957\",\"title\":\"Zoo Message\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s19s5xif0lwhzu:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 72.32145099999343,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":45,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483957\",\"title\":\"Zoo Message\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483957\",\"title\":\"Zoo Message\",\"type\":\"sheet\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 39.963615000033315,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s3c1chmmgjwdfg\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s3c1chmmgjwdfg:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s3c1chmmgjwdfg:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s3c1chmmgjwdfg:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s3c1chmmgjwdfg:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s3c1chmmgjwdfg:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s3c1chmmgjwdfg:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s3c1chmmgjwdfg:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s3c1chmmgjwdfg:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s3c1chmmgjwdfg:e11\",\"role\":\"option\"}],\"ref_id\":\"@s3c1chmmgjwdfg:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s3c1chmmgjwdfg:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s3c1chmmgjwdfg:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s3c1chmmgjwdfg:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s3c1chmmgjwdfg:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s3c1chmmgjwdfg:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s3c1chmmgjwdfg:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s3c1chmmgjwdfg:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s3c1chmmgjwdfg:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s3c1chmmgjwdfg:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s3c1chmmgjwdfg:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3c1chmmgjwdfg:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s3c1chmmgjwdfg:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s3c1chmmgjwdfg:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 40.64893999998276,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"s1jf5qfho9lpvb\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s1jf5qfho9lpvb:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s1jf5qfho9lpvb:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s1jf5qfho9lpvb:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s1jf5qfho9lpvb:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s1jf5qfho9lpvb:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@s1jf5qfho9lpvb:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s1jf5qfho9lpvb:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s1jf5qfho9lpvb:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s1jf5qfho9lpvb:e11\",\"role\":\"option\"}],\"ref_id\":\"@s1jf5qfho9lpvb:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s1jf5qfho9lpvb:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s1jf5qfho9lpvb:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s1jf5qfho9lpvb:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s1jf5qfho9lpvb:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s1jf5qfho9lpvb:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@s1jf5qfho9lpvb:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@s1jf5qfho9lpvb:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@s1jf5qfho9lpvb:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s1jf5qfho9lpvb:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s1jf5qfho9lpvb:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1jf5qfho9lpvb:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@s1jf5qfho9lpvb:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@s1jf5qfho9lpvb:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_id"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s1jf5qfho9lpvb:e37"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 69.58078399998158,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":42,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 24.55876999999873,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":1000.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"is_focused\":false,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"Zoo Qt\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":27.0,\"width\":123.0,\"x\":879.0,\"y\":394.0},\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483959\",\"is_focused\":false,\"minimized\":false,\"pid\":135092,\"process_instance\":\"5589b0cb:73946\",\"title\":\"zoo-top-button\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483959"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.30613600005927,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":1,\"snapshot_id\":\"s3qm9lstvgn4p2\",\"tree\":{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-top-button\",\"ref_id\":\"@s3qm9lstvgn4p2:e1\",\"role\":\"button\"},\"window\":{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483959\",\"title\":\"zoo-top-button\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s3qm9lstvgn4p2:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 60.69608699999662,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":42,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483649\",\"title\":\"Zoo Qt\",\"type\":\"window\"},{\"id\":\"w-1.1990-org-a11y-atspi-accessible-2147483959\",\"title\":\"zoo-top-button\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1990-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 41.21079700007613,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":39,\"snapshot_id\":\"sx9t3pb1q386y\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@sx9t3pb1q386y:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@sx9t3pb1q386y:e2\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@sx9t3pb1q386y:e3\",\"role\":\"checkbox\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@sx9t3pb1q386y:e4\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@sx9t3pb1q386y:e5\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-switch\",\"ref_id\":\"@sx9t3pb1q386y:e6\",\"role\":\"checkbox\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@sx9t3pb1q386y:e9\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@sx9t3pb1q386y:e10\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@sx9t3pb1q386y:e11\",\"role\":\"option\"}],\"ref_id\":\"@sx9t3pb1q386y:e8\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@sx9t3pb1q386y:e7\",\"role\":\"combobox\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@sx9t3pb1q386y:e12\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@sx9t3pb1q386y:e13\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@sx9t3pb1q386y:e14\",\"role\":\"textfield\"},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@sx9t3pb1q386y:e15\",\"role\":\"textfield\",\"states\":[\"secure\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-hscroll\",\"ref_id\":\"@sx9t3pb1q386y:e17\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_hcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]},{\"children\":[{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-text-vscroll\",\"ref_id\":\"@sx9t3pb1q386y:e18\",\"role\":\"scrollbar\",\"states\":[\"hidden\"],\"value\":\"0\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTextEdit.qt_scrollarea_vcontainer\"},\"role\":\"group\",\"states\":[\"hidden\"]}],\"name\":\"zoo-text\",\"ref_id\":\"@sx9t3pb1q386y:e16\",\"role\":\"textfield\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@sx9t3pb1q386y:e19\",\"role\":\"menubutton\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Toggle\",\"Click\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@sx9t3pb1q386y:e20\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-a\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@sx9t3pb1q386y:e22\",\"role\":\"tab\",\"states\":[\"focused\",\"selected\"]},{\"available_actions\":[\"Click\",\"Select\",\"SetFocus\"],\"name\":\"zoo-tab-b\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar\"},\"ref_id\":\"@sx9t3pb1q386y:e23\",\"role\":\"tab\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Left\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QApplication.QMainWindow.QWidget.QTabWidget.qt_tabwidget_tabbar.ScrollLeftButton\"},\"ref_id\":\"@sx9t3pb1q386y:e24\",\"role\":\"button\",\"states\":[\"disabled\",\"hidden\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Scroll Right\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"QAppl"
+    }
+  ]
+}

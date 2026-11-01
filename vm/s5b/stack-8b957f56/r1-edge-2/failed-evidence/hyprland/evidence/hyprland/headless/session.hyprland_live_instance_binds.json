@@ -1,0 +1,208 @@
+{
+  "leg": "session.hyprland_live_instance_binds",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 754.8068040000544,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.second_desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x5639f30d2230",
+            "pid": 149518,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 960,
+            "y": 540
+          },
+          "workspace": "2",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              true,
+              "2",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x5639f30d2230",
+            "pid": 149518,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 960,
+            "y": 540
+          },
+          "workspace": "2",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              true,
+              "2",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x5639f30d2230",
+            "pid": 149518,
+            "class": "foot",
+            "initialTitle": "ad-e2e-sentinel"
+          },
+          "cursor": {
+            "x": 960,
+            "y": 540
+          },
+          "workspace": "2",
+          "monitors": [
+            [
+              "AGENT-DESKTOP-1",
+              true,
+              "2",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.121340000006967,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.6831800000527437,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.169739999999365,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.460968000013054,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":1080.0,\"width\":1920.0,\"x\":0.0,\"y\":0.0},\"id\":\"AGENT-DESKTOP-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 1.9120950000797166,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":1080.0,\"width\":1920.0,\"x\":0.0,\"y\":0.0},\"id\":\"AGENT-DESKTOP-1\",\"is_primary\":true,\"scale\":1.0}]}\n"
+    }
+  ]
+}

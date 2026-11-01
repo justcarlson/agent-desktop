@@ -1,0 +1,110 @@
+{
+  "leg": "gaps.timeout_zero",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 747.5984989999915,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.disabled_action": {
+      "before": [
+        [
+          false,
+          ""
+        ]
+      ],
+      "after": [
+        [
+          false,
+          ""
+        ]
+      ],
+      "restored": [
+        [
+          false,
+          ""
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Undo",
+        "--window-id",
+        "w-1.679-org-gnome-Calculator-a11y-36c0a1ef_11d7_4e44_86d3_7f9145fbe8df"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 114.6408719999954,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Undo\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s11rcsi2s0y8k:e1\",\"role\":\"button\",\"states\":[\"disabled\"],\"value\":null}],\"snapshot_id\":\"s11rcsi2s0y8k\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "click",
+        "@s11rcsi2s0y8k:e1",
+        "--timeout-ms",
+        "0"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_FAILED",
+        "message": "Target is not actionable: stable (live bounds stability has not been sampled), enabled (live enabled state is false)",
+        "suggestion": "Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended.",
+        "details": {
+          "actionable": false,
+          "checks": [
+            {
+              "check": "visible",
+              "status": "pass"
+            },
+            {
+              "check": "stable",
+              "reason": "live bounds stability has not been sampled",
+              "stability": {
+                "samples": 1,
+                "span_ms": 0
+              },
+              "status": "unknown"
+            },
+            {
+              "check": "enabled",
+              "reason": "live enabled state is false",
+              "status": "fail"
+            },
+            {
+              "check": "supported_action",
+              "status": "pass"
+            },
+            {
+              "check": "policy",
+              "status": "pass"
+            }
+          ],
+          "observed_bounds_hash": 11351441103444422854
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 94.55486100000599,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"ACTION_FAILED\",\"message\":\"Target is not actionable: stable (live bounds stability has not been sampled), enabled (live enabled state is false)\",\"suggestion\":\"Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended.\",\"details\":{\"actionable\":false,\"checks\":[{\"check\":\"visible\",\"status\":\"pass\"},{\"check\":\"stable\",\"reason\":\"live bounds stability has not been sampled\",\"stability\":{\"samples\":1,\"span_ms\":0},\"status\":\"unknown\"},{\"check\":\"enabled\",\"reason\":\"live enabled state is false\",\"status\":\"fail\"},{\"check\":\"supported_action\",\"status\":\"pass\"},{\"check\":\"policy\",\"status\":\"pass\"}],\"observed_bounds_hash\":11351441103444422854},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

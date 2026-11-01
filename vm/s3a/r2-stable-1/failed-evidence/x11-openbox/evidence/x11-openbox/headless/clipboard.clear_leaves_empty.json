@@ -1,0 +1,80 @@
+{
+  "leg": "clipboard.clear_leaves_empty",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 50.52333399999043,
+  "exception_traceback": "",
+  "reads": {
+    "clipboard.selection": {
+      "before": [
+        null
+      ],
+      "after": [
+        "b'to be cleared'"
+      ],
+      "restored": [
+        null
+      ]
+    },
+    "clipboard.clear": {
+      "before": [
+        "b'to be cleared'"
+      ],
+      "after": [
+        null
+      ],
+      "restored": [
+        "b'to be cleared'"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-set",
+        "to be cleared"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 6.520930999954544,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-set\",\"data\":{\"action\":\"clipboard-set\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"},\"type\":\"text\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-clear"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.2237049998921066,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-clear\",\"data\":{\"action\":\"clipboard-clear\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-set",
+        "to be cleared"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 6.053182999949058,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-set\",\"data\":{\"action\":\"clipboard-set\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"},\"type\":\"text\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-clear"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.091502999974182,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-clear\",\"data\":{\"action\":\"clipboard-clear\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"}}}\n"
+    }
+  ]
+}

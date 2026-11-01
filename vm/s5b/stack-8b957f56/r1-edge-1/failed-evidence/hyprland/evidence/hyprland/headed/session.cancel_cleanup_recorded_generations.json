@@ -1,0 +1,160 @@
+{
+  "leg": "session.cancel_cleanup_recorded_generations",
+  "tier": "hyprland",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 3738.24897399993,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "proc.members": {
+      "before": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": []
+}

@@ -1,0 +1,124 @@
+{
+  "leg": "focus.hyprland_other_workspace",
+  "tier": "hyprland",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 530.694971999992,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325662e40",
+            "pid": 152091,
+            "class": "ad-e2e-focus-far",
+            "initialTitle": "ad-e2e-focus-far"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 413
+          },
+          "workspace": "32",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "32",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 17.943636000040897,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"id\":\"w-1.309-org-gnome-Calculator-a11y-b5423637_299b_4eeb_abd2_0833d3715c5a\",\"is_focused\":false,\"minimized\":false,\"pid\":152067,\"process_instance\":\"0a569f80:87724\",\"title\":\"Calculator\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-667-356-18000005\",\"is_focused\":true,\"pid\":148612,\"process_instance\":\"0a569f80:83092\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-focus-far\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":647.0,\"y\":38.0},\"id\":\"w-hypr-667-356-18000032\",\"is_focused\":false,\"pid\":152091,\"process_instance\":\"0a569f80:87750\",\"title\":\"ad-e2e-focus-far\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-1.309-org-gnome-Calculator-a11y-b5423637_299b_4eeb_abd2_0833d3715c5a"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 30.802216999973098,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"activation\":{\"activated\":true,\"proof\":\"compositor_and_accessibility\",\"side_effects\":[{\"from\":\"1\",\"kind\":\"workspace_switched\",\"monitor\":\"Virtual-1\",\"to\":\"31\"},{\"from\":{\"x\":640.0,\"y\":400.0},\"kind\":\"cursor_moved\",\"to\":{\"x\":640.0,\"y\":413.0}}]},\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"id\":\"w-1.309-org-gnome-Calculator-a11y-b5423637_299b_4eeb_abd2_0833d3715c5a\",\"is_focused\":true,\"minimized\":false,\"pid\":152067,\"process_instance\":\"0a569f80:87724\",\"title\":\"Calculator\",\"visible\":true}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "--headed",
+        "focus-window",
+        "--window-id",
+        "w-hypr-667-356-18000032"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 33.04679899997609,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"activation\":{\"activated\":true,\"proof\":\"compositor_only\",\"side_effects\":[{\"from\":\"31\",\"kind\":\"workspace_switched\",\"monitor\":\"Virtual-1\",\"to\":\"32\"}]},\"focused\":{\"accessible\":false,\"app_name\":\"ad-e2e-focus-far\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-667-356-18000032\",\"is_focused\":true,\"pid\":152091,\"process_instance\":\"0a569f80:87750\",\"title\":\"ad-e2e-focus-far\",\"visible\":true}}}\n"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "leg": "clipboard.text_roundtrip",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2060.759770000004,
+  "exception_traceback": "",
+  "reads": {
+    "clipboard.selection": {
+      "before": [
+        null
+      ],
+      "after": [
+        "b'foreign text'"
+      ],
+      "restored": [
+        null
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-set",
+        "product text"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 6.801013999961469,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-set\",\"data\":{\"action\":\"clipboard-set\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"},\"type\":\"text\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-get",
+        "--format",
+        "text"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 4.702358000031381,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-get\",\"data\":{\"text\":\"product text\",\"type\":\"text\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-get",
+        "--format",
+        "text"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 5.205064000051607,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-get\",\"data\":{\"text\":\"foreign text\",\"type\":\"text\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "clipboard-clear"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.4055689999613605,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"clipboard-clear\",\"data\":{\"action\":\"clipboard-clear\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"clipboard_write\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"kind\":\"clipboard\"}}}\n"
+    }
+  ]
+}

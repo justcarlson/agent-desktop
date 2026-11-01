@@ -1,0 +1,229 @@
+{
+  "leg": "capture.hyprland_deadline_or_cancel_released",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1448.0431319999525,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [
+    "batch budgets and outcomes: [(10, 'deadline'), (20, 'capture_frame'), (30, 'capture_frame'), (40, 'capture_frame'), (50, 'capture_frame'), (60, 'capture_frame'), (80, 'capture_frame'), (250, 'captured'), (1000, 'captured')]"
+  ],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 16.575181999996857,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-deadline\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000030\",\"is_focused\":false,\"pid\":150215,\"process_instance\":\"6f42f6e4:87707\",\"title\":\"ad-e2e-cap-deadline\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-10.png\"}}]",
+        "--timeout-ms",
+        "10"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 16.00191900001846,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":10,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"elapsed_ms\":10,\"kind\":\"deadline\",\"timeout_ms\":5000},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"Operation exceeded its deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"The target application may be busy or unresponsive\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":10,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-20.png\"}}]",
+        "--timeout-ms",
+        "20"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 24.007653000012397,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":20,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":20,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-30.png\"}}]",
+        "--timeout-ms",
+        "30"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.31662100002086,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":24,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":30,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-40.png\"}}]",
+        "--timeout-ms",
+        "40"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.982134000078986,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":25,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":40,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-50.png\"}}]",
+        "--timeout-ms",
+        "50"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 38.81749499998932,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":34,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":50,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-60.png\"}}]",
+        "--timeout-ms",
+        "60"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 41.3180169999805,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":37,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-80.png\"}}]",
+        "--timeout-ms",
+        "80"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 44.115271999999095,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":39,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":80,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-250.png\"}}]",
+        "--timeout-ms",
+        "250"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 78.04962800003068,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":74,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-250.png\",\"scale_factor\":1.0,\"width\":1256},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":250,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-743-439-18000030\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-1000.png\"}}]",
+        "--timeout-ms",
+        "1000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 372.59702400001515,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":368,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-deadline-1000.png\",\"scale_factor\":1.0,\"width\":1256},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":1000,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-743-439-18000030",
+        "/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-after-cancel.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 324.6632159999763,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.gjksf004/capture-after-cancel.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    }
+  ]
+}

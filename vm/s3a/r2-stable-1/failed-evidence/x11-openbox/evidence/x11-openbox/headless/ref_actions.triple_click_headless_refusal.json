@@ -1,0 +1,140 @@
+{
+  "leg": "ref_actions.triple_click_headless_refusal",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 509.0994359999286,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.document_preparation": {
+      "before": [
+        ""
+      ],
+      "after": [
+        "alpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\n"
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "x11.desktop": {
+      "before": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800005"
+        ]
+      ],
+      "after": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800005"
+        ]
+      ],
+      "restored": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800005"
+        ]
+      ]
+    },
+    "atspi.selection": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "textfield",
+        "--window-id",
+        "w-1.112-org-gnome-TextEditor-a11y-3f36d892_9f6e_4f5b_a101_cb027a0b264d"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 103.62828999996054,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"path\":[\"window:alpha bravo charlie delta (Draft) - Text Editor\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group:alpha bravo charlie delta\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"scrollarea\"],\"ref_id\":\"@s2bo1ml0am3czf:e1\",\"role\":\"textfield\",\"states\":[\"focused\"],\"value\":\"alpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel india juliet\\nalpha bravo charlie delta echo foxtrot golf hotel ind"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "triple-click",
+        "@s2bo1ml0am3czf:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "POLICY_DENIED",
+        "message": "Target is not actionable: stable (bounds changed since the previous observation), supported_action (semantic gesture is unavailable and physical fallback is denied)",
+        "suggestion": "Waiting will not help: this element cannot satisfy the action as targeted. Target an element that advertises the action (check available_actions in a fresh snapshot). For a dropdown without select support, open it with click, inspect its choices, and use explicit keyboard input.",
+        "recovery": {
+          "strategy": "request_explicit_policy_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": false
+        },
+        "details": {
+          "actionable": false,
+          "checks": [
+            {
+              "check": "visible",
+              "status": "pass"
+            },
+            {
+              "check": "stable",
+              "reason": "bounds changed since the previous observation",
+              "stability": {
+                "samples": 1,
+                "span_ms": 0
+              },
+              "status": "fail"
+            },
+            {
+              "check": "enabled",
+              "status": "pass"
+            },
+            {
+              "check": "supported_action",
+              "reason": "semantic gesture is unavailable and physical fallback is denied",
+              "status": "fail"
+            },
+            {
+              "check": "policy",
+              "status": "pass"
+            }
+          ],
+          "observed_bounds_hash": 6902765601606630081
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 61.864961000082985,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"triple-click\",\"error\":{\"code\":\"POLICY_DENIED\",\"message\":\"Target is not actionable: stable (bounds changed since the previous observation), supported_action (semantic gesture is unavailable and physical fallback is denied)\",\"suggestion\":\"Waiting will not help: this element cannot satisfy the action as targeted. Target an element that advertises the action (check available_actions in a fresh snapshot). For a dropdown without select support, open it with click, inspect its choices, and use explicit keyboard input.\",\"recovery\":{\"strategy\":\"request_explicit_policy_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":false},\"details\":{\"actionable\":false,\"checks\":[{\"check\":\"visible\",\"status\":\"pass\"},{\"check\":\"stable\",\"reason\":\"bounds changed since the previous observation\",\"stability\":{\"samples\":1,\"span_ms\":0},\"status\":\"fail\"},{\"check\":\"enabled\",\"status\":\"pass\"},{\"check\":\"supported_action\",\"reason\":\"semantic gesture is unavailable and physical fallback is denied\",\"status\":\"fail\"},{\"check\":\"policy\",\"status\":\"pass\"}],\"observed_bounds_hash\":6902765601606630081},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

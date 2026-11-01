@@ -1,0 +1,34 @@
+suite: /home/omarchy/out/suites/hyprland
+image: f6f8e11b048b5e16e3b36fc50b56e48bf6bc826583342ece67f7769c433a57b9  /home/omarchy/src/agent-desktop-bin/agent-desktop
+image: cc11a99f1d35a06b63546d5e0dca03fd0759c66dbf469ec9482a96fa0c46e459  /home/omarchy/src/agent-desktop-bin/agent-desktop-linux-clipboard-owner
+cancel-ready: /home/omarchy/out/suites/hyprland/hyprland.ready.json {"pid": 146914, "start": 83203, "runtime": "/run/user/1000/agent-desktop-sessions/rt.pv2zclje", "marker": "/run/user/1000/agent-desktop-sessions/rt.pv2zclje/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py", "attached": "/home/omarchy/out/suites/hyprland/hyprland.attached.json"}
+evidence: outer-window before {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window with-calculator {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window after {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+tier hyprland
+  headless
+    pass             batch_contract.entry_failure_and_stop_on_error
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             error_contract.recoverable_error_envelopes
+    pass             identity.hyprland_accessible_listed_once
+    pass             identity.hyprland_closed_window_not_found
+    pass             identity.hyprland_compositor_only_id
+    pass             identity.hyprland_twins_by_size_or_ambiguous
+    pass             lifecycle.hyprland_close_app_every_window
+    pass             lifecycle.hyprland_close_app_gone_app_not_found
+    pass             non_interference.active_window_unchanged_by_semantic_click
+    pass             non_interference.headless_route_preserves_desktop
+    pass             observation.hyprland_displays_match_monitors
+    pass             session.cancel_cleanup_recorded_generations
+    pass             session.hyprland_absent_keeps_generic_route
+    pass             session.hyprland_dead_named_instance_refused
+    pass             session.hyprland_live_instance_binds
+  headed
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             focus.hyprland_closed_window_not_found
+    pass             focus.hyprland_other_workspace
+    pass             focus.hyprland_same_size_twins_ambiguous
+    pass             focus.hyprland_twin_after_sizes_differ
+    pass             non_interference.headed_changes_only_target
+    pass             session.cancel_cleanup_recorded_generations
+summary: pass 23

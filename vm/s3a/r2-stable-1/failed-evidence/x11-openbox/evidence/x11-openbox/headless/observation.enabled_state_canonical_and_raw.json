@@ -1,0 +1,85 @@
+{
+  "leg": "observation.enabled_state_canonical_and_raw",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1210.079796000059,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        false
+      ],
+      "after": [
+        true
+      ],
+      "restored": [
+        false
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Undo",
+        "--window-id",
+        "w-1.769-org-gnome-Calculator-a11y-33fbc085_ce2c_499c_b2b9_8ddb7f86c078"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 111.56278900000416,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Undo\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s3l1tc7oc1b0l9:e1\",\"role\":\"button\",\"states\":[\"disabled\"],\"value\":null}],\"snapshot_id\":\"s3l1tc7oc1b0l9\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "is",
+        "@s3l1tc7oc1b0l9:e1",
+        "--property",
+        "enabled"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 53.87871300001734,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"is\",\"data\":{\"applicable\":true,\"property\":\"enabled\",\"ref\":\"@s3l1tc7oc1b0l9:e1\",\"result\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "is",
+        "@s3l1tc7oc1b0l9:e1",
+        "--property",
+        "enabled"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 63.279397999963294,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"is\",\"data\":{\"applicable\":true,\"property\":\"enabled\",\"ref\":\"@s3l1tc7oc1b0l9:e1\",\"result\":true}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "get",
+        "@s3l1tc7oc1b0l9:e1",
+        "--property",
+        "states"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 58.60498100003042,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"get\",\"data\":{\"property\":\"states\",\"ref\":\"@s3l1tc7oc1b0l9:e1\",\"value\":[]}}\n"
+    }
+  ]
+}

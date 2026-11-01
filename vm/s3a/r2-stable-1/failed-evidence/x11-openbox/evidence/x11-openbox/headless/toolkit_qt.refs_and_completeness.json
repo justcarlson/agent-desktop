@@ -1,0 +1,93 @@
+{
+  "leg": "toolkit_qt.refs_and_completeness",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 286.03543700000955,
+  "exception_traceback": "",
+  "reads": {
+    "applog": {
+      "before": [
+        {
+          "added": [],
+          "log": null
+        }
+      ],
+      "after": [
+        {
+          "added": [
+            [
+              125731,
+              61404,
+              "python3"
+            ]
+          ],
+          "log": "{\"event\": \"started\", \"at\": 614.117119931}\n"
+        }
+      ],
+      "restored": [
+        {
+          "added": [],
+          "log": null
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.958-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 30.685349999998834,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":12,\"snapshot_id\":\"s2gz7fv7yyxaw3\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Press me\",\"ref_id\":\"@s2gz7fv7yyxaw3:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"Text entry\",\"placeholder\":\"Type name\",\"ref_id\":\"@s2gz7fv7yyxaw3:e2\",\"role\":\"textfield\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Alpha\",\"ref_id\":\"@s2gz7fv7yyxaw3:e5\",\"role\":\"option\",\"states\":[\"focused\",\"selected\",\"offscreen\"]},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Bravo\",\"ref_id\":\"@s2gz7fv7yyxaw3:e6\",\"role\":\"option\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"Charlie\",\"ref_id\":\"@s2gz7fv7yyxaw3:e7\",\"role\":\"option\",\"states\":[\"offscreen\"]}],\"ref_id\":\"@s2gz7fv7yyxaw3:e4\",\"role\":\"listbox\",\"states\":[\"hidden\"]}],\"name\":\"Alpha\",\"ref_id\":\"@s2gz7fv7yyxaw3:e3\",\"role\":\"combobox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Delayed activation\",\"ref_id\":\"@s2gz7fv7yyxaw3:e8\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"Offscreen entry\",\"ref_id\":\"@s2gz7fv7yyxaw3:e9\",\"role\":\"textfield\",\"states\":[\"offscreen\"]}],\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\"],\"name\":\"Record activation\",\"ref_id\":\"@s2gz7fv7yyxaw3:e11\",\"role\":\"menuitem\",\"states\":[\"hidden\"]},{\"available_actions\":[\"Click\"],\"name\":\"Disabled entry\",\"ref_id\":\"@s2gz7fv7yyxaw3:e12\",\"role\":\"menuitem\",\"states\":[\"disabled\",\"hidden\"]}],\"role\":\"menu\",\"states\":[\"hidden\"]}],\"name\":\"File\",\"ref_id\":\"@s2gz7fv7yyxaw3:e10\",\"role\":\"menuitem\"}],\"role\":\"menu\"}],\"name\":\"Desktop toolkit window\",\"role\":\"window\"},\"window\":{\"id\":\"w-1.958-org-a11y-atspi-accessible-2147483649\",\"title\":\"Desktop toolkit window\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "Press me",
+        "--window-id",
+        "w-1.958-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 31.23876500001188,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Press me\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s6i8jpgv62r71:e1\",\"role\":\"button\",\"states\":[\"focused\"],\"value\":null}],\"snapshot_id\":\"s6i8jpgv62r71\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "textfield",
+        "--name",
+        "Text entry",
+        "--window-id",
+        "w-1.958-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 33.630095000035,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Text entry\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s3cc80r0dc3wm1:e1\",\"role\":\"textfield\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s3cc80r0dc3wm1\",\"total_matches\":1,\"truncated\":false}}\n"
+    }
+  ]
+}

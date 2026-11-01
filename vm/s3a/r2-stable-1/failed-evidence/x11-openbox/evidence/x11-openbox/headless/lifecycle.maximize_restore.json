@@ -1,0 +1,51 @@
+{
+  "leg": "lifecycle.maximize_restore",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 825.5468030000657,
+  "exception_traceback": "",
+  "reads": {
+    "x11.wm_state": {
+      "before": [
+        "set()"
+      ],
+      "after": [
+        "{'_NET_WM_STATE_MAXIMIZED_VERT', '_NET_WM_STATE_MAXIMIZED_HORZ'}"
+      ],
+      "restored": [
+        "set()"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "maximize",
+        "--window-id",
+        "w-1.1161-org-gnome-Calculator-a11y-a1974326_1d01_43a9_8ccc_e37688a533ab"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 34.31197299994437,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"maximize\",\"data\":{\"action\":\"maximize\",\"details\":{\"verification_scope\":\"window_maximized_state\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_maximize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1161-org-gnome-Calculator-a11y-a1974326_1d01_43a9_8ccc_e37688a533ab\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62399\",\"pid\":126946},\"title\":\"Calculator\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "restore",
+        "--window-id",
+        "w-1.1161-org-gnome-Calculator-a11y-a1974326_1d01_43a9_8ccc_e37688a533ab"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 160.48291399999925,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"restore\",\"data\":{\"action\":\"restore\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_restore\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"id\":\"w-1.1161-org-gnome-Calculator-a11y-a1974326_1d01_43a9_8ccc_e37688a533ab\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62399\",\"pid\":126946},\"title\":\"Calculator\"}}}\n"
+    }
+  ]
+}

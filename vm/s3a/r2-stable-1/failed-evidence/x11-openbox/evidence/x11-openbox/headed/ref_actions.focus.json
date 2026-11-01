@@ -1,0 +1,97 @@
+{
+  "leg": "ref_actions.focus",
+  "tier": "x11-openbox",
+  "mode": "headed",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 307.57237599993914,
+  "exception_traceback": "",
+  "reads": {
+    "x11.desktop": {
+      "before": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ],
+      "after": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ],
+      "restored": [
+        [
+          [
+            640,
+            400
+          ],
+          "0x800007"
+        ]
+      ]
+    },
+    "atspi.focus": {
+      "before": [
+        [
+          false,
+          true
+        ]
+      ],
+      "after": [
+        [
+          true,
+          false
+        ]
+      ],
+      "restored": [
+        [
+          false,
+          true
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "textfield",
+        "--name",
+        "Text entry",
+        "--window-id",
+        "w-1.73-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 29.253981000010754,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Text entry\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s27b5xj4tk8if3:e1\",\"role\":\"textfield\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s27b5xj4tk8if3\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--headed",
+        "focus",
+        "@s27b5xj4tk8if3:e1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 105.34569699996155,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus\",\"data\":{\"action\":\"focus\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":84,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Component.GrabFocus\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    }
+  ]
+}

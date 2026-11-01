@@ -1,0 +1,1 @@
+{"pid": 147567, "start": 84420, "runtime": "/run/user/1000/agent-desktop-sessions/rt.r99aqx1t", "marker": "/run/user/1000/agent-desktop-sessions/rt.r99aqx1t/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py", "attached": "/home/omarchy/out/suites/hyprland/cancel-child-9m11ksxo/hyprland.attached.json"}

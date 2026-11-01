@@ -1,0 +1,287 @@
+{
+  "leg": "error_contract.hyprland_delivery_boundaries",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 741.4760060000845,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.display": {
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "proc.members": {
+      "before": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ],
+          [
+            149657,
+            84901,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ],
+          [
+            149657,
+            84901,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            149019,
+            83890,
+            "Hyprland"
+          ],
+          [
+            149032,
+            83901,
+            "Xwayland"
+          ],
+          [
+            149038,
+            83911,
+            "foot"
+          ],
+          [
+            149042,
+            83914,
+            "bash"
+          ],
+          [
+            149657,
+            84901,
+            "gnome-calculato"
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.163-org-gnome-Calculator-a11y-8ffda5b2_8059_4b31_932d_8b1c5ef14f3d"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 124.19235400000161,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s2wnemv76ew6wt:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s2wnemv76ew6wt\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "click",
+        "@s2wnemv76ew6wt:e999999",
+        "--timeout-ms",
+        "500"
+      ],
+      "ok": false,
+      "error": {
+        "code": "STALE_REF",
+        "message": "@s2wnemv76ew6wt:e999999 not found in current RefMap",
+        "suggestion": "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 5.800854999961302,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"STALE_REF\",\"message\":\"@s2wnemv76ew6wt:e999999 not found in current RefMap\",\"suggestion\":\"Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "mouse-click",
+        "--xy",
+        "1,1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "POLICY_DENIED",
+        "message": "mouse-click moves the cursor and is disabled in headless mode",
+        "suggestion": "Headless mode allows only accessibility-backed actions; enable physical interaction in the policy (CLI: --headed) only if cursor/focus movement is intended, otherwise refresh the snapshot or target an element with the needed semantic action",
+        "recovery": {
+          "strategy": "request_explicit_policy_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": false
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 3.6298210000040854,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"mouse-click\",\"error\":{\"code\":\"POLICY_DENIED\",\"message\":\"mouse-click moves the cursor and is disabled in headless mode\",\"suggestion\":\"Headless mode allows only accessibility-backed actions; enable physical interaction in the policy (CLI: --headed) only if cursor/focus movement is intended, otherwise refresh the snapshot or target an element with the needed semantic action\",\"recovery\":{\"strategy\":\"request_explicit_policy_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":false},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "focus-window",
+        "--window-id",
+        "w-1.163-org-gnome-Calculator-a11y-8ffda5b2_8059_4b31_932d_8b1c5ef14f3d"
+      ],
+      "ok": false,
+      "error": {
+        "code": "POLICY_DENIED",
+        "message": "The window is on the hidden special workspace 'special:ad_e2e', and a headless focus-window does not reveal it",
+        "suggestion": "Pass --headed to reveal the special workspace and activate the window",
+        "recovery": {
+          "strategy": "request_explicit_policy_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": false
+        },
+        "details": {
+          "cause": "hidden_special_workspace",
+          "physical_delivery_started": false,
+          "workspace": "special:ad_e2e"
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 20.980933000032564,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"focus-window\",\"error\":{\"code\":\"POLICY_DENIED\",\"message\":\"The window is on the hidden special workspace 'special:ad_e2e', and a headless focus-window does not reveal it\",\"suggestion\":\"Pass --headed to reveal the special workspace and activate the window\",\"recovery\":{\"strategy\":\"request_explicit_policy_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":false},\"details\":{\"cause\":\"hidden_special_workspace\",\"physical_delivery_started\":false,\"workspace\":\"special:ad_e2e\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

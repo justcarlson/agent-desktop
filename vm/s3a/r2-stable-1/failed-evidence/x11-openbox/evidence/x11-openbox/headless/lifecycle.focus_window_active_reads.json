@@ -1,0 +1,52 @@
+{
+  "leg": "lifecycle.focus_window_active_reads",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 685.4742440000337,
+  "exception_traceback": "",
+  "reads": {
+    "x11.active_window": {
+      "before": [
+        "0xa00005"
+      ],
+      "after": [
+        "0x800005"
+      ],
+      "restored": [
+        "0xa00005"
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "press",
+        "7",
+        "--window-id",
+        "w-1.1130-org-gnome-TextEditor-a11y-21ba3358_bc12_4622_8192_b66a168a66ee"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 68.04483099995196,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"press\",\"data\":{\"action\":\"press\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"XTEST.press_key\",\"mechanism\":\"physical_synthetic\",\"outcome\":\"succeeded\",\"verified\":false}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "focus-window",
+        "--window-id",
+        "w-1.1121-org-gnome-Calculator-a11y-ddc98118_829c_4999_afc4_a0e88551fa0b"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 141.91502300002412,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"focus-window\",\"data\":{\"focused\":{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.1121-org-gnome-Calculator-a11y-ddc98118_829c_4999_afc4_a0e88551fa0b\",\"is_focused\":true,\"minimized\":false,\"pid\":126682,\"process_instance\":\"5589b0cb:62292\",\"title\":\"Calculator\",\"visible\":true}}}\n"
+    }
+  ]
+}

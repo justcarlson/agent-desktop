@@ -1,0 +1,59 @@
+{
+  "leg": "gaps.event_app-terminated_unscoped_success",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 716.534796000019,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.inventory": {
+      "before": [
+        [
+          [
+            "gnome-calculator",
+            1
+          ]
+        ]
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        [
+          [
+            "gnome-calculator",
+            1
+          ]
+        ]
+      ]
+    },
+    "proc.calculator_count": {
+      "before": [
+        1
+      ],
+      "after": [
+        0
+      ],
+      "restored": [
+        1
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"close-app\", \"args\": {\"app\": \"Calculator\"}}, {\"command\": \"wait\", \"args\": {\"event\": \"app-terminated\", \"timeout\": 8000}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 128.77131000004738,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":2,\"elapsed_ms\":122,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"close-app\",\"data\":{\"action\":\"close-app\",\"app\":\"Calculator\",\"details\":{\"evidence\":\"process_instance_exited\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"method\":\"graceful\",\"steps\":[{\"label\":\"terminate_request\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"},{\"label\":\"process_exit\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"kind\":\"app\",\"name\":\"gnome-calculator\",\"process\":{\"instance\":\"5589b0cb:58405\",\"pid\":122031}}},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"},{\"command\":\"wait\",\"data\":{\"elapsed_ms\":6,\"event\":{\"app\":\"gnome-calculator\",\"kind\":\"app_terminated\",\"pid\":122031},\"found\":true},\"execution\":\"completed\",\"index\":1,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":2}}\n"
+    }
+  ]
+}

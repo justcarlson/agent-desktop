@@ -1,0 +1,88 @@
+{
+  "leg": "toolkit_qt.scroll_refused_no_container",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 268.03048400006446,
+  "exception_traceback": "",
+  "reads": {
+    "applog": {
+      "before": [
+        {
+          "added": [],
+          "log": null
+        }
+      ],
+      "after": [
+        {
+          "added": [
+            [
+              125873,
+              61496,
+              "python3"
+            ]
+          ],
+          "log": "{\"event\": \"started\", \"at\": 615.039742476}\n"
+        }
+      ],
+      "restored": [
+        {
+          "added": [],
+          "log": null
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "textfield",
+        "--name",
+        "Offscreen entry",
+        "--window-id",
+        "w-1.982-org-a11y-atspi-accessible-2147483649"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 24.93148899998232,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Offscreen entry\",\"path\":[\"window:Desktop toolkit window\",\"group\"],\"ref_id\":\"@s23cxo4hnejhhc:e1\",\"role\":\"textfield\",\"states\":[\"offscreen\"],\"value\":null}],\"snapshot_id\":\"s23cxo4hnejhhc\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "scroll-to",
+        "@s23cxo4hnejhhc:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_NOT_SUPPORTED",
+        "message": "The element has no scroll container to scroll",
+        "details": {
+          "cause": "no_scroll_container",
+          "kind": "scroll_into_view",
+          "physical_delivery_started": false,
+          "rungs_tried": [
+            "scroll_to",
+            "scroll_bar_value"
+          ]
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 40.90323000002627,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"scroll-to\",\"error\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"The element has no scroll container to scroll\",\"details\":{\"cause\":\"no_scroll_container\",\"kind\":\"scroll_into_view\",\"physical_delivery_started\":false,\"rungs_tried\":[\"scroll_to\",\"scroll_bar_value\"]},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

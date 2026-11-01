@@ -1,0 +1,172 @@
+{
+  "leg": "capture.hyprland_in_view_first_frame",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "fail",
+  "detail": "in view still: an unchanged window in view used 11 capture sessions, not 1, so it waited for a redraw; in view still batch: an unchanged window in view used 11 capture sessions, not 1, so it waited for a redraw",
+  "elapsed_ms": 7809.444294000003,
+  "exception_traceback": "Traceback (most recent call last):\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py\", line 136, in _run_leg\n    impl(ctx)\n    ~~~~^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/scenarios/hyprland_capture_inview.py\", line 67, in in_view_first_frame\n    require(not problems, \"; \".join(problems))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/helper.py\", line 53, in require\n    raise AssertionError(message)\nAssertionError: in view still: an unchanged window in view used 11 capture sessions, not 1, so it waited for a redraw; in view still batch: an unchanged window in view used 11 capture sessions, not 1, so it waited for a redraw\n",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55ebe30b5aa0",
+            "pid": 3750,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55ebe30b5aa0",
+            "pid": 3750,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement": {
+      "before": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ],
+      "after": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ],
+      "restored": [
+        {
+          "slow": "1",
+          "still": "1"
+        }
+      ]
+    }
+  },
+  "findings": [
+    "in view still, record only: screenshot 866 ms, batch 750 ms"
+  ],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 275.02309599999995,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"id\":\"w-1.25-org-gtk-application-ad_e2e_cap_view_slow-a11y-3bc345fa_352d_4bec_9529_f4f236429f47\",\"is_focused\":false,\"minimized\":false,\"pid\":3921,\"process_instance\":\"2fd189e8:1246\",\"title\":\"ad-e2e-cap-view-slow\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":368.0,\"width\":621.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-670-346-18000005\",\"is_focused\":true,\"pid\":3750,\"process_instance\":\"2fd189e8:1027\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-view-still\",\"bounds\":{\"height\":368.0,\"width\":621.0,\"x\":12.0,\"y\":420.0},\"id\":\"w-hypr-670-346-18000009\",\"is_focused\":false,\"pid\":3931,\"process_instance\":\"2fd189e8:1282\",\"title\":\"ad-e2e-cap-view-still\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.25-org-gtk-application-ad_e2e_cap_view_slow-a11y-3bc345fa_352d_4bec_9529_f4f236429f47",
+        "/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 816.420677,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.25-org-gtk-application-ad_e2e_cap_view_slow-a11y-3bc345fa_352d_4bec_9529_f4f236429f47",
+        "/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 806.3785909999979,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 1.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-1.25-org-gtk-application-ad_e2e_cap_view_slow-a11y-3bc345fa_352d_4bec_9529_f4f236429f47",
+        "/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 2.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 805.8199320000022,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in view slow round 2.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-670-346-18000009",
+        "/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 866.4274789999986,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":368,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-0.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-670-346-18000009",
+        "/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-logged.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 865.759335,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":368,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-logged.png\",\"scale_factor\":1.0,\"width\":621}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-670-346-18000009\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-batch.png\"}}]"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 749.5606160000001,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":743,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":368,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.584s4nrt/capture-in-view-still-batch.png\",\"scale_factor\":1.0,\"width\":621},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":60000,\"total_entries\":1}}\n"
+    }
+  ]
+}

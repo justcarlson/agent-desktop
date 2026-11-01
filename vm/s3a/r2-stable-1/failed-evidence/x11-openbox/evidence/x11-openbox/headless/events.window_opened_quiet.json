@@ -1,0 +1,67 @@
+{
+  "leg": "events.window_opened_quiet",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1743.4319379999579,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.root_children": {
+      "before": [
+        1
+      ],
+      "after": [
+        1
+      ],
+      "restored": [
+        1
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "window-opened",
+        "--timeout",
+        "1500"
+      ],
+      "ok": false,
+      "error": {
+        "code": "TIMEOUT",
+        "message": "Event 'window-opened' did not occur within 1500ms",
+        "suggestion": "The target application may be busy or unresponsive",
+        "recovery": {
+          "strategy": "inspect_state_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true,
+          "retry_after_ms": 250
+        },
+        "details": {
+          "app": null,
+          "baseline_counts": {
+            "apps": 1,
+            "surfaces": 0,
+            "windows": 1
+          },
+          "event": "window-opened",
+          "kind": "wait_timeout",
+          "predicate": "event",
+          "timeout_ms": 1500
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 1505.2731920000042,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"wait\",\"error\":{\"code\":\"TIMEOUT\",\"message\":\"Event 'window-opened' did not occur within 1500ms\",\"suggestion\":\"The target application may be busy or unresponsive\",\"recovery\":{\"strategy\":\"inspect_state_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true,\"retry_after_ms\":250},\"details\":{\"app\":null,\"baseline_counts\":{\"apps\":1,\"surfaces\":0,\"windows\":1},\"event\":\"window-opened\",\"kind\":\"wait_timeout\",\"predicate\":\"event\",\"timeout_ms\":1500},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

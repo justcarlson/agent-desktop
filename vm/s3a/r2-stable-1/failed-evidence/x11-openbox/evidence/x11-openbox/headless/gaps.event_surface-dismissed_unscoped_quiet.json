@@ -1,0 +1,49 @@
+{
+  "leg": "gaps.event_surface-dismissed_unscoped_quiet",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 256.1665320000657,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.dialogs": {
+      "before": [
+        []
+      ],
+      "after": [
+        []
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "surface-dismissed",
+        "--timeout",
+        "1500"
+      ],
+      "ok": false,
+      "error": {
+        "code": "INVALID_ARGS",
+        "message": "--event surface-dismissed requires --app",
+        "suggestion": "Add --app <name> so the adapter can inspect that application's surfaces.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 5.84323799989761,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"wait\",\"error\":{\"code\":\"INVALID_ARGS\",\"message\":\"--event surface-dismissed requires --app\",\"suggestion\":\"Add --app <name> so the adapter can inspect that application's surfaces.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

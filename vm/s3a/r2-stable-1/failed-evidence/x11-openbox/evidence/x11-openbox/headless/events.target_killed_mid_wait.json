@@ -1,0 +1,43 @@
+{
+  "leg": "events.target_killed_mid_wait",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1079.8143050000135,
+  "exception_traceback": "",
+  "reads": {
+    "proc.text_editor_alive": {
+      "before": [
+        true
+      ],
+      "after": [
+        false
+      ],
+      "restored": [
+        true
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--event",
+        "window-closed",
+        "--app",
+        "Text Editor",
+        "--timeout",
+        "8000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 508.4618779999346,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"wait\",\"data\":{\"elapsed_ms\":503,\"event\":{\"app\":\"gnome-text-editor\",\"kind\":\"window_closed\",\"pid\":128680,\"title\":\"New Document (Draft) - Text Editor\",\"window_id\":\"w-1.1446-org-gnome-TextEditor-a11y-66ee9894_e2e8_418c_be80_6ebd12271afe\"},\"found\":true}}\n"
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "leg": "observation.session_namespace_isolation",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 707.2877549999248,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ],
+      "restored": [
+        ""
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "start"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 1.466840999910346,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"activation\":{\"environment\":\"AGENT_DESKTOP_SESSION\",\"value\":\"run-1793509249797-123977-0\"},\"artifacts\":\"events\",\"created_at\":1793509249797,\"name\":null,\"next\":\"export AGENT_DESKTOP_SESSION=run-1793509249797-123977-0\",\"session_id\":\"run-1793509249797-123977-0\",\"trace\":\"on\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "start"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 1.3113360000716057,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"activation\":{\"environment\":\"AGENT_DESKTOP_SESSION\",\"value\":\"run-1793509249806-123982-0\"},\"artifacts\":\"events\",\"created_at\":1793509249806,\"name\":null,\"next\":\"export AGENT_DESKTOP_SESSION=run-1793509249806-123982-0\",\"session_id\":\"run-1793509249806-123982-0\",\"trace\":\"on\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--session",
+        "run-1793509249797-123977-0",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.784-org-gnome-Calculator-a11y-cc62f6a0_bfa7_449c_b094_a35a9641536b"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 105.4923950000557,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":40,\"snapshot_id\":\"sjrk4epbsrk3e\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@sjrk4epbsrk3e:e2\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"ref_id\":\"@sjrk4epbsrk3e:e1\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@sjrk4epbsrk3e:e4\",\"role\":\"textfield\",\"states\":[\"focused\"]}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"ref_id\":\"@sjrk4epbsrk3e:e3\",\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e5\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e7\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e8\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e17\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e18\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@sjrk4epbsrk3e:e19\",\"role\":\"button\"},{\""
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--session",
+        "run-1793509249806-123982-0",
+        "get",
+        "@sjrk4epbsrk3e:e9"
+      ],
+      "ok": false,
+      "error": {
+        "code": "SNAPSHOT_NOT_FOUND",
+        "message": "Snapshot 'sjrk4epbsrk3e' not found",
+        "suggestion": "Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 7.402080000019851,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"get\",\"error\":{\"code\":\"SNAPSHOT_NOT_FOUND\",\"message\":\"Snapshot 'sjrk4epbsrk3e' not found\",\"suggestion\":\"Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--session",
+        "run-1793509249797-123977-0",
+        "get",
+        "@sjrk4epbsrk3e:e9"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 51.792863999935435,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"get\",\"data\":{\"property\":\"text\",\"ref\":\"@sjrk4epbsrk3e:e9\",\"value\":\"7\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "end",
+        "run-1793509249797-123977-0"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.2338940000045113,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"ended_at\":1793509250126,\"session_id\":\"run-1793509249797-123977-0\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "end",
+        "run-1793509249806-123982-0"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 2.880344999994122,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"ended_at\":1793509250136,\"session_id\":\"run-1793509249806-123982-0\"}}\n"
+    }
+  ]
+}

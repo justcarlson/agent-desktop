@@ -1,0 +1,195 @@
+{
+  "leg": "capture.hyprland_static_frame_after_request",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2825.5142479999904,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.placement": {
+      "before": [
+        {
+          "ad-e2e-cap-still": "special:ad_e2e",
+          "ad-e2e-cap-still-spare": "7"
+        }
+      ],
+      "after": [
+        {
+          "ad-e2e-cap-still": "special:ad_e2e",
+          "ad-e2e-cap-still-spare": "7"
+        }
+      ],
+      "restored": [
+        {
+          "ad-e2e-cap-still": "special:ad_e2e",
+          "ad-e2e-cap-still-spare": "7"
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 15.69991199994547,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.42-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":727,\"process_instance\":\"0a569f80:382\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-667-356-18000005\",\"is_focused\":true,\"pid\":148612,\"process_instance\":\"0a569f80:83092\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-still\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-667-356-1800002b\",\"is_focused\":false,\"pid\":150575,\"process_instance\":\"0a569f80:86298\",\"title\":\"ad-e2e-cap-still\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-still-spare\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-667-356-1800002c\",\"is_focused\":false,\"pid\":150584,\"process_instance\":\"0a569f80:86304\",\"title\":\"ad-e2e-cap-still-spare\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-667-356-1800002b",
+        "/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 333.75750099992274,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-0.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-667-356-1800002b\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-batch.png\"}}]",
+        "--timeout-ms",
+        "250"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 168.44016300001385,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":164,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":250,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-667-356-1800002b\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-batch.png\"}}]",
+        "--timeout-ms",
+        "1000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 332.8584299999875,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":328,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-batch.png\",\"scale_factor\":1.0,\"width\":1256},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":1000,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-667-356-1800002c",
+        "/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-spare-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 332.35619500010216,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-spare-0.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-667-356-1800002c\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-spare-batch.png\"}}]",
+        "--timeout-ms",
+        "250"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 168.01376999990225,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":162,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"error\":{\"code\":\"TIMEOUT\",\"details\":{\"kind\":\"capture_frame\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"},\"message\":\"The compositor sent no frame before the deadline\",\"recovery\":{\"requires_fresh_snapshot\":true,\"retry_after_ms\":250,\"retryable\":true,\"strategy\":\"inspect_state_then_retry_original\"},\"suggestion\":\"Retry once the compositor draws again\"},\"execution\":\"completed\",\"index\":0,\"ok\":false,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":250,\"total_entries\":1}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "batch",
+        "[{\"command\": \"screenshot\", \"args\": {\"window_id\": \"w-hypr-667-356-1800002c\", \"output_path\": \"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-spare-batch.png\"}}]",
+        "--timeout-ms",
+        "1000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 330.37015799993696,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"batch\",\"data\":{\"completed_entries\":1,\"elapsed_ms\":326,\"limits\":{\"max_entries\":64,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"not_started_entries\":0,\"results\":[{\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-ad-e2e-cap-still-spare-batch.png\",\"scale_factor\":1.0,\"width\":1256},\"execution\":\"completed\",\"index\":0,\"ok\":true,\"version\":\"2.5\"}],\"semantics\":{\"atomic\":false,\"batch_retries\":false,\"command_retry_contracts\":\"preserved\",\"error_disposition\":\"error.disposition\",\"order\":\"sequential\",\"successful_action_disposition\":\"data.disposition\"},\"timeout_ms\":1000,\"total_entries\":1}}\n"
+    }
+  ]
+}

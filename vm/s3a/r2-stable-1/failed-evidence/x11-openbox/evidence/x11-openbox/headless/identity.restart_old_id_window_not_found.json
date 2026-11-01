@@ -1,0 +1,72 @@
+{
+  "leg": "identity.restart_old_id_window_not_found",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 524.1498380000849,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.root_children": {
+      "before": [
+        1
+      ],
+      "after": [
+        1
+      ],
+      "restored": [
+        1
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 18.302129999938188,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.1549-org-gnome-Calculator-a11y-de143a97_af63_4975_aa4d_701a2d590be6\",\"is_focused\":true,\"minimized\":false,\"pid\":128961,\"process_instance\":\"5589b0cb:64895\",\"title\":\"Calculator\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows",
+        "--app",
+        "Calculator"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 17.994094000073346,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"gnome-calculator\",\"bounds\":{\"height\":616.0,\"width\":370.0,\"x\":455.0,\"y\":92.0},\"id\":\"w-1.1559-org-gnome-Calculator-a11y-b7c9d7a6_c36c_44b1_a1a2_45d6ca06c318\",\"is_focused\":true,\"minimized\":false,\"pid\":129003,\"process_instance\":\"5589b0cb:64919\",\"title\":\"Calculator\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "--window-id",
+        "w-1.1549-org-gnome-Calculator-a11y-de143a97_af63_4975_aa4d_701a2d590be6",
+        "-i"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "No window with id w-1.1549-org-gnome-Calculator-a11y-de143a97_af63_4975_aa4d_701a2d590be6",
+        "suggestion": "Run 'list-windows' to see available window IDs.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 21.04177000001073,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"No window with id w-1.1549-org-gnome-Calculator-a11y-de143a97_af63_4975_aa4d_701a2d590be6\",\"suggestion\":\"Run 'list-windows' to see available window IDs.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

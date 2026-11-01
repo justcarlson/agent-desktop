@@ -1,0 +1,24 @@
+suite: /home/omarchy/out/suites/hyprland
+image: 097b448d3d145d592d87b6fbbaa4d48ea0efffcd85141a193c9686e923423d24  /home/omarchy/src/agent-desktop-bin/agent-desktop
+image: 2916190259d06642d8cf7dd4354824f980a85f867df70a1c9bfa11bead8c713e  /home/omarchy/src/agent-desktop-bin/agent-desktop-linux-clipboard-owner
+cancel-ready: /home/omarchy/out/suites/hyprland/hyprland.ready.json {"pid": 147142, "start": 84371, "runtime": "/run/user/1000/agent-desktop-sessions/rt.6tta1n5x", "marker": "/run/user/1000/agent-desktop-sessions/rt.6tta1n5x/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py", "attached": "/home/omarchy/out/suites/hyprland/hyprland.attached.json"}
+evidence: outer-window before {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window with-calculator {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window after {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+tier hyprland
+  headless
+    pass             batch_contract.entry_failure_and_stop_on_error
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             error_contract.recoverable_error_envelopes
+    pass             non_interference.active_window_unchanged_by_semantic_click
+    pass             non_interference.headless_route_preserves_desktop
+    pass             observation.hyprland_displays_match_monitors
+    pass             session.cancel_cleanup_recorded_generations
+    pass             session.hyprland_absent_keeps_generic_route
+    pass             session.hyprland_dead_named_instance_refused
+    pass             session.hyprland_live_instance_binds
+  headed
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             non_interference.headed_changes_only_target
+    pass             session.cancel_cleanup_recorded_generations
+summary: pass 13

@@ -1,0 +1,171 @@
+{
+  "leg": "capture.hyprland_permission_denied_no_dialog",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 529.6344350000481,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55da3cee7450",
+            "pid": 148310,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.enforce_permissions": {
+      "before": [
+        false
+      ],
+      "after": [
+        true
+      ],
+      "restored": [
+        false
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 16.800638000063373,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483653\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483654\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":207.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483655\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":399.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.44-org-a11y-atspi-accessible-2147483656\",\"is_focused\":false,\"minimized\":false,\"pid\":726,\"process_instance\":\"333fcde6:385\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-18000005\",\"is_focused\":true,\"pid\":148310,\"process_instance\":\"333fcde6:83114\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-cap-denied\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-674-357-1800002f\",\"is_focused\":false,\"pid\":151384,\"process_instance\":\"333fcde6:87505\",\"title\":\"ad-e2e-cap-denied\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-1800002f",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-denied.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PERM_DENIED",
+        "message": "Hyprland enforces permissions (ecosystem:enforce_permissions) and withholds screen capture from this tool without asking",
+        "suggestion": "Set ecosystem:enforce_permissions to false in the Hyprland config, then retry",
+        "details": {
+          "enforced": true,
+          "option": "ecosystem:enforce_permissions"
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 16.190868999956365,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"PERM_DENIED\",\"message\":\"Hyprland enforces permissions (ecosystem:enforce_permissions) and withholds screen capture from this tool without asking\",\"suggestion\":\"Set ecosystem:enforce_permissions to false in the Hyprland config, then retry\",\"details\":{\"enforced\":true,\"option\":\"ecosystem:enforce_permissions\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--screen",
+        "0",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-denied.png"
+      ],
+      "ok": false,
+      "error": {
+        "code": "PERM_DENIED",
+        "message": "Hyprland enforces permissions (ecosystem:enforce_permissions) and withholds screen capture from this tool without asking",
+        "suggestion": "Set ecosystem:enforce_permissions to false in the Hyprland config, then retry",
+        "details": {
+          "enforced": true,
+          "option": "ecosystem:enforce_permissions"
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 4.747888999986571,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"screenshot\",\"error\":{\"code\":\"PERM_DENIED\",\"message\":\"Hyprland enforces permissions (ecosystem:enforce_permissions) and withholds screen capture from this tool without asking\",\"suggestion\":\"Set ecosystem:enforce_permissions to false in the Hyprland config, then retry\",\"details\":{\"enforced\":true,\"option\":\"ecosystem:enforce_permissions\"},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--window-id",
+        "w-hypr-674-357-1800002f",
+        "/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-allowed.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 319.09116399992854,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":750,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.8rymtzru/capture-allowed.png\",\"scale_factor\":1.0,\"width\":1256}}\n"
+    }
+  ]
+}

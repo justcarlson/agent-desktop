@@ -1,0 +1,67 @@
+{
+  "leg": "placeholder.settings_apps_search",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 604.8332320000327,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        [
+          [
+            "",
+            "",
+            {
+              "toolkit": "GTK",
+              "placeholder-text": "Search apps"
+            }
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "",
+            "",
+            {
+              "toolkit": "GTK",
+              "placeholder-text": "Search apps"
+            }
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "",
+            "",
+            {
+              "toolkit": "GTK",
+              "placeholder-text": "Search apps"
+            }
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.887-org-gnome-Settings-a11y-074b97ee_8ea5_462e_8b0e_33921e3e8d32"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 136.15248500002508,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-control-center\",\"complete\":true,\"ref_count\":31,\"snapshot_id\":\"s3ls3e9qk2ruyb\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"SetFocus\"],\"name\":\"Network\",\"ref_id\":\"@s3ls3e9qk2ruyb:e3\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Bluetooth\",\"ref_id\":\"@s3ls3e9qk2ruyb:e4\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Displays\",\"ref_id\":\"@s3ls3e9qk2ruyb:e5\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Sound\",\"ref_id\":\"@s3ls3e9qk2ruyb:e6\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Power\",\"ref_id\":\"@s3ls3e9qk2ruyb:e7\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Multitasking\",\"ref_id\":\"@s3ls3e9qk2ruyb:e8\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Appearance\",\"ref_id\":\"@s3ls3e9qk2ruyb:e9\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Apps\",\"ref_id\":\"@s3ls3e9qk2ruyb:e10\",\"role\":\"button\",\"states\":[\"selected\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Notifications\",\"ref_id\":\"@s3ls3e9qk2ruyb:e11\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Search\",\"ref_id\":\"@s3ls3e9qk2ruyb:e12\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Online Accounts\",\"ref_id\":\"@s3ls3e9qk2ruyb:e13\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Wellbeing\",\"ref_id\":\"@s3ls3e9qk2ruyb:e14\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Mouse & Touchpad\",\"ref_id\":\"@s3ls3e9qk2ruyb:e15\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Keyboard\",\"ref_id\":\"@s3ls3e9qk2ruyb:e16\",\"role\":\"button\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"Color Management\",\"ref_id\":\"@s3ls3e9qk2ruyb:e17\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Printers\",\"ref_id\":\"@s3ls3e9qk2ruyb:e18\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Accessibility\",\"ref_id\":\"@s3ls3e9qk2ruyb:e19\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"Privacy & Security\",\"ref_id\":\"@s3ls3e9qk2ruyb:e20\",\"role\":\"button\",\"states\":[\"offscreen\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"System\",\"ref_id\":\"@s3ls3e9qk2ruyb:e21\",\"role\":\"button\",\"states\":[\"offscreen\"]}],\"name\":\"Settings categories\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"main_listbox\"},\"ref_id\":\"@s3ls3e9qk2ruyb:e2\",\"role\":\"listbox\"}],\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"stack\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"panel_list\"},\"role\":\"group\"}],\"role\":\"group\"},{\"available_actions\":[\"SetValue\"],\"ref_id\":\"@s3ls3e9qk2ruyb:e22\",\"role\":\"scrollbar\",\"value\":\"76\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_6___\"},\"ref_id\":\"@s3ls3e9qk2ruyb:e1\",\"role\":\"scrollarea\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Search\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"search_button\"},\"ref_id\":\"@s3ls3e9qk2ruyb:e23\",\"role\":\"switch\"}],\"role\":\"group\"}],\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Main Menu\",\"ref_id\":\"@s3ls3e9qk2ruyb:e25\",\"role\":\"switch\",\"states\":[\"haspopup\"]}],\"name\":\"Main Menu\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_4___\"},\"ref_id\":\"@s3ls3e9qk2ruyb:e24\",\"role\":\"button\"}],\"role\":\"group\"}],\"role\":\"group\"}],\"role\":\"group\"}],\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_3___\"},\"role\":\"group\"}],\"role\":\"group\"}],\"role\":\"group\"}],\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_2___\"},\"role\":\"group\"}],\"name\":\"Settings\",\"native_id\":{\"kind\":\"ax_ident"
+    }
+  ]
+}

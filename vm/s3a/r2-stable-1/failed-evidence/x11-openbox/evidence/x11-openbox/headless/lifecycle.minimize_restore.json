@@ -1,0 +1,51 @@
+{
+  "leg": "lifecycle.minimize_restore",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 333.1322530000307,
+  "exception_traceback": "",
+  "reads": {
+    "x11.wm_state": {
+      "before": [
+        false
+      ],
+      "after": [
+        true
+      ],
+      "restored": [
+        false
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.1144-org-gnome-Calculator-a11y-7c8d013b_5299_49e2_a67c_a684f87760be"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 34.07224300008238,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"minimize\",\"data\":{\"action\":\"minimize\",\"details\":{\"verification_scope\":\"window_minimized_state\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_minimize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1144-org-gnome-Calculator-a11y-7c8d013b_5299_49e2_a67c_a684f87760be\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62364\",\"pid\":126835},\"title\":\"Calculator\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "restore",
+        "--window-id",
+        "w-1.1144-org-gnome-Calculator-a11y-7c8d013b_5299_49e2_a67c_a684f87760be"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 35.235729999953946,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"restore\",\"data\":{\"action\":\"restore\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_restore\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"id\":\"w-1.1144-org-gnome-Calculator-a11y-7c8d013b_5299_49e2_a67c_a684f87760be\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62364\",\"pid\":126835},\"title\":\"Calculator\"}}}\n"
+    }
+  ]
+}

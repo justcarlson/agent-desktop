@@ -1,0 +1,9 @@
+suite: /home/omarchy/out/suites/hyprland
+image: 902b015d9e0575a5abe0bf047dd83b737b42ac9d0548f1d4c6dae684bdcc6b33  /home/omarchy/src/agent-desktop-bin/agent-desktop
+image: cc11a99f1d35a06b63546d5e0dca03fd0759c66dbf469ec9482a96fa0c46e459  /home/omarchy/src/agent-desktop-bin/agent-desktop-linux-clipboard-owner
+cancel-ready: /home/omarchy/out/suites/hyprland/hyprland.ready.json {"pid": 3830, "start": 1091, "runtime": "/run/user/1000/agent-desktop-sessions/rt.zm0x8bvr", "marker": "/run/user/1000/agent-desktop-sessions/rt.zm0x8bvr/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py", "attached": "/home/omarchy/out/suites/hyprland/hyprland.attached.json"}
+tier hyprland
+  headless
+    pass             capture.hyprland_in_view_first_frame
+      finding: in view still, record only: screenshot 546 ms, batch 551 ms
+summary: pass 1

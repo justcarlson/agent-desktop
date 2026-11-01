@@ -1,0 +1,121 @@
+{
+  "leg": "zero_bounds.hidden_menu_items_not_visible",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 374.31625299996085,
+  "exception_traceback": "",
+  "reads": {
+    "atspi": {
+      "before": [
+        [
+          "ENABLED",
+          "SELECTABLE",
+          "SENSITIVE",
+          "VISIBLE"
+        ]
+      ],
+      "after": [
+        [
+          "ENABLED",
+          "SELECTABLE",
+          "SENSITIVE",
+          "VISIBLE"
+        ]
+      ],
+      "restored": [
+        [
+          "ENABLED",
+          "SELECTABLE",
+          "SENSITIVE",
+          "VISIBLE"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "menu",
+        "--name",
+        "Edit",
+        "--window-id",
+        "w-1.914-org-a11y-atspi-accessible-1"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 46.20273900002303,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"Edit\",\"path\":[\"window:@omarchy-test:~/src/agent-desktop\",\"group\",\"menu\"],\"ref_id\":\"@s20tmxhjyjb3g8:e1\",\"role\":\"menu\",\"states\":[\"offscreen\"],\"value\":null}],\"snapshot_id\":\"s20tmxhjyjb3g8\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "is",
+        "@s20tmxhjyjb3g8:e1",
+        "--property",
+        "visible"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 18.565709000085917,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"is\",\"data\":{\"applicable\":false,\"property\":\"visible\",\"ref\":\"@s20tmxhjyjb3g8:e1\",\"result\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s20tmxhjyjb3g8:e1",
+        "--timeout-ms",
+        "0"
+      ],
+      "ok": false,
+      "error": {
+        "code": "ACTION_FAILED",
+        "message": "Target is not actionable: visible (live offscreen state is true)",
+        "suggestion": "Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended.",
+        "details": {
+          "actionable": false,
+          "checks": [
+            {
+              "check": "visible",
+              "reason": "live offscreen state is true",
+              "status": "fail"
+            },
+            {
+              "check": "enabled",
+              "status": "pass"
+            },
+            {
+              "check": "supported_action",
+              "status": "pass"
+            },
+            {
+              "check": "policy",
+              "status": "pass"
+            }
+          ],
+          "scroll_into_view_attempted": {
+            "code": "ACTION_NOT_SUPPORTED",
+            "message": "The element has no scroll container to scroll"
+          }
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 37.33677499997157,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"ACTION_FAILED\",\"message\":\"Target is not actionable: visible (live offscreen state is true)\",\"suggestion\":\"Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended.\",\"details\":{\"actionable\":false,\"checks\":[{\"check\":\"visible\",\"reason\":\"live offscreen state is true\",\"status\":\"fail\"},{\"check\":\"enabled\",\"status\":\"pass\"},{\"check\":\"supported_action\",\"status\":\"pass\"},{\"check\":\"policy\",\"status\":\"pass\"}],\"scroll_into_view_attempted\":{\"code\":\"ACTION_NOT_SUPPORTED\",\"message\":\"The element has no scroll container to scroll\"}},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

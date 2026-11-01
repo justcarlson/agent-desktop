@@ -1,0 +1,217 @@
+{
+  "leg": "identity.hyprland_closed_window_not_found",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 649.3204380000179,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x557298748650",
+            "pid": 145893,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 15.37442399990141,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.230-org-a11y-atspi-accessible-1\",\"is_focused\":false,\"minimized\":false,\"pid\":148832,\"process_instance\":\"6f42f6e4:85212\",\"title\":\"AD Twin\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":750.0,\"width\":621.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.230-org-a11y-atspi-accessible-2\",\"is_focused\":false,\"minimized\":false,\"pid\":148832,\"process_instance\":\"6f42f6e4:85212\",\"title\":\"AD Twin\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.230-org-a11y-atspi-accessible-1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-1.230-org-a11y-atspi-accessible-1' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 14.26053199998023,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.230-org-a11y-atspi-accessible-1' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.230-org-a11y-atspi-accessible-2"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-1.230-org-a11y-atspi-accessible-2' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 13.30462200007787,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-1.230-org-a11y-atspi-accessible-2' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 14.85477300002458,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-restart\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000022\",\"is_focused\":false,\"pid\":148871,\"process_instance\":\"6f42f6e4:85243\",\"title\":\"ad-e2e-restart\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-hypr-743-439-18000022"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-743-439-18000022' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 15.307441000004474,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-743-439-18000022' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 15.31189800004995,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":26.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483693\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483694\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":true,\"app_name\":\"quickshell\",\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"w-1.45-org-a11y-atspi-accessible-2147483695\",\"is_focused\":false,\"minimized\":false,\"pid\":802,\"process_instance\":\"6f42f6e4:466\",\"title\":\"\",\"visible\":true},{\"accessible\":false,\"app_name\":\"foot\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000005\",\"is_focused\":true,\"pid\":145893,\"process_instance\":\"6f42f6e4:82993\",\"title\":\"omarchy@omarchy-test:~\",\"visible\":true},{\"accessible\":false,\"app_name\":\"ad-e2e-restart\",\"bounds\":{\"height\":750.0,\"width\":1256.0,\"x\":12.0,\"y\":38.0},\"id\":\"w-hypr-743-439-18000023\",\"is_focused\":false,\"pid\":148897,\"process_instance\":\"6f42f6e4:85258\",\"title\":\"ad-e2e-restart\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-hypr-743-439-18000022"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-743-439-18000022' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 14.39644300000964,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-743-439-18000022' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-hypr-1-1-18000023"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-hypr-1-1-18000023' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 14.454221000050893,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-hypr-1-1-18000023' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}

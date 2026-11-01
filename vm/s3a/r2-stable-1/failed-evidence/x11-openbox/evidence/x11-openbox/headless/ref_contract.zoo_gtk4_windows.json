@@ -1,0 +1,318 @@
+{
+  "leg": "ref_contract.zoo_gtk4_windows",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 3942.5760620000574,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.window0": {
+      "before": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window0": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "widget": "zoo-dialog-entry",
+            "event": "changed",
+            "value": "dialog-7b413c2e7b51469d97b8f192b6cf347b",
+            "at": 736.361594246
+          },
+          {
+            "widget": "zoo-dialog-ok",
+            "event": "activate",
+            "value": null,
+            "at": 736.725977122
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    },
+    "atspi.window1": {
+      "before": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            "Zoo GTK4",
+            23,
+            false
+          ]
+        ]
+      ]
+    },
+    "applog.window1": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "widget": "zoo-open-chooser",
+            "event": "saved",
+            "value": "/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fc64272a43b4a949eaffed85df311b3.txt",
+            "at": 739.217437061
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [
+    "name | role | states | action | expected | observed | verdict\nzoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass\nzoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass"
+  ],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 78.69933500001025,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":29,\"snapshot_id\":\"s2qwk8zgg5ugcz\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s2qwk8zgg5ugcz:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-dialog\",\"ref_id\":\"@s2qwk8zgg5ugcz:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-chooser\",\"ref_id\":\"@s2qwk8zgg5ugcz:e3\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s2qwk8zgg5ugcz:e4\",\"role\":\"switch\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s2qwk8zgg5ugcz:e5\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s2qwk8zgg5ugcz:e6\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s2qwk8zgg5ugcz:e7\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"SetFocus\"],\"name\":\"zoo-switch\",\"role\":\"unknown\"},{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"button\"},\"ref_id\":\"@s2qwk8zgg5ugcz:e9\",\"role\":\"switch\"}],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDropDown\"},\"ref_id\":\"@s2qwk8zgg5ugcz:e8\",\"role\":\"combobox\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s2qwk8zgg5ugcz:e10\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s2qwk8zgg5ugcz:e11\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s2qwk8zgg5ugcz:e12\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s2qwk8zgg5ugcz:e13\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-text\",\"ref_id\":\"@s2qwk8zgg5ugcz:e14\",\"role\":\"textfield\"},{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s2qwk8zgg5ugcz:e16\",\"role\":\"switch\",\"states\":[\"haspopup\"]}],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s2qwk8zgg5ugcz:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-link\",\"ref_id\":\"@s2qwk8zgg5ugcz:e17\",\"role\":\"link\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s2qwk8zgg5ugcz:e18\",\"role\":\"button\"},{\"available_actions\":[\"RightClick\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-a\",\"ref_id\":\"@s2qwk8zgg5ugcz:e20\",\"role\":\"tab\",\"states\":[\"selected\"]},{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-b\",\"ref_id\":\"@s2qwk8zgg5ugcz:e21\",\"role\":\"tab\"}],\"ref_id\":\"@s2qwk8zgg5ugcz:e19\",\"role\":\"tablist\"}],\"role\":\"group\"}],\"name\":\"zoo-tabs\",\"role\":\"group\"},{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-1\",\"ref_id\":\"@s2qwk8zgg5ugcz:e23\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-2\",\"ref_id\":\"@s2qwk8zgg5ugcz:e24\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-3\",\"ref_id\":\"@s2qwk8zgg5ugcz:e25\",\"role\":\"option\"}],\"name\":\"zoo-list\",\"ref_id\":\"@s2qwk8zgg5ugcz:e22\",\"role\":\"listbox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-disabled\",\"ref_id\":\"@s2qwk8zgg5ugcz:e26\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-offscreen\",\"ref_id\":\"@s2qwk8zgg5ugcz:e28\",\"role\":\"button\",\"states\":[\"offscreen\"]}],\"role\":\"group\",\"states\":[\"offscreen\"]}],\"role\":\"group\"},{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-scroll-vscroll\",\"ref_id\":\"@s2qwk8zgg5ugcz:e29\",\"role\":\"scrollbar\",\"value\":\"0\"}],\"re"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s2qwk8zgg5ugcz:e2"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 115.76835200003188,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":71,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"title\":\"Zoo GTK4\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 23.263705999966078,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":68.0,\"width\":168.0,\"x\":217.0,\"y\":413.0},\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b\",\"is_focused\":true,\"minimized\":false,\"pid\":134756,\"process_instance\":\"5589b0cb:73548\",\"title\":\"Zoo Dialog\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":855.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"is_focused\":false,\"minimized\":false,\"pid\":134756,\"process_instance\":\"5589b0cb:73548\",\"title\":\"Zoo GTK4\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 37.199157000031846,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":3,\"snapshot_id\":\"s3l4xhpmq376t2\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-dialog-entry\",\"ref_id\":\"@s3l4xhpmq376t2:e1\",\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"]}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"content_area\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Cancel\",\"ref_id\":\"@s3l4xhpmq376t2:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"OK\",\"ref_id\":\"@s3l4xhpmq376t2:e3\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_area\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"name\":\"Zoo Dialog\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDialog\"},\"role\":\"dialog\",\"states\":[\"modal\"]},\"window\":{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b\",\"title\":\"Zoo Dialog\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "type",
+        "@s3l4xhpmq376t2:e1",
+        "dialog-7b413c2e7b51469d97b8f192b6cf347b"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 86.31749500000296,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"type\",\"data\":{\"action\":\"type\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":51,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"],\"value\":\"dialog-7b413c2e7b51469d97b8f192b6cf347b\"},\"steps\":[{\"label\":\"EditableText.InsertText\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 35.96252700003788,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":3,\"snapshot_id\":\"s1kwwkwylrv6iv\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-dialog-entry\",\"ref_id\":\"@s1kwwkwylrv6iv:e1\",\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"],\"value\":\"dialog-7b413c2e7b51469d97b8f192b6cf347b\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"content_area\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Cancel\",\"ref_id\":\"@s1kwwkwylrv6iv:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"OK\",\"ref_id\":\"@s1kwwkwylrv6iv:e3\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_area\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"name\":\"Zoo Dialog\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDialog\"},\"role\":\"dialog\",\"states\":[\"modal\"]},\"window\":{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b\",\"title\":\"Zoo Dialog\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s1kwwkwylrv6iv:e3"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 102.31319000001804,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":67,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"title\":\"Zoo GTK4\",\"type\":\"window\"},{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b\",\"title\":\"Zoo Dialog\",\"type\":\"window\"},{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-6be356be_d96b_4b68_afb9_2de5ba699a9b\",\"title\":\"Zoo Dialog\",\"type\":\"sheet\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 85.34952399998019,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":29,\"snapshot_id\":\"s2sda42mnxuawm\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s2sda42mnxuawm:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-dialog\",\"ref_id\":\"@s2sda42mnxuawm:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-chooser\",\"ref_id\":\"@s2sda42mnxuawm:e3\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s2sda42mnxuawm:e4\",\"role\":\"switch\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s2sda42mnxuawm:e5\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s2sda42mnxuawm:e6\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s2sda42mnxuawm:e7\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"SetFocus\"],\"name\":\"zoo-switch\",\"role\":\"unknown\"},{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"button\"},\"ref_id\":\"@s2sda42mnxuawm:e9\",\"role\":\"switch\"}],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDropDown\"},\"ref_id\":\"@s2sda42mnxuawm:e8\",\"role\":\"combobox\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s2sda42mnxuawm:e10\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s2sda42mnxuawm:e11\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s2sda42mnxuawm:e12\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s2sda42mnxuawm:e13\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-text\",\"ref_id\":\"@s2sda42mnxuawm:e14\",\"role\":\"textfield\"},{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s2sda42mnxuawm:e16\",\"role\":\"switch\",\"states\":[\"haspopup\"]}],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s2sda42mnxuawm:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-link\",\"ref_id\":\"@s2sda42mnxuawm:e17\",\"role\":\"link\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s2sda42mnxuawm:e18\",\"role\":\"button\"},{\"available_actions\":[\"RightClick\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-a\",\"ref_id\":\"@s2sda42mnxuawm:e20\",\"role\":\"tab\",\"states\":[\"selected\"]},{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-b\",\"ref_id\":\"@s2sda42mnxuawm:e21\",\"role\":\"tab\"}],\"ref_id\":\"@s2sda42mnxuawm:e19\",\"role\":\"tablist\"}],\"role\":\"group\"}],\"name\":\"zoo-tabs\",\"role\":\"group\"},{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-1\",\"ref_id\":\"@s2sda42mnxuawm:e23\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-2\",\"ref_id\":\"@s2sda42mnxuawm:e24\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-3\",\"ref_id\":\"@s2sda42mnxuawm:e25\",\"role\":\"option\"}],\"name\":\"zoo-list\",\"ref_id\":\"@s2sda42mnxuawm:e22\",\"role\":\"listbox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-disabled\",\"ref_id\":\"@s2sda42mnxuawm:e26\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-offscreen\",\"ref_id\":\"@s2sda42mnxuawm:e28\",\"role\":\"button\",\"states\":[\"offscreen\"]}],\"role\":\"group\",\"states\":[\"offscreen\"]}],\"role\":\"group\"},{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-scroll-vscroll\",\"ref_id\":\"@s2sda42mnxuawm:e29\",\"role\":\"scrollbar\",\"value\":\"0\"}],\"re"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 78.33967500005201,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":29,\"snapshot_id\":\"s1jqof6jrutpir\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@s1jqof6jrutpir:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-dialog\",\"ref_id\":\"@s1jqof6jrutpir:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-chooser\",\"ref_id\":\"@s1jqof6jrutpir:e3\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@s1jqof6jrutpir:e4\",\"role\":\"switch\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@s1jqof6jrutpir:e5\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@s1jqof6jrutpir:e6\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@s1jqof6jrutpir:e7\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"SetFocus\"],\"name\":\"zoo-switch\",\"role\":\"unknown\"},{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"button\"},\"ref_id\":\"@s1jqof6jrutpir:e9\",\"role\":\"switch\"}],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDropDown\"},\"ref_id\":\"@s1jqof6jrutpir:e8\",\"role\":\"combobox\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@s1jqof6jrutpir:e10\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@s1jqof6jrutpir:e11\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@s1jqof6jrutpir:e12\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@s1jqof6jrutpir:e13\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-text\",\"ref_id\":\"@s1jqof6jrutpir:e14\",\"role\":\"textfield\"},{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s1jqof6jrutpir:e16\",\"role\":\"switch\",\"states\":[\"haspopup\"]}],\"name\":\"zoo-menubutton\",\"ref_id\":\"@s1jqof6jrutpir:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-link\",\"ref_id\":\"@s1jqof6jrutpir:e17\",\"role\":\"link\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@s1jqof6jrutpir:e18\",\"role\":\"button\"},{\"available_actions\":[\"RightClick\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-a\",\"ref_id\":\"@s1jqof6jrutpir:e20\",\"role\":\"tab\",\"states\":[\"selected\"]},{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-b\",\"ref_id\":\"@s1jqof6jrutpir:e21\",\"role\":\"tab\"}],\"ref_id\":\"@s1jqof6jrutpir:e19\",\"role\":\"tablist\"}],\"role\":\"group\"}],\"name\":\"zoo-tabs\",\"role\":\"group\"},{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-1\",\"ref_id\":\"@s1jqof6jrutpir:e23\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-2\",\"ref_id\":\"@s1jqof6jrutpir:e24\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-3\",\"ref_id\":\"@s1jqof6jrutpir:e25\",\"role\":\"option\"}],\"name\":\"zoo-list\",\"ref_id\":\"@s1jqof6jrutpir:e22\",\"role\":\"listbox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-disabled\",\"ref_id\":\"@s1jqof6jrutpir:e26\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-offscreen\",\"ref_id\":\"@s1jqof6jrutpir:e28\",\"role\":\"button\",\"states\":[\"offscreen\"]}],\"role\":\"group\",\"states\":[\"offscreen\"]}],\"role\":\"group\"},{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-scroll-vscroll\",\"ref_id\":\"@s1jqof6jrutpir:e29\",\"role\":\"scrollbar\",\"value\":\"0\"}],\"re"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@s1jqof6jrutpir:e3"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 112.05373499990401,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":66,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"title\":\"Zoo GTK4\",\"type\":\"window\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "list-windows"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 49.239617000012004,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-windows\",\"data\":[{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":360.0,\"width\":867.0,\"x\":1.0,\"y\":267.0},\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c\",\"is_focused\":true,\"minimized\":false,\"pid\":134756,\"process_instance\":\"5589b0cb:73548\",\"title\":\"Zoo Save\",\"visible\":true},{\"accessible\":true,\"app_name\":\"python3.14\",\"bounds\":{\"height\":855.0,\"width\":600.0,\"x\":1.0,\"y\":20.0},\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"is_focused\":false,\"minimized\":false,\"pid\":134756,\"process_instance\":\"5589b0cb:73548\",\"title\":\"Zoo GTK4\",\"visible\":true}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 68.68013199994039,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":11,\"snapshot_id\":\"s22akuy78pq17d\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"Name:\",\"ref_id\":\"@s22akuy78pq17d:e1\",\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"]}],\"role\":\"group\"}],\"role\":\"group\"},{\"children\":[{\"available_actions\":[\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Open your personal folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@s22akuy78pq17d:e4\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Open the contents of your desktop in a folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@s22akuy78pq17d:e5\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"/home/omarchy/src/agent-desktop\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@s22akuy78pq17d:e6\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Show other locations\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@s22akuy78pq17d:e7\",\"role\":\"option\"}],\"ref_id\":\"@s22akuy78pq17d:e3\",\"role\":\"listbox\"}],\"role\":\"group\"}],\"ref_id\":\"@s22akuy78pq17d:e2\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"places_sidebar\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children_count\":3,\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_header_stack\"},\"ref_id\":\"@s22akuy78pq17d:e8\",\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_2___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_header_revealer\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children_count\":1,\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_12___\"},\"ref_id\":\"@s22akuy78pq17d:e9\",\"role\":\"group\"}],\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_files_stack\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"list_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_widgets_hpaned\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_widgets_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"widget\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Cancel\",\"ref_id\":\"@s22akuy78pq17d:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Save\",\"ref_id\":\"@s22akuy78pq17d:e11\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"dialog-action_area1\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"name\":\"Zoo Save\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkFileChooserDialog\"},\"role\":\"dialog\",\"states\":[\"modal\"]},\"window\":{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c\",\"title\":\"Zoo Save\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "type",
+        "@s22akuy78pq17d:e1",
+        "/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fc64272a43b4a949eaffed85df311b3.txt"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 571.8038439999873,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"type\",\"data\":{\"action\":\"type\",\"details\":{\"application_commit\":\"not_verified\",\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":323,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1},\"verification_scope\":\"element_value\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"post_state\":{\"enabled\":true,\"offscreen\":false,\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"],\"value\":\"/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fc64272a43b4a949eaffed85df311b3.txt\"},\"steps\":[{\"label\":\"EditableText.InsertText\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c",
+        "--surface",
+        "sheet"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 73.72209200002544,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":11,\"snapshot_id\":\"skpuyacrk9i1t\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"Name:\",\"ref_id\":\"@skpuyacrk9i1t:e1\",\"role\":\"textfield\",\"states\":[\"focused\",\"haspopup\"],\"value\":\"/run/user/1000/agent-desktop-sessions/rt.qkRCca/zoo-save-1fc64272a43b4a949eaffed85df311b3.txt\"}],\"role\":\"group\"}],\"role\":\"group\"},{\"children\":[{\"available_actions\":[\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Open your personal folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@skpuyacrk9i1t:e4\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Open the contents of your desktop in a folder\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@skpuyacrk9i1t:e5\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"/home/omarchy/src/agent-desktop\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@skpuyacrk9i1t:e6\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"children_count\":1,\"name\":\"Show other locations\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkSidebarRow\"},\"ref_id\":\"@skpuyacrk9i1t:e7\",\"role\":\"option\"}],\"ref_id\":\"@skpuyacrk9i1t:e3\",\"role\":\"listbox\"}],\"role\":\"group\"}],\"ref_id\":\"@skpuyacrk9i1t:e2\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"places_sidebar\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children_count\":3,\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_header_stack\"},\"ref_id\":\"@skpuyacrk9i1t:e8\",\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_2___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_header_revealer\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children_count\":1,\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_12___\"},\"ref_id\":\"@skpuyacrk9i1t:e9\",\"role\":\"group\"}],\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_files_stack\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"list_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_widgets_hpaned\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"browse_widgets_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"widget\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Cancel\",\"ref_id\":\"@skpuyacrk9i1t:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Save\",\"ref_id\":\"@skpuyacrk9i1t:e11\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"dialog-action_area1\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"action_box\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"name\":\"Zoo Save\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkFileChooserDialog\"},\"role\":\"dialog\",\"states\":[\"modal\"]},\"window\":{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c\",\"title\":\"Zoo Save\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@skpuyacrk9i1t:e11"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 602.3060799999485,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"click\",\"data\":{\"action\":\"click\",\"details\":{\"auto_wait\":{\"lease_contention_count\":0,\"lease_hold_ms\":344,\"read_only_preflight_attempts\":1,\"read_only_resolve_attempts\":1}},\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"Action.DoAction\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"surfaces\":[{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea\",\"title\":\"Zoo GTK4\",\"type\":\"window\"},{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c\",\"title\":\"Zoo Save\",\"type\":\"window\"},{\"id\":\"w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-0cf76c07_3146_4e56_a788_c61374f7bb2c\",\"title\":\"Zoo Save\",\"type\":\"sheet\"}]}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.1959-org-gtk-application-zoo_gtk4_py-a11y-509c1dd4_2c08_4681_b4c5_baf03e2c69ea"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 95.1190810000071,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"python3.14\",\"complete\":true,\"ref_count\":29,\"snapshot_id\":\"sl9bzizjaytct\",\"tree\":{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-button\",\"ref_id\":\"@sl9bzizjaytct:e1\",\"role\":\"button\",\"states\":[\"focused\"]},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-dialog\",\"ref_id\":\"@sl9bzizjaytct:e2\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-open-chooser\",\"ref_id\":\"@sl9bzizjaytct:e3\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-toggle\",\"ref_id\":\"@sl9bzizjaytct:e4\",\"role\":\"switch\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-check\",\"ref_id\":\"@sl9bzizjaytct:e5\",\"role\":\"checkbox\"},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-a\",\"ref_id\":\"@sl9bzizjaytct:e6\",\"role\":\"radiobutton\",\"states\":[\"checked\"]},{\"available_actions\":[\"SetFocus\"],\"name\":\"zoo-radio-b\",\"ref_id\":\"@sl9bzizjaytct:e7\",\"role\":\"radiobutton\"},{\"available_actions\":[\"Toggle\",\"SetFocus\"],\"name\":\"zoo-switch\",\"role\":\"unknown\"},{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"button\"},\"ref_id\":\"@sl9bzizjaytct:e9\",\"role\":\"switch\"}],\"name\":\"Alpha\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"GtkDropDown\"},\"ref_id\":\"@sl9bzizjaytct:e8\",\"role\":\"combobox\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-spin\",\"ref_id\":\"@sl9bzizjaytct:e10\",\"role\":\"incrementor\",\"value\":\"0\"},{\"available_actions\":[\"SetValue\",\"SetFocus\"],\"name\":\"zoo-scale\",\"ref_id\":\"@sl9bzizjaytct:e11\",\"role\":\"slider\",\"value\":\"0\"},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-entry\",\"ref_id\":\"@sl9bzizjaytct:e12\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"Click\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-password\",\"ref_id\":\"@sl9bzizjaytct:e13\",\"role\":\"textfield\",\"states\":[\"haspopup\"]},{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"name\":\"zoo-text\",\"ref_id\":\"@sl9bzizjaytct:e14\",\"role\":\"textfield\"},{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-menubutton\",\"ref_id\":\"@sl9bzizjaytct:e16\",\"role\":\"switch\",\"states\":[\"haspopup\"]}],\"name\":\"zoo-menubutton\",\"ref_id\":\"@sl9bzizjaytct:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-link\",\"ref_id\":\"@sl9bzizjaytct:e17\",\"role\":\"link\"},{\"available_actions\":[\"Click\",\"Expand\",\"Collapse\",\"SetFocus\"],\"name\":\"zoo-expander\",\"ref_id\":\"@sl9bzizjaytct:e18\",\"role\":\"button\"},{\"available_actions\":[\"RightClick\",\"SetFocus\"],\"children\":[{\"children\":[{\"available_actions\":[\"Select\"],\"children\":[{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-a\",\"ref_id\":\"@sl9bzizjaytct:e20\",\"role\":\"tab\",\"states\":[\"selected\"]},{\"available_actions\":[\"Select\"],\"name\":\"zoo-tab-b\",\"ref_id\":\"@sl9bzizjaytct:e21\",\"role\":\"tab\"}],\"ref_id\":\"@sl9bzizjaytct:e19\",\"role\":\"tablist\"}],\"role\":\"group\"}],\"name\":\"zoo-tabs\",\"role\":\"group\"},{\"available_actions\":[\"Select\",\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-1\",\"ref_id\":\"@sl9bzizjaytct:e23\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-2\",\"ref_id\":\"@sl9bzizjaytct:e24\",\"role\":\"option\"},{\"available_actions\":[\"Select\",\"SetFocus\"],\"name\":\"zoo-row-3\",\"ref_id\":\"@sl9bzizjaytct:e25\",\"role\":\"option\"}],\"name\":\"zoo-list\",\"ref_id\":\"@sl9bzizjaytct:e22\",\"role\":\"listbox\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-disabled\",\"ref_id\":\"@sl9bzizjaytct:e26\",\"role\":\"button\",\"states\":[\"disabled\"]},{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"zoo-offscreen\",\"ref_id\":\"@sl9bzizjaytct:e28\",\"role\":\"button\",\"states\":[\"offscreen\"]}],\"role\":\"group\",\"states\":[\"offscreen\"]}],\"role\":\"group\"},{\"available_actions\":[\"SetValue\"],\"name\":\"zoo-scroll-vscroll\",\"ref_id\":\"@sl9bzizjaytct:e29\",\"role\":\"scrollbar\",\"value\":\"0\"}],\"ref_id\":\"@sl9bzizjaytct:e27\",\"r"
+    }
+  ]
+}

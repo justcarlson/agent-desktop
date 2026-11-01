@@ -1,0 +1,115 @@
+suite: /home/omarchy/out/suites/wayland
+image: b84cf47803f4465267e7f4d0fd898ea2cbd5c8467000afb8f32a9590e3396da3  /home/omarchy/src/agent-desktop-bin/agent-desktop
+image: 1ab27702fbfc27dfd468b52e088683ef4067eaee7c03586c44be581868cd7601  /home/omarchy/src/agent-desktop-bin/agent-desktop-linux-clipboard-owner
+cancel-ready: /home/omarchy/out/suites/wayland/wayland.ready.json {"pid": 138508, "start": 74199, "runtime": "/run/user/1000/agent-desktop-sessions/rt.IcEBPK", "marker": "/run/user/1000/agent-desktop-sessions/rt.IcEBPK/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py"}
+name | role | states | action | expected | observed | verdict
+zoo-button | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-open-dialog | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-open-chooser | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-toggle | switch | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-check | checkbox | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-radio-a | radiobutton | ['checked'] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-radio-b | radiobutton | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-switch | switch | [] | ['toggle', 'click'] | ['land', 'land'] | [{'action': 'toggle', 'refused': False, 'log': True, 'raw': True}, {'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-combo | combobox | [] | ['click', 'select'] | ['land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+None | menu | ['hidden'] | ['select'] | ['refuse'] | [{'action': 'select', 'refused': True, 'log': False, 'raw': False}] | pass
+Alpha | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+Bravo | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+Charlie | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-spin | incrementor | [] | ['click', 'set-value'] | ['land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-scale | slider | [] | ['set-value'] | ['land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-entry | textfield | [] | ['click', 'set-value', 'type'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-password | textfield | ['secure'] | ['click', 'set-value', 'type'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-text | textfield | [] | ['set-value', 'type'] | ['land', 'land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-menubutton | switch | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-menu-item | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-link | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-expander | switch | [] | ['click', 'expand', 'collapse'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'expand', 'refused': False, 'log': True, 'raw': True}, {'action': 'collapse', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tabs | tablist | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tab-a | tab | ['selected'] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tab-b | tab | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-list | listbox | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-1 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-2 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-3 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-disabled | button | ['disabled'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-hidden | button | ['hidden'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-toolbar-hidden | button | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-offscreen | button | ['offscreen'] | ['click'] | ['land-or-refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-scroll-hscroll | scrollbar | ['offscreen'] | ['set-value'] | ['refuse'] | [{'action': 'set-value', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-scroll-vscroll | scrollbar | [] | ['set-value'] | ['land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+Close | button | [] | ['click'] | ['land'] | [{'action': 'click', 'succeeded': True, 'log': True, 'raw': True}] | pass
+name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+zoo-open-message | button | [] | click/window workflow | land | raw Zoo Message, listed title, surface and effects verified | pass
+zoo-open-toplevel-button | button | [] | click/window workflow | land | raw Zoo Top Button, listed title, surface and effects verified | pass
+tier wayland
+  headless
+    pass             gaps.wayland_window_capture_refused
+    pass             ref_contract.zoo_gtk3
+      finding: name | role | states | action | expected | observed | verdict
+zoo-button | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-open-dialog | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-open-chooser | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-toggle | switch | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-check | checkbox | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-radio-a | radiobutton | ['checked'] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-radio-b | radiobutton | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-switch | switch | [] | ['toggle', 'click'] | ['land', 'land'] | [{'action': 'toggle', 'refused': False, 'log': True, 'raw': True}, {'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-combo | combobox | [] | ['click', 'select'] | ['land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+None | menu | ['hidden'] | ['select'] | ['refuse'] | [{'action': 'select', 'refused': True, 'log': False, 'raw': False}] | pass
+Alpha | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+Bravo | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+Charlie | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-spin | incrementor | [] | ['click', 'set-value'] | ['land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-scale | slider | [] | ['set-value'] | ['land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-entry | textfield | [] | ['click', 'set-value', 'type'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-password | textfield | ['secure'] | ['click', 'set-value', 'type'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-text | textfield | [] | ['set-value', 'type'] | ['land', 'land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}, {'action': 'type', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-menubutton | switch | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-menu-item | menuitem | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-link | button | [] | ['click'] | ['land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-expander | switch | [] | ['click', 'expand', 'collapse'] | ['land', 'land', 'land'] | [{'action': 'click', 'refused': False, 'log': True, 'raw': True}, {'action': 'expand', 'refused': False, 'log': True, 'raw': True}, {'action': 'collapse', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tabs | tablist | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tab-a | tab | ['selected'] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-tab-b | tab | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-list | listbox | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-1 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-2 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-row-3 | option | [] | ['select'] | ['land'] | [{'action': 'select', 'refused': False, 'log': True, 'raw': True}] | pass
+zoo-disabled | button | ['disabled'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-hidden | button | ['hidden'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-toolbar-hidden | button | ['offscreen'] | ['click'] | ['refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-offscreen | button | ['offscreen'] | ['click'] | ['land-or-refuse'] | [{'action': 'click', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-scroll-hscroll | scrollbar | ['offscreen'] | ['set-value'] | ['refuse'] | [{'action': 'set-value', 'refused': True, 'log': False, 'raw': False}] | pass
+zoo-scroll-vscroll | scrollbar | [] | ['set-value'] | ['land'] | [{'action': 'set-value', 'refused': False, 'log': True, 'raw': True}] | pass
+Close | button | [] | ['click'] | ['land'] | [{'action': 'click', 'succeeded': True, 'log': True, 'raw': True}] | pass
+    pass             ref_contract.zoo_gtk3_windows
+      finding: name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+    pass             ref_contract.zoo_gtk4_windows
+      finding: name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+    pass             ref_contract.zoo_qt_windows
+      finding: name | role | states | action | expected | observed | verdict
+zoo-open-dialog | button | [] | click/window workflow | land | raw Zoo Dialog, listed title, surface and effects verified | pass
+zoo-open-chooser | button | [] | click/window workflow | land | raw Zoo Save, listed title, surface and effects verified | pass
+zoo-open-message | button | [] | click/window workflow | land | raw Zoo Message, listed title, surface and effects verified | pass
+zoo-open-toplevel-button | button | [] | click/window workflow | land | raw Zoo Top Button, listed title, surface and effects verified | pass
+    pass             session.other_wayland_route_unchanged
+    pass             wayland_actions.focus_window_wayland_session_refusal
+    pass             wayland_actions.list_windows_no_position
+    pass             wayland_actions.semantic_click_without_seat
+    pass             wayland_actions.unhealthy_shell_named_reason
+  headed
+    pass             wayland_actions.headed_ref_refusal
+summary: pass 11

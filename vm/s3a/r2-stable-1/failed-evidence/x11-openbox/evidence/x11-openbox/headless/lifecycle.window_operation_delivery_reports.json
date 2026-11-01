@@ -1,0 +1,384 @@
+{
+  "leg": "lifecycle.window_operation_delivery_reports",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 1797.0900200000415,
+  "exception_traceback": "",
+  "reads": {
+    "x11.geometry": {
+      "before": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ],
+      "after": [
+        [
+          475,
+          112,
+          370,
+          616
+        ]
+      ],
+      "restored": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ]
+    },
+    "x11.resize": {
+      "before": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ],
+      "after": [
+        [
+          455,
+          92,
+          410,
+          646
+        ]
+      ],
+      "restored": [
+        [
+          455,
+          92,
+          370,
+          616
+        ]
+      ]
+    },
+    "x11.minimized": {
+      "before": [
+        false
+      ],
+      "after": [
+        true
+      ],
+      "restored": [
+        false
+      ]
+    },
+    "x11.missing_move-window": {
+      "before": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "after": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "restored": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ]
+    },
+    "x11.missing_resize-window": {
+      "before": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "after": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "restored": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ]
+    },
+    "x11.missing_minimize": {
+      "before": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "after": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ],
+      "restored": [
+        [
+          [
+            455,
+            92,
+            370,
+            616
+          ],
+          false
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "move-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--x",
+        "475",
+        "--y",
+        "112"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 156.77286100003585,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"move-window\",\"data\":{\"action\":\"move-window\",\"details\":{\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_position\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_move\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"x\":475.0,\"y\":112.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "move-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--x",
+        "455",
+        "--y",
+        "92"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 158.98059100004502,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"move-window\",\"data\":{\"action\":\"move-window\",\"details\":{\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_position\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_move\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"x\":455.0,\"y\":92.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "resize-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--width",
+        "410",
+        "--height",
+        "646"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 164.40764899994065,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"resize-window\",\"data\":{\"action\":\"resize-window\",\"details\":{\"observed\":{\"height\":646,\"hidden\":false,\"maximized_horizontal\":false,\"maximized_vertical\":false,\"width\":410,\"x\":455,\"y\":92},\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_size\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"height\":646.0,\"steps\":[{\"label\":\"window_resize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"width\":410.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "resize-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--width",
+        "370",
+        "--height",
+        "616"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 158.9426519999506,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"resize-window\",\"data\":{\"action\":\"resize-window\",\"details\":{\"observed\":{\"height\":616,\"hidden\":false,\"maximized_horizontal\":false,\"maximized_vertical\":false,\"width\":370,\"x\":455,\"y\":92},\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_size\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"height\":616.0,\"steps\":[{\"label\":\"window_resize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"width\":370.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 33.571649999998954,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"minimize\",\"data\":{\"action\":\"minimize\",\"details\":{\"verification_scope\":\"window_minimized_state\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_minimize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "restore",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 34.99216999989585,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"restore\",\"data\":{\"action\":\"restore\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_restore\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "move-window",
+        "--window-id",
+        "w-missing",
+        "--x",
+        "100",
+        "--y",
+        "100"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-missing' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 19.69004000000041,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"move-window\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-missing' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "resize-window",
+        "--window-id",
+        "w-missing",
+        "--width",
+        "100",
+        "--height",
+        "100"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-missing' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 20.221936999973877,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"resize-window\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-missing' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "minimize",
+        "--window-id",
+        "w-missing"
+      ],
+      "ok": false,
+      "error": {
+        "code": "WINDOW_NOT_FOUND",
+        "message": "Window 'w-missing' was not found",
+        "suggestion": "Run 'list-windows' to refresh window IDs, then retry.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 22.037932999978693,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"minimize\",\"error\":{\"code\":\"WINDOW_NOT_FOUND\",\"message\":\"Window 'w-missing' was not found\",\"suggestion\":\"Run 'list-windows' to refresh window IDs, then retry.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "restore",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 33.57468500007599,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"restore\",\"data\":{\"action\":\"restore\",\"disposition\":{\"delivery\":\"delivered_unverified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_restore\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\"}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "resize-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--width",
+        "370",
+        "--height",
+        "616"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 157.79343200006224,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"resize-window\",\"data\":{\"action\":\"resize-window\",\"details\":{\"observed\":{\"height\":616,\"hidden\":false,\"maximized_horizontal\":false,\"maximized_vertical\":false,\"width\":370,\"x\":455,\"y\":92},\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_size\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"height\":616.0,\"steps\":[{\"label\":\"window_resize\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"width\":370.0}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "move-window",
+        "--window-id",
+        "w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd",
+        "--x",
+        "455",
+        "--y",
+        "92"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 153.77950200002033,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"move-window\",\"data\":{\"action\":\"move-window\",\"details\":{\"tolerance\":2.0,\"units\":\"pixels\",\"verification_scope\":\"window_position\"},\"disposition\":{\"delivery\":\"delivered_verified\",\"retry\":\"unsafe\"},\"steps\":[{\"label\":\"window_move\",\"mechanism\":\"semantic_api\",\"outcome\":\"succeeded\",\"verified\":true}],\"target\":{\"id\":\"w-1.1179-org-gnome-Calculator-a11y-f57e2e06_f517_45c6_90f5_32ba611e23bd\",\"kind\":\"window\",\"process\":{\"instance\":\"5589b0cb:62485\",\"pid\":127068},\"title\":\"Calculator\"},\"x\":455.0,\"y\":92.0}}\n"
+    }
+  ]
+}

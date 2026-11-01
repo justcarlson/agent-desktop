@@ -1,0 +1,43 @@
+suite: /home/omarchy/out/suites/hyprland
+image: 902b015d9e0575a5abe0bf047dd83b737b42ac9d0548f1d4c6dae684bdcc6b33  /home/omarchy/src/agent-desktop-bin/agent-desktop
+image: cc11a99f1d35a06b63546d5e0dca03fd0759c66dbf469ec9482a96fa0c46e459  /home/omarchy/src/agent-desktop-bin/agent-desktop-linux-clipboard-owner
+cancel-ready: /home/omarchy/out/suites/hyprland/hyprland.ready.json {"pid": 150479, "start": 83240, "runtime": "/run/user/1000/agent-desktop-sessions/rt.r31_lv1x", "marker": "/run/user/1000/agent-desktop-sessions/rt.r31_lv1x/harness-owner", "runner": "/home/omarchy/src/agent-desktop/tests/e2e-linux/runner/main.py", "attached": "/home/omarchy/out/suites/hyprland/hyprland.attached.json"}
+evidence: outer-window before {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window with-calculator {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+evidence: outer-window after {"at": [12, 38], "floating": false, "fullscreen": 0, "monitor": 0, "pinned": false, "size": [1256, 750], "workspace": {"address": "special:ad_e2e_nested", "name": "special:ad_e2e_nested", "type": "special"}}
+tier hyprland
+  headless
+    pass             batch_contract.entry_failure_and_stop_on_error
+    pass             capture.hyprland_bound_toplevel_pixels
+    pass             capture.hyprland_deadline_or_cancel_released
+      finding: batch budgets and outcomes: [(10, 'deadline'), (20, 'capture_frame'), (30, 'capture_frame'), (40, 'capture_frame'), (50, 'capture_frame'), (60, 'capture_frame'), (80, 'capture_frame'), (250, 'capture_frame'), (1000, 'captured')]
+    pass             capture.hyprland_hidden_counter_frame_after_request
+    pass             capture.hyprland_in_view_first_frame
+      finding: in view still, record only: screenshot 547 ms, batch 554 ms
+    pass             capture.hyprland_permission_denied_no_dialog
+    pass             capture.hyprland_screen_exact_output
+    pass             capture.hyprland_static_frame_after_request
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             error_contract.recoverable_error_envelopes
+    pass             identity.hyprland_accessible_listed_once
+    pass             identity.hyprland_closed_window_not_found
+    pass             identity.hyprland_compositor_only_id
+    pass             identity.hyprland_twins_by_size_or_ambiguous
+    pass             lifecycle.hyprland_close_app_every_window
+    pass             lifecycle.hyprland_close_app_gone_app_not_found
+    pass             non_interference.active_window_unchanged_by_semantic_click
+    pass             non_interference.headless_route_preserves_desktop
+    pass             observation.hyprland_displays_match_monitors
+    pass             session.cancel_cleanup_recorded_generations
+    pass             session.hyprland_absent_keeps_generic_route
+    pass             session.hyprland_dead_named_instance_refused
+    pass             session.hyprland_live_instance_binds
+  headed
+    pass             error_contract.hyprland_delivery_boundaries
+    pass             focus.hyprland_closed_window_not_found
+    pass             focus.hyprland_other_workspace
+    pass             focus.hyprland_same_size_twins_ambiguous
+    pass             focus.hyprland_twin_after_sizes_differ
+    pass             non_interference.headed_changes_only_target
+    pass             session.cancel_cleanup_recorded_generations
+summary: pass 30

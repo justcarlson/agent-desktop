@@ -1,0 +1,141 @@
+{
+  "leg": "capture.hyprland_screen_exact_output",
+  "tier": "hyprland",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 3281.865903000039,
+  "exception_traceback": "",
+  "reads": {
+    "hyprland.desktop": {
+      "before": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "after": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ],
+      "restored": [
+        {
+          "active_window": {
+            "address": "0x55b325518b30",
+            "pid": 148612,
+            "class": "foot",
+            "initialTitle": "ad-bystander"
+          },
+          "cursor": {
+            "x": 640,
+            "y": 400
+          },
+          "workspace": "1",
+          "monitors": [
+            [
+              "Virtual-1",
+              true,
+              "1",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    "hyprland.outputs": {
+      "before": [
+        [
+          "Virtual-1"
+        ]
+      ],
+      "after": [
+        [
+          "AD-E2E-1",
+          "Virtual-1"
+        ]
+      ],
+      "restored": [
+        [
+          "Virtual-1"
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "list-displays"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 6.006809000041358,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"list-displays\",\"data\":[{\"bounds\":{\"height\":800.0,\"width\":1280.0,\"x\":0.0,\"y\":0.0},\"id\":\"Virtual-1\",\"is_primary\":true,\"scale\":1.0},{\"bounds\":{\"height\":640.0,\"width\":1024.0,\"x\":-1024.0,\"y\":-640.0},\"id\":\"AD-E2E-1\",\"is_primary\":false,\"scale\":1.25}]}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--screen",
+        "0",
+        "/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-screen-0.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 78.83012799993594,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":800,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-screen-0.png\",\"scale_factor\":1.0,\"width\":1280}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/hyprland/bin/agent-desktop",
+        "screenshot",
+        "--screen",
+        "1",
+        "/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-screen-1.png"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 91.7873310000914,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"screenshot\",\"data\":{\"format\":\"png\",\"height\":800,\"path\":\"/run/user/1000/agent-desktop-sessions/rt.vd6_kzrd/capture-screen-1.png\",\"scale_factor\":1.25,\"width\":1280}}\n"
+    }
+  ]
+}

@@ -17,6 +17,7 @@ part of this branch.
 | `probes/` | Probe scripts `p1`–`p5`, helpers, and raw output |
 | `probes/wlprobe/` | Throwaway Rust Wayland client used by the probes (`Cargo.toml`, `Cargo.lock`, `protocols/`, `src/`) |
 | `probes/out/` | Logs, JSON and PNG captures from the nested session; `host/` holds read-only host reads with titles and classes generalized |
+| `vm/` | Omarchy VM runs for the counted heads of slots S2 to S5 (fork PRs #12 and #16 to #21): one folder per slot with head SHA, image versions, tier logs and leg summaries |
 
 The probe scripts expect a GTK3 test app (button "Increment", entry, checkbox
 "Opt", window title `ADTest`) at `$APP`; use `APP=probes/gtk3_app.py`. Build the

@@ -1,0 +1,42 @@
+{
+  "leg": "menus.wait_menu_closes_calculator",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 2166.9825660000015,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.menu_visible": {
+      "before": [
+        true
+      ],
+      "after": [
+        false
+      ],
+      "restored": [
+        true
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "wait",
+        "--menu-closed",
+        "--app",
+        "gnome-calculator",
+        "--timeout",
+        "4000"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 294.6540399999549,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"wait\",\"data\":{\"elapsed_ms\":288,\"found\":true}}\n"
+    }
+  ]
+}

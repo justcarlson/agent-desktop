@@ -1,0 +1,110 @@
+{
+  "leg": "observation.trace_segment_written",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 373.21803099996487,
+  "exception_traceback": "",
+  "reads": {
+    "proc": {
+      "before": [
+        []
+      ],
+      "after": [
+        [
+          {
+            "event": "trace.meta",
+            "os": "linux",
+            "pid": 124090,
+            "proc_start_ms": 1793509250478,
+            "schema": 1,
+            "seq": 0,
+            "session_id": "run-1793509250466-124085-0",
+            "ts_ms": 1793509250478,
+            "version": "1.0.2",
+            "writer_pid": 124090,
+            "writer_proc_start_ms": 1793509250478
+          },
+          {
+            "command": "snapshot",
+            "event": "command.start",
+            "seq": 1,
+            "session_id": "run-1793509250466-124085-0",
+            "ts_ms": 1793509250478,
+            "writer_pid": 124090,
+            "writer_proc_start_ms": 1793509250478
+          },
+          {
+            "app": "gnome-calculator",
+            "event": "snapshot.saved",
+            "ref_count": 40,
+            "seq": 2,
+            "session_id": "run-1793509250466-124085-0",
+            "snapshot_id": "s1ac3um91txe4h",
+            "ts_ms": 1793509250586,
+            "writer_pid": 124090,
+            "writer_proc_start_ms": 1793509250478
+          },
+          {
+            "command": "snapshot",
+            "duration_ms": 108,
+            "event": "command.end",
+            "ok": true,
+            "seq": 3,
+            "session_id": "run-1793509250466-124085-0",
+            "ts_ms": 1793509250586,
+            "writer_pid": 124090,
+            "writer_proc_start_ms": 1793509250478
+          }
+        ]
+      ],
+      "restored": [
+        []
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "start"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 1.4820500000496395,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"activation\":{\"environment\":\"AGENT_DESKTOP_SESSION\",\"value\":\"run-1793509250466-124085-0\"},\"artifacts\":\"events\",\"created_at\":1793509250466,\"name\":null,\"next\":\"export AGENT_DESKTOP_SESSION=run-1793509250466-124085-0\",\"session_id\":\"run-1793509250466-124085-0\",\"trace\":\"on\"}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "--session",
+        "run-1793509250466-124085-0",
+        "snapshot",
+        "-i",
+        "--window-id",
+        "w-1.798-org-gnome-Calculator-a11y-622d882a_ec5c_4257_bf5a_0a76e723e730"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 113.15078799998446,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"snapshot\",\"data\":{\"app\":\"gnome-calculator\",\"complete\":true,\"ref_count\":40,\"snapshot_id\":\"s1ac3um91txe4h\",\"tree\":{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"listbox\"},\"ref_id\":\"@s1ac3um91txe4h:e2\",\"role\":\"listbox\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"viewport\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"scrolled_window\"},\"ref_id\":\"@s1ac3um91txe4h:e1\",\"role\":\"scrollarea\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"history\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"available_actions\":[\"SetFocus\",\"Scroll\"],\"children\":[{\"available_actions\":[\"RightClick\",\"SetValue\",\"TypeText\",\"SetFocus\"],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"source_view\"},\"ref_id\":\"@s1ac3um91txe4h:e4\",\"role\":\"textfield\",\"states\":[\"focused\"]}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_scrolled\"},\"ref_id\":\"@s1ac3um91txe4h:e3\",\"role\":\"scrollarea\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"Backspace\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"backspace_button\"},\"ref_id\":\"@s1ac3um91txe4h:e5\",\"role\":\"button\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"___object_1___\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"_display\"},\"role\":\"group\"}],\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"display_box\"},\"role\":\"group\"},{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"children\":[{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Clear Display [Escape]\",\"name\":\"C\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_clear_button\"},\"ref_id\":\"@s1ac3um91txe4h:e6\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Superscript Mode [Ctrl]\",\"name\":\"\u2191n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_superscript_button\"},\"ref_id\":\"@s1ac3um91txe4h:e7\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"description\":\"Subscript Mode [Alt]\",\"name\":\"\u2193n\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_subscript_button\"},\"ref_id\":\"@s1ac3um91txe4h:e8\",\"role\":\"switch\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"7\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_7_button\"},\"ref_id\":\"@s1ac3um91txe4h:e9\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"8\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_8_button\"},\"ref_id\":\"@s1ac3um91txe4h:e10\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"9\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_9_button\"},\"ref_id\":\"@s1ac3um91txe4h:e11\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"4\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_4_button\"},\"ref_id\":\"@s1ac3um91txe4h:e12\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"5\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_5_button\"},\"ref_id\":\"@s1ac3um91txe4h:e13\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"6\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_6_button\"},\"ref_id\":\"@s1ac3um91txe4h:e14\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"1\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_1_button\"},\"ref_id\":\"@s1ac3um91txe4h:e15\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"2\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_2_button\"},\"ref_id\":\"@s1ac3um91txe4h:e16\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"3\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_3_button\"},\"ref_id\":\"@s1ac3um91txe4h:e17\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\"0\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_0_button\"},\"ref_id\":\"@s1ac3um91txe4h:e18\",\"role\":\"button\"},{\"available_actions\":[\"Click\",\"SetFocus\"],\"name\":\".\",\"native_id\":{\"kind\":\"ax_identifier\",\"value\":\"calc_numeric_point_button\"},\"ref_id\":\"@s1ac3um91txe4h:e19\""
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "session",
+        "end",
+        "run-1793509250466-124085-0"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 3.1570419999980004,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"session\",\"data\":{\"ended_at\":1793509250597,\"session_id\":\"run-1793509250466-124085-0\"}}\n"
+    }
+  ]
+}

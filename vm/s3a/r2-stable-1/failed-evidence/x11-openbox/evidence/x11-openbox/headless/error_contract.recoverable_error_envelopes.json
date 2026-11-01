@@ -1,0 +1,484 @@
+{
+  "leg": "error_contract.recoverable_error_envelopes",
+  "tier": "x11-openbox",
+  "mode": "headless",
+  "outcome": "pass",
+  "detail": "",
+  "elapsed_ms": 591.4827949999335,
+  "exception_traceback": "",
+  "reads": {
+    "atspi.display": {
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ],
+      "restored": [
+        ""
+      ]
+    },
+    "proc.members": {
+      "before": [
+        [
+          [
+            119473,
+            55750,
+            "dbus-daemon"
+          ],
+          [
+            119478,
+            55760,
+            "Xvfb"
+          ],
+          [
+            119492,
+            55771,
+            "at-spi-bus-laun"
+          ],
+          [
+            119497,
+            55771,
+            "gvfsd"
+          ],
+          [
+            119503,
+            55772,
+            "gvfsd-fuse"
+          ],
+          [
+            119505,
+            55772,
+            "dbus-broker-lau"
+          ],
+          [
+            119507,
+            55772,
+            "dbus-broker"
+          ],
+          [
+            119530,
+            55773,
+            "at-spi2-registr"
+          ],
+          [
+            119553,
+            55784,
+            "openbox"
+          ],
+          [
+            119562,
+            55795,
+            "bash"
+          ],
+          [
+            119608,
+            55817,
+            "xdg-desktop-por"
+          ],
+          [
+            119614,
+            55817,
+            "xdg-permission-"
+          ],
+          [
+            119620,
+            55818,
+            "xdg-document-po"
+          ],
+          [
+            119630,
+            55818,
+            "xdg-desktop-por"
+          ],
+          [
+            119638,
+            55821,
+            "xdg-desktop-por"
+          ],
+          [
+            119646,
+            55826,
+            "gnome-keyring-d"
+          ],
+          [
+            119717,
+            55900,
+            "gvfs-udisks2-vo"
+          ],
+          [
+            119723,
+            55901,
+            "gvfs-mtp-volume"
+          ],
+          [
+            119728,
+            55902,
+            "gvfsd-trash"
+          ],
+          [
+            119738,
+            55907,
+            "localsearch-3"
+          ],
+          [
+            119774,
+            55920,
+            "gvfsd-recent"
+          ],
+          [
+            119781,
+            55921,
+            "gvfsd-network"
+          ],
+          [
+            119832,
+            55941,
+            "gvfsd-metadata"
+          ],
+          [
+            130290,
+            66677,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "after": [
+        [
+          [
+            119473,
+            55750,
+            "dbus-daemon"
+          ],
+          [
+            119478,
+            55760,
+            "Xvfb"
+          ],
+          [
+            119492,
+            55771,
+            "at-spi-bus-laun"
+          ],
+          [
+            119497,
+            55771,
+            "gvfsd"
+          ],
+          [
+            119503,
+            55772,
+            "gvfsd-fuse"
+          ],
+          [
+            119505,
+            55772,
+            "dbus-broker-lau"
+          ],
+          [
+            119507,
+            55772,
+            "dbus-broker"
+          ],
+          [
+            119530,
+            55773,
+            "at-spi2-registr"
+          ],
+          [
+            119553,
+            55784,
+            "openbox"
+          ],
+          [
+            119562,
+            55795,
+            "bash"
+          ],
+          [
+            119608,
+            55817,
+            "xdg-desktop-por"
+          ],
+          [
+            119614,
+            55817,
+            "xdg-permission-"
+          ],
+          [
+            119620,
+            55818,
+            "xdg-document-po"
+          ],
+          [
+            119630,
+            55818,
+            "xdg-desktop-por"
+          ],
+          [
+            119638,
+            55821,
+            "xdg-desktop-por"
+          ],
+          [
+            119646,
+            55826,
+            "gnome-keyring-d"
+          ],
+          [
+            119717,
+            55900,
+            "gvfs-udisks2-vo"
+          ],
+          [
+            119723,
+            55901,
+            "gvfs-mtp-volume"
+          ],
+          [
+            119728,
+            55902,
+            "gvfsd-trash"
+          ],
+          [
+            119738,
+            55907,
+            "localsearch-3"
+          ],
+          [
+            119774,
+            55920,
+            "gvfsd-recent"
+          ],
+          [
+            119781,
+            55921,
+            "gvfsd-network"
+          ],
+          [
+            119832,
+            55941,
+            "gvfsd-metadata"
+          ],
+          [
+            130290,
+            66677,
+            "gnome-calculato"
+          ]
+        ]
+      ],
+      "restored": [
+        [
+          [
+            119473,
+            55750,
+            "dbus-daemon"
+          ],
+          [
+            119478,
+            55760,
+            "Xvfb"
+          ],
+          [
+            119492,
+            55771,
+            "at-spi-bus-laun"
+          ],
+          [
+            119497,
+            55771,
+            "gvfsd"
+          ],
+          [
+            119503,
+            55772,
+            "gvfsd-fuse"
+          ],
+          [
+            119505,
+            55772,
+            "dbus-broker-lau"
+          ],
+          [
+            119507,
+            55772,
+            "dbus-broker"
+          ],
+          [
+            119530,
+            55773,
+            "at-spi2-registr"
+          ],
+          [
+            119553,
+            55784,
+            "openbox"
+          ],
+          [
+            119562,
+            55795,
+            "bash"
+          ],
+          [
+            119608,
+            55817,
+            "xdg-desktop-por"
+          ],
+          [
+            119614,
+            55817,
+            "xdg-permission-"
+          ],
+          [
+            119620,
+            55818,
+            "xdg-document-po"
+          ],
+          [
+            119630,
+            55818,
+            "xdg-desktop-por"
+          ],
+          [
+            119638,
+            55821,
+            "xdg-desktop-por"
+          ],
+          [
+            119646,
+            55826,
+            "gnome-keyring-d"
+          ],
+          [
+            119717,
+            55900,
+            "gvfs-udisks2-vo"
+          ],
+          [
+            119723,
+            55901,
+            "gvfs-mtp-volume"
+          ],
+          [
+            119728,
+            55902,
+            "gvfsd-trash"
+          ],
+          [
+            119738,
+            55907,
+            "localsearch-3"
+          ],
+          [
+            119774,
+            55920,
+            "gvfsd-recent"
+          ],
+          [
+            119781,
+            55921,
+            "gvfsd-network"
+          ],
+          [
+            119832,
+            55941,
+            "gvfsd-metadata"
+          ],
+          [
+            130290,
+            66677,
+            "gnome-calculato"
+          ]
+        ]
+      ]
+    }
+  },
+  "findings": [],
+  "owned_baseline": [],
+  "owned_final": [],
+  "products": [
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "find",
+        "--exact",
+        "--limit",
+        "0",
+        "--role",
+        "button",
+        "--name",
+        "7",
+        "--window-id",
+        "w-1.1734-org-gnome-Calculator-a11y-e54b9f13_3fd8_44c2_a0bb_0bb1ae185c4c"
+      ],
+      "ok": true,
+      "error": null,
+      "elapsed_ms": 101.3042150000274,
+      "raw": "{\"version\":\"2.5\",\"ok\":true,\"command\":\"find\",\"data\":{\"matches\":[{\"interactive\":true,\"name\":\"7\",\"path\":[\"window:Calculator\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\",\"group\"],\"ref_id\":\"@s2u1cbpbfv888n:e1\",\"role\":\"button\",\"states\":[],\"value\":null}],\"snapshot_id\":\"s2u1cbpbfv888n\",\"total_matches\":1,\"truncated\":false}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "INVALID_ARGS",
+        "message": "Invalid ref_id '@e1': expected @<snapshot_id>:e<N>",
+        "suggestion": "Use the snapshot-qualified ref that snapshot prints, for example @s8f3k2p9:e1. A bare @eN ref is not accepted.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 3.946833999975752,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"INVALID_ARGS\",\"message\":\"Invalid ref_id '@e1': expected @<snapshot_id>:e<N>\",\"suggestion\":\"Use the snapshot-qualified ref that snapshot prints, for example @s8f3k2p9:e1. A bare @eN ref is not accepted.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "click",
+        "@sdeadbeef:e1"
+      ],
+      "ok": false,
+      "error": {
+        "code": "SNAPSHOT_NOT_FOUND",
+        "message": "Snapshot 'sdeadbeef' not found",
+        "suggestion": "Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way",
+        "recovery": {
+          "strategy": "refresh_snapshot_then_retry_original",
+          "retryable": true,
+          "requires_fresh_snapshot": true
+        },
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 6.53932500006249,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"click\",\"error\":{\"code\":\"SNAPSHOT_NOT_FOUND\",\"message\":\"Snapshot 'sdeadbeef' not found\",\"suggestion\":\"Re-run a snapshot and retry with a ref from the returned snapshot (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). Snapshots are scoped to the session that took them, so take the snapshot under the same --session or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped action, and re-running it outside the session will fail the same way\",\"recovery\":{\"strategy\":\"refresh_snapshot_then_retry_original\",\"retryable\":true,\"requires_fresh_snapshot\":true},\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    },
+    {
+      "argv": [
+        "/home/omarchy/out/suites/x11-openbox/bin/agent-desktop",
+        "snapshot",
+        "--app",
+        "No Such App For Harness",
+        "-i"
+      ],
+      "ok": false,
+      "error": {
+        "code": "APP_NOT_FOUND",
+        "message": "No running application matches 'No Such App For Harness'",
+        "suggestion": "Run 'list-apps' to see running applications, or launch the app first.",
+        "disposition": {
+          "delivery": "not_delivered",
+          "retry": "safe"
+        }
+      },
+      "elapsed_ms": 22.9473639999469,
+      "raw": "{\"version\":\"2.5\",\"ok\":false,\"command\":\"snapshot\",\"error\":{\"code\":\"APP_NOT_FOUND\",\"message\":\"No running application matches 'No Such App For Harness'\",\"suggestion\":\"Run 'list-apps' to see running applications, or launch the app first.\",\"disposition\":{\"delivery\":\"not_delivered\",\"retry\":\"safe\"}}}\n"
+    }
+  ]
+}
