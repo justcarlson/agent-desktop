@@ -363,7 +363,7 @@ otherwise:
 | `cursor_renderer_stopped` | The renderer stopped before a travel arrived |
 | `cursor_renderer_bad_request` | The renderer could not read the request |
 | `cursor_renderer_start_timeout` | `TIMEOUT`: the renderer did not start listening in time |
-| `cursor_hide_timeout` | `TIMEOUT`, `not_delivered`: a live renderer did not acknowledge the hide before a capture or headed input within 500 ms; `details.pid` names it and nothing was sent |
+| `cursor_hide_timeout` | `TIMEOUT`, `not_delivered`: a live renderer did not acknowledge the hide before a capture or headed input within 500 ms; `details.pid` names it and nothing was sent. Every hide refusal carries `details.retryable: false`, so a ref action's wait ends at once and does not wait out its budget |
 | `cursor_hide_failed` | `not_delivered`: the hide holder could not be written, a renderer refused the hide, or the layer stack could not be read; `details.cause` is `holder`, `renderer_refused` or `layer_stack` |
 | `cursor_unknown_overlay` | `not_delivered`: an `agent-desktop-cursor` layer belongs to no renderer that hid; `details.layer_pid` and `details.layer_output` name it |
 | `cursor_hide_renewal_failed` | `uncertain`: work longer than 10 s could not renew its hide holder, so the input stopped before its next event |

@@ -195,7 +195,9 @@ the hide within 500 ms, the command fails with `TIMEOUT` and
 `ACTION_FAILED` and also send nothing: `cursor_hide_failed`,
 `cursor_renderer_incompatible` (another build's renderer runs on the
 compositor), and `cursor_unknown_overlay` (another program draws an
-`agent-desktop-cursor` layer). Retry after the cause is gone.
+`agent-desktop-cursor` layer). A hide refusal ends the command at once,
+with `details.retryable: false`; it is not retried inside the wait budget.
+Retry after the cause is gone.
 
 ## What differs on Linux
 
