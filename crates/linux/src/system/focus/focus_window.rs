@@ -306,6 +306,9 @@ pub(crate) fn focus_window(
     if shell::is_shell_window(win) {
         return Ok(());
     }
+    if let Some(binding) = crate::input::hyprland::hypr_route::bound_route()? {
+        return crate::system::hyprland::focus::focus_entry::focus_bound(binding, bus, win, lease);
+    }
     let deadline = lease.deadline();
     crate::system::display::display_server::require(deadline)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
