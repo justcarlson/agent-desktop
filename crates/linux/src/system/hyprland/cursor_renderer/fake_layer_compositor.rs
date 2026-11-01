@@ -6,6 +6,8 @@
 //! unless told to stay dark, as a compositor with every output off does.
 //! Started with outputs, it also offers the output layout: each output's
 //! mode and logical place, and a viewporter whose destinations it logs.
+//! One output can be slow: frames of surfaces pinned to it show only after
+//! the client has sent nothing for a while, logged as `slow output shown`.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -13,6 +15,12 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use wire::{Arg, done, message, text_at, word};
+
+#[path = "fake_wire.rs"]
+mod wire;
 
 /// The globals the fake advertises.
 pub(crate) const ADVERTISED: [(&str, u32); 6] = [
@@ -48,6 +56,15 @@ impl FakeLayerCompositor {
 
     /// Like `start`, offering the output layout with `outputs`.
     pub(crate) fn start_with_outputs(frames: bool, outputs: Vec<FakeOutput>) -> Self {
+        Self::start_with_slow_output(frames, outputs, None)
+    }
+
+    /// Like `start_with_outputs`, with the output at `slow` showing frames late.
+    pub(crate) fn start_with_slow_output(
+        frames: bool,
+        outputs: Vec<FakeOutput>,
+        slow: Option<usize>,
+    ) -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
             "agent-desktop-fake-layer-{}-{}",
@@ -61,7 +78,7 @@ impl FakeLayerCompositor {
         let served = Arc::clone(&log);
         std::thread::spawn(move || {
             if let Ok((stream, _)) = listener.accept() {
-                serve(stream, (frames, outputs), &served);
+                serve(stream, (frames, outputs, slow), &served);
             }
         });
         Self { socket, log, dir }
@@ -99,44 +116,6 @@ enum Kind {
     Other,
 }
 
-enum Arg<'a> {
-    Uint(u32),
-    Text(&'a str),
-}
-
-fn message(object: u32, opcode: u16, args: &[Arg<'_>]) -> Vec<u8> {
-    let mut body = Vec::new();
-    for arg in args {
-        match arg {
-            Arg::Uint(value) => body.extend_from_slice(&value.to_ne_bytes()),
-            Arg::Text(text) => {
-                let length = u32::try_from(text.len() + 1).expect("short text");
-                body.extend_from_slice(&length.to_ne_bytes());
-                body.extend_from_slice(text.as_bytes());
-                body.push(0);
-                while body.len() % 4 != 0 {
-                    body.push(0);
-                }
-            }
-        }
-    }
-    let size = u32::try_from(body.len() + 8).expect("short message");
-    let mut out = object.to_ne_bytes().to_vec();
-    out.extend_from_slice(&((size << 16) | u32::from(opcode)).to_ne_bytes());
-    out.extend_from_slice(&body);
-    out
-}
-
-fn word(bytes: &[u8], at: usize) -> u32 {
-    u32::from_ne_bytes(bytes[at..at + 4].try_into().expect("four bytes"))
-}
-
-fn text_at(bytes: &[u8], at: usize) -> (String, usize) {
-    let length = word(bytes, at) as usize;
-    let text = String::from_utf8_lossy(&bytes[at + 4..at + 4 + length.saturating_sub(1)]);
-    (text.into_owned(), at + 4 + length.div_ceil(4) * 4)
-}
-
 struct Server<'a> {
     objects: HashMap<u32, Kind>,
     frames: bool,
@@ -144,6 +123,9 @@ struct Server<'a> {
     layers: HashMap<u32, u32>,
     log: &'a Mutex<Vec<String>>,
     outputs: Vec<(u32, FakeOutput)>,
+    slow: Option<usize>,
+    pinned: HashMap<u32, u32>,
+    held: Vec<u32>,
 }
 
 impl Server<'_> {
@@ -295,6 +277,7 @@ impl Server<'_> {
         ));
         self.objects.insert(id, Kind::Layer(surface, false));
         self.layers.insert(surface, id);
+        self.pinned.insert(surface, output);
         Vec::new()
     }
 
@@ -329,22 +312,32 @@ impl Server<'_> {
             ));
         }
         if self.frames {
-            for callback in self.pending_frames.remove(&surface).unwrap_or_default() {
-                out.extend(done(callback));
+            let callbacks = self.pending_frames.remove(&surface).unwrap_or_default();
+            let slow = self.slow.and_then(|index| self.outputs.get(index));
+            if slow.is_some_and(|(id, _)| self.pinned.get(&surface) == Some(id)) {
+                self.held.extend(callbacks);
+            } else {
+                callbacks
+                    .into_iter()
+                    .for_each(|callback| out.extend(done(callback)));
             }
         }
         out
     }
+
+    fn show_held(&mut self) -> Vec<u8> {
+        if !self.held.is_empty() {
+            self.note("slow output shown".to_owned());
+        }
+        self.held.drain(..).flat_map(done).collect()
+    }
 }
 
-fn done(callback: u32) -> Vec<u8> {
-    let mut out = message(callback, 0, &[Arg::Uint(0)]);
-    out.extend(message(1, 1, &[Arg::Uint(callback)]));
-    out
-}
+type Setup = (bool, Vec<FakeOutput>, Option<usize>);
 
-fn serve(mut stream: UnixStream, setup: (bool, Vec<FakeOutput>), log: &Mutex<Vec<String>>) {
-    let (frames, outputs) = setup;
+fn serve(mut stream: UnixStream, setup: Setup, log: &Mutex<Vec<String>>) {
+    let (frames, outputs, slow) = setup;
+    let _ = stream.set_read_timeout(slow.map(|_| Duration::from_millis(150)));
     let mut server = Server {
         objects: HashMap::from([(1, Kind::Display)]),
         frames,
@@ -352,13 +345,24 @@ fn serve(mut stream: UnixStream, setup: (bool, Vec<FakeOutput>), log: &Mutex<Vec
         layers: HashMap::new(),
         log,
         outputs: outputs.into_iter().map(|output| (0, output)).collect(),
+        slow,
+        pinned: HashMap::new(),
+        held: Vec::new(),
     };
     let mut pending = Vec::new();
     let mut chunk = [0_u8; 4096];
     loop {
         let read = match stream.read(&mut chunk) {
-            Ok(0) | Err(_) => return,
+            Ok(0) => return,
             Ok(read) => read,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                let shown = server.show_held();
+                if stream.write_all(&shown).is_err() {
+                    return;
+                }
+                continue;
+            }
+            Err(_) => return,
         };
         pending.extend_from_slice(&chunk[..read]);
         while pending.len() >= 8 {
