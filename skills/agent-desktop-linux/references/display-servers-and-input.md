@@ -51,7 +51,7 @@ Other commands on Hyprland behave as on a generic Wayland session.
 | Observation, semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
-| Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused |
+| Window ops | EWMH on the X11 display | Bound Hyprland: every window through the compositor, move and resize floating only. Other compositors: Xwayland clients only; native windows and un-minimize refused |
 | `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included; on a bound Hyprland, `--headed focus-window` activates through the compositor |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Bound Hyprland: window or display, no dialog. Other compositors: portal consent, display only. Primary display by default, `--screen` picks a monitor |
