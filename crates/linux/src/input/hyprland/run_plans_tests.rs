@@ -12,6 +12,7 @@ use crate::input::keyboard::keymap::Keymap;
 use crate::input::mouse::pointer_plan::plan_click;
 use crate::input::mouse::wheel_plan::plan_wheel;
 use crate::input::step::Step;
+use crate::input::x11::progress::Progress;
 
 const LEFT: u32 = 0x110;
 
@@ -61,6 +62,7 @@ fn run(
             plan_gate: &mut || Ok(()),
             step_gate,
             deadline: deadline(5_000),
+            progress: &Progress::default(),
         },
         plans,
     )
@@ -226,11 +228,75 @@ fn an_expired_deadline_mid_run_releases_and_times_out() {
             plan_gate: &mut || Ok(()),
             step_gate: &mut || Ok(()),
             deadline: expired,
+            progress: &Progress::default(),
         },
         &click(1),
     )
     .err();
     assert_eq!(error.map(|e| e.code), Some(ErrorCode::Timeout));
+    assert!(sink.events.is_empty());
+}
+
+#[test]
+fn a_cancel_mid_run_stops_later_events_and_releases_the_held_button() {
+    let displays = displays();
+    let progress = std::sync::Arc::new(Progress::default());
+    let mut sink = FakePointerSink {
+        cancel_after: Some((2, std::sync::Arc::clone(&progress))),
+        ..FakePointerSink::default()
+    };
+    let error = run_plans(
+        &mut sink,
+        PointerRun {
+            displays: &displays,
+            plan_gate: &mut || Ok(()),
+            step_gate: &mut || Ok(()),
+            deadline: deadline(5_000),
+            progress: &progress,
+        },
+        &click(2),
+    )
+    .err()
+    .unwrap_or_else(|| panic!("a cancelled run must stop"));
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.unwrap_or_default();
+    assert_eq!(details["kind"], "hyprland_pointer");
+    assert_eq!(details["cause"], "cancelled");
+    assert_eq!(details["delivered_events"], 2);
+    assert_eq!(details["buttons_released"], true);
+    assert_eq!(
+        sink.events,
+        vec![
+            motion(),
+            SinkEvent::Button(LEFT, true),
+            SinkEvent::Recover(vec![LEFT]),
+        ]
+    );
+}
+
+#[test]
+fn a_run_cancelled_before_it_starts_sends_nothing() {
+    let mut sink = FakePointerSink::default();
+    let displays = displays();
+    let progress = Progress::default();
+    progress.cancel();
+    let error = run_plans(
+        &mut sink,
+        PointerRun {
+            displays: &displays,
+            plan_gate: &mut || Ok(()),
+            step_gate: &mut || Ok(()),
+            deadline: deadline(5_000),
+            progress: &progress,
+        },
+        &click(1),
+    )
+    .err();
+    assert_eq!(
+        error.map(|e| e.disposition),
+        Some(DeliverySemantics::not_delivered())
+    );
     assert!(sink.events.is_empty());
 }
 
