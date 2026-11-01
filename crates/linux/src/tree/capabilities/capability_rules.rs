@@ -1,7 +1,6 @@
 use agent_desktop_core::actions::capability;
 
-use super::scroll_capability::{eligible, wheel_target};
-use crate::system::display::display_server::{DisplayServer, session_server};
+use super::scroll_capability::{eligible, session_pointer_leg, wheel_target};
 use crate::tree::properties::node_read::COMPONENT_INTERFACE;
 use crate::tree::vocabulary::role_numbers::{
     CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, LIST_ITEM, PAGE_TAB, PASSWORD_TEXT,
@@ -232,12 +231,12 @@ pub(crate) fn scroll_tokens(node: &RawNode) -> Vec<&'static str> {
     if !wheel_target(*role, interfaces) {
         return Vec::new();
     }
-    scroll_tokens_with(node, &session_server())
+    scroll_tokens_with(node, session_pointer_leg())
 }
 
-pub(crate) fn scroll_tokens_with(node: &RawNode, session: &DisplayServer) -> Vec<&'static str> {
+pub(crate) fn scroll_tokens_with(node: &RawNode, pointer_leg: bool) -> Vec<&'static str> {
     match (node.traits.role.present(), node.traits.interfaces.present()) {
-        (Some(role), Some(interfaces)) if eligible(*role, interfaces, session) => {
+        (Some(role), Some(interfaces)) if eligible(*role, interfaces, pointer_leg) => {
             vec![capability::SCROLL]
         }
         _ => Vec::new(),

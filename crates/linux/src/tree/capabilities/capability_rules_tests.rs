@@ -1,9 +1,6 @@
 use agent_desktop_core::LocatorField;
 
 use super::{Facts, rule_tokens, scroll_tokens, scroll_tokens_with};
-use crate::system::display::display_cause::Cause;
-use crate::system::display::display_server::DisplayServer;
-use crate::system::display::display_unavailable::Unavailable;
 use crate::tree::capabilities::action_names::capabilities;
 use crate::tree::live::test_support::{read_of, words};
 use crate::tree::vocabulary::role_numbers::{
@@ -288,23 +285,12 @@ fn failed_decision_reads_are_unknown_but_layout_interfaces_are_not() {
 }
 
 #[test]
-fn scroll_policy_keeps_x11_wayland_and_bounds_gates() {
+fn scroll_policy_keeps_the_pointer_leg_and_bounds_gates() {
     let pane = node(SCROLL_PANE, &[SENSITIVE], &[COMPONENT], &[], 0);
-    let x11 = DisplayServer::X11(":9".to_owned());
-    assert_eq!(scroll_tokens_with(&pane, &x11), ["Scroll"]);
-    assert!(scroll_tokens_with(&pane, &DisplayServer::Wayland).is_empty());
+    assert_eq!(scroll_tokens_with(&pane, true), ["Scroll"]);
+    assert!(scroll_tokens_with(&pane, false).is_empty());
     assert!(
-        scroll_tokens_with(
-            &pane,
-            &DisplayServer::Unavailable(Unavailable {
-                cause: Cause::NotConfigured,
-                detail: String::new(),
-            })
-        )
-        .is_empty()
-    );
-    assert!(
-        scroll_tokens_with(&node(PUSH_BUTTON, &[SENSITIVE], &[COMPONENT], &[], 0), &x11).is_empty()
+        scroll_tokens_with(&node(PUSH_BUTTON, &[SENSITIVE], &[COMPONENT], &[], 0), true).is_empty()
     );
     assert!(scroll_tokens(&node(SCROLL_PANE, &[SENSITIVE], &[], &[], 0)).is_empty());
     for raw in [
