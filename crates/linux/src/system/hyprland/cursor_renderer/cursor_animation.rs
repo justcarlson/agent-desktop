@@ -1,7 +1,8 @@
 //! Drawing cursors. Every travelling cursor advances one frame per step:
 //! each moves its own surface to the next point of its shaped path, then
-//! the step waits once for the compositor's frame, at most one frame
-//! interval, so several agents' cursors travel at the same time. A travel's
+//! the step waits once for every frame it committed, on every output, at
+//! most one frame interval, so several agents' cursors travel at the same
+//! time. A travel's
 //! last frame lands on its destination, and its connection is handed back
 //! for the acknowledgement only after that frame.
 
@@ -24,20 +25,21 @@ pub(crate) fn step_travels(
     cursors: &mut AgentCursors,
 ) -> Result<Vec<UnixStream>, AdapterError> {
     let deadline = Deadline::detached_after(FRAME_WAIT_MS)?;
-    let mut last = None;
+    let mut frames: Option<(u32, u32)> = None;
     let mut arrived = Vec::new();
     for (key, cursor) in cursors.iter_mut() {
         let Some(travel) = &cursor.travel else {
             continue;
         };
         let (point, done) = travel.frame();
-        last = Some(stage(client, key, cursor, point, deadline)?);
+        let staged = stage(client, key, cursor, point, deadline)?;
+        frames = Some((frames.map_or(staged.0, |(after, _)| after), staged.1));
         if done {
             arrived.push(key.clone());
         }
     }
-    if let Some(mark) = last {
-        client.settle(mark, deadline)?;
+    if let Some(frames) = frames {
+        client.settle(frames, deadline)?;
     }
     Ok(arrived
         .iter()
@@ -64,8 +66,8 @@ pub(crate) fn draw_within(
     wait_ms: u64,
 ) -> Result<(), AdapterError> {
     let deadline = Deadline::detached_after(wait_ms)?;
-    let mark = stage(client, key, cursor, point, deadline)?;
-    client.settle(mark, deadline)
+    let frames = stage(client, key, cursor, point, deadline)?;
+    client.settle(frames, deadline)
 }
 
 fn stage(
@@ -74,7 +76,7 @@ fn stage(
     cursor: &mut AgentCursor,
     point: Point,
     deadline: Deadline,
-) -> Result<u32, AdapterError> {
+) -> Result<(u32, u32), AdapterError> {
     cursor.pose = Some(point.clone());
     client.stage_point(key, cursor, &point, deadline)
 }

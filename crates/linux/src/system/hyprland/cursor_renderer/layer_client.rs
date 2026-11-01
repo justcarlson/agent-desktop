@@ -87,26 +87,27 @@ impl LayerClient {
             offset: (0, 0),
             scale: 1.0,
         };
+        let after = self.state.frames_sent;
         let mark = self.stage(key, bitmap, &placement, deadline)?;
-        self.settle(mark, deadline)
+        self.settle((after, mark), deadline)
     }
 
     /// Commits `cursor`'s arrow with its tip on `point` on every output the
     /// arrow touches, clears that cursor's other surfaces, and returns the
-    /// frame mark to settle on. A point on no output shows nothing.
+    /// span of frames to settle on. A point on no output shows nothing.
     pub(crate) fn stage_point(
         &mut self,
         key: &str,
         cursor: &AgentCursor,
         point: &Point,
         deadline: Deadline,
-    ) -> Result<u32, AdapterError> {
+    ) -> Result<(u32, u32), AdapterError> {
         let layout = self.layout();
         let arrows = &mut self.arrows;
         let placements = place(point, &layout, |scale| {
             ArrowFrame::of(&arrows.at(cursor, scale))
         });
-        let mut mark = self.state.frames_sent;
+        let after = self.state.frames_sent;
         let mut shown = Vec::new();
         for placement in &placements {
             if placement
@@ -117,12 +118,11 @@ impl LayerClient {
             }
             let surface = SurfaceKey::placed(key, placement);
             let bitmap = self.arrows.at(cursor, placement.scale);
-            mark = self.stage(&surface, &bitmap, placement, deadline)?;
+            self.stage(&surface, &bitmap, placement, deadline)?;
             shown.push(surface);
         }
-        let cleared =
-            self.clear_frames(|surface| surface.cursor == key && !shown.contains(surface));
-        Ok(cleared.unwrap_or(mark))
+        self.clear_frames(|surface| surface.cursor == key && !shown.contains(surface));
+        Ok((after, self.state.frames_sent))
     }
 
     /// Whether `point` lies on an output, or the output layout is unknown.
@@ -184,10 +184,14 @@ impl LayerClient {
         Ok(surface.commit_frame(&self.link, &mut self.state, frame))
     }
 
-    /// Waits until the frame `mark` names has shown, or the compositor
-    /// shows nothing until `deadline`.
-    pub(crate) fn settle(&mut self, mark: u32, deadline: Deadline) -> Result<(), AdapterError> {
-        settle(&mut self.link, &mut self.state, mark, deadline).map_err(|fault| self.error(fault))
+    /// Waits until every frame in `frames` has shown on its own output, or
+    /// the compositor shows nothing until `deadline`.
+    pub(crate) fn settle(
+        &mut self,
+        frames: (u32, u32),
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        settle(&mut self.link, &mut self.state, frames, deadline).map_err(|fault| self.error(fault))
     }
 
     /// Commits the clear frame on every surface of `cursor`, where each
@@ -206,21 +210,18 @@ impl LayerClient {
         chosen: impl Fn(&SurfaceKey) -> bool,
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
-        match self.clear_frames(chosen) {
-            Some(mark) => self.settle(mark, deadline),
-            None => Ok(()),
-        }
+        let after = self.state.frames_sent;
+        self.clear_frames(chosen);
+        self.settle((after, self.state.frames_sent), deadline)
     }
 
-    fn clear_frames(&mut self, chosen: impl Fn(&SurfaceKey) -> bool) -> Option<u32> {
-        let mut last = None;
+    fn clear_frames(&mut self, chosen: impl Fn(&SurfaceKey) -> bool) {
         for (key, (surface, _)) in &mut self.surfaces {
             if chosen(key) {
                 let frame = (surface.margin(), None);
-                last = Some(surface.commit_frame(&self.link, &mut self.state, frame));
+                surface.commit_frame(&self.link, &mut self.state, frame);
             }
         }
-        last
     }
 
     /// Destroys the surfaces of `cursor` and their buffers.
@@ -291,7 +292,7 @@ impl LayerClient {
     /// Destroys every surface and its buffers.
     pub(crate) fn release(&mut self) {
         for (_, (surface, _)) in std::mem::take(&mut self.surfaces) {
-            surface.destroy();
+            surface.destroy(&mut self.state);
         }
         let _ = self.link.pump(&mut self.state);
     }
@@ -304,7 +305,7 @@ impl LayerClient {
 
     fn drop_surface(&mut self, key: &SurfaceKey) {
         if let Some((surface, _)) = self.surfaces.remove(key) {
-            surface.destroy();
+            surface.destroy(&mut self.state);
         }
     }
 
