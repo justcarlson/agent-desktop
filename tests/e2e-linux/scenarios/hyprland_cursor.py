@@ -181,16 +181,22 @@ def session_renderer_lifetime(ctx: LegContext) -> None:
     _reads(ctx, "restored", runtime, main)
 
 
-def _seven(ctx: LegContext, app, session: str) -> tuple[str, tuple[float, float]]:
+def live_button(ctx: LegContext, app, session: str, name: str) -> tuple[str, tuple[float, float]]:
+    """The ref of the one button named `name` and the centre of its live bounds. `find` prints
+    bounds only for a match without a ref, so the bounds come from `get`."""
     found = command(ctx, ["--session", session, "find", "--exact", "--limit", "0", "--role", "button",
-                          "--name", "7"], app).data
+                          "--name", name], app).data
     items = [item for item in nodes(found) if isinstance(item.get("ref_id"), str)]
-    require(len(items) == 1, f"expected one ref for button 7, found {len(items)}")
+    require(len(items) == 1, f"expected one ref for button {name}, found {len(items)}")
     ref = items[0]["ref_id"]
     read = command(ctx, ["--session", session, "get", ref, "--property", "bounds"]).data
     bounds = read.get("value") or {}
-    require(read.get("live") is True and bounds, f"button 7 has no live bounds: {read}")
+    require(read.get("live") is True and bounds, f"button {name} has no live bounds: {read}")
     return ref, (bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
+
+
+def _seven(ctx: LegContext, app, session: str) -> tuple[str, tuple[float, float]]:
+    return live_button(ctx, app, session, "7")
 
 
 @implementation("cursor.no_focus_or_input_interference")
