@@ -14,8 +14,9 @@ const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retr
 /// Sends `plans` through `sink`. Every point must map onto an output and
 /// every step must be a pointer step, or nothing is sent. The plan gate runs
 /// before each plan and the step gate before each press and wheel step. A
-/// stop after the first event releases every held button and returns an
-/// uncertain error with the count of events sent.
+/// stop after the first event releases every held button, confirms every
+/// release already sent, and returns an uncertain error with the count of
+/// events sent.
 pub(crate) fn run_plans(
     sink: &mut dyn PointerSink,
     run: PointerRun<'_>,
@@ -39,6 +40,7 @@ pub(crate) fn run_plans(
     } = run;
     let mut held: Vec<u32> = Vec::new();
     let mut sent = 0u32;
+    let mut unconfirmed = false;
     let outcome = (|| {
         for plan in &events {
             plan_gate()?;
@@ -51,6 +53,7 @@ pub(crate) fn run_plans(
                 event.send(sink)?;
                 sent = sent.saturating_add(u32::from(event.counts()));
                 event.track(&mut held);
+                unconfirmed |= event.releases();
             }
         }
         Ok(())
@@ -61,8 +64,12 @@ pub(crate) fn run_plans(
             virtual_keyboard: false,
         }),
         Err(error) => {
-            let released = held.is_empty() || sink.recover(&held);
-            Err(stopped(error, sent, (!held.is_empty()).then_some(released)))
+            let released = match (held.is_empty(), unconfirmed) {
+                (false, _) => Some(sink.recover(&held)),
+                (true, true) => Some(sink.settle()),
+                (true, false) => None,
+            };
+            Err(stopped(error, sent, released))
         }
     }
 }

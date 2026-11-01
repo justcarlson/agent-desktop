@@ -400,8 +400,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
 - **Partial delivery.** A sequence that stops after its first event reports
   `delivery_uncertain` with `retry: unsafe`, `physical_delivery_started: true`,
   `delivered_events` and `buttons_released`. Pressed buttons are always
-  released. `buttons_released: true` means the compositor confirmed every
-  release. `false` means it went away or did not confirm within 1 s. Take a
+  released, and releases sent before the stop are confirmed too.
+  `buttons_released: true` means the compositor confirmed every release. `false` means it went away or did not confirm within 1 s. Take a
   fresh snapshot before any retry.
 - **Signals.** SIGINT, SIGTERM or SIGHUP during pointer input stops the next
   event, releases held buttons, waits up to 1 s for the compositor to confirm

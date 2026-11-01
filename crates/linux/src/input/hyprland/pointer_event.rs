@@ -62,6 +62,11 @@ impl PointerEvent {
         }
     }
 
+    /// Whether this event releases a button.
+    pub(crate) fn releases(&self) -> bool {
+        matches!(self, Self::Button { down: false, .. })
+    }
+
     /// Records a sent press as held and a sent release as no longer held.
     pub(crate) fn track(&self, held: &mut Vec<u32>) {
         match self {
