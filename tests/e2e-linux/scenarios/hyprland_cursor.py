@@ -186,9 +186,11 @@ def _seven(ctx: LegContext, app, session: str) -> tuple[str, tuple[float, float]
                           "--name", "7"], app).data
     items = [item for item in nodes(found) if isinstance(item.get("ref_id"), str)]
     require(len(items) == 1, f"expected one ref for button 7, found {len(items)}")
-    bounds = items[0].get("bounds") or {}
-    require(bounds, f"button 7 has no bounds: {items[0]}")
-    return items[0]["ref_id"], (bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
+    ref = items[0]["ref_id"]
+    read = command(ctx, ["--session", session, "get", ref, "--property", "bounds"]).data
+    bounds = read.get("value") or {}
+    require(read.get("live") is True and bounds, f"button 7 has no live bounds: {read}")
+    return ref, (bounds["x"] + bounds["width"] / 2, bounds["y"] + bounds["height"] / 2)
 
 
 @implementation("cursor.no_focus_or_input_interference")
