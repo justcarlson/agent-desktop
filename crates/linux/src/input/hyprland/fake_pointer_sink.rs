@@ -21,6 +21,9 @@ pub(crate) struct FakePointerSink {
     pub(crate) events: Vec<SinkEvent>,
     pub(crate) fail_at: Option<usize>,
     pub(crate) cancel_after: Option<(usize, Arc<Progress>)>,
+    pub(crate) finish_error: Option<ErrorCode>,
+    pub(crate) finished: usize,
+    pub(crate) settled: usize,
 }
 
 impl FakePointerSink {
@@ -55,6 +58,22 @@ impl PointerSink for FakePointerSink {
 
     fn recover(&mut self, buttons: &[u32]) -> bool {
         self.events.push(SinkEvent::Recover(buttons.to_vec()));
+        true
+    }
+
+    fn finish(&mut self) -> Result<(), AdapterError> {
+        self.finished += 1;
+        match &self.finish_error {
+            Some(code) => Err(AdapterError::new(
+                code.clone(),
+                "the final roundtrip timed out",
+            )),
+            None => Ok(()),
+        }
+    }
+
+    fn settle(&mut self) -> bool {
+        self.settled += 1;
         true
     }
 }

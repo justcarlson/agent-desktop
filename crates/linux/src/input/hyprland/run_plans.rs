@@ -139,3 +139,7 @@ fn stopped(error: AdapterError, sent: u32, released: Option<bool>) -> AdapterErr
 #[cfg(test)]
 #[path = "run_plans_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_plans_confirm_tests.rs"]
+mod confirm_tests;
