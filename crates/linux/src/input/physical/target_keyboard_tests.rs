@@ -334,3 +334,40 @@ fn a_process_press_runs_the_gate_before_the_plan_is_read_or_sent() {
     assert_eq!(world.count("keymap"), 0);
     assert!(world.sent_nothing());
 }
+
+#[test]
+fn keys_a_virtual_keyboard_delivered_are_labelled_with_it() {
+    let typed = FakeWorld {
+        virtual_keyboard: true,
+        ..FakeWorld::wayland()
+    };
+    let steps = type_text_steps(
+        &typed,
+        &element(),
+        "a",
+        InteractionPolicy::focus_fallback(),
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(steps[0].label(), "VirtualKeyboard.type_text");
+    assert_eq!(steps[0].verified(), Some(false));
+    let pressed = FakeWorld {
+        virtual_keyboard: true,
+        ..FakeWorld::wayland()
+    };
+    let steps = press_key_element_steps(
+        &pressed,
+        &element(),
+        &combo(),
+        InteractionPolicy::focus_fallback(),
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(steps[0].label(), "VirtualKeyboard.press_key");
+    let global = FakeWorld {
+        virtual_keyboard: true,
+        ..FakeWorld::wayland()
+    };
+    let steps = press_key_global_steps(&global, &combo(), deadline()).unwrap();
+    assert_eq!(steps[0].label(), "VirtualKeyboard.press_key");
+}
