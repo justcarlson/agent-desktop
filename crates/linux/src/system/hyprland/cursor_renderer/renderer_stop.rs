@@ -2,11 +2,14 @@
 //! `cursor-overlay disable`. It asks first with `disable`, waits on a pidfd,
 //! and signals only a process whose pid, start time and executable all match
 //! the record, only through that pidfd. It reports `terminated` only after
-//! the pidfd confirms exit, and removes only the generation it noted.
+//! the pidfd confirms exit, and removes only the generation it noted. A
+//! pidfd that cannot be opened for a reason other than `ESRCH` leaves the
+//! renderer's state unknown, so the record stays and the exit is unconfirmed.
 
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline, FileLock};
+use rustix::io::Errno;
 use rustix::process::Signal;
 
 use super::exe_identity::ExeIdentity;
@@ -54,8 +57,10 @@ fn settle(
     disabled: bool,
     timings: &StopTimings,
 ) -> StopOutcome {
-    let Ok(pidfd) = RendererPidfd::open(record.owner.pid) else {
-        return gone(disabled);
+    let pidfd = match RendererPidfd::open(record.owner.pid) {
+        Ok(pidfd) => pidfd,
+        Err(Errno::SRCH) => return gone(disabled),
+        Err(_) => return StopOutcome::ExitUnconfirmed,
     };
     if !is_alive_as_recorded(record) {
         return gone(disabled);

@@ -22,7 +22,6 @@ pub(crate) struct CursorSurface {
     surface: wl_surface::WlSurface,
     layer: zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
     canvas: ShmCanvas,
-    frames: u32,
     margin: (i32, i32),
 }
 
@@ -60,7 +59,6 @@ impl CursorSurface {
             surface,
             layer,
             canvas,
-            frames: 0,
             margin: (0, 0),
         };
         let configured = link.wait(
@@ -100,8 +98,8 @@ impl CursorSurface {
         self.surface.attach(Some(buffer), 0, 0);
         self.surface
             .damage(0, 0, self.canvas.size.0, self.canvas.size.1);
-        self.frames += 1;
-        let mark = self.frames;
+        state.frames_sent = state.frames_sent.wrapping_add(1);
+        let mark = state.frames_sent;
         let _callback = self.surface.frame(&link.handle(), FrameMark(mark));
         self.surface.commit();
         match link.wait(

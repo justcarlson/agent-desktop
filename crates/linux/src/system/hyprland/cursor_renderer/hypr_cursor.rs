@@ -109,7 +109,7 @@ fn disable(session_id: &str, paths: &RendererPaths) -> Result<(), AdapterError> 
     if outcome == StopOutcome::ExitUnconfirmed {
         return Err(AdapterError::new(
             ErrorCode::ActionFailed,
-            "The cursor renderer did not exit after SIGKILL",
+            "The cursor renderer's exit could not be confirmed",
         )
         .with_details(json!({"kind": "cursor_renderer_exit_unconfirmed"}))
         .with_disposition(DeliverySemantics::not_delivered()));

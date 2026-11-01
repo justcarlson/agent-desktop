@@ -1,5 +1,5 @@
 //! How the renderer answers one request. `enable` updates the cursor's
-//! state; `present` animates, or only moves the pose when parked, hidden or
+//! style and redraws it where it is, without moving it; `present` animates, or only moves the pose when parked, hidden or
 //! held, and acknowledges travel after its arrival frame and an effect or
 //! caret as it starts; `hide_cursor` commits a clear frame and `show_cursor`
 //! redraws; `disable` answers and ends the process; `status` reports. Hide
@@ -77,7 +77,7 @@ fn serve_control(
         }
         CursorOverlayControl::Enable { .. } => {
             process.cursor.adopt(control);
-            Ok(())
+            process.redraw()
         }
         CursorOverlayControl::Hide { .. } => {
             process.cursor.hidden = true;
@@ -85,7 +85,7 @@ fn serve_control(
         }
         CursorOverlayControl::Show { .. } => {
             process.cursor.hidden = false;
-            redraw(process)
+            process.redraw()
         }
         CursorOverlayControl::Present { .. } => return present(process, stream, control, park),
     };
@@ -128,15 +128,6 @@ fn present(
     match draw_at(&mut process.client, &mut process.cursor, to) {
         Ok(()) => Flow::Continue,
         Err(_) => Flow::Exit,
-    }
-}
-
-fn redraw(process: &mut RendererProcess) -> Result<(), AdapterError> {
-    match process.cursor.pose.clone() {
-        Some(pose) if !any_live(&process.paths.holders) => {
-            draw_at(&mut process.client, &mut process.cursor, pose)
-        }
-        _ => Ok(()),
     }
 }
 
