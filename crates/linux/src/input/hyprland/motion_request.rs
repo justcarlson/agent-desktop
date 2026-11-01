@@ -6,6 +6,8 @@ pub(crate) enum MotionRequest {
     /// A relative motion of zero pixels.
     StillRelative,
     /// An absolute motion to `x` at the point's row.
-    Absolute { x: u32 },
+    Absolute {
+        x: u32,
+    },
     Frame,
 }
