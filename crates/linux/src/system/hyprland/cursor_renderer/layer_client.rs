@@ -17,7 +17,7 @@ use wayland_client::protocol::wl_output;
 use super::agent_cursor::AgentCursor;
 use super::arrow_bitmap::ArrowBitmap;
 use super::arrow_frame::ArrowFrame;
-use super::cursor_surface::{CursorSurface, settle};
+use super::cursor_surface::{CursorSurface, settle, shown};
 use super::layer_globals::{LayerGlobals, OUTPUT, OUTPUT_VERSION, output_count};
 use super::layer_link::LayerLink;
 use super::layer_state::LayerState;
@@ -192,6 +192,17 @@ impl LayerClient {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         settle(&mut self.link, &mut self.state, frames, deadline).map_err(|fault| self.error(fault))
+    }
+
+    /// Whether every frame in `frames` has shown on its own output, or was
+    /// on a surface destroyed since, so nothing is left to show.
+    pub(crate) fn shown(&self, frames: (u32, u32)) -> bool {
+        shown(&self.state, frames)
+    }
+
+    /// The mark of the last frame committed on any surface.
+    pub(crate) fn last_frame(&self) -> u32 {
+        self.state.frames_sent
     }
 
     /// Commits the clear frame on every surface of `cursor`, where each

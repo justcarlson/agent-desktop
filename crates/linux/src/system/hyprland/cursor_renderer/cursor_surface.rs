@@ -133,7 +133,7 @@ impl CursorSurface {
         state.frames_sent = state.frames_sent.wrapping_add(1);
         let mark = state.frames_sent;
         let _callback = self.surface.frame(&link.handle(), FrameMark(mark));
-        state.frames_pending.insert(mark, self.surface.id());
+        state.frames_pending.insert(mark, self.layer.id());
         self.surface.commit();
         mark
     }
@@ -146,10 +146,8 @@ impl CursorSurface {
     /// Destroys the layer surface, the surface and the buffers, and drops
     /// the frames still pending on it, whose callbacks never come.
     pub(crate) fn destroy(&self, state: &mut LayerState) {
-        let surface = self.surface.id();
-        state
-            .frames_pending
-            .retain(|_, pending| *pending != surface);
+        let layer = self.layer.id();
+        state.frames_pending.retain(|_, pending| *pending != layer);
         if let Some(fractional) = &self.fractional {
             fractional.destroy();
         }
@@ -165,7 +163,8 @@ impl CursorSurface {
 /// Waits until the callback of every frame `frames` spans has fired: the
 /// marks after its first value up to and including its second, on every
 /// surface still alive. A compositor that shows nothing sends no callback,
-/// so the deadline passing is not an error.
+/// so the deadline passing is not an error; a caller that claims a frame
+/// showed asks `shown` instead.
 pub(crate) fn settle(
     link: &mut LayerLink,
     state: &mut LayerState,
@@ -180,6 +179,12 @@ pub(crate) fn settle(
         Err(WaylandFault::Silent) => Ok(()),
         other => other,
     }
+}
+
+/// Whether every frame `frames` spans has shown, or was on a surface since
+/// destroyed, which leaves nothing to wait for.
+pub(crate) fn shown(state: &LayerState, frames: (u32, u32)) -> bool {
+    !any_pending(state, frames)
 }
 
 fn any_pending(state: &LayerState, (after, through): (u32, u32)) -> bool {
