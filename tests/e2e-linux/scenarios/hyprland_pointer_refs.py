@@ -26,8 +26,9 @@ from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, dra
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, NATIVE, PAD_BUTTON, PAD_SCROLL, XWAYLAND,
                                             apart_from_last_click, covering_layers, events, gdk3_presses,
-                                            global_point, instance_control, instance_env, instance_query,
-                                            pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
+                                            gdk3_x11_wheel_matches, global_point, instance_control,
+                                            instance_env, instance_query, pad_client, pad_ref, pad_saw,
+                                            pads_left, pointer_pad, presses,
                                             scrolls, settled, since)
 from scenarios.hyprland_window_ops import float_argv
 
@@ -35,6 +36,8 @@ SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
 GESTURES = (("click", gdk3_presses(1)), ("double-click", gdk3_presses(2)), ("triple-click", gdk3_presses(3)))
 OCCLUDER_ROLES = {"layer_cover": "layer", "window_cover": "window"}
+SCROLL_NOTCHES = 3
+DELIVERED_EVENTS = {"press", "release", "scroll"}
 ACTIVATION_CAUSES = {"layer_cover": "frame_not_active", "window_cover": "activation_refused"}
 COVER_SHAPE = ("address", "at", "size", "floating", "pinned", "mapped", "hidden")
 
@@ -49,12 +52,15 @@ def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int
 
 
 def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
+    """Three notches, so a burst merged into one wheel event fails even after GDK3's baseline notch."""
     start = len(events(log))
-    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", "2"], env=env))
-    want = ["down", "down"]
-    found = scrolls(since(settled(log, lambda all_: scrolls(since(all_, start), "scroll") == want), start),
-                    "scroll")
-    return [] if found == want else [f"scroll by ref: the pad scroll pane logged {found}, expected {want}"]
+    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", str(SCROLL_NOTCHES)], env=env))
+    seen = since(settled(log, lambda all_: len(scrolls(since(all_, start), "scroll")) >= SCROLL_NOTCHES), start)
+    found = scrolls(seen, "scroll")
+    if gdk3_x11_wheel_matches(found, "down", SCROLL_NOTCHES):
+        return []
+    return [f"scroll by ref: the pad scroll pane logged {found}, expected {SCROLL_NOTCHES} notches down,"
+            f" or {SCROLL_NOTCHES - 1} when GDK3 takes the first as its baseline{pad_saw(seen)}"]
 
 
 def preflight_occluder(error: dict) -> dict:
@@ -160,11 +166,18 @@ def layer_cover(tier, instance: dict):
 
 
 def covered_click(ctx, env, log: Path, button: str, cause: str, label: str) -> list[str]:
+    """Motion is left out: an XWayland pad that a headed activation reveals under the still cursor
+    logs the motion X sends with the enter, and a refused click moves nothing."""
     start = len(events(log))
     problems = receiver_refusal(label, ctx.product(["click", button], env=env), cause)
-    if since(settled(log, lambda found: len(found) > start, 0.5), start):
-        problems.append(f"{label}: the pad logged an event under the cover")
+    seen = since(settled(log, lambda found: bool(delivered_input(since(found, start))), 0.5), start)
+    if delivered_input(seen):
+        problems.append(f"{label}: the pad logged an event under the cover{pad_saw(seen)}")
     return problems
+
+
+def delivered_input(found: list[dict]) -> list[dict]:
+    return [item for item in found if item.get("ev") in DELIVERED_EVENTS]
 
 
 def cover_changed(before: dict, after: dict | None) -> bool:
