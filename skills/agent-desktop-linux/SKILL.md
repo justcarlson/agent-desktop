@@ -254,8 +254,8 @@ Retry after the cause is gone.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names. `press` takes mapped keys only; `type`
   handles characters the layout cannot produce.
-- Window ops act on X11 clients; headed scoped `press` requires an X11
-  session, and `focus-window` an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
+- Window ops act on X11 clients; headed scoped `press`, headed ref actions
+  and `focus-window` require an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
   current desktop.
 - The exact FFI ref calls (`ad_resolve_element_exact` and
@@ -269,6 +269,7 @@ Retry after the cause is gone.
   `setParent(None)`) lets a ref resolve onto a control the user can no longer
   see. GTK4 then answers `ok` with `delivered_unverified` and no effect. No
   identity rule reaches this; check the application's own effect.
+  current desktop; on Hyprland only a headed activation does.
 
 ## References
 
