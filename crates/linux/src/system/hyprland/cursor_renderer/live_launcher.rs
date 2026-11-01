@@ -92,3 +92,14 @@ pub(crate) fn session_wants_cursor(session_id: &str) -> bool {
         Err(_) => true,
     }
 }
+
+/// Whether `session_id` is a multi-agent session. An unreadable manifest
+/// counts as one, so a control with no agent id is refused rather than
+/// drawn on another agent's cursor.
+pub(crate) fn session_is_multi_agent(session_id: &str) -> bool {
+    match agent_desktop_core::session::read_manifest(session_id) {
+        Ok(Some(manifest)) => manifest.cursor_overlay.is_multi_agent(),
+        Ok(None) => false,
+        Err(_) => true,
+    }
+}

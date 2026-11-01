@@ -1,14 +1,16 @@
 //! The Hyprland cursor renderer: one long-lived `agent-desktop` process per
-//! session that draws the agent cursor on a `zwlr_layer_shell_v1` overlay
-//! surface with an empty input region and no keyboard interactivity. The
-//! caller reaches it over a per-session Unix socket under
-//! `$XDG_RUNTIME_DIR/agent-desktop/cursor/`, starts it lazily under a start
-//! lock, and tears it down through a pidfd.
+//! session that draws one cursor per agent, each on its own
+//! `zwlr_layer_shell_v1` overlay surface with an empty input region and no
+//! keyboard interactivity. The caller reaches it over a per-session Unix
+//! socket under `$XDG_RUNTIME_DIR/agent-desktop/cursor/`, starts it lazily
+//! under a start lock, and tears it down through a pidfd.
 
 pub(crate) mod agent_cursor;
+pub(crate) mod agent_cursors;
 pub(crate) mod arrow_bitmap;
 pub(crate) mod cursor_animation;
 pub(crate) mod cursor_surface;
+pub(crate) mod cursor_travel;
 pub(crate) mod exe_identity;
 pub(crate) mod frame_mark;
 pub(crate) mod holder_file;
@@ -37,11 +39,13 @@ pub(crate) mod renderer_start;
 pub(crate) mod renderer_stop;
 pub(crate) mod renderer_target;
 pub(crate) mod renderer_wire;
+pub(crate) mod session_rules;
 pub(crate) mod session_stop;
 pub(crate) mod sha256;
 pub(crate) mod shm_canvas;
 pub(crate) mod stop_outcome;
 pub(crate) mod stop_timings;
+pub(crate) mod surface_key;
 
 #[cfg(test)]
 pub(crate) mod fake_layer_compositor;

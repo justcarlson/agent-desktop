@@ -160,11 +160,13 @@ Wayland compositor it saves the setting and returns `data.rendered: false`
 without drawing an overlay.
 
 `session start --cursor --multi-agent` returns `data.rendered: false`, because
-nothing is drawn until an agent acts. On X11 each agent id then gets its own
-cursor; on Wayland none is drawn.
+nothing is drawn until an agent acts. On X11 and on Hyprland each agent id
+then gets its own cursor, in the style its `--agent-id cursor-overlay enable`
+saved; on other Wayland compositors none is drawn. A desktop action with no
+`--agent-id` in that session fails with `INVALID_ARGS` and draws nothing.
 
 On Hyprland the first command that needs the cursor starts a renderer process
-for the session. It draws one arrow on the compositor's overlay layer, takes no
+for the session. It draws one arrow per agent on the compositor's overlay layer, takes no
 input and no keyboard focus, and never shows in a `--window-id` capture. Later
 commands reach the same renderer. `cursor-overlay disable`, `session end` and
 `session gc` stop it and say how in `data.details.cursor_renderer`:
@@ -178,10 +180,11 @@ commands reach the same renderer. `cursor-overlay disable`, `session end` and
 | `incompatible` | Another agent-desktop build's renderer ignored the request; it is left running |
 
 `session gc` reports one value per removed session, keyed by session id. If
-the renderer does not exit after a signal, `disable` fails with
+the renderer does not exit after a signal, or its process cannot be checked,
+`disable` fails with
 `ACTION_FAILED` and `details.kind: "cursor_renderer_exit_unconfirmed"`. The
 renderer also exits when the session ends elsewhere, when its compositor
-stops, and when the overlay is turned off. On Hyprland the cursor is a single
+stops, and when the overlay is turned off. On Hyprland each cursor is an
 arrow with no label, and a `--screen` capture shows it.
 
 ## What differs on Linux

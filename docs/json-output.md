@@ -326,6 +326,11 @@ return `data.rendered: true`; a renderer process draws the cursor on the
 compositor's overlay layer. On any other Wayland compositor they return
 `data.rendered: false` and nothing is drawn.
 
+In a multi-agent session the renderer starts with the first action that
+names an agent. It draws one cursor per agent id, each in the style that
+agent's `cursor-overlay enable --agent-id` saved, and refuses a cursor control
+that names no agent.
+
 `cursor-overlay disable` and `session end` report how the session's renderer
 stopped in `data.details.cursor_renderer`. `session gc` reports
 `data.details.cursor_renderer` as an object from each removed session id to
@@ -346,10 +351,13 @@ otherwise:
 |----------------|------|
 | `cursor_renderer_incompatible` | Another build's renderer serves the session; `details.pid` names it |
 | `cursor_socket_path_too_long` | The renderer socket path exceeds the Unix limit; `details.length` and `details.limit` (107) |
-| `cursor_renderer_exit_unconfirmed` | `disable` signalled the renderer and its exit was not confirmed |
+| `cursor_renderer_exit_unconfirmed` | `disable` signalled the renderer and its exit was not confirmed, or could not open the renderer's pidfd for a reason other than "no such process"; the record stays |
 | `cursor_renderer_gone` | The renderer exited before it answered |
 | `cursor_renderer_draw_failed` | The compositor connection failed while drawing |
 | `cursor_renderer_session_mismatch` | The control names another session than the renderer serves |
+| `cursor_agent_id_required` | A multi-agent session's cursor control names no agent; no cursor moves |
+| `cursor_travel_superseded` | A newer control for the same agent replaced its travel before the cursor arrived |
+| `cursor_renderer_stopped` | The renderer stopped before a travel arrived |
 | `cursor_holders_not_supported` | A request to hide the cursor for a capture; the renderer does not hide it |
 | `cursor_renderer_bad_request` | The renderer could not read the request |
 | `cursor_renderer_start_timeout` | `TIMEOUT`: the renderer did not start listening in time |

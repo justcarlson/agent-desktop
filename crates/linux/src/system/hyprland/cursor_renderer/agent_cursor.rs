@@ -1,10 +1,11 @@
-//! The one cursor a renderer draws: its style, motion profile, pose and the
-//! arrow drawn for its style. Per-agent cursors and profiles are not kept
-//! here yet; every control updates the same cursor.
+//! One agent's cursor: its style and motion profile, pose, the arrow drawn
+//! for its style, whether the agent hid it, and its travel in flight. A
+//! profile changes only how the cursor looks and moves, never where it goes.
 
 use agent_desktop_core::{CursorMotionProfile, CursorOverlayControl, CursorOverlayStyle, Point};
 
 use super::arrow_bitmap::ArrowBitmap;
+use super::cursor_travel::CursorTravel;
 
 /// One cursor's state.
 pub(crate) struct AgentCursor {
@@ -14,6 +15,7 @@ pub(crate) struct AgentCursor {
     pub(crate) moves: u64,
     pub(crate) bitmap: ArrowBitmap,
     pub(crate) hidden: bool,
+    pub(crate) travel: Option<CursorTravel>,
 }
 
 impl AgentCursor {
@@ -27,6 +29,7 @@ impl AgentCursor {
             pose: None,
             moves: 0,
             hidden: false,
+            travel: None,
         }
     }
 
