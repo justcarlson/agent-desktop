@@ -1,15 +1,12 @@
 use super::{METADATA_LIST_CAP, ReadOptions, TraceWarningKind, cap_list, read_merged};
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::path::Path;
 
-fn temp_dir(prefix: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    std::env::temp_dir().join(format!("agent-desktop-{prefix}-{nanos}"))
+use super::input_tests::test_temp_dir::TempDir;
+
+fn temp_dir(prefix: &str) -> TempDir {
+    TempDir::new(prefix)
 }
 
 fn write_segment(dir: &Path, name: &str, lines: &[&str]) {
@@ -24,7 +21,6 @@ fn write_segment(dir: &Path, name: &str, lines: &[&str]) {
 #[test]
 fn empty_trace_directory_yields_empty_timeline() {
     let dir = temp_dir("trace-mod-empty");
-    fs::create_dir(&dir).unwrap();
     let result = read_merged(&dir, &ReadOptions::default()).unwrap();
     assert!(result.events.is_empty());
     assert!(result.warnings.is_empty());
@@ -32,7 +28,8 @@ fn empty_trace_directory_yields_empty_timeline() {
 
 #[test]
 fn missing_trace_directory_returns_error() {
-    let dir = temp_dir("trace-mod-missing");
+    let parent = temp_dir("trace-mod-missing");
+    let dir = parent.join("missing");
     let error = read_merged(&dir, &ReadOptions::default())
         .expect_err("a missing trace directory must be rejected");
     assert_eq!(error.code(), "INVALID_ARGS");
@@ -41,7 +38,6 @@ fn missing_trace_directory_returns_error() {
 #[test]
 fn foreign_file_produces_warning() {
     let dir = temp_dir("trace-mod-foreign");
-    fs::create_dir(&dir).unwrap();
     fs::write(dir.join("notes.txt"), b"hello").unwrap();
     let result = read_merged(&dir, &ReadOptions::default()).unwrap();
     assert!(
@@ -85,7 +81,6 @@ fn symlinked_managed_artifact_name_produces_warning() {
 #[test]
 fn tmp_file_is_silently_ignored() {
     let dir = temp_dir("trace-mod-tmp");
-    fs::create_dir(&dir).unwrap();
     fs::write(dir.join("100-1.jsonl.tmp"), b"data").unwrap();
     let result = read_merged(&dir, &ReadOptions::default()).unwrap();
     assert!(
@@ -247,7 +242,6 @@ fn unreadable_segment_is_skipped_with_warning() {
     use std::os::unix::fs::PermissionsExt;
 
     let dir = temp_dir("trace-mod-unread");
-    fs::create_dir(&dir).unwrap();
     let seg = dir.join("100-1000.jsonl");
     fs::write(&seg, b"{\"event\":\"a\",\"ts_ms\":1,\"seq\":1}\n").unwrap();
     fs::set_permissions(&seg, fs::Permissions::from_mode(0o000)).unwrap();
@@ -273,7 +267,6 @@ fn unreadable_segment_is_skipped_with_warning() {
 #[test]
 fn symlinked_segment_is_skipped_with_warning() {
     let dir = temp_dir("trace-mod-symlink");
-    fs::create_dir(&dir).unwrap();
     let target = dir.join("100-1000.jsonl");
     fs::write(&target, b"{\"event\":\"a\",\"ts_ms\":1,\"seq\":1}\n").unwrap();
     let link = dir.join("200-2000.jsonl");
@@ -311,7 +304,6 @@ fn cap_list_above_threshold_truncates_and_flags() {
 #[test]
 fn segments_metadata_list_is_capped() {
     let dir = temp_dir("trace-mod-seg-cap");
-    fs::create_dir(&dir).unwrap();
     for pid in 0..=METADATA_LIST_CAP {
         fs::File::create(dir.join(format!("{pid}-0.jsonl"))).unwrap();
     }
@@ -322,7 +314,6 @@ fn segments_metadata_list_is_capped() {
 #[test]
 fn warnings_list_is_capped() {
     let dir = temp_dir("trace-mod-warn-cap");
-    fs::create_dir(&dir).unwrap();
     for i in 0..=METADATA_LIST_CAP {
         fs::write(dir.join(format!("junk{i}.txt")), b"").unwrap();
     }
