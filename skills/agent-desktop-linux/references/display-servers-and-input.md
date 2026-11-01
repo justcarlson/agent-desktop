@@ -347,7 +347,11 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `evidence: "over_fullscreen"`.
   A headed ref action first activates the window, as `focus-window` does, so a
   window on a hidden special workspace or another workspace is revealed before
-  any check. A cover the pre-action hit test sees then fails core's
+  any check. A cover can undo the activation: Hyprland moves the cursor into
+  the window, onto a floating or pinned cover that then stays active
+  (`activation_refused`), and a layer that takes the keyboard, such as slurp's,
+  keeps the window's frame inactive (`frame_not_active`). Both refusals are
+  `ACTION_FAILED`, `not_delivered`, with `activation_sent: true`. A cover the pre-action hit test sees then fails core's
   `receives_events` check: `ACTION_FAILED`, `not_delivered`, reason
   `occluded by layer` or `occluded by window`, with the layer namespace in
   `occluder.name`. Anything that check passes or cannot read meets the
