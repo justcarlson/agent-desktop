@@ -1,7 +1,9 @@
 //! Click and scroll by ref on the bound Hyprland instance. The aim point is
 //! the element's window rectangle placed at its toplevel's compositor
 //! origin, and the compositor's stack proves the receiver before every
-//! burst.
+//! burst. A target in a native Wayland window refuses before any event,
+//! because the stack cannot see the surfaces inside it
+//! (probes/linux/FINDINGS.md L42-4, L42-5).
 
 use agent_desktop_core::{ActionStep, AdapterError, Deadline, StepMechanism};
 
@@ -14,6 +16,8 @@ use crate::system::SharedBus;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::placement::placement_read::place_target;
 use crate::system::hyprland::receiver::receiver_read::prove_receiver;
+
+use super::native_receiver::refuse_native_receiver;
 use crate::tree::AtspiElement;
 
 /// One bound instance and the element a ref pointer action aims at.
@@ -38,6 +42,7 @@ impl RefPointer<'_> {
             spec.verified.as_ref(),
             self.deadline,
         )?;
+        refuse_native_receiver(self.binding, target.address, self.deadline)?;
         let plan = world.plan_click(
             &Keymap::default(),
             target.at.clone(),
@@ -60,6 +65,7 @@ impl RefPointer<'_> {
     ) -> Result<Vec<ActionStep>, AdapterError> {
         let bus = SharedBus::default();
         let target = place_target(self.binding, &bus, self.element, None, self.deadline)?;
+        refuse_native_receiver(self.binding, target.address, self.deadline)?;
         let plans = plan_wheel(
             &Keymap::default(),
             target.at.clone(),
