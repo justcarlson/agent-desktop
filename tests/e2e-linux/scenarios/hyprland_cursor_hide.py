@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, pixels
+from runner import second_instance
 from runner.helper import activate, changed, display, managed, one, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -27,7 +28,7 @@ from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arrow_box, ended, gone_problems,
                                        kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
-from scenarios.hyprland_focus_controls import lua_call
+from scenarios.hyprland_focus_controls import lua_call, query, toggle_argv
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
                                             pad_ref, pads_left, pointer_pad, presses, settled, since)
@@ -401,14 +402,56 @@ def _screen_after_resume(screen: Screen) -> list[str]:
     return [f"a resumed renderer still blocks the screen capture: {envelope.raw[:300]}"]
 
 
+def outer_window(tier, instance: dict) -> dict:
+    return second_instance.outer_window(tier, instance)
+
+
+def outer_shown(tier) -> set[str]:
+    """The special workspaces the outer session shows on its monitors."""
+    return {(item.get("specialWorkspace") or {}).get("name", "") for item in query(tier, "monitors")} - {""}
+
+
+def toggle_outer(tier, name: str) -> None:
+    main = main_instance(tier)
+    lua = hyprland.uses_lua(shared(tier), main["signature"])
+    hyprland.control(shared(tier), main["signature"], toggle_argv(name, lua))
+
+
+@contextlib.contextmanager
+def nested_frames(ctx: LegContext, instance: dict):
+    """Shows the nested instance's window in the outer session while the block runs.
+
+    The window sits on a silent special workspace, and Hyprland sends frame
+    callbacks only to windows it draws. The nested instance renders its output
+    only on those callbacks, and it drops a closed layer only when it renders,
+    so a closed layer stays listed with pid -1 while its window is hidden.
+    """
+    tier = ctx.tier
+    space = (outer_window(tier, instance).get("workspace") or {}).get("name", "")
+    require(space.startswith("special:"), f"the nested window is not on a special workspace: {space!r}")
+    require(space not in outer_shown(tier), f"the outer session already shows {space}")
+    toggle_outer(tier, space)
+    try:
+        require(raw.poll(lambda: space in outer_shown(tier), SHOW_SETTLE_S),
+                f"the outer session did not show {space}: {sorted(outer_shown(tier))}")
+        ctx.finding(f"the outer session showed {space} so the nested output renders while its closed layer settles")
+        yield
+    finally:
+        if space in outer_shown(tier):
+            toggle_outer(tier, space)
+        require(raw.poll(lambda: space not in outer_shown(tier), SHOW_SETTLE_S),
+                f"the outer session still shows {space}: {sorted(outer_shown(tier))}")
+
+
 def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, owner: dict) -> list[str]:
     """After session end, waits until the renderer, its record and its layer are gone, then reads the layers.
 
-    The compositor can list a closed layer, with pid -1, for a moment after
-    its client exits, so the restored read waits for it as `gone_problems`
-    does. A layer that stays is a problem and drifts the restored read.
+    The nested compositor removes a closed layer, listed with pid -1, only
+    when its output renders, so the wait runs inside `nested_frames`. A layer
+    that stays is a problem and drifts the restored read.
     """
-    problems = gone_problems("session end", runtime, instance, session, owner)
+    with nested_frames(ctx, instance):
+        problems = gone_problems("session end", runtime, instance, session, owner)
     ctx.restored("hyprland.layers", layers_of(runtime, instance))
     return problems
 
