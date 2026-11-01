@@ -100,13 +100,6 @@ impl LivePointerSink {
         })
     }
 
-    /// Waits until the compositor has read every event sent.
-    pub(crate) fn finish(&mut self) -> Result<(), AdapterError> {
-        self.link
-            .roundtrip(&mut self.state)
-            .map_err(|fault| fault.into_error(&self.socket))
-    }
-
     /// Waits, past the run's deadline, until the compositor has read the
     /// releases. A client that exits after a bare flush can lose them:
     /// libwayland-server destroys a hung-up client before reading what it
@@ -225,6 +218,16 @@ impl PointerSink for LivePointerSink {
             .count()
             == 0;
         sent && self.settle_release()
+    }
+
+    fn finish(&mut self) -> Result<(), AdapterError> {
+        self.link
+            .roundtrip(&mut self.state)
+            .map_err(|fault| fault.into_error(&self.socket))
+    }
+
+    fn settle(&mut self) -> bool {
+        self.settle_release()
     }
 }
 
