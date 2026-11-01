@@ -10,6 +10,7 @@ use agent_desktop_core::{
 
 use super::cursor_guard::with_cursors_hidden;
 use super::hypr_route::bound_route;
+use super::native_receiver::refuse_native_receiver;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_context::CursorContext;
 use crate::system::hyprland::placement::placement_read::{
@@ -90,7 +91,8 @@ pub(crate) fn bound_hit(
 /// Proves that `point` reaches the element before a drag by ref uses it as
 /// an endpoint: the element is placed on its shown toplevel and the
 /// compositor's stack, read with the agent's cursors hidden, must show no
-/// cover. Anything less refuses before any event.
+/// cover, and its window must be an XWayland client. Anything less refuses
+/// before any event.
 pub(crate) fn prove_bound_point(
     bus: &SharedBus,
     handle: &NativeHandle,
@@ -101,6 +103,7 @@ pub(crate) fn prove_bound_point(
         return Ok(());
     };
     let placed = place_target(&binding, bus, element, Some(point), deadline)?;
+    refuse_native_receiver(&binding, placed.address, deadline)?;
     let mut hider = crate::system::hyprland::cursor_hider(&CursorContext { binding: &binding });
     with_cursors_hidden(hider.as_mut(), deadline, || {
         prove_receiver(&binding, placed.address, &placed.at, deadline)
