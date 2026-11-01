@@ -53,14 +53,17 @@ def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int
 
 def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
     """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline, so one
-    priming notch by ref sets it and may log nothing. Every measured notch must then log as one unit."""
+    priming notch by ref sets it and may log nothing. Priming is watched for the whole settle time, so a
+    late priming event fails here and never counts as a measured notch. Every measured notch must then
+    log as one unit."""
     start = len(events(log))
     delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", "1"], env=env))
-    seen = since(settled(log, lambda all_: bool(wheel_notches(since(all_, start), "scroll"))), start)
+    primed = settled(log, lambda _all: False)
+    seen = since(primed, start)
     if len(wheel_notches(seen, "scroll")) > 1:
         return [f"scroll by ref: the priming notch logged {len(wheel_notches(seen, 'scroll'))} wheel events,"
                 f" expected 0 or 1{pad_saw(seen)}"]
-    start = len(events(log))
+    start = len(primed)
     delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", str(SCROLL_NOTCHES)], env=env))
     want = ["down"] * SCROLL_NOTCHES
     seen = since(settled(log, lambda all_: len(wheel_notches(since(all_, start), "scroll")) >= SCROLL_NOTCHES),
