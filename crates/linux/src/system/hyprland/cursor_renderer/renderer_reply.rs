@@ -7,8 +7,8 @@
 //! and acknowledges an effect or caret as it starts; a newer `present` or
 //! `hide_cursor` for the same agent supersedes its travel in flight;
 //! `hide_cursor` commits a clear frame and `show_cursor` redraws; `disable`
-//! answers and ends the process; `status` reports every cursor. Hide holders
-//! are not served yet and are refused.
+//! answers and ends the process; `status` reports every cursor. A holder's
+//! `hide` and `show` go to the holder watch.
 
 use std::os::unix::net::UnixStream;
 
@@ -20,7 +20,9 @@ use serde_json::{Value, json};
 use super::agent_cursors::{AgentCursors, SOLE_CURSOR};
 use super::cursor_animation::draw_at;
 use super::cursor_travel::CursorTravel;
+use super::holder_reply::holder_reply;
 use super::holder_view::{any_live, live_holders};
+use super::holder_watch::HolderWatch;
 use super::renderer_process::RendererProcess;
 use super::renderer_request::RendererRequest;
 use super::renderer_wire::{error_reply, ok_reply, read_request, write_reply};
@@ -36,7 +38,11 @@ pub(crate) enum Flow {
 
 /// Reads one request from `stream`, answers it, and says whether to go on.
 /// A travel keeps `stream` until its arrival frame.
-pub(crate) fn serve_one(process: &mut RendererProcess, stream: UnixStream) -> Flow {
+pub(crate) fn serve_one(
+    process: &mut RendererProcess,
+    watch: &mut HolderWatch,
+    stream: UnixStream,
+) -> Flow {
     let request = match read_request(&stream) {
         Ok(request) => request,
         Err(error) => {
@@ -50,12 +56,9 @@ pub(crate) fn serve_one(process: &mut RendererProcess, stream: UnixStream) -> Fl
             Flow::Continue
         }
         RendererRequest::Hide { .. } | RendererRequest::Show { .. } => {
-            let refusal = AdapterError::not_supported("cursor hide holders");
-            write_reply(
-                &stream,
-                &error_reply("cursor_holders_not_supported", &refusal),
-            );
-            Flow::Continue
+            let (reply, flow) = holder_reply(process, watch, &request);
+            write_reply(&stream, &reply);
+            flow
         }
         RendererRequest::Control { control, park } => {
             if control.session_id() != process.record.session_id {

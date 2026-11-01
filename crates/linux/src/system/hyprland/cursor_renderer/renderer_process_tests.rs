@@ -123,7 +123,7 @@ fn the_renderer_serves_status_present_and_disable_then_removes_its_own_files() {
 }
 
 #[test]
-fn hide_holders_and_another_sessions_control_are_refused_by_kind() {
+fn a_hide_for_no_live_holder_and_another_sessions_control_are_refused_by_kind() {
     let fixture = RegistryFixture::new();
     let fake = FakeLayerCompositor::start(true);
     let renderer = serving(&fixture, &fake);
@@ -131,8 +131,8 @@ fn hide_holders_and_another_sessions_control_are_refused_by_kind() {
         holder: "n1".into(),
         expiry_ms: 500,
     };
-    let refused = send(&fixture, &hide).expect_err("holders are not served");
-    assert_eq!(kind_of(refused), "cursor_holders_not_supported");
+    let refused = send(&fixture, &hide).expect_err("no such holder");
+    assert_eq!(kind_of(refused), "cursor_holder_not_live");
     let other = RendererRequest::control(CursorOverlayControl::hide("other-session".into()));
     let refused = send(&fixture, &other).expect_err("another session");
     assert_eq!(kind_of(refused), "cursor_renderer_session_mismatch");
