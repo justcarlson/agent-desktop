@@ -23,6 +23,7 @@ pub(crate) fn to_output(x: i32, y: i32, displays: &[DisplayInfo]) -> Option<Outp
         y: units(point.y - bounds.y)?,
         x_extent: units(bounds.width)?,
         y_extent: units(bounds.height)?,
+        global: (x, y),
     })
 }
 
