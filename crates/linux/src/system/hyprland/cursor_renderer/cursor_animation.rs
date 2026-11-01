@@ -1,61 +1,84 @@
-//! Drawing a cursor's travel. Each frame moves the surface to the next point
-//! of the shaped path and waits for the compositor's frame callback, at most
-//! one frame interval; the last frame lands on the destination, and the
-//! caller acknowledges travel only after it.
+//! Drawing cursors. Every travelling cursor advances one frame per step:
+//! each moves its own surface to the next point of its shaped path, then
+//! the step waits once for the compositor's frame, at most one frame
+//! interval, so several agents' cursors travel at the same time. A travel's
+//! last frame lands on its destination, and its connection is handed back
+//! for the acknowledgement only after that frame.
 
-use std::time::Instant;
+use std::os::unix::net::UnixStream;
 
-use agent_desktop_core::{AdapterError, CURSOR_MOTION_BUDGET_MS, CursorMotion, Deadline, Point};
+use agent_desktop_core::{AdapterError, Deadline, Point};
 
 use super::agent_cursor::AgentCursor;
+use super::agent_cursors::AgentCursors;
+use super::cursor_travel::CursorTravel;
 use super::layer_client::LayerClient;
 use super::placement::Placement;
+use super::surface_key::SurfaceKey;
 
 const FRAME_WAIT_MS: u64 = 50;
 
-/// Moves `cursor` to `to`, animating from its pose when it has one.
-pub(crate) fn travel(
+/// Advances every travel one frame and returns the connections of the
+/// travels that drew their arrival frame. On an error every travel stays
+/// in flight, so the caller can answer each one.
+pub(crate) fn step_travels(
     client: &mut LayerClient,
-    cursor: &mut AgentCursor,
-    to: Point,
-    click: bool,
-) -> Result<(), AdapterError> {
-    let Some(from) = cursor.pose.clone() else {
-        return draw_at(client, cursor, to);
-    };
-    let motion = CursorMotion::shaped(from, to.clone(), &cursor.motion, cursor.moves)
-        .with_impact(click)
-        .with_ripple(cursor.style.ripple());
-    cursor.moves = cursor.moves.wrapping_add(1);
-    let started = Instant::now();
-    let budget = Deadline::detached_after(CURSOR_MOTION_BUDGET_MS)?;
-    loop {
-        let elapsed = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        if elapsed >= motion.duration_ms() || budget.is_expired() {
-            return draw_at(client, cursor, to);
+    cursors: &mut AgentCursors,
+) -> Result<Vec<UnixStream>, AdapterError> {
+    let deadline = Deadline::detached_after(FRAME_WAIT_MS)?;
+    let mut last = None;
+    let mut arrived = Vec::new();
+    for (key, cursor) in cursors.iter_mut() {
+        let Some(travel) = &cursor.travel else {
+            continue;
+        };
+        let (point, done) = travel.frame();
+        last = Some(stage(client, key, cursor, point, deadline)?);
+        if done {
+            arrived.push(key.clone());
         }
-        draw_at(client, cursor, motion.sample(elapsed))?;
     }
+    if let Some(mark) = last {
+        client.settle(mark, deadline)?;
+    }
+    Ok(arrived
+        .iter()
+        .filter_map(|key| cursors.get_mut(key).and_then(|cursor| cursor.travel.take()))
+        .map(CursorTravel::into_reply)
+        .collect())
 }
 
-/// Shows `cursor` at `point` and records it as the pose.
+/// Shows the cursor under `key` at `point` and records it as the pose.
 pub(crate) fn draw_at(
     client: &mut LayerClient,
+    key: &str,
     cursor: &mut AgentCursor,
     point: Point,
 ) -> Result<(), AdapterError> {
-    draw_within(client, cursor, point, FRAME_WAIT_MS)
+    draw_within(client, (key, cursor), point, FRAME_WAIT_MS)
 }
 
 /// Like `draw_at`, giving the surface and its frame `wait_ms` to appear.
 pub(crate) fn draw_within(
     client: &mut LayerClient,
-    cursor: &mut AgentCursor,
+    (key, cursor): (&str, &mut AgentCursor),
     point: Point,
     wait_ms: u64,
 ) -> Result<(), AdapterError> {
+    let deadline = Deadline::detached_after(wait_ms)?;
+    let mark = stage(client, key, cursor, point, deadline)?;
+    client.settle(mark, deadline)
+}
+
+fn stage(
+    client: &mut LayerClient,
+    key: &str,
+    cursor: &mut AgentCursor,
+    point: Point,
+    deadline: Deadline,
+) -> Result<u32, AdapterError> {
     let placement = Placement::for_point(&point, cursor.bitmap.hotspot);
     cursor.pose = Some(point);
-    let frame = Deadline::detached_after(wait_ms)?;
-    client.draw(&cursor.bitmap, placement.margin, frame)
+    let surface = SurfaceKey::placed(key, &placement);
+    client.stage(&surface, &cursor.bitmap, placement.margin, deadline)
 }
