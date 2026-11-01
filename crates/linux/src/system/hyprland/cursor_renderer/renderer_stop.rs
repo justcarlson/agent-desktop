@@ -29,9 +29,6 @@ pub(crate) fn stop(
     caller: Option<ExeIdentity>,
     timings: &StopTimings,
 ) -> Result<StopOutcome, AdapterError> {
-    let _ = (caller, timings);
-    return Err(AdapterError::internal("not implemented"));
-    #[allow(unreachable_code)]
     let record = match read_record(&paths.record) {
         RecordRead::Absent => return Ok(StopOutcome::NotRunning),
         RecordRead::Unreadable => {

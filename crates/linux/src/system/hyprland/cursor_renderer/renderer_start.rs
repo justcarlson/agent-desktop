@@ -36,9 +36,6 @@ pub(crate) fn ensure_running(
     launcher: &dyn RendererLauncher,
     caller: Option<ExeIdentity>,
 ) -> Result<(), AdapterError> {
-    let _ = (launcher, caller);
-    return Err(AdapterError::internal("not implemented"));
-    #[allow(unreachable_code)]
     let paths = request.paths;
     if accepts(paths) {
         return Ok(());

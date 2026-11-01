@@ -109,8 +109,6 @@ impl RendererProcess {
 
     /// Serves until a stop condition, then cleans up its own files.
     pub(crate) fn serve(mut self) -> Result<(), AdapterError> {
-        return Err(AdapterError::internal("not implemented"));
-        #[allow(unreachable_code)]
         let mut checked = Instant::now();
         let outcome = loop {
             if let Err(error) = self.wait_for_work() {

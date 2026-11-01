@@ -53,10 +53,6 @@ pub(crate) fn update_routed(
     launcher: &dyn RendererLauncher,
 ) -> Result<(), AdapterError> {
     control.validate()?;
-    let _ = (target, launcher);
-    return Err(AdapterError::not_supported("cursor overlay on Wayland")
-        .with_details(json!({"rendered": false, "cause": "wayland_session"})));
-    #[allow(unreachable_code)]
     let Some(target) = target else {
         return Err(AdapterError::not_supported("cursor overlay on Wayland")
             .with_details(json!({"rendered": false, "cause": "wayland_session"})));
