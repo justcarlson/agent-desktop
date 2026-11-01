@@ -78,3 +78,22 @@ fn release_destroys_the_layer_surface() {
     client.roundtrip(deadline()).expect("roundtrip");
     assert!(fake.logged().iter().any(|line| line == "destroy layer"));
 }
+
+#[test]
+fn frame_marks_keep_rising_when_the_surface_is_rebuilt() {
+    let fake = FakeLayerCompositor::start(true);
+    let mut client = drawn(&fake);
+    let bitmap = ArrowBitmap::draw(&CursorOverlayStyle::default());
+    client
+        .draw(&bitmap, (110, 210), deadline())
+        .expect("second frame");
+    client.release();
+    client
+        .draw(&bitmap, (120, 220), deadline())
+        .expect("rebuilt frame");
+    client.roundtrip(deadline()).expect("roundtrip");
+    assert_eq!(
+        client.state.frames_done, 3,
+        "the rebuilt surface's first frame reused an old frame mark"
+    );
+}

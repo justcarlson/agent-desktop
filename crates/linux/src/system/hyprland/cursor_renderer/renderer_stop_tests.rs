@@ -164,3 +164,34 @@ fn another_builds_renderer_that_ignores_disable_keeps_running_and_its_files() {
         RecordRead::Present(_)
     ));
 }
+
+fn current_thread_id() -> u32 {
+    let link = std::fs::read_link("/proc/thread-self").expect("thread-self");
+    link.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.parse().ok())
+        .expect("thread id")
+}
+
+#[test]
+fn a_pidfd_open_failure_other_than_no_such_process_keeps_the_record_and_is_unconfirmed() {
+    let fixture = RegistryFixture::new();
+    let (named, tid) = std::sync::mpsc::channel();
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let thread = std::thread::spawn(move || {
+        named.send(current_thread_id()).expect("send tid");
+        let _ = held.recv();
+    });
+    let live = tid.recv().expect("tid");
+    record_for(live, Some(start_time_of(live)), "live-thread")
+        .write_atomic(&fixture.paths.record)
+        .expect("write");
+    let outcome = stop(&fixture.paths, ExeIdentity::current(), &quick()).expect("stop");
+    release.send(()).expect("release");
+    thread.join().expect("thread");
+    assert_eq!(outcome, StopOutcome::ExitUnconfirmed);
+    assert!(matches!(
+        read_record(&fixture.paths.record),
+        RecordRead::Present(_)
+    ));
+}
