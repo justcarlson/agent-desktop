@@ -155,3 +155,39 @@ fn a_renderer_exits_when_its_compositor_instance_goes() {
         .expect("clean exit");
     assert_eq!(read_record(&fixture.paths.record), RecordRead::Absent);
 }
+
+fn margins(fake: &FakeLayerCompositor) -> Vec<String> {
+    fake.logged()
+        .into_iter()
+        .filter(|line| line.starts_with("margin "))
+        .collect()
+}
+
+#[test]
+fn the_cursor_shows_before_any_present_and_a_later_enable_does_not_move_it() {
+    let fixture = RegistryFixture::new();
+    let fake = FakeLayerCompositor::start(true);
+    let renderer = serving(&fixture, &fake);
+    send(&fixture, &RendererRequest::Status).expect("status");
+    assert!(
+        fake.logged()
+            .iter()
+            .any(|line| line == "layer 3 namespace agent-desktop-cursor output 0"),
+        "no cursor layer after the first enable: {:?}",
+        fake.logged()
+    );
+    assert_eq!(margins(&fake), ["margin -1 0 0 -1"]);
+
+    send(&fixture, &travel_to(300.0, 400.0)).expect("present");
+    let placed = margins(&fake);
+    let enable = CursorOverlayControl::enable(SESSION.into(), CursorOverlayStyle::default());
+    send(&fixture, &RendererRequest::control(enable)).expect("second enable");
+    assert_eq!(margins(&fake), placed, "a later enable moved the cursor");
+
+    let disable = RendererRequest::control(CursorOverlayControl::disable(SESSION.into()));
+    send(&fixture, &disable).expect("disable");
+    renderer
+        .join()
+        .expect("renderer thread")
+        .expect("clean exit");
+}
