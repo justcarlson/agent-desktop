@@ -24,6 +24,7 @@ NEW_LEGS = (
     "pointer.coordinates_have_no_receiver_proof",
     "pointer.headless_or_cancelled_input",
     "pointer.cancel_or_disconnect_releases_buttons",
+    "pointer.native_wayland_ref_refused",
 )
 REUSED_LEGS = (
     "pointer.mouse_click_delivery_report",
@@ -376,3 +377,130 @@ class ReceiverEvidenceTests(unittest.TestCase):
             refs.ref_receiver_evidence(ctx)
         self.assertEqual(scrolled, ["@s:pane"])
         self.assertEqual(set(clicked), {"@s:button"})
+
+
+class PadBackendTests(unittest.TestCase):
+    def test_the_x_display_is_the_lock_that_names_the_compositor_or_its_child(self):
+        with tempfile.TemporaryDirectory() as work:
+            locks, proc = Path(work) / "tmp", Path(work) / "proc"
+            locks.mkdir()
+            (proc / "71").mkdir(parents=True)
+            (proc / "71" / "stat").write_text("71 (Xwayland) S 50 71 71 0 -1 0 0 0")
+            (locks / ".X0-lock").write_text("        12\n")
+            self.assertEqual(pad.x_display({"pid": 50}, locks, proc), "")
+            (locks / ".X3-lock").write_text("        71\n")
+            self.assertEqual(pad.x_display({"pid": 50}, locks, proc), ":3")
+            self.assertEqual(pad.x_display({"pid": 71}, locks, proc), ":3")
+            (locks / ".X3-lock").write_text("garbage")
+            self.assertEqual(pad.x_display({"pid": 50}, locks, proc), "")
+
+    def test_the_pad_must_report_the_backend_the_leg_asked_for(self):
+        self.assertIsNone(pad.backend_problem({"xwayland": True}, pad.XWAYLAND))
+        self.assertIsNone(pad.backend_problem({"xwayland": False}, pad.NATIVE))
+        self.assertIn("expected True", pad.backend_problem({"xwayland": False}, pad.XWAYLAND))
+        self.assertIn("expected False", pad.backend_problem({"xwayland": True}, pad.NATIVE))
+        self.assertIn("None", pad.backend_problem({}, pad.XWAYLAND))
+
+    def test_an_xwayland_pad_launches_on_the_instance_x_display(self):
+        tier = mock.Mock(env={"DISPLAY": ":0", "AT_SPI_BUS_ADDRESS": "x", "HYPRLAND_INSTANCE_SIGNATURE": "main"})
+        instance = {"pid": 50, "wayland": "wayland-9", "signature": "nested"}
+        with mock.patch.object(pad, "x_display", return_value=":3"):
+            env = pad.pad_env(tier, instance, pad.XWAYLAND)
+        self.assertEqual((env["GDK_BACKEND"], env["DISPLAY"], env["WAYLAND_DISPLAY"]), ("x11", ":3", "wayland-9"))
+        self.assertNotIn("AT_SPI_BUS_ADDRESS", env)
+        self.assertNotIn("HYPRLAND_INSTANCE_SIGNATURE", env)
+        self.assertEqual(pad.pad_env(tier, instance, pad.NATIVE)["GDK_BACKEND"], "wayland")
+        with mock.patch.object(pad, "x_display", return_value=""), \
+                mock.patch.object(pad.raw, "poll", lambda check, _seconds: check()):
+            with self.assertRaises(AssertionError):
+                pad.pad_env(tier, instance, pad.XWAYLAND)
+
+    def test_the_pad_app_keeps_a_backend_the_launcher_set(self):
+        source = (ROOT / "apps" / "pointer_pad.py").read_text()
+        self.assertIn('os.environ.setdefault("GDK_BACKEND", "wayland")', source)
+        self.assertLess(source.index("GDK_BACKEND"), source.index("import gi"))
+
+
+class PadLegBackendTests(unittest.TestCase):
+    def run_leg(self, leg, mode="headed", **patches):
+        backends = []
+
+        @refs.contextlib.contextmanager
+        def opened(_tier, _instance, _label, backend=pad.NATIVE):
+            backends.append(backend)
+            yield mock.Mock(pid=1), {}, Path("/dev/null")
+
+        @refs.contextlib.contextmanager
+        def cover(*_):
+            yield {}
+
+        ctx = mock.Mock(tier=mock.Mock(), mode=mode)
+        base = dict(nested=mock.Mock(return_value=({"signature": "s"}, True)),
+                    instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
+                    pointer_pad=opened, pad_ref=mock.Mock(return_value="@s:e1"),
+                    clients_summary=mock.Mock(return_value=[]), gesture_problems=mock.Mock(return_value=[]),
+                    scroll_problems=mock.Mock(return_value=[]), layer_cover=cover, window_cover=cover,
+                    covered_click=mock.Mock(return_value=[]), events=mock.Mock(return_value=[]),
+                    settled=mock.Mock(return_value=[]))
+        base.update(patches)
+        with mock.patch.multiple(refs, **base):
+            leg(ctx)
+        return backends, ctx
+
+    def test_the_ref_legs_drive_an_xwayland_pad(self):
+        for leg in (refs.ref_receiver_evidence, lambda ctx: refs.ref_gesture(ctx, "double-click"),
+                    lambda ctx: refs.ref_gesture(ctx, "scroll")):
+            backends, _ = self.run_leg(leg)
+            self.assertEqual(backends, [pad.XWAYLAND])
+        backends, _ = self.run_leg(lambda ctx: refs.ref_gesture(ctx, "triple-click"), mode="headless",
+                                   refusal_problems=mock.Mock(return_value=[]))
+        self.assertEqual(backends, [pad.XWAYLAND])
+
+    def test_the_cover_refusals_drive_xwayland_pads(self):
+        backends, _ = self.run_leg(refs.cover_or_missing_evidence_refused,
+                                   bystander=mock.Mock(), cursor=mock.Mock(), restore_desktop=mock.Mock(),
+                                   main_instance=mock.Mock(return_value={"signature": "m"}),
+                                   _session_refusals=mock.Mock(return_value=[]),
+                                   _cover_client=mock.Mock(return_value={}),
+                                   cover_changed=mock.Mock(return_value=False))
+        self.assertEqual(backends, [pad.XWAYLAND, pad.XWAYLAND])
+
+    def native(self, answers, logged=()):
+        product = mock.Mock(side_effect=answers)
+
+        def leg(ctx):
+            ctx.product = product
+            refs.native_wayland_ref_refused(ctx)
+        backends, _ = self.run_leg(leg, settled=mock.Mock(return_value=list(logged)))
+        return backends, product
+
+    def test_the_native_leg_wants_every_ref_action_refused_on_a_native_pad(self):
+        good = refused("ACTION_FAILED", cause="native_wayland_client", physical_delivery_started=False)
+        backends, product = self.native([good] * 4)
+        self.assertEqual(backends, [pad.NATIVE])
+        verbs = [call.args[0][0] for call in product.call_args_list]
+        self.assertEqual(verbs, ["click", "double-click", "triple-click", "scroll"])
+
+    def test_the_native_leg_fails_on_another_cause_a_delivery_or_a_pad_event(self):
+        good = refused("ACTION_FAILED", cause="native_wayland_client", physical_delivery_started=False)
+        cover = refused("ACTION_FAILED", cause="window_cover", physical_delivery_started=False)
+        landed = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=1.0, argv=[], exit_code=0)
+        for answers in ([cover] + [good] * 3, [landed] + [good] * 3):
+            with self.assertRaises(AssertionError):
+                self.native(answers)
+        with self.assertRaises(AssertionError):
+            self.native([good] * 4, logged=[{"ev": "press", "widget": "button", "n": 1}])
+
+    def test_native_refusal_problems_name_each_missing_part(self):
+        good = refused("ACTION_FAILED", cause="native_wayland_client", physical_delivery_started=False)
+        self.assertEqual(refs.native_refusal_problems("c", good), [])
+        self.assertEqual(len(refs.native_refusal_problems(
+            "c", refused("ACTION_FAILED", "delivered_unverified", cause="native_wayland_client",
+                         physical_delivery_started=False))), 1)
+        self.assertEqual(len(refs.native_refusal_problems(
+            "c", refused("ACTION_NOT_SUPPORTED", cause="native_wayland_client", physical_delivery_started=False))), 1)
+        self.assertEqual(len(refs.native_refusal_problems("c", refused("ACTION_FAILED", cause="native_wayland_client"))), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

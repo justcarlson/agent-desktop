@@ -1,4 +1,5 @@
 """A GTK3 window that writes every pointer event it receives to a log, for the Hyprland pointer legs.
+It runs on native Wayland unless the launcher sets GDK_BACKEND=x11 for an XWayland pad.
 
 argv[1] is the JSON-lines log. Each line has `ev`, `widget` and `t` (monotonic seconds).
 The window holds a button named "Pad Button", a scroll pane named "Pad Scroll" (widget `scroll`,
@@ -16,7 +17,7 @@ import sys
 import time
 
 os.environ["GTK_USE_PORTAL"] = "0"
-os.environ["GDK_BACKEND"] = "wayland"
+os.environ.setdefault("GDK_BACKEND", "wayland")
 import gi
 
 gi.require_version("Gtk", "3.0")

@@ -29,8 +29,8 @@ from scenarios.hyprland_cursor import (NAMESPACE, TOLERANCE, _seven, alive, arro
                                        layers_of, monitor_at, record_of, renderer_of, start_time, started)
 from scenarios.hyprland_focus_controls import lua_call
 from scenarios.hyprland_pointer import nested
-from scenarios.hyprland_pointer_pad import (covering_layers, events, instance_env, pad_client, pad_ref,
-                                            pads_left, pointer_pad, presses, settled, since)
+from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
+                                            pad_ref, pads_left, pointer_pad, presses, settled, since)
 
 SHOW_SETTLE_S = 3.0
 HOLD_MS = 8_000
@@ -344,12 +344,15 @@ def shell_covers(layers: dict, point: tuple[float, float]) -> list[str]:
 
 
 def _dead_click_problems(ctx: LegContext, envelope, shell: list[str], tree, shown: str) -> list[str]:
-    """A click under a killed renderer passes its hide; only a shell layer read before the click may cover it.
+    """A click under a killed renderer passes its hide; only a shell layer read before the click, or the
+    native Wayland refusal, may stop it.
 
     The hit test judges covers after a confirmed hide, so a cover by a layer
     that was over the button before any headed click shows the hide passed.
-    Such a refusal must be undelivered and safe, and the display must still
-    read `shown`, its value before the click.
+    Calculator is a native Wayland client, and its headed ref click refuses with
+    `native_wayland_client` only after that hit test, so that refusal shows the
+    hide passed too. Either refusal must be undelivered and safe, and the
+    display must still read `shown`, its value before the click.
     """
     if envelope.ok:
         return []
@@ -358,13 +361,16 @@ def _dead_click_problems(ctx: LegContext, envelope, shell: list[str], tree, show
     covers = [(check.get("occluder") or {}).get("name") for check in details.get("checks") or []
               if check.get("check") == "receives_events" and check.get("status") == "fail"]
     disposition = error.get("disposition") or {}
-    if error.get("code") == "ACTION_FAILED" and covers and all(name in shell for name in covers):
+    shell_covered = bool(covers) and all(name in shell for name in covers)
+    native = details.get("cause") == "native_wayland_client" and details.get("physical_delivery_started") is False
+    if error.get("code") == "ACTION_FAILED" and (shell_covered or native):
         if disposition.get("delivery") != "not_delivered" or disposition.get("retry") != "safe":
-            return [f"the shell-covered click under a dead renderer is {disposition}, not not_delivered and safe"]
+            return [f"the refused click under a dead renderer is {disposition}, not not_delivered and safe"]
         if raw.poll(lambda: display(tree) != shown, 1.0):
             return [f"the refused click under a dead renderer changed the display to {display(tree)!r}"]
-        ctx.finding(f"the headed click under a dead renderer passed its hide and met the shell layer {covers}, "
-                    "which covered the button before any headed click")
+        met = f"the shell layer {covers}, which covered the button before any headed click" if shell_covered \
+            else "the native Wayland refusal, which runs after the hit test"
+        ctx.finding(f"the headed click under a dead renderer passed its hide and met {met}")
         return []
     return [f"a dead renderer blocked the click: {envelope.raw[:300]}"]
 
@@ -384,7 +390,7 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
     ctx.before("hyprland.layers", layers_of(runtime, instance))
-    with pointer_pad(tier, instance, label) as (owned, client, log):
+    with pointer_pad(tier, instance, label, XWAYLAND) as (owned, client, log):
         session = started(ctx, env)
         try:
             renderer_of(runtime, instance, session)

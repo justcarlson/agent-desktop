@@ -28,6 +28,9 @@ PAD_SETTLE_S = 10.0
 EVENT_SETTLE_S = 3.0
 CLICK_GAP_S = 0.8
 COVER_CLASS = "ad-pointer-cover"
+NATIVE = "wayland"
+XWAYLAND = "x11"
+X_LOCKS = Path("/tmp")
 
 
 def instance_env(tier, instance: dict) -> dict[str, str]:
@@ -208,13 +211,54 @@ def _pad_owner(tier):
     return found[0] if len(found) == 1 else None
 
 
-@contextlib.contextmanager
-def pointer_pad(tier, instance: dict, label: str):
-    """The pad on `instance`. Yields the app, its toplevel and its event log."""
-    require(not apps._owners(tier, names=PAD_NAMES), "a pointer pad from an earlier leg still runs")
-    env = dict(tier.env, WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND="wayland")
+def _parent_of(pid: int, root: Path = Path("/proc")) -> int | None:
+    try:
+        text = (root / str(pid) / "stat").read_text()
+    except OSError:
+        return None
+    return int(text[text.rindex(")") + 2:].split()[1])
+
+
+def x_display(instance: dict, locks: Path = X_LOCKS, root: Path = Path("/proc")) -> str:
+    """The X display the instance's XWayland serves: the `.X<n>-lock` file that names the compositor
+    or a child of it, or "" when none does."""
+    for lock in sorted(locks.glob(".X*-lock")):
+        number = lock.name[2:-len("-lock")]
+        try:
+            owner = int(lock.read_text().strip())
+        except (OSError, ValueError):
+            continue
+        if number.isdigit() and instance["pid"] in (owner, _parent_of(owner, root)):
+            return f":{number}"
+    return ""
+
+
+def pad_env(tier, instance: dict, backend: str) -> dict[str, str]:
+    """The pad's launch environment on `instance`: native Wayland, or the instance's XWayland display."""
+    env = dict(tier.env, WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND=backend)
     env.pop("AT_SPI_BUS_ADDRESS", None)
     env.pop("HYPRLAND_INSTANCE_SIGNATURE", None)
+    if backend == XWAYLAND:
+        display = raw.poll(lambda: x_display(instance), PAD_SETTLE_S)
+        require(display, f"no XWayland display names the compositor {instance['pid']} of {instance['signature']}")
+        env["DISPLAY"] = display
+    return env
+
+
+def backend_problem(client: dict, backend: str) -> str | None:
+    """Why the pad's toplevel is not on the backend the leg asked for, read from `j/clients`."""
+    want = backend == XWAYLAND
+    if client.get("xwayland") is want:
+        return None
+    return f"the pointer pad's toplevel reports xwayland {client.get('xwayland')!r} in j/clients, expected {want}"
+
+
+@contextlib.contextmanager
+def pointer_pad(tier, instance: dict, label: str, backend: str = NATIVE):
+    """The pad on `instance`, native Wayland unless `backend` is `XWAYLAND`. Yields the app, its
+    toplevel and its event log once `j/clients` shows the toplevel on that backend."""
+    require(not apps._owners(tier, names=PAD_NAMES), "a pointer pad from an earlier leg still runs")
+    env = pad_env(tier, instance, backend)
     log = tier.runtime_dir / f"pointer-pad-{label}.events"
     log.write_text("")
     attached_session.spawn(tier, ["python3", str(PAD_SCRIPT), str(log)], env,
@@ -226,6 +270,8 @@ def pointer_pad(tier, instance: dict, label: str):
     try:
         client = raw.poll(lambda: pad_client(tier, instance, owned.pid), 5.0)
         require(client, f"the pointer pad has no mapped toplevel on {instance['signature']}")
+        problem = backend_problem(client, backend)
+        require(problem is None, problem or "")
         yield owned, client, log
     finally:
         _release(tier, owned)
