@@ -179,6 +179,42 @@ fn a_resize_is_proven_only_after_the_corner_is_back() {
 }
 
 #[test]
+fn a_clamped_resize_still_puts_the_corner_back() {
+    let mut fake = world(
+        LUA_REPLY,
+        vec![
+            frame(floating_at((40, 60)), Some(HOLDER)),
+            frame(state(TARGET, (351, 429), (7, 17)), Some(HOLDER)),
+            frame(state(TARGET, (40, 60), (7, 17)), Some(HOLDER)),
+        ],
+    );
+
+    let error = window_op_reported(
+        &mut fake,
+        &window(),
+        &WindowOp::Resize {
+            width: 5.0,
+            height: 5.0,
+        },
+    )
+    .expect_err("clamped");
+
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let details = error.details.expect("details");
+    assert_eq!(details["cause"], "readback_mismatch");
+    assert_eq!(details["observed"]["x"], 40);
+    assert_eq!(details["observed"]["y"], 60);
+    assert_eq!(
+        fake.dispatches(),
+        vec![
+            "dispatch hl.dsp.window.resize({x=5,y=5,window=\"address:0x10\"})",
+            "dispatch hl.dsp.window.move({x=40,y=60,window=\"address:0x10\"})",
+        ]
+    );
+}
+
+#[test]
 fn minimizing_the_focused_window_reports_where_focus_went() {
     let parked = ClientState {
         workspace: "special:agent-desktop-minimized-1".into(),
