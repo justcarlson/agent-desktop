@@ -2,7 +2,9 @@
 //! session's start lock, looks again, and classifies the record: a valid
 //! renderer still starting is waited for, another build's live renderer is
 //! refused and left alone, and a stale record is removed for its own
-//! generation only. Exactly one caller launches.
+//! generation only. Exactly one caller launches. A launched renderer that
+//! does not listen before the deadline is killed through its pidfd before
+//! the lock is released.
 
 use std::os::unix::net::UnixStream;
 use std::time::{Duration, Instant};
@@ -10,16 +12,19 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{
     AdapterError, CursorOverlayControl, Deadline, DeliverySemantics, ErrorCode, FileLock,
 };
+use rustix::process::Signal;
 
 use super::exe_identity::ExeIdentity;
 use super::record_class::RecordClass;
 use super::record_read::{RecordRead, read_record, remove_if_generation};
 use super::renderer_launcher::RendererLauncher;
 use super::renderer_paths::RendererPaths;
+use super::renderer_pidfd::RendererPidfd;
 use super::renderer_record::RendererRecord;
 use super::renderer_target::RendererTarget;
 
 const SOCKET_POLL: Duration = Duration::from_millis(10);
+const UNSTARTED_EXIT_WAIT: Duration = Duration::from_secs(1);
 
 /// What `ensure_running` needs: where, for which compositor, and how long.
 pub(crate) struct StartRequest<'a> {
@@ -68,8 +73,29 @@ pub(crate) fn ensure_running(
     if !launcher.session_active(request.first) {
         return Ok(());
     }
-    let _launched = launcher.launch(request.target, paths, request.first)?;
-    wait_for_socket(paths, request.deadline)
+    let launched = launcher.launch(request.target, paths, request.first)?;
+    let listening = wait_for_socket(paths, request.deadline);
+    if listening.is_err()
+        && let Some(child) = launched
+    {
+        stop_unstarted(paths, &child);
+    }
+    listening
+}
+
+/// Kills a launched renderer that never listened, through its pidfd, and
+/// removes a record it wrote, all while the caller still holds the start
+/// lock, so the next starter cannot launch beside it.
+fn stop_unstarted(paths: &RendererPaths, child: &RendererPidfd) {
+    child.signal(Signal::KILL);
+    if !child.wait_for_exit(UNSTARTED_EXIT_WAIT) {
+        return;
+    }
+    if let RecordRead::Present(record) = read_record(&paths.record)
+        && record.owner.pid == child.pid()
+    {
+        remove_if_generation(paths, &record.owner.generation);
+    }
 }
 
 /// Whether a renderer accepts connections on the session's socket.

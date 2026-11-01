@@ -1,5 +1,6 @@
 //! The renderer process: it records itself, connects to the bound
-//! compositor, listens on its socket, and serves requests until it is
+//! compositor, shows the cursor at its initial point before it serves the
+//! first request, listens on its socket, and serves requests until it is
 //! disabled, its session ends or turns the cursor off, its compositor goes,
 //! or the compositor closes its surface. On the way out it removes the socket
 //! and record only while the record still names its own generation.
@@ -8,10 +9,13 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline};
+use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline, Point};
 use rustix::event::{PollFd, PollFlags, Timespec};
 
 use super::agent_cursor::AgentCursor;
+use super::cursor_animation::{draw_at, draw_within};
+use super::holder_view::any_live;
+use super::initial_pose::initial_point;
 use super::layer_client::LayerClient;
 use super::live_launcher::session_wants_cursor;
 use super::record_read::{RecordRead, read_record, remove_if_generation};
@@ -21,9 +25,12 @@ use super::renderer_record::{RendererRecord, now_secs};
 use super::renderer_reply::{Flow, serve_one};
 use super::renderer_spawn::RENDERER_PROTOCOL;
 use super::renderer_target::RendererTarget;
+use crate::system::hyprland::ipc::bound_request::bound_request;
 use crate::system::hyprland::toplevel::bound_socket::connect_bound;
 
 const CONNECT_MS: u64 = 4_000;
+const FIRST_DRAW_MS: u64 = 1_000;
+const MONITORS_MS: u64 = 1_000;
 const IDLE_POLL: Duration = Duration::from_millis(250);
 const LIVENESS_EVERY: Duration = Duration::from_secs(1);
 
@@ -77,7 +84,7 @@ impl RendererProcess {
                 return Err(error);
             }
         };
-        Ok(Self {
+        let mut process = Self {
             paths,
             record,
             client,
@@ -88,7 +95,36 @@ impl RendererProcess {
                 .join("hypr")
                 .join(&target.binding.signature),
             wanted: session_wants_cursor,
-        })
+        };
+        process.cursor.pose = Some(first_point(target));
+        process.cursor.hidden = matches!(first, CursorOverlayControl::Hide { .. });
+        if let Err(error) = process.show_first() {
+            process.client.release();
+            remove_if_generation(&process.paths, &process.record.owner.generation);
+            return Err(error);
+        }
+        Ok(process)
+    }
+
+    fn show_first(&mut self) -> Result<(), AdapterError> {
+        if self.cursor.hidden || any_live(&self.paths.holders) {
+            return Ok(());
+        }
+        let Some(pose) = self.cursor.pose.clone() else {
+            return Ok(());
+        };
+        draw_within(&mut self.client, &mut self.cursor, pose, FIRST_DRAW_MS)
+    }
+
+    /// Draws the cursor where it already is, unless it is hidden or held.
+    pub(crate) fn redraw(&mut self) -> Result<(), AdapterError> {
+        if self.cursor.hidden || any_live(&self.paths.holders) {
+            return Ok(());
+        }
+        match self.cursor.pose.clone() {
+            Some(pose) => draw_at(&mut self.client, &mut self.cursor, pose),
+            None => Ok(()),
+        }
     }
 
     fn open(
@@ -175,6 +211,13 @@ impl RendererProcess {
         self.wanted = wanted;
         self
     }
+}
+
+fn first_point(target: &RendererTarget) -> Point {
+    Deadline::detached_after(MONITORS_MS)
+        .and_then(|deadline| bound_request(&target.binding, "j/monitors", deadline))
+        .map(|body| initial_point(&body))
+        .unwrap_or(Point { x: 0.0, y: 0.0 })
 }
 
 fn owns_record(paths: &RendererPaths, generation: &str) -> bool {
