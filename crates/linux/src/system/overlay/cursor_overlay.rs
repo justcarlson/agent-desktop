@@ -5,6 +5,8 @@ use x11rb::protocol::xproto::*;
 
 use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline, FileLock};
 
+use crate::system::hyprland::cursor_renderer::hypr_cursor;
+
 #[path = "cursor_overlay_capture.rs"]
 mod capture;
 #[path = "cursor_overlay_draw.rs"]
@@ -34,10 +36,17 @@ fn connect(display: &str) -> Result<(x11rb::rust_connection::RustConnection, usi
 pub(crate) fn update(control: &CursorOverlayControl) -> Result<(), AdapterError> {
     control.validate()?;
     let deadline = Deadline::after(4_000)?;
-    let display = match crate::system::display::display_server::require(deadline)? {
+    let route = match crate::system::display::display_server::require(deadline) {
+        Ok(route) => route,
+        Err(refusal) if control.is_disable() => {
+            return hypr_cursor::disable_unrouted(control.session_id(), refusal);
+        }
+        Err(error) => return Err(error),
+    };
+    let display = match route {
         crate::system::display::route::Route::X11(display) => display,
         crate::system::display::route::Route::Wayland => {
-            return crate::system::hyprland::cursor_renderer::hypr_cursor::update_wayland(control);
+            return hypr_cursor::update_wayland(control);
         }
     };
     let root = agent_desktop_core::session::agent_desktop_dir().map_err(error)?;
