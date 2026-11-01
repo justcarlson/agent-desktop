@@ -72,7 +72,7 @@ pub(crate) fn bound_hit(
     };
     let mut hider = crate::system::hyprland::cursor_hider(&CursorContext { binding: &binding });
     with_cursors_hidden(hider.as_mut(), deadline, || {
-        Ok(read_hit(&binding, placed.address, point, deadline))
+        read_hit(&binding, placed.address, point, deadline)
     })
     .map(Some)
 }

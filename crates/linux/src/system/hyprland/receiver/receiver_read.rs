@@ -51,3 +51,7 @@ pub(crate) fn read_stack(
         desktop,
     })
 }
+
+#[cfg(test)]
+#[path = "receiver_read_tests.rs"]
+mod tests;
