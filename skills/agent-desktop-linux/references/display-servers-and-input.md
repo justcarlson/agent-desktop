@@ -377,7 +377,7 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   receiver proof before each burst, which refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
   `evidence_missing`, `target_not_shown`, `point_outside_target`,
-  `popup_surface`, `layer_cover` or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
+  `popup_surface`, `layer_cover`, `window_cover` or `native_wayland_client`. A read that runs out of time is `TIMEOUT`, cause
   `evidence_timed_out`.
 - **Every layer counts.** The tool trusts no layer namespace. Its own cursor
   layers pass only after their renderer confirmed this command's hide; any
