@@ -52,7 +52,10 @@ pub(crate) fn plan(
             Ok(vec![
                 WindowStep::new(
                     resize_command(dialect, address, size.0, size.1),
-                    vec![goal.clone()],
+                    vec![StepGoal::Resized {
+                        wanted: size,
+                        from: state.size,
+                    }],
                 ),
                 WindowStep::new(
                     move_command(dialect, address, x, y),
