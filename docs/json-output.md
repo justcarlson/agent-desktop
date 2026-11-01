@@ -209,7 +209,9 @@ to each toplevel of the process, after it checks that the process instance
 still runs and still owns that toplevel. The `OperationReport` is
 `delivered_verified` once the process has exited; a process that is still
 running at the deadline is `TIMEOUT` with `delivered_unverified`. A toplevel
-with a parent counts as a dialog, so a pending save prompt is `ACTION_FAILED`
+with a parent counts as a dialog, and so does a showing top-level frame of the
+process with a dialog role in the accessibility tree, parent or not. A pending
+save prompt is then `ACTION_FAILED`
 with cause `dialog_pending` and its title in `details.dialog_titles`, and
 nothing answers it. On any other Wayland compositor, graceful close stays
 `ACTION_NOT_SUPPORTED` with cause `wayland_session` unless the app runs under

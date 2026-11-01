@@ -173,7 +173,9 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
   through the compositor (`zwlr_foreign_toplevel_handle_v1.close`), native
   Wayland and Xwayland windows alike. Each toplevel is checked to belong to the
   same process instance just before its request. A toplevel with a parent counts
-  as a dialog, as a save prompt is. See [Hyprland focus and close](#hyprland-focus-and-close).
+  as a dialog, as a save prompt is, and so does a showing top-level frame of the
+  process with a dialog role (`dialog`, `alert`, `file chooser`) in the
+  accessibility tree, parent or not. See [Hyprland focus and close](#hyprland-focus-and-close).
 - On any other Wayland session, a process with no X11 window is
   `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - Protection follows the target process instance, never its name. `INVALID_ARGS`,
