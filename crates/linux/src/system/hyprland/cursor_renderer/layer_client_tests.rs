@@ -1,6 +1,7 @@
-use agent_desktop_core::{CursorOverlayStyle, Deadline};
+use agent_desktop_core::{CursorOverlayStyle, Deadline, Point};
 
 use super::LayerClient;
+use crate::system::hyprland::cursor_renderer::agent_cursor::AgentCursor;
 use crate::system::hyprland::cursor_renderer::arrow_bitmap::ArrowBitmap;
 use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
 use crate::system::hyprland::cursor_renderer::surface_key::SurfaceKey;
@@ -129,4 +130,114 @@ fn each_cursor_key_gets_its_own_surface_and_forgetting_one_keeps_the_other() {
         .filter(|line| *line == "destroy layer")
         .count();
     assert_eq!(destroyed, 1);
+}
+
+const LEFT: [i32; 6] = [-1024, 0, 1024, 768, 1280, 960];
+const RIGHT: [i32; 6] = [0, 0, 1280, 800, 1280, 800];
+
+fn cursor() -> AgentCursor {
+    let style = CursorOverlayStyle::default();
+    AgentCursor {
+        bitmap: ArrowBitmap::draw(&style),
+        style,
+        motion: Default::default(),
+        pose: None,
+        moves: 0,
+        hidden: false,
+        travel: None,
+    }
+}
+
+fn laid_out() -> (FakeLayerCompositor, LayerClient) {
+    let fake = FakeLayerCompositor::start_with_outputs(true, vec![LEFT, RIGHT]);
+    let client = LayerClient::over(fake.connect(), &fake.socket, deadline()).expect("client");
+    (fake, client)
+}
+
+fn staged(client: &mut LayerClient, x: f64, y: f64) {
+    let mark = client
+        .stage_point("a", &cursor(), &Point { x, y }, deadline())
+        .expect("stage");
+    client.settle(mark, deadline()).expect("settle");
+}
+
+fn output_id(log: &[String], index: usize) -> String {
+    let prefix = format!("output {index} is ");
+    log.iter()
+        .find_map(|line| line.strip_prefix(&prefix).map(str::to_owned))
+        .unwrap_or_else(|| panic!("output {index} never bound: {log:?}"))
+}
+
+#[test]
+fn a_cursor_across_an_output_edge_gets_a_surface_pinned_to_each_output_at_its_scale() {
+    let (fake, mut client) = laid_out();
+    staged(&mut client, -5.0, 100.0);
+    let log = fake.logged();
+    let (left, right) = (output_id(&log, 0), output_id(&log, 1));
+    for expected in [
+        format!("layer 3 namespace agent-desktop-cursor output {left}"),
+        format!("layer 3 namespace agent-desktop-cursor output {right}"),
+        "size 28 36".to_owned(),
+        "viewport 28 36".to_owned(),
+        "margin 99 0 0 1018".to_owned(),
+        "size 25 33".to_owned(),
+        "viewport 25 33".to_owned(),
+        "margin 99 0 0 -7".to_owned(),
+    ] {
+        assert!(log.contains(&expected), "{expected} missing from {log:?}");
+    }
+    assert_eq!(client.surface_count(), 2);
+}
+
+#[test]
+fn a_cursor_inside_one_output_draws_only_there_and_leaves_the_other_clear() {
+    let (fake, mut client) = laid_out();
+    staged(&mut client, -5.0, 100.0);
+    staged(&mut client, 500.0, 500.0);
+    let log = fake.logged();
+    assert!(log.contains(&"margin 499 0 0 499".to_owned()), "{log:?}");
+    assert_eq!(client.surface_count(), 2, "the left surface stays, cleared");
+}
+
+#[test]
+fn a_point_on_no_output_is_off_the_layout_and_builds_no_surface() {
+    let (fake, mut client) = laid_out();
+    assert!(client.on_output(&Point { x: -1.0, y: 700.0 }));
+    assert!(!client.on_output(&Point {
+        x: 5000.0,
+        y: 5000.0
+    }));
+    assert!(!client.on_output(&Point {
+        x: 10.0,
+        y: 790.0 + 20.0
+    }));
+    staged(&mut client, 5000.0, 5000.0);
+    assert_eq!(client.surface_count(), 0);
+    assert!(
+        !fake.logged().iter().any(|line| line.starts_with("layer ")),
+        "{:?}",
+        fake.logged()
+    );
+}
+
+#[test]
+fn the_layout_globals_add_outputs_and_a_viewporter_but_never_a_seat() {
+    let (fake, _client) = laid_out();
+    let binds: Vec<String> = fake
+        .logged()
+        .into_iter()
+        .filter(|line| line.starts_with("bind "))
+        .collect();
+    assert_eq!(
+        binds,
+        [
+            "bind wl_compositor",
+            "bind wl_shm",
+            "bind zwlr_layer_shell_v1",
+            "bind zxdg_output_manager_v1",
+            "bind wp_viewporter",
+            "bind wl_output",
+            "bind wl_output"
+        ]
+    );
 }

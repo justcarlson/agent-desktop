@@ -5,7 +5,9 @@
 //! compositor goes, or the compositor closes a surface. While a cursor
 //! travels it polls without waiting and advances every travel each frame.
 //! A live hide holder clears every cursor: travels then go on unseen, and
-//! each idle tick rereads the holders to clear or draw again.
+//! each idle tick rereads the holders to clear or draw again. When an
+//! output comes, goes, moves or rescales, every cursor is drawn again where
+//! it is.
 //! On the way out it answers every travel still in flight, and removes the
 //! socket and record only while the record still names its own generation.
 
@@ -142,6 +144,15 @@ impl RendererProcess {
         }
     }
 
+    fn redraw_all(&mut self) -> Result<(), AdapterError> {
+        let keys: Vec<String> = self
+            .cursors
+            .iter_mut()
+            .map(|(key, _)| key.clone())
+            .collect();
+        keys.iter().try_for_each(|key| self.redraw(key))
+    }
+
     /// Whether this renderer's session is a multi-agent session.
     pub(crate) fn multi_agent(&self) -> bool {
         (self.rules.multi_agent)(&self.record.session_id)
@@ -173,6 +184,11 @@ impl RendererProcess {
                 break Err(error);
             }
             if let Err(error) = self.client.pump() {
+                break Err(error);
+            }
+            if self.client.take_output_change()
+                && let Err(error) = self.redraw_all()
+            {
                 break Err(error);
             }
             if self.client.is_closed() {

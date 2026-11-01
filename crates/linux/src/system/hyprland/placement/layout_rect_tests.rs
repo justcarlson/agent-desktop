@@ -161,12 +161,8 @@ fn a_present_into_a_hidden_placement_is_sent_parked() {
     let window = rect(150.0, 200.0, 20.0, 10.0);
     let at = (-1012.0, -602.0);
     let hidden = [
-        place(&client(at, "8", true), &desktop("7", None), window.clone()),
-        place(
-            &client(at, "special:s", true),
-            &desktop("7", None),
-            window.clone(),
-        ),
+        place(&client(at, "8", true), &desktop("7", None), window),
+        place(&client(at, "special:s", true), &desktop("7", None), window),
         place(
             &client((2000.0, 0.0), "1", true),
             &desktop("7", None),
@@ -194,7 +190,7 @@ fn a_present_into_a_shown_placement_is_not_parked() {
 fn a_shown_placement_over_a_hidden_one_is_not_parked() {
     let window = rect(150.0, 200.0, 20.0, 10.0);
     let at = (-1012.0, -602.0);
-    let hidden = place(&client(at, "8", true), &desktop("7", None), window.clone());
+    let hidden = place(&client(at, "8", true), &desktop("7", None), window);
     assert!(parked(centre(&hidden.rect)));
     let shown = place(&client(at, "7", true), &desktop("7", None), window);
     assert!(shown.shown);
