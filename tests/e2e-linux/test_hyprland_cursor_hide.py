@@ -34,6 +34,13 @@ def shell_refusal(delivery: str = "not_delivered", retry: str = "safe") -> Envel
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
 
 
+def native_refusal(retry: str = "safe", started: bool = False) -> Envelope:
+    error = {"code": "ACTION_FAILED", "details": {"kind": "receiver_evidence", "cause": "native_wayland_client",
+                                                  "physical_delivery_started": started},
+             "disposition": {"delivery": "not_delivered", "retry": retry}}
+    return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
+
+
 class Findings:
     def __init__(self):
         self.found = []
@@ -128,6 +135,19 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("77", problems[0])
         self.assertEqual(found, [])
+
+    def test_a_dead_click_native_wayland_refusal_passes_only_undelivered_and_unchanged(self):
+        problems, found = dead_click(native_refusal(), "7")
+        self.assertEqual(problems, [])
+        self.assertEqual(len(found), 1)
+        self.assertIn("native Wayland", found[0])
+        self.assertEqual(len(dead_click(native_refusal(retry="unsafe"), "7")[0]), 1)
+        self.assertEqual(len(dead_click(native_refusal(), "77")[0]), 1)
+        self.assertEqual(len(dead_click(native_refusal(started=True), "7")[0]), 1)
+
+    def test_the_pad_legs_under_the_cursor_drive_an_xwayland_pad(self):
+        source = (Path(hide.__file__)).read_text()
+        self.assertIn("pointer_pad(tier, instance, label, XWAYLAND)", source)
 
 
 if __name__ == "__main__":
