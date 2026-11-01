@@ -1,7 +1,7 @@
 //! A hit test answered from the bound instance's stack: whether a point
 //! reaches the target's toplevel or which window or layer surface holds it.
 
-use agent_desktop_core::{Deadline, HitTestResult, Point};
+use agent_desktop_core::{AdapterError, Deadline, HitTestResult, Point};
 
 use super::check_receiver::{check_receiver, holds};
 use super::deny_all_overlays::DenyAllOverlays;
@@ -49,11 +49,11 @@ pub(crate) fn read_hit(
     target: u64,
     point: &Point,
     deadline: Deadline,
-) -> HitTestResult {
-    match read_stack(binding, deadline) {
+) -> Result<HitTestResult, AdapterError> {
+    Ok(match read_stack(binding, deadline) {
         Ok(stack) => hit_of(&stack, target, point),
         Err(_) => HitTestResult::Unknown,
-    }
+    })
 }
 
 #[cfg(test)]
