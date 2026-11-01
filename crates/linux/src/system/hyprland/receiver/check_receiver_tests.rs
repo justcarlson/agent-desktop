@@ -7,6 +7,7 @@ use crate::system::hyprland::clients::monitor_workspaces::MonitorWorkspaces;
 use crate::system::hyprland::receiver::deny_all_overlays::DenyAllOverlays;
 use crate::system::hyprland::receiver::layer_info::LayerInfo;
 use crate::system::hyprland::receiver::stack_client::StackClient;
+use crate::system::hyprland::receiver::stacking::Stacking;
 
 const TARGET: u64 = 0xa1;
 const POINT: Point = Point { x: 162.0, y: 238.0 };
@@ -40,9 +41,7 @@ fn client(address: u64, at: Rect, ws: &str) -> StackClient {
         address,
         rect: at,
         workspace: workspace(ws),
-        floating: false,
-        pinned: false,
-        fullscreen: false,
+        stacking: Stacking::default(),
         shown: true,
     }
 }
@@ -174,9 +173,9 @@ fn an_agent_desktop_cursor_layer_refuses_with_the_default_filter() {
 fn a_floating_pinned_or_fullscreen_window_over_the_point_refuses() {
     let over = rect(100.0, 200.0, 300.0, 200.0);
     let covers: [fn(&mut StackClient); 3] = [
-        |c| c.floating = true,
-        |c| c.pinned = true,
-        |c| c.fullscreen = true,
+        |c| c.stacking.floating = true,
+        |c| c.stacking.pinned = true,
+        |c| c.stacking.fullscreen = true,
     ];
     for cover in covers {
         let mut stack = stack();
@@ -194,7 +193,7 @@ fn a_floating_pinned_or_fullscreen_window_over_the_point_refuses() {
 fn a_pinned_window_from_another_workspace_still_covers() {
     let mut stack = stack();
     let mut other = client(0xb2, rect(100.0, 200.0, 300.0, 200.0), "9");
-    other.pinned = true;
+    other.stacking.pinned = true;
     stack.clients.push(other);
     assert_eq!(
         check(&stack),
@@ -207,10 +206,10 @@ fn a_hidden_or_off_view_floating_window_does_not_cover() {
     let over = rect(100.0, 200.0, 300.0, 200.0);
     let mut stack = stack();
     let mut hidden = client(0xb2, over, "1");
-    hidden.floating = true;
+    hidden.stacking.floating = true;
     hidden.shown = false;
     let mut elsewhere = client(0xc3, over, "4");
-    elsewhere.floating = true;
+    elsewhere.stacking.floating = true;
     stack.clients.extend([hidden, elsewhere]);
     assert_eq!(check(&stack), Ok(()));
 }
@@ -234,12 +233,12 @@ fn the_refusal_error_is_not_delivered_with_its_cause() {
 
 fn floating(address: u64) -> StackClient {
     let mut other = client(address, rect(100.0, 200.0, 300.0, 200.0), "1");
-    other.floating = true;
+    other.stacking.floating = true;
     other
 }
 
 fn floating_target(stack: &mut ReceiverStack) {
-    stack.clients[0].floating = true;
+    stack.clients[0].stacking.floating = true;
 }
 
 #[test]
@@ -276,7 +275,7 @@ fn a_pinned_window_listed_before_a_floating_target_still_covers() {
     let mut stack = stack();
     floating_target(&mut stack);
     let mut pinned = floating(0xb2);
-    pinned.pinned = true;
+    pinned.stacking.pinned = true;
     stack.clients.insert(0, pinned);
     assert_eq!(
         check(&stack),
@@ -288,7 +287,7 @@ fn a_pinned_window_listed_before_a_floating_target_still_covers() {
 fn a_floating_window_below_a_pinned_target_does_not_cover() {
     let mut stack = stack();
     floating_target(&mut stack);
-    stack.clients[0].pinned = true;
+    stack.clients[0].stacking.pinned = true;
     stack.clients.push(floating(0xb2));
     assert_eq!(check(&stack), Ok(()));
 }

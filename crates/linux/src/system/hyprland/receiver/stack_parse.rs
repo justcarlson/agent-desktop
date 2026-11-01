@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use super::layer_info::LayerInfo;
 use super::stack_client::StackClient;
+use super::stacking::Stacking;
 use crate::system::hyprland::clients::client_parse::parse_address;
 use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 
@@ -51,9 +52,11 @@ fn client_of(client: &Value) -> Option<StackClient> {
             name: client.get("workspace")?.get("name")?.as_str()?.to_owned(),
             monitor: client.get("monitor").and_then(Value::as_i64),
         },
-        floating: flag("floating")?,
-        pinned: flag("pinned")?,
-        fullscreen: client.get("fullscreen")?.as_i64()? > 0,
+        stacking: Stacking {
+            floating: flag("floating")?,
+            pinned: flag("pinned")?,
+            fullscreen: client.get("fullscreen")?.as_i64()? > 0,
+        },
         shown: flag("mapped")? && !flag("hidden").unwrap_or(false),
     })
 }

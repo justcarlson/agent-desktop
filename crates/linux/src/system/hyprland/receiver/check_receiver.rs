@@ -26,7 +26,7 @@ pub(crate) fn check_receiver(
         .ok_or(ReceiverRefusal::EvidenceMissing {
             check: "target_client",
         })?;
-    if !client.shown || !(client.pinned || stack.desktop.in_view(&client.workspace)) {
+    if !client.shown || !(client.stacking.pinned || stack.desktop.in_view(&client.workspace)) {
         return Err(ReceiverRefusal::TargetNotShown);
     }
     if !holds(&client.rect, point) {
@@ -44,8 +44,8 @@ pub(crate) fn check_receiver(
         other.address != target
             && above((*rank, other), (target_rank, client))
             && other.shown
-            && (other.floating || other.pinned || other.fullscreen)
-            && (other.pinned || stack.desktop.in_view(&other.workspace))
+            && (other.stacking.floating || other.stacking.pinned || other.stacking.fullscreen)
+            && (other.stacking.pinned || stack.desktop.in_view(&other.workspace))
             && holds(&other.rect, point)
     }) {
         return Err(ReceiverRefusal::WindowCover {
@@ -60,7 +60,10 @@ pub(crate) fn check_receiver(
 /// fullscreen window above the tiled ones and every pinned window above the
 /// rest; within one of those groups the later window is on top.
 fn above(other: (usize, &StackClient), target: (usize, &StackClient)) -> bool {
-    let group = |client: &StackClient| match (client.pinned, client.floating || client.fullscreen) {
+    let group = |client: &StackClient| match (
+        client.stacking.pinned,
+        client.stacking.floating || client.stacking.fullscreen,
+    ) {
         (true, _) => 2,
         (false, true) => 1,
         (false, false) => 0,
