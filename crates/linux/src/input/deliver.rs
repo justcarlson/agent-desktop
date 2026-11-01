@@ -7,6 +7,9 @@ use serde_json::json;
 
 use super::backend::{Backend, backend};
 use super::delivery::{Delivery, Gate};
+use super::hyprland::cursor_guard::hidden_on_route;
+use super::hyprland::hypr_pointer;
+use super::hyprland::hypr_route::bound_route;
 use super::keyboard::keysym_step::KeysymStep;
 use super::mouse::drag_plan::plan_drag;
 use super::mouse::pointer_report::with_event_count;
@@ -21,7 +24,10 @@ pub(crate) fn send_plans(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(display) => session::run(&display, plans, gate, lease),
-        Backend::Wayland => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
+        Backend::Wayland => match bound_route()? {
+            Some(binding) => hypr_pointer::send(&binding, &plans, gate, lease.deadline()),
+            None => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
+        },
     }
 }
 
@@ -32,7 +38,9 @@ pub(crate) fn send_keysyms(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(_) => Err(AdapterError::not_supported("x11_keysym_input")),
-        Backend::Wayland => keysym_send::send_chunks(chunks, gate, deadline),
+        Backend::Wayland => hidden_on_route(deadline, || {
+            keysym_send::send_chunks(chunks, gate, deadline)
+        }),
     }
 }
 
@@ -56,7 +64,10 @@ pub(crate) fn mouse_event(
                 &delivery,
             ))
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("mouse_event")),
+        Backend::Wayland => match bound_route()? {
+            Some(binding) => hypr_pointer::mouse_event(&binding, event, lease.deadline()),
+            None => Err(keysym_send::pointer_refusal("mouse_event")),
+        },
     }
 }
 
@@ -74,7 +85,10 @@ pub(crate) fn drag(
                 &delivery,
             ))
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("drag")),
+        Backend::Wayland => match bound_route()? {
+            Some(binding) => hypr_pointer::drag(&binding, params, deadline),
+            None => Err(keysym_send::pointer_refusal("drag")),
+        },
     }
 }
 

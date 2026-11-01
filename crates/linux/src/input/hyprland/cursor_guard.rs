@@ -5,8 +5,8 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use serde_json::json;
 
+use super::hypr_route::bound_route;
 use super::show_on_drop::ShowOnDrop;
-use crate::system::hyprland::bind::routed_binding::routed_binding;
 use crate::system::hyprland::cursor_context::CursorContext;
 use crate::system::hyprland::cursor_hider::CursorHider;
 
@@ -18,7 +18,8 @@ pub(crate) fn with_cursors_hidden<T>(
     deadline: Deadline,
     send: impl FnOnce() -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
-    let _ = (hider, deadline, ShowOnDrop::new);
+    hider.hide(deadline).map_err(nothing_sent)?;
+    let _shown = ShowOnDrop::new(hider);
     send()
 }
 
@@ -28,7 +29,7 @@ pub(crate) fn hidden_on_route<T>(
     deadline: Deadline,
     send: impl FnOnce() -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
-    match routed_binding().map_err(nothing_sent)? {
+    match bound_route().map_err(nothing_sent)? {
         Some(binding) => {
             let mut hider =
                 crate::system::hyprland::cursor_hider(&CursorContext { binding: &binding });
@@ -38,7 +39,8 @@ pub(crate) fn hidden_on_route<T>(
     }
 }
 
-fn nothing_sent(error: AdapterError) -> AdapterError {
+/// Marks `error` as raised before any event was sent.
+pub(crate) fn nothing_sent(error: AdapterError) -> AdapterError {
     let mut details = match error.details.clone() {
         Some(serde_json::Value::Object(details)) => details,
         Some(other) => serde_json::Map::from_iter([("cause".to_owned(), other)]),
