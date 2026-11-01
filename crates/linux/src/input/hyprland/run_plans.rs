@@ -1,9 +1,14 @@
-use agent_desktop_core::AdapterError;
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
+use serde_json::json;
 
+use super::pointer_event::PointerEvent;
 use super::pointer_run::PointerRun;
 use super::pointer_sink::PointerSink;
 use crate::input::delivery::Delivery;
 use crate::input::plan::Plan;
+use crate::input::step::Step;
+
+const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retrying: some input may already have been delivered";
 
 /// Sends `plans` through `sink`. Every point must map onto an output and
 /// every step must be a pointer step, or nothing is sent. The plan gate runs
@@ -15,10 +20,102 @@ pub(crate) fn run_plans(
     run: PointerRun<'_>,
     plans: &[Plan],
 ) -> Result<Delivery, AdapterError> {
-    let _ = (sink, run, plans);
-    Ok(Delivery {
-        delivered_events: 0,
-    })
+    let events = plans
+        .iter()
+        .map(|plan| {
+            plan.steps
+                .iter()
+                .filter_map(|step| PointerEvent::of(step, run.displays).transpose())
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let PointerRun {
+        plan_gate,
+        step_gate,
+        deadline,
+        ..
+    } = run;
+    let mut held: Vec<u32> = Vec::new();
+    let mut sent = 0u32;
+    let outcome = (|| {
+        for plan in &events {
+            plan_gate()?;
+            for event in plan {
+                deadline.ensure_remaining()?;
+                if event.gated() {
+                    step_gate()?;
+                }
+                event.send(sink)?;
+                sent = sent.saturating_add(u32::from(event.counts()));
+                event.track(&mut held);
+            }
+        }
+        Ok(())
+    })();
+    match outcome {
+        Ok(()) => Ok(Delivery {
+            delivered_events: sent,
+            virtual_keyboard: false,
+        }),
+        Err(error) => {
+            let released = held.is_empty() || sink.recover(&held);
+            Err(stopped(error, sent, (!held.is_empty()).then_some(released)))
+        }
+    }
+}
+
+/// Rejects a step this runner cannot send before any event.
+pub(crate) fn unsupported_step(step: &Step) -> AdapterError {
+    let what = match step {
+        Step::Key { .. } | Step::Keymap(_) | Step::CheckTextState => {
+            "modifier keys with pointer input"
+        }
+        _ => "this pointer button",
+    };
+    AdapterError::new(
+        ErrorCode::ActionNotSupported,
+        format!("Hyprland pointer input does not send {what}"),
+    )
+    .with_details(json!({
+        "kind": "hyprland_pointer",
+        "cause": "unsupported_step",
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+/// Rejects a point that lies on no output before any event.
+pub(crate) fn off_output(x: i32, y: i32) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::InvalidArgs,
+        format!("Point ({x}, {y}) lies on no output of the global layout"),
+    )
+    .with_details(json!({
+        "kind": "hyprland_pointer",
+        "cause": "point_off_output",
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+    .with_suggestion("Run 'list-displays' and pass a point inside one display's bounds")
+}
+
+fn stopped(error: AdapterError, sent: u32, released: Option<bool>) -> AdapterError {
+    if sent == 0 {
+        return error.with_disposition(DeliverySemantics::not_delivered());
+    }
+    let mut details = match error.details.clone() {
+        Some(serde_json::Value::Object(details)) => details,
+        _ => serde_json::Map::new(),
+    };
+    details.insert("physical_delivery_started".to_owned(), json!(true));
+    details.insert("delivered_events".to_owned(), json!(sent));
+    if let Some(released) = released {
+        details.insert("buttons_released".to_owned(), json!(released));
+    }
+    error
+        .with_details(serde_json::Value::Object(details))
+        .with_disposition(DeliverySemantics::uncertain())
+        .with_suggestion(STOP_SUGGESTION)
 }
 
 #[cfg(test)]

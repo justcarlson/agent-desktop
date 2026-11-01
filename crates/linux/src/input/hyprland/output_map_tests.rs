@@ -69,6 +69,6 @@ fn an_output_edge_belongs_to_the_output_that_starts_there() {
 #[test]
 fn a_point_on_no_output_maps_to_none() {
     assert_eq!(to_output(1024, 10, &layout()), None);
-    assert_eq!(to_output(-500, -10, &layout()), None);
+    assert_eq!(to_output(-500, 700, &layout()), None);
     assert_eq!(to_output(10, 10, &[]), None);
 }

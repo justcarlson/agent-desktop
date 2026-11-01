@@ -176,7 +176,7 @@ fn a_focus_change_mid_sequence_stops_uncertain_with_counts() {
 }
 
 #[test]
-fn a_first_gate_refusal_is_not_delivered() {
+fn a_refusal_after_the_motion_is_uncertain() {
     let mut sink = FakePointerSink::default();
     let error = run(&mut sink, &click(1), &mut || {
         Err(AdapterError::new(ErrorCode::ActionFailed, "focus changed"))

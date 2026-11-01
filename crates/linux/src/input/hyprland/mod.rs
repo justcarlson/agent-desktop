@@ -4,10 +4,17 @@
 
 pub(crate) mod cursor_guard;
 pub(crate) mod focus_gate;
+pub(crate) mod hypr_pointer;
+pub(crate) mod hypr_route;
+pub(crate) mod live_pointer_sink;
 pub(crate) mod output_map;
 pub(crate) mod output_point;
+pub(crate) mod pointer_devices;
+pub(crate) mod pointer_event;
 pub(crate) mod pointer_run;
 pub(crate) mod pointer_sink;
+pub(crate) mod pointer_state;
+pub(crate) mod ref_pointer;
 pub(crate) mod run_plans;
 pub(crate) mod show_on_drop;
 pub(crate) mod step_event;
