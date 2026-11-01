@@ -2,11 +2,11 @@
 //! surface's configure and close events, and frame callbacks. Frame marks
 //! count for the whole connection, so a rebuilt surface never waits on a
 //! mark an earlier surface already reached. Each mark stays pending, with
-//! the surface it was committed on, until its own callback fires, because
-//! outputs show frames at their own pace and a later mark on one output
-//! says nothing about an earlier one on another. A closed surface pinned to an
-//! output is noted for the client to rebuild, since its output went; a
-//! closed unpinned surface closes the renderer.
+//! the layer surface it was committed on, until its own callback fires,
+//! because outputs show frames at their own pace and a later mark on one
+//! output says nothing about an earlier one on another. A closed surface
+//! pinned to an output is noted for the client to rebuild, since its output
+//! went; a closed unpinned surface closes the renderer.
 
 use std::collections::BTreeMap;
 
