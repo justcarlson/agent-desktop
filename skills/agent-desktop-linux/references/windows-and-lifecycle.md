@@ -303,8 +303,8 @@ agent-desktop list-windows --app foot
   `WINDOW_NOT_FOUND`; run `list-windows` again.
 - The window has no refs. `snapshot --window-id` and `find --window-id` refuse
   the id with `INVALID_ARGS`.
-- It takes `focus-window` and `screenshot`. The CLI sends it no pointer input
-  and no scoped key input. Global `press` goes to the window that holds keyboard
+- It takes `focus-window`, the window operations below and `screenshot`. The
+  CLI sends it no pointer input and no scoped key input. Global `press` goes to the window that holds keyboard
   focus, and that can be this window.
 - `list-windows --app` matches it by its class (foot's `--app-id`), command name
   or executable, also when no accessibility application has that name.
@@ -435,10 +435,9 @@ everywhere but a bound Hyprland.
 
 Headless scoped `press` does not activate a window: it requires the live focus
 guard to confirm the target. If focus cannot be confirmed and the user permits
-focus, bring the target forward with `--headed focus-window` on X11, then use
-global `press` (no `--app`, `--window-id` or `--headed`). On Hyprland the CLI
-sends no keys, so global `press` fails too: use a semantic ref action or report
-the limit. A headless `press --window-id` with unconfirmed exact window focus
+focus, bring the target forward with `--headed focus-window` (X11 or a bound
+Hyprland), then use global `press` (no `--app`, `--window-id` or `--headed`).
+Global `press` goes to the window that holds keyboard focus. A headless `press --window-id` with unconfirmed exact window focus
 returns `STALE_REF`, `check: exact_window_focus`, `cause:
 exact_window_focus_unconfirmed`, `not_delivered`: bring the window forward,
 refresh `list-windows`, retry with its current id.
