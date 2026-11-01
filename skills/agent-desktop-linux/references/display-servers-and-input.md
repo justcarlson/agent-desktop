@@ -339,9 +339,22 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `drag --from-xy`, `hover --xy`) prove nothing about the receiver. The report
   says `details.receiver_proof: false` and counts `details.delivered_events`.
   Read the effect from the app afterwards.
-- **Ref commands** (`click`, `double-click`, `triple-click`, `scroll`) aim at
-  the element inside its window and prove the receiver from the compositor
-  before each burst. The window must be mapped and shown, and the point must be
+- **Native Wayland windows refuse ref pointer commands.** Hyprland sees only
+  which window takes a point. A native Wayland app then routes the point to its
+  own surfaces, and neither Hyprland nor the accessibility tree shows an
+  in-window overlay or a popup of the same app over the target. Such a click
+  reported success while another widget got it. So `--headed` `click`,
+  `double-click`, `triple-click`, `right-click`, `scroll` and `drag` by ref on
+  a window that `hyprctl clients` reports with `xwayland: false` refuse before
+  any pointer event: `ACTION_FAILED`, kind `receiver_evidence`, cause
+  `native_wayland_client`, `not_delivered`. The window is activated first, as
+  below. Run `click @ref` without `--headed` to use the accessibility action,
+  or aim with `mouse-click --xy`, which reports `receiver_proof: false`, and
+  read the effect from the app. A client list that does not report the flag
+  refuses with cause `evidence_missing`, `evidence: "client_xwayland"`.
+- **Ref commands** (`click`, `double-click`, `triple-click`, `scroll`) on an
+  XWayland window aim at the element inside its window and prove the receiver
+  from the compositor before each burst. The window must be mapped and shown, and the point must be
   inside it. No `top` or `overlay` layer and no floating, pinned or fullscreen
   window that takes the pointer before the target may cover the point.
   Hyprland gives the pointer first to pinned windows, then to floating windows
@@ -388,7 +401,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   and a read that runs out of time is `TIMEOUT`.
 - **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
   `hover_unsupported`, and sends nothing. Use `hover --xy`.
-- **`drag` by ref** proves both endpoints as a ref click does, before it starts.
+- **`drag` by ref** proves both endpoints as a ref click does, before it starts,
+  and refuses a native Wayland endpoint the same way.
   Each must be shown, inside its window and uncovered, or the drag refuses
   before any event with the same causes. The move itself carries no further
   proof. `drag --from-xy` and `--to-xy` stay coordinate commands.
