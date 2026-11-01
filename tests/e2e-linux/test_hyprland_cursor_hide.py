@@ -54,9 +54,37 @@ class Findings:
 class Reads:
     def __init__(self):
         self.restored_reads = {}
+        self.found = []
+        self.tier = None
 
     def restored(self, oracle: str, value) -> None:
         self.restored_reads.setdefault(oracle, []).append(value)
+
+    def finding(self, text: str) -> None:
+        self.found.append(text)
+
+
+NESTED_SPACE = "special:ad_e2e_nested"
+GHOST = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
+
+
+class Outer:
+    """The outer session: it shows the nested window's special workspace on a toggle it obeys, and only a
+    shown nested window gets the frames that let the nested compositor drop a closed layer."""
+
+    def __init__(self, obeys: bool = True, ghost_frames: int = 3):
+        self.obeys, self.ghost_frames = obeys, ghost_frames
+        self.shown, self.toggles, self.framed = set(), [], 0
+
+    def toggle(self, tier, name: str) -> None:
+        self.toggles.append(name)
+        if self.obeys:
+            self.shown ^= {name}
+
+    def layers_of(self, runtime, instance):
+        if NESTED_SPACE in self.shown:
+            self.framed += 1
+        return GHOST if self.framed < self.ghost_frames else []
 
 
 def arrow_in(image: pixels.Image, box: tuple[int, int, int, int], color=(66, 153, 255)) -> pixels.Image:
@@ -70,21 +98,20 @@ def arrow_in(image: pixels.Image, box: tuple[int, int, int, int], color=(66, 153
     return pixels.Image(width=image.width, height=image.height, rgb=bytes(rgb))
 
 
-def ended_reads(answers: list) -> tuple[list[str], list]:
-    """The problems and the restored layer reads after session end, while `layers_of` gives `answers`."""
-    ctx, pending = Reads(), iter(answers)
-    last = []
-
-    def layers_of(runtime, instance):
-        nonlocal last
-        last = next(pending, last)
-        return last
-
+def ended_reads(outer: Outer) -> tuple[list[str], list]:
+    """The problems and the restored layer reads after session end, against the fake outer session."""
+    ctx = Reads()
     owner = {"pid": 5, "start_time": 1}
-    with mock.patch.object(cursor, "layers_of", layers_of), mock.patch.object(hide, "layers_of", layers_of), \
+    window = {"workspace": {"id": -98, "name": NESTED_SPACE}}
+    with mock.patch.object(cursor, "layers_of", outer.layers_of), \
+            mock.patch.object(hide, "layers_of", outer.layers_of), \
             mock.patch.object(cursor, "alive", lambda owner: False), \
             mock.patch.object(cursor, "record_of", lambda runtime, session: None), \
-            mock.patch.object(cursor, "SETTLE_S", 0.2):
+            mock.patch.object(cursor, "SETTLE_S", 0.2), \
+            mock.patch.object(hide, "SHOW_SETTLE_S", 0.2), \
+            mock.patch.object(hide, "outer_window", lambda tier, instance: window, create=True), \
+            mock.patch.object(hide, "outer_shown", lambda tier: set(outer.shown), create=True), \
+            mock.patch.object(hide, "toggle_outer", outer.toggle, create=True):
         problems = hide.ended_layers(ctx, Path("/nonexistent"), {"signature": "s", "pid": 1}, "run-1", owner)
     return problems, ctx.restored_reads.get("hyprland.layers", [])
 
@@ -201,18 +228,33 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertTrue(hide.arrow_shown(arrow_in(pressed, box), box))
 
     def test_a_pad_leg_reads_restored_layers_after_the_closed_cursor_layer_leaves(self):
-        ghost = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
-        problems, restored = ended_reads([ghost, ghost, ghost, []])
+        outer = Outer()
+        problems, restored = ended_reads(outer)
         self.assertEqual(problems, [])
         self.assertEqual(restored, [[]])
 
+    def test_the_closed_layer_on_the_hidden_nested_output_leaves_only_once_the_outer_session_shows_it(self):
+        outer = Outer()
+        problems, restored = ended_reads(outer)
+        self.assertEqual(problems, [])
+        self.assertGreaterEqual(outer.framed, outer.ghost_frames)
+        self.assertEqual(outer.toggles, [NESTED_SPACE, NESTED_SPACE])
+        self.assertEqual(outer.shown, set())
+
+    def test_a_nested_window_the_outer_session_does_not_show_fails_without_a_second_toggle(self):
+        outer = Outer(obeys=False)
+        with self.assertRaises(AssertionError) as raised:
+            ended_reads(outer)
+        self.assertIn("did not show", str(raised.exception))
+        self.assertEqual(outer.toggles, [NESTED_SPACE])
+
     def test_a_cursor_layer_that_outlives_session_end_is_a_problem_and_its_restored_read_drifts(self):
-        ghost = [{"monitor": "WAYLAND-1", "level": "3", "pid": -1}]
-        problems, restored = ended_reads([ghost] * 400)
+        outer = Outer(ghost_frames=10**9)
+        problems, restored = ended_reads(outer)
         self.assertEqual(len(problems), 1)
         self.assertIn("still lists", problems[0])
-        self.assertEqual(restored, [ghost])
-
+        self.assertEqual(restored, [GHOST])
+        self.assertEqual(outer.shown, set())
 
 if __name__ == "__main__":
     unittest.main()
