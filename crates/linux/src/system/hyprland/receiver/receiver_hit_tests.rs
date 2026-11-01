@@ -6,6 +6,7 @@ use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::monitor_workspaces::MonitorWorkspaces;
 use crate::system::hyprland::receiver::layer_info::LayerInfo;
 use crate::system::hyprland::receiver::stack_client::StackClient;
+use crate::system::hyprland::receiver::stacking::Stacking;
 
 const TARGET: u64 = 0xa1;
 const POINT: Point = Point { x: 162.0, y: 238.0 };
@@ -27,9 +28,7 @@ fn client(address: u64, at: Rect) -> StackClient {
             name: "1".to_owned(),
             monitor: Some(0),
         },
-        floating: false,
-        pinned: false,
-        fullscreen: false,
+        stacking: Stacking::default(),
         shown: true,
     }
 }
@@ -64,7 +63,7 @@ fn a_floating_window_over_the_point_intercepts_with_its_rectangle() {
     let mut stack = stack();
     let over = rect(100.0, 200.0, 300.0, 200.0);
     let mut cover = client(0xb2, over);
-    cover.floating = true;
+    cover.stacking.floating = true;
     stack.clients.push(cover);
     assert_eq!(
         hit_of(&stack, TARGET, &POINT),

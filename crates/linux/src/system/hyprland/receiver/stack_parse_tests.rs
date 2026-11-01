@@ -24,10 +24,18 @@ fn clients_carry_their_stacking_state() {
     let clients = parse_stack_clients(CLIENTS).unwrap_or_default();
     assert_eq!(clients.len(), 2);
     assert_eq!(clients[0].address, 0x556a218cbb20);
-    assert!(!clients[0].floating && !clients[0].pinned && !clients[0].fullscreen);
+    assert!(
+        !clients[0].stacking.floating
+            && !clients[0].stacking.pinned
+            && !clients[0].stacking.fullscreen
+    );
     assert!(clients[0].shown);
     assert_eq!(clients[1].rect.x, -1012.0);
-    assert!(clients[1].floating && clients[1].pinned && clients[1].fullscreen);
+    assert!(
+        clients[1].stacking.floating
+            && clients[1].stacking.pinned
+            && clients[1].stacking.fullscreen
+    );
     assert_eq!(clients[1].workspace.name, "7");
     assert_eq!(clients[1].workspace.monitor, Some(1));
 }
