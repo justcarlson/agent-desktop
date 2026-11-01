@@ -152,7 +152,12 @@ impl RendererProcess {
         let keys: Vec<String> = self
             .cursors
             .iter_mut()
-            .map(|(key, _)| key.clone())
+            .map(|(key, cursor)| {
+                if let Some(travel) = cursor.travel.as_mut() {
+                    travel.recommit_arrival();
+                }
+                key.clone()
+            })
             .collect();
         keys.iter().try_for_each(|key| self.redraw(key))
     }
