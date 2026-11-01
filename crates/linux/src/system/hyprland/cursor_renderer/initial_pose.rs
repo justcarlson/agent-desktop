@@ -1,7 +1,8 @@
 //! Where a new renderer first shows the cursor: the middle of the focused
-//! monitor, in that monitor's logical pixels. The cursor surface is placed
-//! on the focused monitor, so this is a point on its own output. A reply
-//! that names no usable monitor gives the origin.
+//! monitor, in global layout logical pixels, the monitor's origin plus half
+//! its logical size. Cursor surfaces are placed from global points, so this
+//! point lands on the focused monitor wherever it sits in the layout. A
+//! reply that names no usable monitor gives the origin.
 
 use agent_desktop_core::Point;
 use serde_json::Value;
@@ -31,11 +32,15 @@ fn middle_of(monitor: &Value) -> Option<Point> {
     } else {
         (width, height)
     };
-    let middle = Point {
-        x: (across / scale / 2.0).round(),
-        y: (down / scale / 2.0).round(),
-    };
-    (middle.x > 0.0 && middle.y > 0.0).then_some(middle)
+    let half = ((across / scale / 2.0).round(), (down / scale / 2.0).round());
+    let origin = (
+        monitor["x"].as_f64().unwrap_or(0.0),
+        monitor["y"].as_f64().unwrap_or(0.0),
+    );
+    (half.0 > 0.0 && half.1 > 0.0).then_some(Point {
+        x: origin.0 + half.0,
+        y: origin.1 + half.1,
+    })
 }
 
 #[cfg(test)]
