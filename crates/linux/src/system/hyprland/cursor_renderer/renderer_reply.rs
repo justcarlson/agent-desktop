@@ -3,8 +3,9 @@
 //! names no agent is refused, and a named one retires the session's
 //! unnamed cursor. `enable` updates that cursor's style and redraws it where
 //! it is, without moving it; `present` starts a travel, acknowledged after
-//! its arrival frame, or only moves the pose when parked, hidden or held,
-//! and acknowledges an effect or caret as it starts; a newer `present` or
+//! its arrival frame, or only moves the pose when parked, hidden, held or
+//! bound for a point on no output, and acknowledges an effect or caret as
+//! it starts; a newer `present` or
 //! `hide_cursor` for the same agent supersedes its travel in flight;
 //! `hide_cursor` commits a clear frame and `show_cursor` redraws; `disable`
 //! answers and ends the process; `status` reports every cursor. A holder's
@@ -154,10 +155,11 @@ fn present(
         _ => instruction.destination().clone(),
     };
     let held = any_live(&process.paths.holders);
+    let off_layout = !process.client.on_output(&to);
     let Some(cursor) = process.cursors.get_mut(key) else {
         return answer(&stream, Ok(()));
     };
-    if park || held || cursor.hidden {
+    if park || held || off_layout || cursor.hidden {
         cursor.pose = Some(to);
         return answer(&stream, clear(process, key));
     }
