@@ -41,3 +41,7 @@ impl ScaledArrows {
         bitmap
     }
 }
+
+#[cfg(test)]
+#[path = "scaled_arrows_tests.rs"]
+mod tests;
