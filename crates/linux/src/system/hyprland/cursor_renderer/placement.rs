@@ -6,12 +6,20 @@
 
 use agent_desktop_core::Point;
 
-/// One surface placement: the output it is pinned to, if any, and its
-/// top-left margin.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use super::arrow_frame::ArrowFrame;
+use super::output_layout::OutputLayout;
+
+/// One surface placement: the output it is pinned to, if any, its top-left
+/// margin and logical size on that output, its buffer size, the physical
+/// offset the arrow is drawn at inside the buffer, and the output's scale.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Placement {
     pub(crate) output: Option<u32>,
     pub(crate) margin: (i32, i32),
+    pub(crate) logical: (i32, i32),
+    pub(crate) buffer: (i32, i32),
+    pub(crate) offset: (i32, i32),
+    pub(crate) scale: f64,
 }
 
 impl Placement {
@@ -25,8 +33,22 @@ impl Placement {
         Self {
             output: None,
             margin: (axis(point.x - hotspot.0), axis(point.y - hotspot.1)),
+            logical: (0, 0),
+            buffer: (0, 0),
+            offset: (0, 0),
+            scale: 1.0,
         }
     }
+}
+
+/// Every surface that shows the arrow with its tip on `point`.
+pub(crate) fn place(
+    point: &Point,
+    outputs: &[OutputLayout],
+    arrow_at: impl Fn(f64) -> ArrowFrame,
+) -> Vec<Placement> {
+    let _ = outputs;
+    vec![Placement::for_point(point, arrow_at(1.0).hotspot)]
 }
 
 #[cfg(test)]

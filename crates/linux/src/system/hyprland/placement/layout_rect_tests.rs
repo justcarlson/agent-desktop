@@ -1,10 +1,13 @@
-use agent_desktop_core::{DisplayInfo, Rect};
+use agent_desktop_core::{
+    CursorOverlayConfig, CursorOverlayControl, CursorOverlayInstruction, DisplayInfo, Point, Rect,
+};
 
 use super::*;
 use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
 use crate::system::hyprland::clients::monitor_workspaces::MonitorWorkspaces;
+use crate::system::hyprland::cursor_renderer::renderer_request::RendererRequest;
 
 fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
     Rect {
@@ -126,4 +129,74 @@ fn a_hidden_workspace_or_a_special_in_front_is_not_shown() {
         .shown
     );
     assert!(!place(&client(at, "7", false), &desktop("7", None), window).shown);
+}
+
+#[test]
+fn a_window_on_a_closed_special_workspace_is_not_shown() {
+    let placed = place(
+        &client((-1012.0, -602.0), "special:s", true),
+        &desktop("7", None),
+        rect(150.0, 200.0, 20.0, 10.0),
+    );
+    assert_eq!(placed.output.as_deref(), Some("AD-E2E-1"));
+    assert!(!placed.shown);
+}
+
+fn centre(rect: &Rect) -> Point {
+    Point {
+        x: rect.x + rect.width / 2.0,
+        y: rect.y + rect.height / 2.0,
+    }
+}
+
+fn parked(destination: Point) -> bool {
+    let config = CursorOverlayConfig::enabled(None, 6).expect("config");
+    let instruction = CursorOverlayInstruction::new(destination, &config, true).expect("instr");
+    let request = RendererRequest::control(CursorOverlayControl::present("s1".into(), instruction));
+    request.to_json().expect("encode")["park"] == true
+}
+
+#[test]
+fn a_present_into_a_hidden_placement_is_sent_parked() {
+    let window = rect(150.0, 200.0, 20.0, 10.0);
+    let at = (-1012.0, -602.0);
+    let hidden = [
+        place(&client(at, "8", true), &desktop("7", None), window.clone()),
+        place(
+            &client(at, "special:s", true),
+            &desktop("7", None),
+            window.clone(),
+        ),
+        place(
+            &client((2000.0, 0.0), "1", true),
+            &desktop("7", None),
+            window,
+        ),
+    ];
+    for placed in hidden {
+        assert!(!placed.shown);
+        assert!(parked(centre(&placed.rect)), "{placed:?}");
+    }
+}
+
+#[test]
+fn a_present_into_a_shown_placement_is_not_parked() {
+    let placed = place(
+        &client((-1012.0, -602.0), "7", true),
+        &desktop("7", None),
+        rect(150.0, 200.0, 20.0, 10.0),
+    );
+    assert!(placed.shown);
+    assert!(!parked(centre(&placed.rect)));
+}
+
+#[test]
+fn a_shown_placement_over_a_hidden_one_is_not_parked() {
+    let window = rect(150.0, 200.0, 20.0, 10.0);
+    let at = (-1012.0, -602.0);
+    let hidden = place(&client(at, "8", true), &desktop("7", None), window.clone());
+    assert!(parked(centre(&hidden.rect)));
+    let shown = place(&client(at, "7", true), &desktop("7", None), window);
+    assert!(shown.shown);
+    assert!(!parked(centre(&shown.rect)));
 }
