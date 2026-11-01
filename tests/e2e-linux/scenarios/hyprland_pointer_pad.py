@@ -97,6 +97,13 @@ def scrolls(found: list[dict], widget: str) -> list[str]:
     return [direction for item in wheel if (direction := _smooth_direction(item))]
 
 
+def gdk3_x11_wheel_matches(found: list[str], direction: str, amount: int) -> bool:
+    """Whether an XWayland pad logged `amount` wheel notches in `direction`. GDK3 on X11 reads a smooth
+    wheel delta as the change since the last scroll valuator value and drops that value when the pointer
+    enters the window, so the first notch after an enter only sets the baseline and logs no scroll."""
+    return set(found) == {direction} and len(found) in (amount - 1, amount)
+
+
 def pad_saw(found: list[dict]) -> str:
     """Every event kind each pad widget logged, so a lost gesture shows whether anything reached the pad."""
     counts = collections.Counter(f"{item.get('ev')}/{item.get('widget')}" for item in found)
