@@ -28,13 +28,37 @@ pub(crate) fn read_active_layout(
 /// The active layout index a `j/devices` reply names, checked against the
 /// keymap's `layouts`.
 pub(crate) fn active_layout(devices: &[u8], layouts: &[String]) -> Result<u32, AdapterError> {
-    let _ = (
-        devices,
-        layouts,
-        main_keyboard(devices),
-        unknown(layouts, None),
-    );
-    Ok(0)
+    let count = u32::try_from(layouts.len()).unwrap_or(u32::MAX);
+    let main = main_keyboard(devices);
+    let index = main
+        .as_ref()
+        .and_then(|keyboard| keyboard.get("active_layout_index"))
+        .and_then(Value::as_u64)
+        .and_then(|index| u32::try_from(index).ok());
+    if let Some(index) = index {
+        return if index < count {
+            Ok(index)
+        } else {
+            Err(unknown(layouts, main.as_ref()))
+        };
+    }
+    let named = main
+        .as_ref()
+        .and_then(|keyboard| keyboard.get("active_keymap"))
+        .and_then(Value::as_str)
+        .map(|name| {
+            layouts
+                .iter()
+                .enumerate()
+                .filter(|(_, layout)| layout.as_str() == name)
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>()
+        });
+    match named.as_deref() {
+        Some([index]) => Ok(u32::try_from(*index).unwrap_or(u32::MAX)),
+        _ if count == 1 => Ok(0),
+        _ => Err(unknown(layouts, main.as_ref())),
+    }
 }
 
 fn main_keyboard(devices: &[u8]) -> Option<Value> {

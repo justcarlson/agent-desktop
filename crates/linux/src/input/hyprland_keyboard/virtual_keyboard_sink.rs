@@ -51,18 +51,43 @@ impl<W: KeyboardWire> VirtualKeyboardSink<W> {
 
 impl<W: KeyboardWire> KeycodeSink for VirtualKeyboardSink<W> {
     fn upload_keymap(&mut self, keymap: &str, _deadline: Deadline) -> Result<(), AdapterError> {
-        let _ = (keymap, self.layout, &mut self.state, &mut self.reported);
+        let compiled = XkbKeymap::compile(keymap.as_bytes())?.ok_or_else(|| {
+            keymap_refused(
+                "The extended keyboard keymap did not compile",
+                "extended_keymap_invalid",
+                json!({}),
+            )
+        })?;
+        let state = XkbState::new(&compiled, self.layout)?;
+        let modifiers = state.modifiers()?;
+        self.wire.keymap(keymap)?;
+        self.wire.modifiers(modifiers)?;
+        self.wire.sync()?;
+        self.reported = modifiers;
+        self.state = Some(state);
         Ok(())
     }
 
     fn key(&mut self, code: u32, down: bool, _deadline: Deadline) -> Result<(), AdapterError> {
-        let _ = (code, down, self.time_ms());
-        Ok(())
+        let time = self.time_ms();
+        let state = self.state.as_mut().ok_or_else(|| {
+            AdapterError::internal("the virtual keyboard sent a key before its keymap")
+        })?;
+        let modifiers = state.update_key(code, down)?;
+        self.wire.key(time, code, down)?;
+        if modifiers != self.reported {
+            self.wire.modifiers(modifiers)?;
+            self.reported = modifiers;
+        }
+        self.wire.flush()
     }
 
     fn close(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
-        let _ = &mut self.closed;
-        Ok(())
+        if self.closed {
+            return Ok(());
+        }
+        self.closed = true;
+        self.wire.destroy()
     }
 }
 
