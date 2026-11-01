@@ -8,13 +8,15 @@ use crate::input::delivery::Delivery;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
 use crate::input::x11::progress::Progress;
+use crate::system::hyprland::cursor_renderer::hold_registry::ensure_held;
 
 const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retrying: some input may already have been delivered";
 
 /// Sends `plans` through `sink`. Every point must map onto an output and
 /// every step must be a pointer step, or nothing is sent. The plan gate runs
-/// before each plan and the step gate before each press and wheel step. A
-/// stop after the first event releases every held button, confirms every
+/// before each plan and the step gate before each press and wheel step. Every
+/// event first checks that the run was not cancelled and that the agent
+/// cursors are still hidden. A stop after the first event releases every held button, confirms every
 /// release already sent, and returns an uncertain error with the count of
 /// events sent. A run is delivered only once the compositor has read every
 /// event.
@@ -48,6 +50,7 @@ pub(crate) fn run_plans(
             for event in plan {
                 deadline.ensure_remaining()?;
                 ensure_not_cancelled(progress)?;
+                ensure_held()?;
                 if event.gated() {
                     step_gate()?;
                 }
