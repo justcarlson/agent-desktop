@@ -24,6 +24,7 @@ struct FakeSink {
     keymaps: Vec<String>,
     held: BTreeSet<u32>,
     fail_on: Option<&'static str>,
+    delivers_failed_key: bool,
 }
 
 impl FakeSink {
@@ -33,6 +34,7 @@ impl FakeSink {
             keymaps: Vec::new(),
             held: BTreeSet::new(),
             fail_on: None,
+            delivers_failed_key: false,
         }
     }
 
@@ -53,13 +55,16 @@ impl KeycodeSink for FakeSink {
 
     fn key(&mut self, code: u32, down: bool, _deadline: Deadline) -> Result<(), AdapterError> {
         let edge = if down { "down" } else { "up" };
-        self.record(format!("{edge}:{code}"))?;
-        if down {
-            self.held.insert(code);
-        } else {
-            self.held.remove(&code);
+        let label = format!("{edge}:{code}");
+        let failing = self.fail_on == Some(label.as_str());
+        if !failing || self.delivers_failed_key {
+            if down {
+                self.held.insert(code);
+            } else {
+                self.held.remove(&code);
+            }
         }
-        Ok(())
+        self.record(label)
     }
 }
 
@@ -173,6 +178,20 @@ fn a_sink_failure_inside_a_wrapped_key_releases_its_shift() {
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
     let details = error.details.expect("delivery evidence");
     assert_eq!(details["delivered_events"], 2);
+}
+
+#[test]
+fn a_key_down_the_sink_delivered_before_failing_is_released() {
+    let log = Log::default();
+    let keys = tap(KEYSYM_A);
+    let chunks: [&[KeysymStep]; 1] = [&keys];
+    let mut keyboard = session(&log, &chunks);
+    keyboard.sink.fail_on = Some("down:30");
+    keyboard.sink.delivers_failed_key = true;
+    let error = run_chunks(&mut keyboard, &chunks, &mut || Ok(()), live())
+        .expect_err("the key reply was lost");
+    assert!(keyboard.sink().held.is_empty(), "{:?}", events(&log));
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
 }
 
 #[test]

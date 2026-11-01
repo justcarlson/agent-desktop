@@ -89,7 +89,7 @@ impl<S: KeycodeSink> KeySession for KeycodeSession<S> {
             if let Err(error) = self.sink.key(code, edge_down, deadline) {
                 self.press = before;
                 if down {
-                    self.release(&edges[..index]);
+                    self.release(&edges[..=index]);
                 }
                 return Err(error);
             }
