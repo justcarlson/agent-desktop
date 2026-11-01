@@ -4,7 +4,9 @@
 //! unnamed cursor. `enable` updates that cursor's style and redraws it where
 //! it is, without moving it; `present` starts a travel, acknowledged after
 //! its arrival frame, or only moves the pose when parked, hidden, held or
-//! bound for a point on no output, and acknowledges an effect or caret as
+//! bound for a point on no output, where a parked cursor stays undrawn by
+//! any redraw until a present aims at a target that shows; it acknowledges
+//! an effect or caret as
 //! it starts; a newer `present` or
 //! `hide_cursor` for the same agent supersedes its travel in flight;
 //! `hide_cursor` commits a clear frame and `show_cursor` redraws; `disable`
@@ -122,12 +124,12 @@ fn serve_control(
             return present(process, stream, &key, control, park);
         }
         CursorOverlayControl::Hide { .. } => {
-            cursor.hidden = true;
+            cursor.concealed.hidden = true;
             supersede(process, &key);
             clear(process, &key)
         }
         CursorOverlayControl::Show { .. } => {
-            cursor.hidden = false;
+            cursor.concealed.hidden = false;
             process.redraw(&key)
         }
         _ => process.redraw(&key),
@@ -159,7 +161,8 @@ fn present(
     let Some(cursor) = process.cursors.get_mut(key) else {
         return answer(&stream, Ok(()));
     };
-    if park || held || off_layout || cursor.hidden {
+    cursor.concealed.parked = park || off_layout;
+    if cursor.concealed.any() || held {
         cursor.pose = Some(to);
         return answer(&stream, clear(process, key));
     }

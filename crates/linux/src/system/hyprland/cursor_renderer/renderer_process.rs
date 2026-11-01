@@ -107,7 +107,7 @@ impl RendererProcess {
                 .join(&target.binding.signature),
             rules,
         };
-        process.cursors.cursor(&key, first).hidden =
+        process.cursors.cursor(&key, first).concealed.hidden =
             matches!(first, CursorOverlayControl::Hide { .. });
         if let Err(error) = process.show_first(&key) {
             process.client.release();
@@ -122,20 +122,24 @@ impl RendererProcess {
         let Some(cursor) = self.cursors.get_mut(key) else {
             return Ok(());
         };
-        let Some(pose) = cursor.pose.clone().filter(|_| !cursor.hidden && !held) else {
+        let Some(pose) = cursor
+            .pose
+            .clone()
+            .filter(|_| !cursor.concealed.any() && !held)
+        else {
             return Ok(());
         };
         draw_within(&mut self.client, (key, cursor), pose, FIRST_DRAW_MS)
     }
 
     /// Draws the cursor under `key` where it already is, unless it is
-    /// hidden, held or travelling.
+    /// hidden, parked, held or travelling.
     pub(crate) fn redraw(&mut self, key: &str) -> Result<(), AdapterError> {
         let held = any_live(&self.paths.holders);
         let Some(cursor) = self.cursors.get_mut(key) else {
             return Ok(());
         };
-        if cursor.hidden || held || cursor.travel.is_some() {
+        if cursor.concealed.any() || held || cursor.travel.is_some() {
             return Ok(());
         }
         match cursor.pose.clone() {

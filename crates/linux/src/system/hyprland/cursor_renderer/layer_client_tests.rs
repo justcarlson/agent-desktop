@@ -143,7 +143,7 @@ fn cursor() -> AgentCursor {
         motion: Default::default(),
         pose: None,
         moves: 0,
-        hidden: false,
+        concealed: Default::default(),
         travel: None,
     }
 }

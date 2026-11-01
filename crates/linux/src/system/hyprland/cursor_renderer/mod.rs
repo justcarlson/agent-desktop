@@ -10,6 +10,7 @@ pub(crate) mod agent_cursors;
 pub(crate) mod arrow_bitmap;
 pub(crate) mod arrow_frame;
 pub(crate) mod cursor_animation;
+pub(crate) mod cursor_concealment;
 pub(crate) mod cursor_surface;
 pub(crate) mod cursor_travel;
 pub(crate) mod exe_identity;
