@@ -51,6 +51,7 @@ from scenarios import hyprland_capture_refusals
 from scenarios import hyprland_capture_screen
 from scenarios import hyprland_close
 from scenarios import hyprland_close_dialog
+from scenarios import hyprland_cursor
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_focus_proof

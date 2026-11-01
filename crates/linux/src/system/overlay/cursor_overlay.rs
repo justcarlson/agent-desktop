@@ -37,8 +37,7 @@ pub(crate) fn update(control: &CursorOverlayControl) -> Result<(), AdapterError>
     let display = match crate::system::display::display_server::require(deadline)? {
         crate::system::display::route::Route::X11(display) => display,
         crate::system::display::route::Route::Wayland => {
-            return Err(AdapterError::not_supported("cursor overlay on Wayland")
-                .with_details(serde_json::json!({"rendered": false, "cause": "wayland_session"})));
+            return crate::system::hyprland::cursor_renderer::hypr_cursor::update_wayland(control);
         }
     };
     let root = agent_desktop_core::session::agent_desktop_dir().map_err(error)?;
