@@ -269,6 +269,16 @@ its own. Ending a session releases its held keys.
 - **No active window.** On a Wayland session with no seat keyboard no window
   carries `ACTIVE`, so `focus-changed` waits time out.
 
+- **Every layer counts.** The tool trusts no layer namespace. Its own cursor
+  layers pass only after their renderer confirmed this command's hide; any
+  other `agent-desktop-cursor` layer refuses the command before any event. A
+  shell bar or dock that covers the whole output, as the stock Omarchy bar
+  does, refuses every ref pointer action under it. Use a semantic action, or a
+  coordinate command and read the effect.
+- **Long input keeps the cursors hidden.** Input that runs longer than 10 s
+  renews its hide. If the renewal fails, the input stops before its next event
+  with `ACTION_FAILED`, kind `cursor_hide_renewal_failed`, `uncertain`. Read
+  the target's state before you retry.
 ## Wheel and scroll
 
 ```bash
