@@ -19,18 +19,18 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_close import _register, _release
 from scenarios.hyprland_common import bystander, main_instance, shared
-from scenarios.hyprland_focus_controls import cursor, lua_call, restore_desktop, toggle_argv
+from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, restore_desktop, toggle_argv
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
-from scenarios.hyprland_pointer_pad import (COVER_CLASS, apart_from_last_click, covering_layers, events,
-                                            global_point, instance_control, instance_env,
+from scenarios.hyprland_pointer_pad import (COVER_CLASS, PAD_BUTTON, PAD_SCROLL, apart_from_last_click,
+                                            covering_layers, events, gdk3_presses, global_point, instance_control, instance_env,
                                             instance_query, pad_client, pad_ref, pads_left, pointer_pad,
                                             presses, scrolls, settled, since)
 from scenarios.hyprland_window_ops import float_argv
 
 SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
-GESTURES = (("click", [1]), ("double-click", [1, 2]), ("triple-click", [1, 2, 3]))
+GESTURES = (("click", gdk3_presses(1)), ("double-click", gdk3_presses(2)), ("triple-click", gdk3_presses(3)))
 
 
 def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int]) -> list[str]:
@@ -42,13 +42,13 @@ def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int
     return [] if found == want else [f"{verb} by ref: the pad button logged {found}, expected {want}"]
 
 
-def scroll_problems(ctx, env, log: Path, button: str) -> list[str]:
+def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
     start = len(events(log))
-    delivered(ctx.product(["scroll", button, "--direction", "down", "--amount", "2"], env=env))
+    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", "2"], env=env))
     want = ["down", "down"]
-    found = scrolls(since(settled(log, lambda all_: scrolls(since(all_, start), "button") == want), start),
-                    "button")
-    return [] if found == want else [f"scroll by ref: the pad button logged {found}, expected {want}"]
+    found = scrolls(since(settled(log, lambda all_: scrolls(since(all_, start), "scroll") == want), start),
+                    "scroll")
+    return [] if found == want else [f"scroll by ref: the pad scroll pane logged {found}, expected {want}"]
 
 
 def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
@@ -198,11 +198,11 @@ def cover_or_missing_evidence_refused(ctx: LegContext) -> None:
     holder, point = bystander(tier), cursor(tier)
     ctx.before("hyprland.cursor", point)
     ctx.before("applog.pad", pads_left(tier))
-    try:
-        with pointer_pad(tier, main_instance(tier), "session-refusals") as (owned, client, log):
+    with pointer_pad(tier, main_instance(tier), "session-refusals") as (owned, client, log):
+        try:
             problems = _session_refusals(ctx, owned, client, log)
-    finally:
-        restore_desktop(tier, holder, point)
+        finally:
+            restore_desktop(tier, holder, point)
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
     with pointer_pad(tier, instance, "cover-refusals") as (owned, _, log):
@@ -230,7 +230,7 @@ def ref_gesture(ctx: LegContext, verb: str) -> None:
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
     with pointer_pad(tier, instance, verb) as (owned, _, log):
-        button = pad_ref(ctx, env, owned)
+        button = pad_ref(ctx, env, owned, PAD_SCROLL if verb == "scroll" else PAD_BUTTON)
         argv = ["scroll", button, "--direction", "down", "--amount", "2"] if verb == "scroll" else [verb, button]
         if ctx.mode == "headless":
             problems = refusal_problems(verb, ctx.product(argv, env=env))
@@ -246,13 +246,15 @@ def ref_gesture(ctx: LegContext, verb: str) -> None:
 
 
 def delivery_report(ctx: LegContext, verb: str) -> None:
-    """The Hyprland side of the shared delivery-report legs."""
+    """The Hyprland side of the shared delivery-report legs. Each verb moves the nested cursor, so the
+    leg puts it back where it found it."""
     tier = ctx.tier
-    instance, _ = nested(tier)
+    instance, lua = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
     with pointer_pad(tier, instance, f"report-{verb}") as (_, client, log):
-        ctx.before("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
+        before = instance_query(tier, instance, "cursorpos")
+        ctx.before("hyprland.cursor", before)
         aim = global_point(client, (0.5, 0.7))
         if verb == "mouse-click":
             problems = click_problems(ctx, env, log, client, aim, 1)
@@ -272,6 +274,9 @@ def delivery_report(ctx: LegContext, verb: str) -> None:
         if since(settled(log, lambda found: len(found) > start, 0.5), start):
             problems.append(f"the refused {verb} reached the pad")
         ctx.after("applog.pad", len(events(log)))
+        instance_control(tier, instance, cursor_argv(before["x"], before["y"], lua))
+        require(raw.poll(lambda: instance_query(tier, instance, "cursorpos") == before, 3.0),
+                f"the nested cursor did not return to {before}")
         require(not problems, "; ".join(problems))
         ctx.restored("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
     ctx.restored("applog.pad", pads_left(tier))
