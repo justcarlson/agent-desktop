@@ -20,8 +20,23 @@ fn is_control(keysym: u32) -> bool {
 
 /// Refuses `chunks` when any key is a control character, before any key is sent.
 pub(crate) fn refuse_control(chunks: &[&[KeysymStep]]) -> Result<(), AdapterError> {
-    let _ = (chunks, is_control(0));
-    Ok(())
+    if !chunks
+        .iter()
+        .flat_map(|chunk| chunk.iter())
+        .any(|key| is_control(key.keysym))
+    {
+        return Ok(());
+    }
+    Err(AdapterError::new(
+        ErrorCode::ActionNotSupported,
+        "A control character in the text has no key a virtual keyboard may send",
+    )
+    .with_suggestion("Use the semantic set-value on the element, or press the key by name")
+    .with_details(json!({
+        "physical_delivery_started": false,
+        "cause": "character_outside_layout",
+    }))
+    .with_disposition(DeliverySemantics::not_delivered()))
 }
 
 #[cfg(test)]

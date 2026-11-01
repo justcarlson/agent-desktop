@@ -97,8 +97,8 @@ impl<S: KeycodeSink> KeySession for KeycodeSession<S> {
         Ok(())
     }
 
-    fn stop(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
-        Ok(())
+    fn stop(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        self.sink.close(deadline)
     }
 }
 

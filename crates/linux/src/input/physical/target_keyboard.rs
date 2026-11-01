@@ -149,8 +149,8 @@ fn physical_step(backend: &Backend, operation: &'static str, delivery: &Delivery
     let label = match (backend, operation, delivery.virtual_keyboard) {
         (Backend::X11(_), "type_text", _) => "XTEST.type_text",
         (Backend::X11(_), _, _) => "XTEST.press_key",
-        (Backend::Wayland, "type_text", true) => "RemoteDesktop.type_text",
-        (Backend::Wayland, _, true) => "RemoteDesktop.press_key",
+        (Backend::Wayland, "type_text", true) => "VirtualKeyboard.type_text",
+        (Backend::Wayland, _, true) => "VirtualKeyboard.press_key",
         (Backend::Wayland, "type_text", false) => "RemoteDesktop.type_text",
         (Backend::Wayland, _, false) => "RemoteDesktop.press_key",
     };

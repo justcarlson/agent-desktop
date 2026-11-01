@@ -65,7 +65,17 @@ impl XkbState {
 
     /// The modifiers and the effective layout as of the last key edge.
     pub(crate) fn modifiers(&self) -> Result<ModifierState, AdapterError> {
-        Ok(ModifierState::default())
+        unsafe {
+            let mods: SerializeMods = self.xkb.symbol(c"xkb_state_serialize_mods")?;
+            let layout: SerializeLayout = self.xkb.symbol(c"xkb_state_serialize_layout")?;
+            let state = self.state.as_ptr();
+            Ok(ModifierState {
+                depressed: mods(state, MODS_DEPRESSED),
+                latched: mods(state, MODS_LATCHED),
+                locked: mods(state, MODS_LOCKED),
+                group: layout(state, LAYOUT_EFFECTIVE),
+            })
+        }
     }
 }
 
