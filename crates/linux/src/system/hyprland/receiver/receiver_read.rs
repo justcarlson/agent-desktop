@@ -4,7 +4,7 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, Point};
 
 use super::check_receiver::check_receiver;
-use super::deny_all_overlays::DenyAllOverlays;
+use super::own_cursor_filter::OwnCursorFilter;
 use super::receiver_refusal::ReceiverRefusal;
 use super::stack::ReceiverStack;
 use super::stack_parse::{parse_layers, parse_stack_clients};
@@ -16,7 +16,8 @@ const CLIENTS_COMMAND: &str = "j/clients";
 const LAYERS_COMMAND: &str = "j/layers";
 
 /// Proves that `point` reaches the toplevel at `target`, with every layer
-/// surface counted as a cover. Any read that fails refuses as missing
+/// surface counted as a cover except the cursor layers of renderers that
+/// acknowledged this command's hide. Any read that fails refuses as missing
 /// evidence, before any event.
 pub(crate) fn prove_receiver(
     binding: &HyprlandBinding,
@@ -25,7 +26,8 @@ pub(crate) fn prove_receiver(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     let stack = read_stack(binding, deadline).map_err(|refusal| refusal.to_error())?;
-    check_receiver(&stack, target, point, &DenyAllOverlays).map_err(|refusal| refusal.to_error())
+    check_receiver(&stack, target, point, &*OwnCursorFilter::current())
+        .map_err(|refusal| refusal.to_error())
 }
 
 /// Reads every client, every layer surface and what each monitor shows. A
