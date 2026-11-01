@@ -319,6 +319,43 @@ written.
 | `INVALID_ARGS` | The display is gone or changed during the capture | `display` when the compositor no longer offers it |
 | `PLATFORM_NOT_SUPPORTED` | The compositor closed the connection | `display_unavailable: "missing"` |
 
+## Hyprland cursor
+
+On a bound Hyprland, `cursor-overlay enable` and `session start --cursor`
+return `data.rendered: true`; a renderer process draws the cursor on the
+compositor's overlay layer. On any other Wayland compositor they return
+`data.rendered: false` and nothing is drawn.
+
+`cursor-overlay disable` and `session end` report how the session's renderer
+stopped in `data.details.cursor_renderer`. `session gc` reports
+`data.details.cursor_renderer` as an object from each removed session id to
+its value.
+
+| Value | Meaning |
+|-------|---------|
+| `stopped` | The renderer exited when asked |
+| `terminated` | It ignored the request; a signal stopped it after its process identity was checked, and its exit is confirmed |
+| `not_running` | No renderer was running for the session |
+| `stale` | The record named a process that is gone or replaced; nothing was signalled and the record was removed |
+| `incompatible` | A renderer from another agent-desktop build ignored the request; it was not signalled and keeps its files |
+
+A refusal is `ACTION_FAILED` with `details.kind`, except where the table says
+otherwise:
+
+| `details.kind` | When |
+|----------------|------|
+| `cursor_renderer_incompatible` | Another build's renderer serves the session; `details.pid` names it |
+| `cursor_socket_path_too_long` | The renderer socket path exceeds the Unix limit; `details.length` and `details.limit` (107) |
+| `cursor_renderer_exit_unconfirmed` | `disable` signalled the renderer and its exit was not confirmed |
+| `cursor_renderer_gone` | The renderer exited before it answered |
+| `cursor_renderer_draw_failed` | The compositor connection failed while drawing |
+| `cursor_renderer_session_mismatch` | The control names another session than the renderer serves |
+| `cursor_holders_not_supported` | A request to hide the cursor for a capture; the renderer does not hide it |
+| `cursor_renderer_bad_request` | The renderer could not read the request |
+| `cursor_renderer_start_timeout` | `TIMEOUT`: the renderer did not start listening in time |
+
+An `XDG_RUNTIME_DIR` that is not absolute is `PLATFORM_NOT_SUPPORTED`.
+
 ## Error codes
 
 | Code | Meaning |

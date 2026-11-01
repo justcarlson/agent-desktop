@@ -79,6 +79,9 @@ agent-desktop screenshot --screen 1 /tmp/second.png
   full pixel size. With no `--app`, `--window-id` or `--screen`, the capture is
   the primary display, as with `--screen 0`.
   `data.scale_factor` is the output's scale.
+- The agent cursor that `cursor-overlay enable` draws is never in a window
+  capture. A `--screen` capture shows it where it is, because it is drawn on
+  the compositor's overlay layer.
 - Only a frame the compositor presents after the request counts. A screen
   whose pixels did not change still returns its new frame.
 - With `ecosystem:enforce_permissions` on, Hyprland withholds capture from

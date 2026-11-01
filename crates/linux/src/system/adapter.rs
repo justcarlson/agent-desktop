@@ -45,6 +45,10 @@ impl SystemOps for LinuxAdapter {
         crate::system::overlay::cursor_overlay::update(control)
     }
 
+    fn run_cursor_overlay_child(&self) -> Option<Result<(), AdapterError>> {
+        crate::system::hyprland::cursor_renderer::renderer_entry::entry_from_env()
+    }
+
     fn acquire_interaction_lease(
         &self,
         deadline: Deadline,

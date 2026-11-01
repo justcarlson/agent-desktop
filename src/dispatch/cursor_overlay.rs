@@ -69,10 +69,24 @@ pub(crate) fn dispatch(
         };
         if is_enable {
             value["rendered"] = Value::from(rendered);
+        } else {
+            note_renderer_outcome(&mut value, session_id);
         }
     }
     Ok(value)
 }
+
+/// Adds how the session's cursor renderer was stopped, when one was.
+#[cfg(target_os = "linux")]
+pub(super) fn note_renderer_outcome(value: &mut Value, session_id: &str) {
+    if let Some(outcome) = agent_desktop_linux::take_cursor_renderer_outcome(session_id) {
+        value["details"]["cursor_renderer"] = Value::from(outcome);
+    }
+}
+
+/// Only the Hyprland route runs a cursor renderer process.
+#[cfg(not(target_os = "linux"))]
+pub(super) fn note_renderer_outcome(_: &mut Value, _: &str) {}
 
 fn nothing_to_tear_down(error: &agent_desktop_core::AdapterError) -> bool {
     error.code == agent_desktop_core::ErrorCode::PlatformNotSupported

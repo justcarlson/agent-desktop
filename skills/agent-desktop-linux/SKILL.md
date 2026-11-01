@@ -53,7 +53,7 @@ helper tool.
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
 | Shell surfaces | `open-system-surface` | Only `system-tray` and `action-center` can work. `system-tray` needs a StatusNotifierWatcher (else it refuses with `watcher: absent`); `action-center` needs proven role ancestry. `quick-settings` refuses with `shell_container_unproven`, `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, though `--help` lists them. See the shell reference |
-| Cursor overlay | `cursor-overlay` | Requires an active session; see Cursor overlay below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
+| Cursor overlay | `cursor-overlay` | Requires an active session; see Cursor overlay below. X11 and Hyprland enable return `data.rendered: true`; other Wayland compositors save the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
 ## First Contact
@@ -155,12 +155,34 @@ agent-desktop session end "$session_id"
 ```
 
 Without a session, `cursor-overlay enable` and `disable` return `INVALID_ARGS`.
-On X11, enable returns `data.rendered: true`; on Wayland it saves the setting
-and returns `data.rendered: false` without drawing an overlay.
+On X11 and on Hyprland, enable returns `data.rendered: true`. On any other
+Wayland compositor it saves the setting and returns `data.rendered: false`
+without drawing an overlay.
 
 `session start --cursor --multi-agent` returns `data.rendered: false`, because
 nothing is drawn until an agent acts. On X11 each agent id then gets its own
 cursor; on Wayland none is drawn.
+
+On Hyprland the first command that needs the cursor starts a renderer process
+for the session. It draws one arrow on the compositor's overlay layer, takes no
+input and no keyboard focus, and never shows in a `--window-id` capture. Later
+commands reach the same renderer. `cursor-overlay disable`, `session end` and
+`session gc` stop it and say how in `data.details.cursor_renderer`:
+
+| Value | Meaning |
+|-------|---------|
+| `stopped` | The renderer exited when asked |
+| `terminated` | It did not exit when asked; a signal stopped it and its exit is confirmed |
+| `not_running` | No renderer was running for the session |
+| `stale` | The record named a process that is gone; the record was removed |
+| `incompatible` | Another agent-desktop build's renderer ignored the request; it is left running |
+
+`session gc` reports one value per removed session, keyed by session id. If
+the renderer does not exit after a signal, `disable` fails with
+`ACTION_FAILED` and `details.kind: "cursor_renderer_exit_unconfirmed"`. The
+renderer also exits when the session ends elsewhere, when its compositor
+stops, and when the overlay is turned off. On Hyprland the cursor is a single
+arrow with no label, and a `--screen` capture shows it.
 
 ## What differs on Linux
 

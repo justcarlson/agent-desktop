@@ -8,6 +8,7 @@ pub(crate) mod bind;
 pub(crate) mod capture;
 pub(crate) mod clients;
 pub(crate) mod close;
+pub(crate) mod cursor_renderer;
 pub(crate) mod focus;
 pub(crate) mod identity;
 pub(crate) mod ipc;
