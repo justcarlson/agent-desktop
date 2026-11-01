@@ -97,11 +97,21 @@ def scrolls(found: list[dict], widget: str) -> list[str]:
     return [direction for item in wheel if (direction := _smooth_direction(item))]
 
 
-def gdk3_x11_wheel_matches(found: list[str], direction: str, amount: int) -> bool:
-    """Whether an XWayland pad logged `amount` wheel notches in `direction`. GDK3 on X11 reads a smooth
-    wheel delta as the change since the last scroll valuator value and drops that value when the pointer
-    enters the window, so the first notch after an enter only sets the baseline and logs no scroll."""
-    return set(found) == {direction} and len(found) in (amount - 1, amount)
+def wheel_notches(found: list[dict], widget: str) -> list[str]:
+    """The wheel notches one widget logged, in order, with GDK's discrete events over smooth ones as in
+    `scrolls`. A smooth event that moved exactly one notch on one axis reads as its direction; any other
+    smooth event reads as its deltas, so a merged, split or empty notch never reads as one."""
+    wheel = [item for item in found if item.get("ev") == "scroll" and item.get("widget") == widget]
+    discrete = [item["direction"] for item in wheel if item.get("direction") != "smooth"]
+    if discrete:
+        return discrete
+    return [_unit_direction(item) or f"smooth dx={item.get('dx')} dy={item.get('dy')}" for item in wheel]
+
+
+def _unit_direction(item: dict) -> str | None:
+    dx, dy = item.get("dx") or 0.0, item.get("dy") or 0.0
+    unit = sorted((abs(dx), abs(dy))) == [0.0, 1.0]
+    return _smooth_direction(item) if unit else None
 
 
 def pad_saw(found: list[dict]) -> str:
