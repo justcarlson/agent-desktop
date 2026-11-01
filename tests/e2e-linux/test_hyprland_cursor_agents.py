@@ -78,6 +78,36 @@ class CursorAgentLegTests(unittest.TestCase):
             pass
         self.assertEqual(watch.verdict[0], False)
 
+    def test_a_button_takes_its_live_bounds_from_get_since_find_prints_none_for_a_ref(self):
+        found = {"matches": [{"name": "8", "ref_id": "@s1:e2", "role": "button"}], "snapshot_id": "s1"}
+        read = {"property": "bounds", "ref": "@s1:e2", "live": True,
+                "value": {"x": 10.0, "y": 20.0, "width": 30.0, "height": 40.0}}
+        ctx = FakeContext([Envelope(ok=True, data=found, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0),
+                           Envelope(ok=True, data=read, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0)])
+        ref, point = agents.button(ctx, FakeApp(), "run-2", "8")
+        self.assertEqual((ref, point), ("@s1:e2", (25.0, 40.0)))
+        self.assertEqual(ctx.calls[1], ["--session", "run-2", "get", "@s1:e2", "--property", "bounds"])
+
+
+class FakeTier:
+    display = None
+
+
+class FakeApp:
+    windows = ["w-1"]
+
+
+class FakeContext:
+    mode = "headed"
+    tier = FakeTier()
+
+    def __init__(self, replies: list[Envelope]):
+        self.replies, self.calls = list(replies), []
+
+    def product(self, argv, **_kw):
+        self.calls.append(list(argv))
+        return self.replies.pop(0)
+
 
 if __name__ == "__main__":
     unittest.main()
