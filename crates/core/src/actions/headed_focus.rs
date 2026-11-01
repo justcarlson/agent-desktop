@@ -55,12 +55,28 @@ pub(crate) fn focus_exact_window(
         )
         .into());
     }
-    adapter.focus_window(&live, lease)?;
+    adapter
+        .focus_window(&live, lease)
+        .map_err(input_not_started)?;
     context.trace_lazy(
         "input.focus_window",
         || json!({ "pid": live.pid, "window_id": live.id, "ok": true }),
     )?;
     Ok(live)
+}
+
+/// An activation refused before any input event: the activation is a
+/// side effect the details report, and the input itself was not delivered.
+fn input_not_started(error: AdapterError) -> AdapterError {
+    let started = error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("physical_delivery_started"))
+        .and_then(serde_json::Value::as_bool);
+    match started {
+        Some(false) => error.with_disposition(crate::DeliverySemantics::not_delivered()),
+        _ => error,
+    }
 }
 
 fn required_text<'a>(value: Option<&'a str>, message: &str) -> Result<&'a str, AppError> {

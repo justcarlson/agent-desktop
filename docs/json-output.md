@@ -199,7 +199,10 @@ A refusal names its cause in `error.details.cause`:
 A refusal after an activation carries `details.activation_sent: true`, the last
 `compositor_active`, `toplevel_activated`, `in_view` and `frame_active` reads,
 the `side_effects` already observed and, when the last read failed,
-`last_read_error`. A compositor that does not advertise
+`last_read_error`. The Delivery column is for `focus-window`, where the
+activation is the operation. A headed ref action, pointer command or `press`
+that activates first and is refused there sent no input, so it reports
+`not_delivered` with the same details. A compositor that does not advertise
 `zwlr_foreign_toplevel_manager_v1`, `hyprland_toplevel_mapping_manager_v1` or
 `wl_seat` is `PLATFORM_NOT_SUPPORTED`, and `platform_detail` names the missing
 global.
@@ -381,7 +384,11 @@ fields to `data.details`:
 
 A ref command (`click`, `double-click`, `triple-click`, `scroll`) is headed,
 so it first activates the target window, revealing a hidden special workspace
-or switching workspace as `focus-window` does. Core's `receives_events` check
+or switching workspace as `focus-window` does. A cover can undo that
+activation: Hyprland moves the cursor into the target, onto a floating or
+pinned cover that then stays active (`activation_refused`), and a layer that
+takes the keyboard, such as slurp's, keeps the target's frame inactive
+(`frame_not_active`). Both are `not_delivered`. Core's `receives_events` check
 then hit-tests the target against the compositor's stack, and a cover it sees
 fails that check with an `occluder` (`role` `layer` with the namespace as
 `name`, or `role` `window`). The command then reads the
