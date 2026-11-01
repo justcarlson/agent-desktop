@@ -25,14 +25,17 @@ from runner.verdict import LegContext
 from scenarios.hyprland_capture_common import capture_path, saved_image
 from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
-from scenarios.hyprland_cursor import (NAMESPACE, TOLERANCE, _seven, alive, arrow_box, ended, kill_exactly,
-                                       layers_of, monitor_at, record_of, renderer_of, start_time, started)
+from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, arrow_box, ended, gone_problems, kill_exactly,
+                                       layers_of, monitor_at, renderer_of, start_time, started)
 from scenarios.hyprland_focus_controls import lua_call
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
                                             pad_ref, pads_left, pointer_pad, presses, settled, since)
 
 SHOW_SETTLE_S = 3.0
+ARROW_FILL = (0x42, 0x99, 0xFF)
+FILL_DELTA = 16
+FILL_MIN = 8
 HOLD_MS = 8_000
 REFUSAL_KINDS = ("cursor_hide_timeout", "cursor_hide_failed")
 KEEP_DRAWN_FLAG = "keep-drawn-for-test"
@@ -162,8 +165,8 @@ class Screen:
         origin = (self.monitor["x"], self.monitor["y"])
         return arrow_box(origin, self.point, self.monitor["scale"], (image.width, image.height))
 
-    def same(self, left: pixels.Image, right: pixels.Image) -> bool:
-        return pixels.similar(left, right, self.box(left), tolerance=TOLERANCE)
+    def shows(self, image: pixels.Image) -> bool:
+        return arrow_shown(image, self.box(image))
 
     def product_capture(self, label: str):
         path = capture_path(self.ctx.tier, label)
@@ -171,11 +174,23 @@ class Screen:
         return envelope, path
 
 
-def _unlike(screen: Screen, reference: pixels.Image) -> pixels.Image | None:
-    """The next grab that differs from `reference` at the arrow box, within the settle time."""
+def arrow_shown(image: pixels.Image, box: tuple[int, int, int, int]) -> bool:
+    """Whether the arrow's fill colour covers at least `FILL_MIN` pixels of `box`.
+
+    The box sits on the button the leg clicked, and the button's own look
+    changes for a while after each click. Only the arrow adds its fill colour.
+    """
+    x, y, width, height = box
+    filled = sum(1 for row in range(y, y + height) for column in range(x, x + width)
+                 if max(abs(a - b) for a, b in zip(image.pixel(column, row), ARROW_FILL)) <= FILL_DELTA)
+    return filled >= FILL_MIN
+
+
+def _grab_until(screen: Screen, drawn: bool) -> pixels.Image | None:
+    """The first grab whose arrow box shows the arrow (`drawn`) or not, within the settle time."""
     def grabbed():
         image = screen.grab()
-        return None if screen.same(image, reference) else image
+        return image if screen.shows(image) == drawn else None
     return raw.poll(grabbed, SHOW_SETTLE_S)
 
 
@@ -196,8 +211,9 @@ def _power_cycle(ctx: LegContext, main: dict, screen: Screen) -> None:
 def hide_ack_suppression_until_show(ctx: LegContext) -> None:
     """A screen capture never shows the cursor, and a live holder keeps it hidden until it leaves.
 
-    The cursor-free reference is read after `disable`, so the click's own
-    effect on the app is in every image and only the cursor differs.
+    Each image is judged by the arrow's fill colour in the arrow box, so the
+    clicked button's own look, which changes for a while after each click,
+    never counts as the cursor.
     """
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
     with managed(ctx, "Calculator") as app:
@@ -217,39 +233,41 @@ def hide_ack_suppression_until_show(ctx: LegContext) -> None:
             covered = lambda: NAMESPACE in covering_layers(
                 hyprland.query(runtime, main["signature"], "layers", pid=main["pid"]), point)
             require(raw.poll(covered, SHOW_SETTLE_S), f"no cursor layer covers {point}: {layers_of(runtime, main)}")
-            drawn = screen.grab()
+            drawn = _grab_until(screen, True)
             ctx.after("hyprland.layers", layers_of(runtime, main))
             captures = [screen.product_capture("hide-first")]
-            after_capture = screen.grab()
+            after_capture = _grab_until(screen, True)
             with harness_holder(registry):
-                held = _unlike(screen, drawn)
+                held = _grab_until(screen, False)
                 again = ctx.product(["--session", session, "click", seven], headed=False)
                 require(again.ok, f"a click during the hold failed: {again.raw[:400]}")
                 captures.append(screen.product_capture("hide-under-hold"))
                 still = screen.grab()
                 ctx.after("proc.holders", len(holders_in(registry)))
-            released = _unlike(screen, still)
+            released = _grab_until(screen, True)
             _power_cycle(ctx, main, screen)
             captures.append(screen.product_capture("hide-after-dpms"))
-            redrawn = _unlike(screen, still)
+            redrawn = _grab_until(screen, True)
             ctx.after("atspi.display", display(tree))
             disabled = ctx.product(["--session", session, "cursor-overlay", "disable"])
             require(disabled.ok, f"disable failed: {disabled.raw[:400]}")
             require(raw.poll(lambda: not alive(owner), SHOW_SETTLE_S), "the renderer survived disable")
-            bare = screen.grab()
+            bare = _grab_until(screen, False)
             problems = []
-            if screen.same(drawn, bare):
+            if drawn is None:
                 problems.append(f"the screen shows no cursor at {point}: the positive control failed")
-            if not screen.same(after_capture, drawn):
+            if bare is None:
+                problems.append(f"the screen still shows the cursor at {point} after disable")
+            if after_capture is None:
                 problems.append("the cursor did not come back after the screen capture")
-            if held is None or not screen.same(held, bare) or not screen.same(still, bare):
+            if held is None or screen.shows(still):
                 problems.append("the cursor stayed drawn, or was drawn again, while a holder was live")
             if released is None or redrawn is None:
                 problems.append("the cursor did not come back once the holder left or the outputs powered on")
             for label, (envelope, path) in zip(("first", "under hold", "after dpms"), captures):
                 if not envelope.ok:
                     problems.append(f"screen capture {label} failed: {envelope.raw[:300]}")
-                elif not screen.same(saved_image(envelope, path), bare):
+                elif screen.shows(saved_image(envelope, path)):
                     problems.append(f"screen capture {label} shows the cursor at {point}")
             if holders_in(registry):
                 problems.append(f"holders survived their commands: {holders_in(registry)}")
@@ -383,6 +401,18 @@ def _screen_after_resume(screen: Screen) -> list[str]:
     return [f"a resumed renderer still blocks the screen capture: {envelope.raw[:300]}"]
 
 
+def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, owner: dict) -> list[str]:
+    """After session end, waits until the renderer, its record and its layer are gone, then reads the layers.
+
+    The compositor can list a closed layer, with pid -1, for a moment after
+    its client exits, so the restored read waits for it as `gone_problems`
+    does. A layer that stays is a problem and drifts the restored read.
+    """
+    problems = gone_problems("session end", runtime, instance, session, owner)
+    ctx.restored("hyprland.layers", layers_of(runtime, instance))
+    return problems
+
+
 def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
     """A headed ref click on the pad while the session cursor layer covers it lands exactly once."""
     tier, runtime = ctx.tier, shared(ctx.tier)
@@ -393,7 +423,7 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
     with pointer_pad(tier, instance, label, XWAYLAND) as (owned, client, log):
         session = started(ctx, env)
         try:
-            renderer_of(runtime, instance, session)
+            owner = renderer_of(runtime, instance, session)
             registry = registry_of(runtime, session)
             bound = dict(env, AGENT_DESKTOP_SESSION=session)
             button = pad_ref(ctx, bound, owned)
@@ -421,8 +451,7 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
             ctx.after("applog.pad", len(events(log)))
         finally:
             ended(ctx, session, env)
-        require(record_of(runtime, session) is None, "the session's renderer record survived session end")
-        ctx.restored("hyprland.layers", layers_of(runtime, instance))
+        problems += ended_layers(ctx, runtime, instance, session, owner)
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
 
