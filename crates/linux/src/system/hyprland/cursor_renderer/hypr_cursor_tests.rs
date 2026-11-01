@@ -10,6 +10,7 @@ use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_renderer::registry_fixture::RegistryFixture;
 use crate::system::hyprland::cursor_renderer::renderer_launcher::RendererLauncher;
 use crate::system::hyprland::cursor_renderer::renderer_paths::RendererPaths;
+use crate::system::hyprland::cursor_renderer::renderer_pidfd::RendererPidfd;
 use crate::system::hyprland::cursor_renderer::renderer_request::RendererRequest;
 use crate::system::hyprland::cursor_renderer::renderer_target::RendererTarget;
 use crate::system::hyprland::cursor_renderer::renderer_wire::{
@@ -32,7 +33,7 @@ impl RendererLauncher for AnsweringLauncher {
         _: &RendererTarget,
         paths: &RendererPaths,
         _: &CursorOverlayControl,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<Option<RendererPidfd>, AdapterError> {
         let listener = UnixListener::bind(&paths.socket).expect("bind");
         let served = std::thread::spawn(move || {
             let mut messages = Vec::new();
@@ -46,7 +47,7 @@ impl RendererLauncher for AnsweringLauncher {
             messages
         });
         self.served.lock().expect("served").push(served);
-        Ok(())
+        Ok(None)
     }
 }
 

@@ -2,6 +2,7 @@ use std::os::fd::OwnedFd;
 use std::time::{Duration, Instant};
 
 use rustix::event::{PollFd, PollFlags, Timespec};
+use rustix::io::Errno;
 use rustix::process::{Pid, PidfdFlags, Signal, pidfd_open, pidfd_send_signal};
 
 /// A pidfd for one process. A signal sent through it reaches that process
@@ -11,13 +12,14 @@ pub(crate) struct RendererPidfd {
 }
 
 impl RendererPidfd {
-    /// A pidfd for `pid`, or `None` when no such process exists or pidfds
-    /// are unavailable.
-    pub(crate) fn open(pid: u32) -> Option<Self> {
-        let pid = Pid::from_raw(i32::try_from(pid).ok()?)?;
-        pidfd_open(pid, PidfdFlags::empty())
+    /// A pidfd for `pid`. `ESRCH` means no such process exists; any other
+    /// error says nothing about whether it runs.
+    pub(crate) fn open(pid: u32) -> Result<Self, Errno> {
+        let pid = i32::try_from(pid)
             .ok()
-            .map(|fd| Self { fd })
+            .and_then(Pid::from_raw)
+            .ok_or(Errno::SRCH)?;
+        pidfd_open(pid, PidfdFlags::empty()).map(|fd| Self { fd })
     }
 
     /// Whether the process has exited, waiting up to `wait` for it.

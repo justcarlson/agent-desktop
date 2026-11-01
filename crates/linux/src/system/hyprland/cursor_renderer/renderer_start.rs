@@ -68,7 +68,7 @@ pub(crate) fn ensure_running(
     if !launcher.session_active(request.first) {
         return Ok(());
     }
-    launcher.launch(request.target, paths, request.first)?;
+    let _launched = launcher.launch(request.target, paths, request.first)?;
     wait_for_socket(paths, request.deadline)
 }
 

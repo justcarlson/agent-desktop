@@ -1,19 +1,21 @@
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
+use std::process::Child;
 use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, CursorOverlayControl, CursorOverlayStyle};
+use agent_desktop_core::{AdapterError, CursorOverlayControl, CursorOverlayStyle, ErrorCode};
 
 use super::{StartRequest, ensure_running};
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_renderer::exe_identity::ExeIdentity;
 use crate::system::hyprland::cursor_renderer::record_read::{RecordRead, read_record};
 use crate::system::hyprland::cursor_renderer::registry_fixture::{
-    RegistryFixture, finish, is_running, record_for, term_ignoring_sleeper,
+    RegistryFixture, finish, is_running, record_for, sleeper, term_ignoring_sleeper,
 };
 use crate::system::hyprland::cursor_renderer::renderer_launcher::RendererLauncher;
 use crate::system::hyprland::cursor_renderer::renderer_paths::RendererPaths;
+use crate::system::hyprland::cursor_renderer::renderer_pidfd::RendererPidfd;
 use crate::system::hyprland::cursor_renderer::renderer_target::RendererTarget;
 
 /// Stands in for a renderer: it starts listening a little after launch.
@@ -33,12 +35,12 @@ impl RendererLauncher for FakeLauncher {
         _: &RendererTarget,
         paths: &RendererPaths,
         _: &CursorOverlayControl,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<Option<RendererPidfd>, AdapterError> {
         *self.launches.lock().expect("count") += 1;
         std::thread::sleep(Duration::from_millis(50));
         let listener = UnixListener::bind(&paths.socket).expect("fake renderer binds");
         self.listeners.lock().expect("listeners").push(listener);
-        Ok(())
+        Ok(None)
     }
 }
 
@@ -149,4 +151,52 @@ fn a_renderer_already_listening_is_not_started_again() {
     let launcher = FakeLauncher::default();
     start(&fixture.paths, &launcher).expect("answers");
     assert_eq!(launcher.launches(), 0);
+}
+
+/// Stands in for a renderer that never starts listening.
+#[derive(Default)]
+struct SilentLauncher {
+    children: Mutex<Vec<Child>>,
+}
+
+impl RendererLauncher for SilentLauncher {
+    fn session_active(&self, _: &CursorOverlayControl) -> bool {
+        true
+    }
+
+    fn launch(
+        &self,
+        _: &RendererTarget,
+        _: &RendererPaths,
+        _: &CursorOverlayControl,
+    ) -> Result<Option<RendererPidfd>, AdapterError> {
+        let child = sleeper();
+        let pidfd = RendererPidfd::open(child.id()).ok();
+        self.children.lock().expect("children").push(child);
+        Ok(pidfd)
+    }
+}
+
+#[test]
+fn a_launched_renderer_that_never_listens_is_stopped_before_the_lock_is_released() {
+    let fixture = RegistryFixture::new();
+    let launcher = SilentLauncher::default();
+    let target = target();
+    let first = enable();
+    let request = StartRequest {
+        paths: &fixture.paths,
+        target: &target,
+        first: &first,
+        deadline: Instant::now() + Duration::from_millis(300),
+    };
+    let error = ensure_running(&request, &launcher, ExeIdentity::current()).expect_err("silent");
+    let children = std::mem::take(&mut *launcher.children.lock().expect("children"));
+    let running: Vec<bool> = children.iter().map(is_running).collect();
+    children.into_iter().for_each(finish);
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        running,
+        [false],
+        "the launched renderer outlived its start timeout"
+    );
 }

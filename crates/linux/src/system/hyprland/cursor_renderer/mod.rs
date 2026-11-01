@@ -14,6 +14,7 @@ pub(crate) mod frame_mark;
 pub(crate) mod holder_file;
 pub(crate) mod holder_view;
 pub(crate) mod hypr_cursor;
+pub(crate) mod initial_pose;
 pub(crate) mod layer_client;
 pub(crate) mod layer_globals;
 pub(crate) mod layer_link;

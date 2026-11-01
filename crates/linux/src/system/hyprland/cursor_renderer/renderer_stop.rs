@@ -54,7 +54,7 @@ fn settle(
     disabled: bool,
     timings: &StopTimings,
 ) -> StopOutcome {
-    let Some(pidfd) = RendererPidfd::open(record.owner.pid) else {
+    let Ok(pidfd) = RendererPidfd::open(record.owner.pid) else {
         return gone(disabled);
     };
     if !is_alive_as_recorded(record) {

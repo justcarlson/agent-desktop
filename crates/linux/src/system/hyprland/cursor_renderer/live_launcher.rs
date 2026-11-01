@@ -8,6 +8,7 @@ use agent_desktop_core::{AdapterError, CursorOverlayControl};
 
 use super::renderer_launcher::RendererLauncher;
 use super::renderer_paths::RendererPaths;
+use super::renderer_pidfd::RendererPidfd;
 use super::renderer_spawn::renderer_command;
 use super::renderer_target::RendererTarget;
 
@@ -26,7 +27,7 @@ impl RendererLauncher for LiveLauncher {
         target: &RendererTarget,
         _paths: &RendererPaths,
         first: &CursorOverlayControl,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<Option<RendererPidfd>, AdapterError> {
         let executable = std::env::current_exe().map_err(|error| {
             AdapterError::internal("Could not locate the cursor renderer executable")
                 .with_platform_detail(error.to_string())
@@ -52,6 +53,7 @@ impl RendererLauncher for LiveLauncher {
             AdapterError::internal("Could not start the cursor renderer")
                 .with_platform_detail(error.to_string())
         })?;
+        let pidfd = RendererPidfd::open(child.id()).ok();
         let sent = child
             .stdin
             .take()
@@ -60,7 +62,7 @@ impl RendererLauncher for LiveLauncher {
             let _ = child.wait();
         });
         match sent {
-            Some(Ok(())) => Ok(()),
+            Some(Ok(())) => Ok(pidfd),
             _ => Err(AdapterError::internal(
                 "Could not hand the cursor renderer its startup control",
             )),
