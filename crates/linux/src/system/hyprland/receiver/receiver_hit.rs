@@ -4,7 +4,7 @@
 use agent_desktop_core::{AdapterError, Deadline, HitTestResult, Point};
 
 use super::check_receiver::{check_receiver, holds};
-use super::deny_all_overlays::DenyAllOverlays;
+use super::own_cursor_filter::OwnCursorFilter;
 use super::receiver_read::read_stack;
 use super::receiver_refusal::ReceiverRefusal;
 use super::stack::ReceiverStack;
@@ -12,9 +12,10 @@ use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 
 /// What `point` reaches in `stack` for the toplevel at `target`. A cover
 /// names the window or layer surface that holds the point; missing evidence,
-/// a target that is not shown, or a point outside it is unknown.
+/// a target that is not shown, or a point outside it is unknown. An agent
+/// cursor whose hide this thread holds covers nothing.
 pub(crate) fn hit_of(stack: &ReceiverStack, target: u64, point: &Point) -> HitTestResult {
-    match check_receiver(stack, target, point, &DenyAllOverlays) {
+    match check_receiver(stack, target, point, &*OwnCursorFilter::current()) {
         Ok(()) => HitTestResult::ReachesTarget,
         Err(ReceiverRefusal::WindowCover { address }) => HitTestResult::InterceptedBy {
             role: Some("window".to_owned()),
