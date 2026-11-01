@@ -77,7 +77,6 @@ pub(crate) fn is_held(nonce: &str) -> bool {
 /// Refuses the next input event once a holder of the calling thread failed
 /// to renew, so the work stops and releases what it holds before the holder
 /// lapses.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ensure_held() -> Result<(), AdapterError> {
     if !with_holds(|holds| holds.iter().any(|hold| mine(hold) && hold.lost)) {
         return Ok(());
