@@ -44,8 +44,18 @@ pub(crate) fn draw_at(
     cursor: &mut AgentCursor,
     point: Point,
 ) -> Result<(), AdapterError> {
+    draw_within(client, cursor, point, FRAME_WAIT_MS)
+}
+
+/// Like `draw_at`, giving the surface and its frame `wait_ms` to appear.
+pub(crate) fn draw_within(
+    client: &mut LayerClient,
+    cursor: &mut AgentCursor,
+    point: Point,
+    wait_ms: u64,
+) -> Result<(), AdapterError> {
     let placement = Placement::for_point(&point, cursor.bitmap.hotspot);
     cursor.pose = Some(point);
-    let frame = Deadline::detached_after(FRAME_WAIT_MS)?;
+    let frame = Deadline::detached_after(wait_ms)?;
     client.draw(&cursor.bitmap, placement.margin, frame)
 }

@@ -1,5 +1,7 @@
 //! The renderer's Wayland client state: the registry, round trips, the layer
-//! surface's configure and close events, and frame callbacks.
+//! surface's configure and close events, and frame callbacks. Frame marks
+//! count for the whole connection, so a rebuilt surface never waits on a
+//! mark an earlier surface already reached.
 
 use wayland_client::protocol::{
     wl_buffer, wl_callback, wl_compositor, wl_region, wl_registry, wl_shm, wl_shm_pool, wl_surface,
@@ -16,6 +18,7 @@ pub(crate) struct LayerState {
     pub(crate) exchange: Exchange,
     pub(crate) configured: Option<u32>,
     pub(crate) closed: bool,
+    pub(crate) frames_sent: u32,
     pub(crate) frames_done: u32,
 }
 

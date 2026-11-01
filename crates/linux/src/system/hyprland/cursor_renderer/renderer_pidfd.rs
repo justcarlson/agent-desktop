@@ -9,17 +9,23 @@ use rustix::process::{Pid, PidfdFlags, Signal, pidfd_open, pidfd_send_signal};
 /// or none: never a later process that reuses the pid.
 pub(crate) struct RendererPidfd {
     fd: OwnedFd,
+    pid: u32,
 }
 
 impl RendererPidfd {
     /// A pidfd for `pid`. `ESRCH` means no such process exists; any other
     /// error says nothing about whether it runs.
     pub(crate) fn open(pid: u32) -> Result<Self, Errno> {
-        let pid = i32::try_from(pid)
+        let raw = i32::try_from(pid)
             .ok()
             .and_then(Pid::from_raw)
             .ok_or(Errno::SRCH)?;
-        pidfd_open(pid, PidfdFlags::empty()).map(|fd| Self { fd })
+        pidfd_open(raw, PidfdFlags::empty()).map(|fd| Self { fd, pid })
+    }
+
+    /// The pid the pidfd was opened for.
+    pub(crate) fn pid(&self) -> u32 {
+        self.pid
     }
 
     /// Whether the process has exited, waiting up to `wait` for it.
