@@ -8,6 +8,7 @@
 pub(crate) mod agent_cursor;
 pub(crate) mod agent_cursors;
 pub(crate) mod arrow_bitmap;
+pub(crate) mod arrow_frame;
 pub(crate) mod cursor_animation;
 pub(crate) mod cursor_surface;
 pub(crate) mod cursor_travel;
@@ -33,6 +34,7 @@ pub(crate) mod layer_globals;
 pub(crate) mod layer_link;
 pub(crate) mod layer_state;
 pub(crate) mod live_launcher;
+pub(crate) mod output_layout;
 pub(crate) mod placement;
 pub(crate) mod record_class;
 pub(crate) mod record_read;
