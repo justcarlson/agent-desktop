@@ -337,9 +337,15 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   the element inside its window and prove the receiver from the compositor
   before each burst. The window must be mapped and shown, and the point must be
   inside it. No `top` or `overlay` layer and no floating, pinned or fullscreen
-  window drawn above the target may cover the point. Hyprland draws pinned
-  windows above floating ones, floating ones above tiled ones, and within a
-  group the later window in `hyprctl clients` on top. Otherwise the action refuses before any event with
+  window that takes the pointer before the target may cover the point.
+  Hyprland gives the pointer first to pinned windows, then to floating windows
+  allowed over fullscreen, then to the fullscreen window, then to other
+  floating windows, then to tiled ones; within a group the later window in
+  `hyprctl clients` wins. A fullscreen window takes every point on its
+  workspace. When `hyprctl clients` reports neither `allowedOverFullscreen`
+  nor the older `overFullscreen` and that decides the order, the cause is `evidence_missing` with
+  `evidence: "over_fullscreen"`.
+  Otherwise the action refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
   `evidence_missing`, `target_not_shown`, `point_outside_target`, `layer_cover`
   or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
