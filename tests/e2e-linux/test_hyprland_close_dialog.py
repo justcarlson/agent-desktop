@@ -53,6 +53,9 @@ class HoldRegistryTests(unittest.TestCase):
         self.assertIn("GLib.set_prgname(DIALOG_CLASS)", script)
         self.assertNotIn("set_application(", script)
 
+    def test_the_host_is_found_by_the_program_name_its_accessibility_root_carries(self):
+        self.assertIn(hold.DIALOG_CLASS, hold.HOST_NAMES)
+
 
 class HoldProblemTests(unittest.TestCase):
     def test_both_toplevels_kept_a_running_process_and_no_request_pass(self):
