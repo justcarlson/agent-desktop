@@ -2,13 +2,14 @@
 //! Wayland wire protocol to answer a registry read, `wl_output` binds,
 //! `zxdg_output_manager_v1.get_xdg_output` and the toplevel globals in
 //! `fake_toplevels`, or it accepts the connection and stays silent, or hangs
-//! up. Every request a toplevel handle receives is logged.
+//! up. Every request a toplevel handle receives is logged. A stalled
+//! compositor still reads requests and counts them, and answers none.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::fake_toplevels::{self, FakeToplevel, HandleIds};
@@ -46,6 +47,8 @@ pub(crate) enum Script {
 pub(crate) struct FakeCompositor {
     pub(crate) socket: PathBuf,
     pub(crate) log: Arc<Mutex<Vec<String>>>,
+    pub(crate) stalled: Arc<AtomicBool>,
+    pub(crate) requests: Arc<AtomicUsize>,
     dir: PathBuf,
 }
 
@@ -62,16 +65,22 @@ impl FakeCompositor {
         let listener = UnixListener::bind(&socket).expect("bind fake compositor");
         let log = Arc::new(Mutex::new(Vec::new()));
         let served = Arc::clone(&log);
+        let stalled = Arc::new(AtomicBool::new(false));
+        let requests = Arc::new(AtomicUsize::new(0));
+        let wire = Wire {
+            stalled: Arc::clone(&stalled),
+            requests: Arc::clone(&requests),
+        };
         std::thread::spawn(move || {
             let Ok((stream, _)) = listener.accept() else {
                 return;
             };
             match script {
                 Script::Answer { globals, outputs } => {
-                    serve(stream, &globals, &outputs, Vec::new(), served)
+                    serve(stream, &globals, &outputs, Vec::new(), (served, wire))
                 }
                 Script::Toplevels { globals, toplevels } => {
-                    serve(stream, &globals, &[], toplevels, served)
+                    serve(stream, &globals, &[], toplevels, (served, wire))
                 }
                 Script::Silent => {
                     let _ = (&stream).read_to_end(&mut Vec::new());
@@ -79,7 +88,13 @@ impl FakeCompositor {
                 Script::HangUp => drop(stream),
             }
         });
-        Self { socket, log, dir }
+        Self {
+            socket,
+            log,
+            stalled,
+            requests,
+            dir,
+        }
     }
 }
 
@@ -207,6 +222,11 @@ fn xdg_events(id: u32, manager: u32, output: (u32, u32), fake: &FakeOutput) -> V
     out
 }
 
+struct Wire {
+    stalled: Arc<AtomicBool>,
+    requests: Arc<AtomicUsize>,
+}
+
 struct Server<'a> {
     globals: &'a [(&'static str, u32)],
     outputs: &'a [FakeOutput],
@@ -319,7 +339,7 @@ fn serve(
     globals: &[(&'static str, u32)],
     outputs: &[FakeOutput],
     toplevels: Vec<FakeToplevel>,
-    log: Arc<Mutex<Vec<String>>>,
+    (log, wire): (Arc<Mutex<Vec<String>>>, Wire),
 ) {
     let mut server = Server {
         globals,
@@ -343,6 +363,10 @@ fn serve(
                 break;
             }
             let bytes: Vec<u8> = pending.drain(..size).collect();
+            wire.requests.fetch_add(1, Ordering::SeqCst);
+            if wire.stalled.load(Ordering::SeqCst) {
+                continue;
+            }
             let opcode = (word(&bytes, 4) & 0xffff) as u16;
             let reply = server.answer(word(&bytes, 0), opcode, &bytes);
             if stream.write_all(&reply).is_err() {
