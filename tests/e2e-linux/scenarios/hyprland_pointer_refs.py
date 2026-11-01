@@ -3,6 +3,8 @@
 Positive ref input goes to the nested second instance, where no shell layer covers the pad.
 Covers the leg places are its own: a slurp selection layer, and a foot terminal it floats or
 pins over the pad. The session instance is used only for refusals that send no event.
+Ref pointer legs run the pad on XWayland: a native Wayland pad refuses every headed ref pointer
+action (probes/linux/FINDINGS.md L42-4, L42-5), which `pointer.native_wayland_ref_refused` checks.
 """
 
 from __future__ import annotations
@@ -22,10 +24,11 @@ from scenarios.hyprland_common import bystander, main_instance
 from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, restore_desktop, shown
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
-from scenarios.hyprland_pointer_pad import (COVER_CLASS, PAD_BUTTON, PAD_SCROLL, apart_from_last_click,
-                                            covering_layers, events, gdk3_presses, global_point, instance_control, instance_env, pad_saw,
-                                            instance_query, pad_client, pad_ref, pads_left, pointer_pad,
-                                            presses, scrolls, settled, since)
+from scenarios.hyprland_pointer_pad import (COVER_CLASS, NATIVE, PAD_BUTTON, PAD_SCROLL, XWAYLAND,
+                                            apart_from_last_click, covering_layers, events, gdk3_presses,
+                                            global_point, instance_control, instance_env, instance_query,
+                                            pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
+                                            scrolls, settled, since)
 from scenarios.hyprland_window_ops import float_argv
 
 SLURP_NAMESPACE = "selection"
@@ -183,7 +186,7 @@ def ref_receiver_evidence(ctx: LegContext) -> None:
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "receiver") as (owned, _, log):
+    with pointer_pad(tier, instance, "receiver", XWAYLAND) as (owned, _, log):
         button = pad_ref(ctx, env, owned)
         ctx.before("hyprland.clients", clients_summary(tier, instance))
         problems = [problem for verb, want in GESTURES
@@ -229,14 +232,14 @@ def cover_or_missing_evidence_refused(ctx: LegContext) -> None:
     holder, point = bystander(tier), cursor(tier)
     ctx.before("hyprland.cursor", point)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, main_instance(tier), "session-refusals") as (owned, client, log):
+    with pointer_pad(tier, main_instance(tier), "session-refusals", XWAYLAND) as (owned, client, log):
         try:
             problems = _session_refusals(ctx, owned, client, log)
         finally:
             restore_desktop(tier, holder, point)
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
-    with pointer_pad(tier, instance, "cover-refusals") as (owned, _, log):
+    with pointer_pad(tier, instance, "cover-refusals", XWAYLAND) as (owned, _, log):
         button = pad_ref(ctx, env, owned)
         ctx.before("hyprland.clients", clients_summary(tier, instance))
         for pinned in (False, True):
@@ -260,7 +263,7 @@ def ref_gesture(ctx: LegContext, verb: str) -> None:
     instance, _ = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, verb) as (owned, _, log):
+    with pointer_pad(tier, instance, verb, XWAYLAND) as (owned, _, log):
         button = pad_ref(ctx, env, owned, PAD_SCROLL if verb == "scroll" else PAD_BUTTON)
         argv = ["scroll", button, "--direction", "down", "--amount", "2"] if verb == "scroll" else [verb, button]
         if ctx.mode == "headless":
@@ -271,6 +274,48 @@ def ref_gesture(ctx: LegContext, verb: str) -> None:
             problems = scroll_problems(ctx, env, log, button)
         else:
             problems = gesture_problems(ctx, env, log, button, verb, dict(GESTURES)[verb])
+        ctx.after("applog.pad", len(events(log)))
+        require(not problems, "; ".join(problems))
+    ctx.restored("applog.pad", pads_left(tier))
+
+
+NATIVE_GESTURES = (["click"], ["double-click"], ["triple-click"])
+
+
+def native_refusal_problems(label: str, envelope) -> list[str]:
+    """A headed ref pointer action on a native Wayland pad refuses before any event, because the
+    compositor cannot show which of the pad's own surfaces takes the point."""
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    problems = []
+    if envelope.ok or error.get("code") != "ACTION_FAILED":
+        problems.append(f"{label}: answered {envelope.raw[:300]}")
+    if details.get("cause") != "native_wayland_client":
+        problems.append(f"{label}: refused with cause {details.get('cause')!r}, expected native_wayland_client")
+    if details.get("physical_delivery_started") is not False:
+        problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"{label}: not reported not_delivered")
+    return problems
+
+
+@implementation("pointer.native_wayland_ref_refused")
+def native_wayland_ref_refused(ctx: LegContext) -> None:
+    """Every headed ref pointer action on a native Wayland pad refuses, and the pad logs no event."""
+    tier = ctx.tier
+    instance, _ = nested(tier)
+    env = instance_env(tier, instance)
+    ctx.before("applog.pad", pads_left(tier))
+    with pointer_pad(tier, instance, "native", NATIVE) as (owned, _, log):
+        button, pane = pad_ref(ctx, env, owned), pad_ref(ctx, env, owned, PAD_SCROLL)
+        argvs = [argv + [button] for argv in NATIVE_GESTURES]
+        argvs.append(["scroll", pane, "--direction", "down", "--amount", "2"])
+        problems, start = [], len(events(log))
+        for argv in argvs:
+            problems += native_refusal_problems(f"headed {argv[0]} on a native pad", ctx.product(argv, env=env))
+        found = since(settled(log, lambda all_: len(all_) > start, 0.5), start)
+        if found:
+            problems.append(f"the pad logged {len(found)} events under refused ref actions{pad_saw(found)}")
         ctx.after("applog.pad", len(events(log)))
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
