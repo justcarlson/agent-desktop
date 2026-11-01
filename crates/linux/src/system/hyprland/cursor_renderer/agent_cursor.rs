@@ -1,10 +1,12 @@
 //! One agent's cursor: its style and motion profile, pose, the arrow drawn
-//! for its style, whether the agent hid it, and its travel in flight. A
-//! profile changes only how the cursor looks and moves, never where it goes.
+//! for its style, whether the agent hid it or a hidden target parked it,
+//! and its travel in flight. A profile changes only how the cursor looks
+//! and moves, never where it goes.
 
 use agent_desktop_core::{CursorMotionProfile, CursorOverlayControl, CursorOverlayStyle, Point};
 
 use super::arrow_bitmap::ArrowBitmap;
+use super::cursor_concealment::CursorConcealment;
 use super::cursor_travel::CursorTravel;
 
 /// One cursor's state.
@@ -14,7 +16,7 @@ pub(crate) struct AgentCursor {
     pub(crate) pose: Option<Point>,
     pub(crate) moves: u64,
     pub(crate) bitmap: ArrowBitmap,
-    pub(crate) hidden: bool,
+    pub(crate) concealed: CursorConcealment,
     pub(crate) travel: Option<CursorTravel>,
 }
 
@@ -28,7 +30,7 @@ impl AgentCursor {
             style,
             pose: None,
             moves: 0,
-            hidden: false,
+            concealed: CursorConcealment::default(),
             travel: None,
         }
     }
