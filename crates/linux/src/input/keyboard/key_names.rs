@@ -7,7 +7,7 @@ pub(crate) const KEYSYM_SUPER_L: u32 = 0xffeb;
 pub(crate) const KEYSYM_RETURN: u32 = 0xff0d;
 pub(crate) const KEYSYM_TAB: u32 = 0xff09;
 
-const UNICODE_KEYSYM_BASE: u32 = 0x0100_0000;
+pub(crate) const UNICODE_KEYSYM_BASE: u32 = 0x0100_0000;
 const FIRST_FUNCTION_KEYSYM: u32 = 0xffbe;
 const MAX_FUNCTION_KEY: u32 = 24;
 

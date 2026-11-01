@@ -25,6 +25,7 @@ pub(crate) struct FakeWorld {
     pub(crate) pointer_reads: RefCell<VecDeque<Result<(), AdapterError>>>,
     pub(crate) pointer_delays: RefCell<VecDeque<Duration>>,
     pub(crate) sink: Option<crate::input::x11::fake_sink::FakeSink>,
+    pub(crate) virtual_keyboard: bool,
 }
 
 impl FakeWorld {
@@ -52,6 +53,7 @@ impl FakeWorld {
             pointer_reads: RefCell::default(),
             pointer_delays: RefCell::default(),
             sink: None,
+            virtual_keyboard: false,
         }
     }
 
@@ -98,6 +100,7 @@ impl FakeWorld {
         }
         Ok(Delivery {
             delivered_events: delivered,
+            virtual_keyboard: false,
         })
     }
 }
@@ -215,7 +218,11 @@ impl PhysicalWorld for FakeWorld {
         gate: Gate<'_>,
         _deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
-        self.deliver((0..chunks.len()).map(|_| true), gate)
+        let delivery = self.deliver((0..chunks.len()).map(|_| true), gate)?;
+        Ok(Delivery {
+            virtual_keyboard: self.virtual_keyboard,
+            ..delivery
+        })
     }
 
     fn pointer_refusal(&self, what: &'static str) -> AdapterError {

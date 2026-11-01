@@ -83,6 +83,7 @@ fn execute(
     })?;
     Ok(Delivery {
         delivered_events: guard.delivered(),
+        virtual_keyboard: false,
     })
 }
 
