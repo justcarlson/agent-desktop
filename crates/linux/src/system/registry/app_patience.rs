@@ -4,7 +4,8 @@ use crate::system::registry::read_patience::ReadPatience;
 use crate::system::registry::registry_frames::{CHILDREN_SLICE, FRAME_SLICE};
 
 /// The grace a running application gets past a slice. A GTK window that
-/// draws slowly answers its accessibility calls only between draws.
+/// draws slowly answers its accessibility calls only between draws, and a
+/// frame read's concurrent calls can span more than one draw (L16-22).
 pub(crate) const BUSY_GRACE: Duration = Duration::from_millis(700);
 
 /// The waits for one application's child list and for each of its frames.
