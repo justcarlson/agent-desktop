@@ -258,13 +258,15 @@ class Atspi:
                          "GetConnectionUnixProcessID", "(s)", (name,))[0]
 
     def app(self, pid: int):
+        """The application root of `pid` with the most children: Qt can register more than one."""
+        found = []
         for name, path in self.children(("org.a11y.atspi.Registry", "/org/a11y/atspi/accessible/root")):
             try:
                 if self.pid(name) == pid:
-                    return name, path
+                    found.append((len(self.children((name, path))), (name, path)))
             except Exception:
                 continue
-        return None
+        return max(found)[1] if found else None
 
     def children(self, node):
         return [(bus or node[0], path) for bus, path in self.call(node, ACCESSIBLE, "GetChildren")[0]
@@ -286,9 +288,12 @@ class Atspi:
         pending = [root]
         while pending:
             node = pending.pop()
-            if self.describe(node)["name"] == name:
-                return node
-            pending.extend(self.children(node))
+            try:
+                if self.describe(node)["name"] == name:
+                    return node
+                pending.extend(self.children(node))
+            except Exception:
+                continue
         return None
 
     def descend(self, frame, point: tuple[int, int], coord: int) -> list[dict]:
@@ -327,7 +332,7 @@ def nodes(value):
 
 def target_ref(binary: str, env: dict[str, str], pid: int) -> str | None:
     windows = product(binary, env, "list-windows").get("data") or []
-    ids = [item.get("id") for item in windows if item.get("pid") == pid]
+    ids = [item.get("id") for item in windows if item.get("pid") == pid and item.get("title") == TITLE]
     if len(ids) != 1:
         return None
     found = product(binary, env, "find", "--exact", "--limit", "0", "--role", "button", "--name",
@@ -392,7 +397,7 @@ def one_run(binary: str, env: dict[str, str], hypr: Hypr, atspi: Atspi, toolkit:
             return {**result, "verdict": "setup_failed", "why": "no unique ref for Probe Target"}
         root = atspi.app(app.pid)
         result["toplevels"] = [atspi.describe(node) for node in atspi.children(root)] if root else None
-        frames = [node for node in atspi.children(root) if atspi.describe(node)["role"] == "frame"] if root else []
+        frames = [node for node in atspi.children(root) if atspi.describe(node)["name"] == TITLE] if root else []
         target = atspi.named(root, "Probe Target") if root else None
         if target and frames:
             described = atspi.describe(target)
@@ -423,6 +428,52 @@ def one_run(binary: str, env: dict[str, str], hypr: Hypr, atspi: Atspi, toolkit:
         stop(app)
 
 
+def start_nested(env: dict[str, str], out: Path):
+    """A nested Hyprland inside the session, with no shell layers, like the pointer legs' second instance.
+    Returns its process and the environment bound to it."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from runner.second_instance import OUTPUT, config_text, output_command
+    lua = Hypr(env).lua
+    config = out / ("nested.lua" if lua else "nested.conf")
+    config.write_text(config_text(lua))
+    hypr_dir = Path(env["XDG_RUNTIME_DIR"]) / "hypr"
+    before = set(os.listdir(hypr_dir))
+    launch = {key: value for key, value in env.items()
+              if key not in ("HYPRLAND_INSTANCE_SIGNATURE", "AT_SPI_BUS_ADDRESS", "AGENT_DESKTOP_HOME")}
+    log = (out / "nested.log").open("w")
+    nested = subprocess.Popen(["Hyprland", "-c", str(config)], env=launch, stdout=log, stderr=log)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline and nested.poll() is None:
+        for name in set(os.listdir(hypr_dir)) - before:
+            lock = hypr_dir / name / "hyprland.lock"
+            lines = lock.read_text().split() if lock.exists() else []
+            if len(lines) >= 2 and lines[0] == str(nested.pid) and (hypr_dir / name / ".socket2.sock").exists():
+                bound = dict(env, HYPRLAND_INSTANCE_SIGNATURE=name, WAYLAND_DISPLAY=lines[1])
+                hypr = Hypr(bound)
+                hypr.ctl("output", "create", "headless", OUTPUT)
+                hypr.ctl(*output_command(lua))
+                return nested, bound
+        time.sleep(0.1)
+    stop(nested)
+    raise RuntimeError("the nested Hyprland never served its sockets")
+
+
+def matrix(binary: str, env: dict[str, str], surface: str, stream) -> list[dict]:
+    hypr, atspi, rows = Hypr(env), Atspi(), []
+    for toolkit in TOOLKITS:
+        for case in CASES:
+            for round_ in range(ROUNDS):
+                try:
+                    row = one_run(binary, env, hypr, atspi, toolkit, case)
+                except Exception as error:
+                    row = {"toolkit": toolkit, "case": case, "verdict": "probe_error", "why": repr(error)[:300]}
+                row.update(round=round_, surface=surface)
+                stream.write(json.dumps(row) + "\n")
+                stream.flush()
+                rows.append(row)
+    return rows
+
+
 def run(out: Path) -> int:
     if not os.environ.get("OMARCHY_VM_CHANNEL"):
         sys.exit("hyprland_hit_probe: run this inside an Omarchy VM, never on a host")
@@ -431,27 +482,24 @@ def run(out: Path) -> int:
     env = dict(os.environ, AGENT_DESKTOP_HOME=home, GDK_BACKEND="wayland", QT_QPA_PLATFORM="wayland",
                QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", GTK_USE_PORTAL="0")
     binary = os.environ.get("AGENT_DESKTOP_E2E_BIN", str(Path.home() / "src/agent-desktop-bin/agent-desktop"))
-    hypr, atspi = Hypr(env), Atspi()
     rows = []
     with (out / "results.jsonl").open("w") as stream:
-        for toolkit in TOOLKITS:
-            for case in CASES:
-                for round_ in range(ROUNDS):
-                    try:
-                        row = one_run(binary, env, hypr, atspi, toolkit, case)
-                    except Exception as error:
-                        row = {"toolkit": toolkit, "case": case, "verdict": "probe_error", "why": repr(error)[:300]}
-                    row["round"] = round_
-                    stream.write(json.dumps(row) + "\n")
-                    stream.flush()
-                    rows.append(row)
+        rows += matrix(binary, env, "main", stream)
+        nested, bound = start_nested(env, out)
+        try:
+            rows += matrix(binary, bound, "nested", stream)
+        finally:
+            stop(nested)
     for row in rows:
         click = row.get("click") or {}
         error = click.get("error") or {}
         details = error.get("details") or {}
         lander = (row.get("descent_window") or [{}])[-1] if row.get("descent_window") else {}
-        print(f"{row['toolkit']:5} {row['case']:8} r{row['round']} {row['verdict']:20} "
-              f"code={error.get('code', '-')} cause={details.get('cause', details.get('kind', '-'))} "
+        failed = [check for check in details.get("checks", []) if check.get("status") == "fail"]
+        cause = details.get("cause") or (failed and f"{failed[0].get('reason')}:"
+                                                    f"{(failed[0].get('occluder') or {}).get('name')}") or "-"
+        print(f"{row['surface']:6} {row['toolkit']:5} {row['case']:8} r{row['round']} {row['verdict']:20} "
+              f"code={error.get('code', '-')} cause={cause} "
               f"effects={[item.get('widget', item.get('ev')) for item in row.get('effects', [])]} "
               f"descent1={lander.get('role')}/{lander.get('name')} "
               f"toplevels={[(item['role'], item['showing']) for item in row.get('toplevels') or []]}")
