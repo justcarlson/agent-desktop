@@ -52,12 +52,47 @@ class AbsentRefTests(unittest.TestCase):
         self.assertTrue(self.check("headless", refused("ACTION_NOT_SUPPORTED", cause="wayland_session",
                                                        physical_delivery_started=False)))
 
-    def test_the_headed_pointer_gate_refuses_before_the_ref_is_read(self):
-        gate = refused("ACTION_NOT_SUPPORTED", cause="wayland_session", physical_delivery_started=False)
-        self.assertEqual(self.check("headed", gate), [])
-        self.assertTrue(self.check("headed", refused("STALE_REF")))
+    def test_a_bound_headed_session_reads_the_ref_and_finds_it_missing(self):
+        self.assertEqual(self.check("headed", refused("STALE_REF")), [])
+        self.assertEqual(self.check("headed", refused("ELEMENT_NOT_FOUND")), [])
         self.assertTrue(self.check("headed", refused("ACTION_NOT_SUPPORTED", cause="wayland_session",
-                                                     physical_delivery_started=True)))
+                                                     physical_delivery_started=False)))
+
+
+class UnboundEnvTests(unittest.TestCase):
+    def test_the_unbound_environment_hides_the_instance_but_keeps_the_display(self):
+        with tempfile.TemporaryDirectory() as work:
+            tier = SimpleNamespace(runtime_dir=Path(work), env={"HYPRLAND_INSTANCE_SIGNATURE": "sig",
+                                                                "XDG_RUNTIME_DIR": "/run/user/1000",
+                                                                "WAYLAND_DISPLAY": "wayland-1", "PATH": "/bin"})
+            with mock.patch.object(hyprland_desktop, "main_instance", return_value={"wayland": "wayland-1"}), \
+                    mock.patch.object(hyprland_desktop, "shared", return_value=Path("/run/user/1000")):
+                env = hyprland_desktop.unbound_env(tier)
+            private = Path(env["XDG_RUNTIME_DIR"])
+            self.assertNotIn("HYPRLAND_INSTANCE_SIGNATURE", env)
+            self.assertEqual(env["WAYLAND_DISPLAY"], "/run/user/1000/wayland-1")
+            self.assertTrue(private.is_dir())
+            self.assertFalse((private / "hypr").exists())
+            self.assertEqual(private.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(env["PATH"], "/bin")
+
+
+class InsidePointTests(unittest.TestCase):
+    def point(self, clients: list[dict]):
+        with mock.patch.object(hyprland_desktop, "main_instance", return_value={"signature": "s", "pid": 1}), \
+                mock.patch.object(hyprland_desktop, "shared", return_value=Path("/run")), \
+                mock.patch.object(hyprland_desktop.hyprland, "query", return_value=clients):
+            return hyprland_desktop.inside_point(None, 40)
+
+    def test_the_point_is_the_centre_of_the_owned_toplevel_in_global_layout_coordinates(self):
+        clients = [{"pid": 40, "at": [-1024, 32], "size": [600, 400]}, {"pid": 7, "at": [0, 0], "size": [10, 10]}]
+        self.assertEqual(self.point(clients), "-724,232")
+
+    def test_no_owned_toplevel_or_two_of_them_refuse_to_aim(self):
+        for clients in ([], [{"pid": 40, "at": [0, 0], "size": [2, 2]}] * 2):
+            with self.subTest(count=len(clients)):
+                with self.assertRaises(Exception):
+                    self.point(clients)
 
 
 MONITORS = [{"name": "Virtual-1", "x": 0, "y": 0, "width": 1280, "height": 800, "scale": 1.0, "transform": 0}]

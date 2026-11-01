@@ -8,6 +8,7 @@ from runner.helper import changed
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
+from scenarios import hyprland_pointer_refs
 from scenarios.headed_actions import assert_ok, live_root
 from scenarios.pointer_targets import delivery_target
 
@@ -178,14 +179,20 @@ def _delivery_leg(ctx: LegContext, verb: str) -> None:
 
 @implementation("pointer.drag_delivery_report")
 def drag_delivery_report(ctx: LegContext) -> None:
+    if ctx.tier.name == "hyprland":
+        return hyprland_pointer_refs.delivery_report(ctx, "drag")
     _delivery_leg(ctx, "drag")
 
 
 @implementation("pointer.mouse_wheel_delivery_report")
 def mouse_wheel_delivery_report(ctx: LegContext) -> None:
+    if ctx.tier.name == "hyprland":
+        return hyprland_pointer_refs.delivery_report(ctx, "mouse-wheel")
     _delivery_leg(ctx, "mouse-wheel")
 
 
 @implementation("pointer.mouse_click_delivery_report")
 def mouse_click_delivery_report(ctx: LegContext) -> None:
+    if ctx.tier.name == "hyprland":
+        return hyprland_pointer_refs.delivery_report(ctx, "mouse-click")
     _delivery_leg(ctx, "mouse-click")

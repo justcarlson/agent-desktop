@@ -6,13 +6,15 @@
 //! `zwlr_screencopy_v1` from the output Hyprland names it by. The permission
 //! setting is read before anything is sent, and no portal is ever asked.
 
-use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ScreenshotTarget, WindowInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, ImageBuffer, ScreenshotTarget, WindowInfo,
+};
 
 use super::capture_error::permission_refusal;
 use super::capture_world::CaptureWorld;
-use super::cursor_hider::CursorHider;
 use super::frame_image::{frame_image, scale_of};
 use crate::system::capture::display::select;
+use crate::system::hyprland::cursor_hider::CursorHider;
 use crate::system::wayland::capture::raw_frame::RawFrame;
 
 const SIZE_TOLERANCE: f64 = 1.0;
@@ -40,15 +42,16 @@ pub(crate) fn capture_window(
 /// draws over it for the length of the capture.
 pub(crate) fn capture_screen(
     world: &mut impl CaptureWorld,
-    hider: &mut impl CursorHider,
+    hider: &mut dyn CursorHider,
     target: &ScreenshotTarget,
+    deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     refuse_enforced(world)?;
     let displays = world.displays()?;
     let (_, display) = select(&displays, target)?;
-    hider.hide()?;
+    hider.hide(deadline)?;
     let frame = world.capture_output(&display.id);
-    hider.show()?;
+    hider.show();
     let frame = frame?;
     if !world.displays()?.contains(&display) {
         return Err(AdapterError::new(
