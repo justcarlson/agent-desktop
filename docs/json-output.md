@@ -356,6 +356,61 @@ otherwise:
 
 An `XDG_RUNTIME_DIR` that is not absolute is `PLATFORM_NOT_SUPPORTED`.
 
+## Hyprland pointer
+
+On a bound Hyprland, `--headed` pointer commands send through a
+`zwlr_virtual_pointer_v1` bound to the output that holds the point.
+Coordinates are global logical layout points.
+
+A coordinate command (`mouse-move`, `mouse-click`, `mouse-wheel`, `drag`,
+`hover --xy`) proves nothing about the receiver. Its `OperationReport` adds two
+fields to `data.details`:
+
+| Field | Meaning |
+|-------|---------|
+| `receiver_proof` | Always `false` |
+| `delivered_events` | Events sent: motion, button and wheel |
+
+A ref command (`click`, `double-click`, `triple-click`, `scroll`) reads the
+compositor's window stack and layers before each burst. Every layer counts as a
+cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
+`not_delivered`, with `details.kind: "receiver_evidence"`,
+`details.check: "hyprland_stack"` and `physical_delivery_started: false`:
+
+| Cause | Meaning | Extra `details` |
+|-------|---------|-----------------|
+| `evidence_missing` | A compositor read failed or was incomplete | `evidence` names the read |
+| `target_not_shown` | The window is not on a workspace an output shows | |
+| `point_outside_target` | The aim point lies outside the window | |
+| `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
+| `window_cover` | A floating, pinned or fullscreen window holds the point | `cover_address` |
+
+Other refusals before any event carry `details.kind: "hyprland_pointer"` and
+`not_delivered`:
+
+| Cause | Code | Meaning |
+|-------|------|---------|
+| `point_off_output` | `INVALID_ARGS` | The point lies on no output |
+| `hover_unsupported` | `ACTION_NOT_SUPPORTED` | `hover` by ref has no receiver evidence |
+| `modifiers_unsupported` | `ACTION_NOT_SUPPORTED` | Held modifiers were asked for |
+| `unsupported_step` | `ACTION_NOT_SUPPORTED` | The plan holds a button or key the virtual pointer does not send |
+
+`drag` by ref refuses before any event, because Wayland gives a ref no global
+bounds.
+
+The active window is read before every button press and wheel step. A change
+stops delivery with `ACTION_FAILED`, `details.kind: "focus_gate"`,
+`cause: "focus_changed"`, `from` and `to`. SIGINT, SIGTERM or SIGHUP stop
+delivery with `details.kind: "hyprland_pointer"`, `cause: "cancelled"`. A stop
+before the first event is `not_delivered`. A stop after it is
+`delivery_uncertain` with `retry: unsafe` and these fields:
+
+| Field | Meaning |
+|-------|---------|
+| `physical_delivery_started` | `true` |
+| `delivered_events` | Events sent before the stop |
+| `buttons_released` | `true` when every held button was released; `false` when the compositor went away first |
+
 ## Error codes
 
 | Code | Meaning |
