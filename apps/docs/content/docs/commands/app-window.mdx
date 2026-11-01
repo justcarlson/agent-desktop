@@ -319,7 +319,7 @@ agent-desktop resize-window --app gedit --width 800 --height 600
 
 `delivered_verified` means the adapter read the size back within `details.tolerance`. `details.observed` is a Linux addition. Errors: `INVALID_ARGS` for a non-finite or out-of-range size, `STALE_REF` when the window identity changed before the write, and `ACTION_FAILED` when the window manager clamped or ignored the request. After a failed write, read the bounds before you retry.
 
-Platform limits: the tolerance differs by OS, and on Linux window control uses an X11 client, so Wayland-native windows are refused. See [Linux](/desktop/platforms/linux).
+Platform limits: the tolerance differs by OS. On Linux, window control uses an X11 client, or the compositor on a bound Hyprland, where move and resize act on floating windows only; other Wayland sessions refuse Wayland-native windows. See [Linux](/desktop/platforms/linux).
 
 ## move-window
 

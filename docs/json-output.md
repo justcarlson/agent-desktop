@@ -88,7 +88,7 @@ Version 2.5 is a breaking payload change for the commands that dispatch pointer,
 
 The unconditional success flags are removed with no compatibility alias: `clicked`, `moved`, `scrolled`, `hovered`, `dragged`, `resized`, `minimized`, `maximized`, `restored`, `closed`, `cleared`, the `requested` field of `close-app`, and the inner `ok` of `clipboard-set`. A flag that every successful call carried proved nothing about the operation.
 
-A verified window report names the exact readback in `details.verification_scope` (`window_size`, `window_position`, `window_minimized_state` or `window_maximized_state`). Geometry scopes also state `details.tolerance` and `details.units`: 2 points on macOS, 8 px on Windows, 2 pixels on Linux. A window failure after the write keeps its code, details and disposition and gains `details.target` and the completed `details.steps`.
+A verified window report names the exact readback in `details.verification_scope` (`window_size`, `window_position`, `window_minimized_state`, `window_maximized_state`, or `window_restored_state` on a bound Hyprland). Geometry scopes also state `details.tolerance` and `details.units`: 2 points on macOS, 8 px on Windows, 2 pixels on Linux. A window failure after the write keeps its code, details and disposition and gains `details.target` and the completed `details.steps`.
 
 Each of these commands now returns the adapter's own report inside `data`:
 
@@ -203,6 +203,50 @@ the `side_effects` already observed and, when the last read failed,
 `zwlr_foreign_toplevel_manager_v1`, `hyprland_toplevel_mapping_manager_v1` or
 `wl_seat` is `PLATFORM_NOT_SUPPORTED`, and `platform_detail` names the missing
 global.
+
+On a bound Hyprland, `move-window`, `resize-window`, `minimize`, `maximize`
+and `restore` bind the window the same way and prove each request by a fresh
+read of Hyprland's client list. A success is `delivered_verified`, `restore`
+included, with `details.verification_scope`, `details.observed` (`x`, `y`,
+`width`, `height`, `floating`, `fullscreen` and `workspace`) and, when the
+operation changed the desktop, `details.side_effects`:
+
+```json
+{
+  "action": "minimize",
+  "disposition": { "delivery": "delivered_verified", "retry": "unsafe" },
+  "details": {
+    "verification_scope": "window_minimized_state",
+    "observed": { "x": 40, "y": 60, "width": 630, "height": 755, "floating": true,
+                  "fullscreen": 0, "workspace": "special:agent-desktop-minimized-1" },
+    "side_effects": [ { "kind": "active_window_changed", "from": "0x55d0a1", "to": "0x55d2f0" } ]
+  }
+}
+```
+
+`side_effects` holds `active_window_changed` (`from` and `to` are Hyprland
+addresses, `null` for no focused window) and the `focus-window` kinds above.
+A window already as asked is `not_delivered` with `details.observed`. Every
+refusal below is `ACTION_NOT_SUPPORTED`, `not_delivered`, with
+`details.physical_delivery_started: false`:
+
+| Cause | Meaning |
+|-------|---------|
+| `tiled_window` | Move or resize of a tiled window |
+| `window_maximized` | Move or resize of a maximized or fullscreen window |
+| `window_minimized` | Move, resize or maximize of a minimized window |
+| `window_fullscreen` | Maximize of a fullscreen window |
+| `maximize_takes_focus` | Maximize of a window while another window has focus |
+| `legacy_config_focused_only` | Maximize, or restore of a maximized window, under a legacy `hyprland.conf` |
+| `workspace_name_unsupported` | Minimize of a window whose workspace name is not letters, digits, `-` and `_` |
+| `config_dialect_unknown` | The compositor answers as neither a Lua nor a legacy config |
+
+A request the compositor answers with an error is `ACTION_FAILED`, cause
+`compositor_rejected`, with `details.reply`; it is `not_delivered` unless an
+earlier request of the same operation was applied. A request whose read-back
+does not hold within 1 s is `ACTION_FAILED`, `delivered_unverified`, cause
+`readback_mismatch` with `details.requested` and `details.observed`, or
+`readback_unavailable`.
 
 `close-app` on a bound Hyprland sends `zwlr_foreign_toplevel_handle_v1.close`
 to each toplevel of the process, after it checks that the process instance

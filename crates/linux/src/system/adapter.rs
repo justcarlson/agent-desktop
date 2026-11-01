@@ -131,6 +131,13 @@ impl SystemOps for LinuxAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
+        if let Some(report) =
+            crate::system::hyprland::window_op::window_op_entry::hyprland_window_op(
+                win, &op, lease,
+            )?
+        {
+            return Ok(report);
+        }
         window_op::window_op(self.bus(), win, op, lease)
     }
 

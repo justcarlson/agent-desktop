@@ -205,8 +205,10 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
 
 ## Window operations
 
-`move-window`, `resize-window`, `minimize`, `maximize` and `restore` use EWMH.
-Move and resize read back geometry inside 250 ms with a 2 px tolerance; minimize
+`move-window`, `resize-window`, `minimize`, `maximize` and `restore` use EWMH
+on X11. On a bound Hyprland they go through the compositor instead: see
+[Hyprland window operations](#hyprland-window-operations). Under EWMH, move and
+resize read back geometry inside 250 ms with a 2 px tolerance; minimize
 and maximize read back their state. Their successful reports name
 `details.verification_scope`. `restore` has no uniform final read-back across its
 branches and reports `delivered_unverified`: look at the window afterwards.
@@ -227,8 +229,8 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
 - Without `--app` or `--window-id` all five act on the focused window, and
   `data.target` names the window id, title and process identity, even when no
   selector was supplied. Pass one unless you mean the focused window.
-- A Wayland-native window, and an un-minimize on a Wayland session, are refused
-  with cause `wayland_session` before anything is sent.
+- On any Wayland session but a bound Hyprland, a Wayland-native window and an
+  un-minimize are refused with cause `wayland_session` before anything is sent.
 - A window the process cannot be mapped to is refused before any write: no client
   is `ACTION_NOT_SUPPORTED`, cause `window_not_mapped`; two clients are
   `AMBIGUOUS_TARGET`, cause `ambiguous_window`.
@@ -352,6 +354,61 @@ agent-desktop --headed focus-window --app foot
   `hyprland_toplevel_mapping_manager_v1` or, for focus, `wl_seat` is
   `PLATFORM_NOT_SUPPORTED`; `platform_detail` names the missing global.
 
+## Hyprland window operations
+
+```bash
+agent-desktop move-window --app foot --x 40 --y 60
+agent-desktop minimize --app foot
+agent-desktop restore --app foot
+```
+
+On a bound Hyprland all five operations work on AT-SPI windows and on `w-hypr-`
+windows. Each one binds the window to one compositor toplevel, reads its state,
+sends the request by the toplevel's address and proves the result with a fresh
+read of the compositor's client list. A success is `delivered_verified` and
+names `details.verification_scope` (`window_position`, `window_size`,
+`window_minimized_state`, `window_maximized_state` or `window_restored_state`)
+and `details.observed`. A window already as asked is `not_delivered` with
+`details.observed`, and nothing is sent.
+
+- Move and resize act on floating windows only. A tiled window is
+  `ACTION_NOT_SUPPORTED`, cause `tiled_window`: Hyprland places it by its
+  layout, so a resize would change its neighbours. Make it floating yourself
+  first.
+- A resize keeps the window's top-left corner. Hyprland holds a window at its
+  minimum size, so a smaller request ends `ACTION_FAILED`,
+  `delivered_unverified`, cause `readback_mismatch`, with `details.requested`
+  and `details.observed`.
+- `minimize` moves the window to the special workspace
+  `agent-desktop-minimized-<workspace>`, named for the workspace it came from,
+  without showing that special workspace. `restore` moves it back and then
+  clears a maximized or fullscreen state. Neither follows the window, so the
+  user's workspace and cursor stay where they are. A window on a workspace
+  whose name is not letters, digits, `-` and `_` (a special workspace, for
+  example) is `ACTION_NOT_SUPPORTED`, cause `workspace_name_unsupported`.
+- Minimizing the focused window moves focus to another window, as Hyprland
+  does when a window leaves. The report names the change in
+  `details.side_effects` as `active_window_changed` with the old and new
+  addresses.
+- `maximize` runs only on the focused window or when no window has focus,
+  because Hyprland clears the user's focus when it maximizes another window.
+  Otherwise it is `ACTION_NOT_SUPPORTED`, cause `maximize_takes_focus`: focus
+  the window first.
+- A minimized window is not moved, resized or maximized (cause
+  `window_minimized`); a maximized or fullscreen window is not moved or resized
+  (cause `window_maximized`), and a fullscreen one is not maximized (cause
+  `window_fullscreen`). Run `restore` first.
+- Under a legacy `hyprland.conf` config, Hyprland changes maximized state only
+  on the focused window, so `maximize`, and `restore` of a maximized window, are
+  `ACTION_NOT_SUPPORTED`, cause `legacy_config_focused_only`. Move, resize,
+  minimize and restore of a minimized window work.
+- Every refusal above is `not_delivered`, decided before anything is sent. A
+  request the compositor answers with an error is `ACTION_FAILED`, cause
+  `compositor_rejected`, with its `details.reply`. A request whose effect is not
+  seen within 1 s is `delivered_unverified`: read the window before you retry.
+- The compositor moves the window of a stopped app too, so these operations do
+  not answer `APP_UNRESPONSIVE`.
+
 ## Workspaces
 
 A window on another workspace lists `visible: false` and cannot take a headless
@@ -385,14 +442,14 @@ refresh `list-windows`, retry with its current id.
 
 An app stopped with `SIGSTOP` is detected from `/proc` without waiting for a
 probe. A ref used against it, a scoped `snapshot`, `list-windows --app`,
-`focus-window` and the window operations answer `APP_UNRESPONSIVE` in
-milliseconds, not `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`,
-`not_delivered`, `retry: safe`; only `--force` ends it, unless it is a session
-service (`INVALID_ARGS`, see `close-app`). A stopped native-Wayland app that
-owns a session-bus name is one: no window of it can be read. An unscoped
-`list-windows` still lists its windows with `accessible: false`. A scoped
-listing of a busy app that left every frame unanswered is `TIMEOUT`, not an
-empty list.
+`focus-window` and the window operations (except on a bound Hyprland) answer
+`APP_UNRESPONSIVE` in milliseconds, not `STALE_REF`. `close-app` answers
+`APP_UNRESPONSIVE`, `not_delivered`, `retry: safe`; only `--force` ends it,
+unless it is a session service (`INVALID_ARGS`, see `close-app`). A stopped
+native-Wayland app that owns a session-bus name is one: no window of it can be
+read. An unscoped `list-windows` still lists its windows with
+`accessible: false`. A scoped listing of a busy app that left every frame
+unanswered is `TIMEOUT`, not an empty list.
 
 ## Waiting for lifecycle events
 
