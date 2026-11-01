@@ -8,6 +8,7 @@ use super::bound_layout::BoundLayout;
 use super::layout_placement::Placement;
 use super::layout_rect::layout_rect;
 use super::placed_target::PlacedTarget;
+use super::popup_surface::popup_surface_refusal;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_read::read_desktop;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
@@ -25,7 +26,7 @@ use crate::tree::surfaces::window_extents::read_window_extents;
 /// verified point when the caller has one, else the centre of the element's
 /// visible window rectangle placed at the toplevel's compositor origin.
 /// Missing geometry or a toplevel that is not shown refuses before any
-/// event.
+/// event, and so does a frame that is a popup surface.
 pub(crate) fn place_target(
     binding: &HyprlandBinding,
     bus: &SharedBus,
@@ -34,7 +35,8 @@ pub(crate) fn place_target(
     deadline: Deadline,
 ) -> Result<PlacedTarget, AdapterError> {
     let frame = element.frame().ok_or_else(|| missing("frame"))?;
-    let (address, clients) = bound_clients(binding, bus, frame, deadline)?;
+    let (address, clients) =
+        bound_clients(binding, bus, frame, element.is_menu_target(), deadline)?;
     if let Some(point) = verified {
         point.validate()?;
         return Ok(PlacedTarget {
@@ -61,19 +63,22 @@ pub(crate) fn placed_bounds(
     deadline: Deadline,
 ) -> Result<Rect, AdapterError> {
     let frame = element.frame().ok_or_else(|| missing("frame"))?;
-    let (address, clients) = bound_clients(binding, bus, frame, deadline)?;
+    let (address, clients) =
+        bound_clients(binding, bus, frame, element.is_menu_target(), deadline)?;
     let client = client_at(&clients, address)?;
     Ok(place_element(binding, bus, element, client, deadline)?.rect)
 }
 
-/// The compositor client `frame` binds to.
+/// The compositor client `frame` binds to. `menu_target` is whether the
+/// node placed below `frame` was reached from a menu target.
 pub(crate) fn frame_client(
     binding: &HyprlandBinding,
     bus: &SharedBus,
     frame: &AtspiElement,
+    menu_target: bool,
     deadline: Deadline,
 ) -> Result<HyprClient, AdapterError> {
-    let (address, clients) = bound_clients(binding, bus, frame, deadline)?;
+    let (address, clients) = bound_clients(binding, bus, frame, menu_target, deadline)?;
     client_at(&clients, address).cloned()
 }
 
@@ -81,9 +86,10 @@ fn bound_clients(
     binding: &HyprlandBinding,
     bus: &SharedBus,
     frame: &AtspiElement,
+    menu_target: bool,
     deadline: Deadline,
 ) -> Result<(u64, Vec<HyprClient>), AdapterError> {
-    let evidence = frame_evidence(bus, frame, deadline)?;
+    let evidence = frame_evidence(bus, frame, menu_target, deadline)?;
     let (clients, toplevels) = read_inventory(binding, deadline)?;
     let inventory = Inventory {
         clients: &clients,
@@ -126,15 +132,42 @@ fn place_element(
     ))
 }
 
-fn frame_evidence(
+/// The refusal for an element whose frame is a popup surface, read from the
+/// frame's role alone.
+pub(crate) fn popup_refusal(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    deadline: Deadline,
+) -> Result<Option<AdapterError>, AdapterError> {
+    let frame = element.frame().ok_or_else(|| missing("frame"))?;
+    let node = read_frame(bus, frame, deadline)?;
+    Ok(popup_surface_refusal(
+        node.traits.role.present().copied(),
+        element.is_menu_target(),
+    ))
+}
+
+fn read_frame(
     bus: &SharedBus,
     frame: &AtspiElement,
     deadline: Deadline,
-) -> Result<WindowEvidence, AdapterError> {
+) -> Result<crate::tree::RawNode, AdapterError> {
     let connection = bus.get(deadline)?;
-    let node = within(deadline, async {
+    within(deadline, async {
         crate::tree::read_node(connection.inner(), frame).await
-    })?;
+    })
+}
+
+fn frame_evidence(
+    bus: &SharedBus,
+    frame: &AtspiElement,
+    menu_target: bool,
+    deadline: Deadline,
+) -> Result<WindowEvidence, AdapterError> {
+    let node = read_frame(bus, frame, deadline)?;
+    if let Some(refusal) = popup_surface_refusal(node.traits.role.present().copied(), menu_target) {
+        return Err(refusal);
+    }
     let title = node
         .properties
         .name
