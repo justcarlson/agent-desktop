@@ -235,14 +235,24 @@ impl PointerSink for LivePointerSink {
 }
 
 /// The requests for a motion to `x`, starting one pixel beside it when
-/// `first`. Each absolute motion follows a still relative one in its frame.
+/// `first`. Each absolute motion follows a still relative one in its frame:
+/// Hyprland forwards an absolute virtual pointer motion with no relative
+/// motion, XWayland then moves its absolute pointer device while it sends the
+/// wheel through its relative one, and the switch makes GDK3 reset its scroll
+/// baseline, so the next notch scrolls nothing (probes/linux/FINDINGS.md L44-1).
 fn motion_requests(x: u32, first: bool) -> Vec<MotionRequest> {
     let aims = match first {
         true => vec![one_pixel_beside(x), x],
         false => vec![x],
     };
     aims.into_iter()
-        .flat_map(|x| [MotionRequest::Absolute { x }, MotionRequest::Frame])
+        .flat_map(|x| {
+            [
+                MotionRequest::StillRelative,
+                MotionRequest::Absolute { x },
+                MotionRequest::Frame,
+            ]
+        })
         .collect()
 }
 
