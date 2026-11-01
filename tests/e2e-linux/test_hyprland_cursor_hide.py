@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -24,6 +25,28 @@ def refused(kind: str, delivery: str = "not_delivered", retry: str = "safe", sta
     error = {"code": "TIMEOUT", "details": {"kind": kind, "physical_delivery_started": started},
              "disposition": {"delivery": delivery, "retry": retry}}
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
+
+
+def shell_refusal(delivery: str = "not_delivered", retry: str = "safe") -> Envelope:
+    check = {"check": "receives_events", "status": "fail", "occluder": {"name": "omarchy-notifications"}}
+    error = {"code": "ACTION_FAILED", "details": {"checks": [check]},
+             "disposition": {"delivery": delivery, "retry": retry}}
+    return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
+
+
+class Findings:
+    def __init__(self):
+        self.found = []
+
+    def finding(self, text: str) -> None:
+        self.found.append(text)
+
+
+def dead_click(envelope: Envelope, shown: str, expected: str = "7") -> tuple[list[str], list[str]]:
+    ctx = Findings()
+    with mock.patch.object(hide, "display", lambda tree: tree["shown"]):
+        problems = hide._dead_click_problems(ctx, envelope, ["omarchy-notifications"], {"shown": shown}, expected)
+    return problems, ctx.found
 
 
 class CursorHideLegTests(unittest.TestCase):
@@ -88,6 +111,23 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertEqual(hide.dpms_argv("off", False), ["dispatch", "dpms", "off"])
         self.assertEqual(hide.dpms_argv("on", True)[0], "dispatch")
         self.assertIn("hl.dsp.dpms", hide.dpms_argv("on", True)[1])
+
+    def test_a_dead_click_refused_by_a_prior_shell_cover_passes_only_undelivered_and_unchanged(self):
+        problems, found = dead_click(shell_refusal(), "7")
+        self.assertEqual(problems, [])
+        self.assertEqual(len(found), 1)
+
+    def test_a_dead_click_shell_refusal_that_started_delivery_is_a_problem(self):
+        for delivery, retry in (("delivered_unverified", "unsafe"), ("uncertain", "unsafe"), ("not_delivered", "unsafe")):
+            problems, found = dead_click(shell_refusal(delivery, retry), "7")
+            self.assertEqual(len(problems), 1, (delivery, retry))
+            self.assertEqual(found, [])
+
+    def test_a_dead_click_shell_refusal_that_changed_the_display_is_a_problem(self):
+        problems, found = dead_click(shell_refusal(), "77")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("77", problems[0])
+        self.assertEqual(found, [])
 
 
 if __name__ == "__main__":
