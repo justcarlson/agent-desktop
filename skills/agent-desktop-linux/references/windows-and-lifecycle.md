@@ -13,8 +13,9 @@ are not used.
 - Scoped matching is exact and case-insensitive, and the process must belong to
   this session. `list-windows --app` uses that exact rule. `list-apps --app`
   combines a substring match on the listed name with those exact adapter aliases.
-- Window ids are opaque addresses of 34 to 70 characters, valid for the life of
-  the window's process.
+- Window ids are opaque `w-` addresses, valid for the life of the window's
+  process. A bound Hyprland gives a window without an accessibility tree a
+  `w-hypr-` id; see below.
 - `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id when known) and
   `process_instance`. `list-windows` rows carry `id`, `title`, `app_name`, `pid`,
   `is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus
@@ -142,11 +143,13 @@ it can still list the window. The batch waits for `window-closed` and prints the
 event of the closed window. If a save prompt appears, the wait times out:
 snapshot `--surface sheet`, answer it, then run `list-windows`.
 
-- Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and
-  no signal. A file manager that outlives its windows ends in `TIMEOUT`,
-  `delivered_unverified`; `--force` ends it. A terminal server closes like any
-  other app under the name `list-apps` prints: `close-app gnome-terminal-server`
-  ends it, and `close-app gnome-terminal` is `APP_NOT_FOUND`.
+- Use `--force` only when the user asks for it: it discards unsaved work.
+- Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid
+  and no signal. A file manager that outlives its windows ends in `TIMEOUT`,
+  `delivered_unverified`; only `--force` ends it. A terminal server closes like
+  any other app under the name `list-apps` prints: `close-app
+  gnome-terminal-server` ends it, and `close-app gnome-terminal` is
+  `APP_NOT_FOUND`.
 - An unconfirmed send is uncertain and unsafe to retry, even if the remaining
   fan-out runs out of time: observe the app first.
 - A save prompt keeps the app open. The dialog is a new top-level window of the
@@ -160,6 +163,9 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
   every window with unsaved work, so `dialogs`, `windows_remaining` and
   `dialog_titles` all come from one read taken once the windows stop changing and
   agree with one another.
+- An app whose only window is a dialog, such as a `zenity` prompt, is a standing
+  dialog too: a graceful `close-app` answers `dialog_pending` and sends nothing.
+  Answer the dialog in the app, or report it; only `--force` ends the app.
 - Several prompts are separate modal windows and answer in any order: a plain
   `snapshot --app <name>` is then `AMBIGUOUS_TARGET` and lists the window ids,
   and `snapshot --window-id <id>` roots one. A ref in a window behind a prompt is
@@ -191,7 +197,7 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
   A process that does not answer on the accessibility bus (stopped or hung) is
   protected when it owns a session-bus name and the window manager manages no
   window of it, unless a launch of this tool started it. A stopped app with a
-  window is not protected, whoever started it: `--force` ends it.
+  window is not protected, whoever started it: only `--force` ends it.
   Missing ownership evidence (such as an unreadable `/proc` entry or no session
   bus) is `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display
   is `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs;
@@ -295,6 +301,8 @@ agent-desktop list-windows --app foot
   `WINDOW_NOT_FOUND`; run `list-windows` again.
 - The window has no refs. `snapshot --window-id` and `find --window-id` refuse
   the id with `INVALID_ARGS`.
+- It takes `focus-window` and `screenshot`. The CLI sends it no key or pointer
+  input.
 - `list-windows --app` matches it by its class (foot's `--app-id`), command name
   or executable, also when no accessibility application has that name.
 
@@ -310,7 +318,8 @@ the same way: `move-window`, `resize-window`, `minimize`, `maximize`,
 no toplevel, or whose process changed since it was listed, is
 `WINDOW_NOT_FOUND`. Twins the size cannot tell apart are `AMBIGUOUS_TARGET`,
 and `details.candidates` names each toplevel's `address` and `workspace`.
-Nothing is sent before a refusal, so run `list-windows` and retry.
+Nothing is sent before a refusal. Report the candidates and stop; never change
+the user's windows to tell them apart.
 
 ## Hyprland focus and close
 
@@ -347,7 +356,9 @@ agent-desktop --headed focus-window --app foot
 
 A window on another workspace lists `visible: false` and cannot take a headless
 `press`. `focus-window` brings it forward by switching the user's workspace:
-decide whether that is acceptable before you call it.
+decide whether that is acceptable before you call it. On Hyprland only
+`--headed focus-window` switches the workspace; a headless call is
+`POLICY_DENIED` and sends nothing.
 
 ## `press --app` and background targets
 
@@ -361,12 +372,13 @@ headed app- or window-scoped `press` refuses with `ACTION_NOT_SUPPORTED`, cause
 everywhere but a bound Hyprland.
 
 Headless scoped `press` does not activate a window: it requires the live focus
-guard to confirm the target. If focus cannot be confirmed, bring the target
-forward yourself and use global `press` (no `--app`, `--window-id` or
-`--headed`). A headless `press --window-id` with unconfirmed exact window focus
-returns `STALE_REF`, `check: exact_window_focus`,
-`cause: exact_window_focus_unconfirmed`, `not_delivered`: bring the window
-forward, refresh `list-windows`, retry with its current id.
+guard to confirm the target. If focus cannot be confirmed and the user permits
+focus, bring the target forward with `--headed focus-window` (X11 or a bound
+Hyprland), then use global `press` (no `--app`, `--window-id` or `--headed`). A
+headless `press --window-id` with unconfirmed exact window focus returns
+`STALE_REF`, `check: exact_window_focus`, `cause:
+exact_window_focus_unconfirmed`, `not_delivered`: bring the window forward,
+refresh `list-windows`, retry with its current id.
 
 ## Stopped apps
 
@@ -374,11 +386,12 @@ An app stopped with `SIGSTOP` is detected from `/proc` without waiting for a
 probe. A ref used against it, a scoped `snapshot`, `list-windows --app`,
 `focus-window` and the window operations answer `APP_UNRESPONSIVE` in
 milliseconds, not `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`,
-`not_delivered`, `retry: safe`; `--force` ends it, unless it is a session service
-(`INVALID_ARGS`, see `close-app`). A stopped native-Wayland app that owns a
-session-bus name is one: no window of it can be read. An unscoped `list-windows` still lists its
-windows with `accessible: false`. A scoped listing of a busy app
-that left every frame unanswered is `TIMEOUT`, not an empty list.
+`not_delivered`, `retry: safe`; only `--force` ends it, unless it is a session
+service (`INVALID_ARGS`, see `close-app`). A stopped native-Wayland app that
+owns a session-bus name is one: no window of it can be read. An unscoped
+`list-windows` still lists its windows with `accessible: false`. A scoped
+listing of a busy app that left every frame unanswered is `TIMEOUT`, not an
+empty list.
 
 ## Waiting for lifecycle events
 
