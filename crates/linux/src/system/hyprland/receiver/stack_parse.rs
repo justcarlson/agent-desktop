@@ -56,7 +56,7 @@ fn client_of(client: &Value) -> Option<StackClient> {
             floating: flag("floating")?,
             pinned: flag("pinned")?,
             fullscreen: client.get("fullscreen")?.as_i64()? > 0,
-            over_fullscreen: None,
+            over_fullscreen: flag("allowedOverFullscreen").or_else(|| flag("overFullscreen")),
         },
         shown: flag("mapped")? && !flag("hidden").unwrap_or(false),
     })
