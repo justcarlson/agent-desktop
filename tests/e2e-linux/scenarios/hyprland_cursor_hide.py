@@ -28,7 +28,7 @@ from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arrow_box, ended, gone_problems,
                                        kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
-from scenarios.hyprland_focus_controls import lua_call, query, toggle_argv
+from scenarios.hyprland_focus_controls import active, focus_argv, lua_call, query, toggle_argv
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
                                             pad_ref, pads_left, pointer_pad, presses, settled, since)
@@ -417,6 +417,16 @@ def toggle_outer(tier, name: str) -> None:
     hyprland.control(shared(tier), main["signature"], toggle_argv(name, lua))
 
 
+def outer_focus(tier) -> str:
+    return (active(tier) or {}).get("address", "")
+
+
+def focus_outer(tier, address: str) -> None:
+    main = main_instance(tier)
+    lua = hyprland.uses_lua(shared(tier), main["signature"])
+    hyprland.control(shared(tier), main["signature"], focus_argv(address, lua))
+
+
 @contextlib.contextmanager
 def nested_frames(ctx: LegContext, instance: dict):
     """Shows the nested instance's window in the outer session while the block runs.
@@ -429,9 +439,10 @@ def nested_frames(ctx: LegContext, instance: dict):
     tier = ctx.tier
     space = (outer_window(tier, instance).get("workspace") or {}).get("name", "")
     require(space.startswith("special:"), f"the nested window is not on a special workspace: {space!r}")
-    require(space not in outer_shown(tier), f"the outer session already shows {space}")
-    toggle_outer(tier, space)
+    before, focused = outer_shown(tier), outer_focus(tier)
+    require(space not in before, f"the outer session already shows {space}")
     try:
+        toggle_outer(tier, space)
         require(raw.poll(lambda: space in outer_shown(tier), SHOW_SETTLE_S),
                 f"the outer session did not show {space}: {sorted(outer_shown(tier))}")
         ctx.finding(f"the outer session showed {space} so the nested output renders while its closed layer settles")
@@ -441,6 +452,14 @@ def nested_frames(ctx: LegContext, instance: dict):
             toggle_outer(tier, space)
         require(raw.poll(lambda: space not in outer_shown(tier), SHOW_SETTLE_S),
                 f"the outer session still shows {space}: {sorted(outer_shown(tier))}")
+        for name in sorted(before - outer_shown(tier)):
+            toggle_outer(tier, name)
+        require(raw.poll(lambda: outer_shown(tier) == before, SHOW_SETTLE_S),
+                f"the outer session shows {sorted(outer_shown(tier))}, not {sorted(before)} as before")
+        if focused and outer_focus(tier) != focused:
+            focus_outer(tier, focused)
+        require(raw.poll(lambda: not focused or outer_focus(tier) == focused, SHOW_SETTLE_S),
+                f"the outer session focuses {outer_focus(tier)!r}, not {focused!r} as before")
 
 
 def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, owner: dict) -> list[str]:
