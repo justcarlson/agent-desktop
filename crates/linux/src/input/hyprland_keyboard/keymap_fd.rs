@@ -18,8 +18,20 @@ const KEYMAP_LIMIT: u32 = 4 * 1024 * 1024;
 
 /// The keymap text in the first `size` bytes of `fd`, without its NUL.
 pub(crate) fn read_keymap(fd: OwnedFd, size: u32) -> Result<String, AdapterError> {
-    let _ = (fd, size, KEYMAP_LIMIT);
-    Err(unreadable("not read"))
+    if size == 0 || size > KEYMAP_LIMIT {
+        return Err(unreadable(format!("the keymap is {size} bytes")));
+    }
+    let length = usize::try_from(size).map_err(|_| unreadable("the keymap size overflows"))?;
+    let mut bytes = vec![0_u8; length];
+    File::from(fd)
+        .read_exact_at(&mut bytes, 0)
+        .map_err(|error| unreadable(format!("the keymap could not be read: {error}")))?;
+    let end = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(bytes.len());
+    bytes.truncate(end);
+    String::from_utf8(bytes).map_err(|_| unreadable("the keymap is not UTF-8"))
 }
 
 /// A memfd that holds `text` and its NUL, with the size to announce.
