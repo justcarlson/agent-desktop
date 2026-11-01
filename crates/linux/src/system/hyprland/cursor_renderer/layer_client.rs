@@ -33,9 +33,6 @@ impl LayerClient {
         socket: &Path,
         deadline: Deadline,
     ) -> Result<Self, AdapterError> {
-        let _ = (stream, socket, deadline);
-        return Err(AdapterError::internal("not implemented"));
-        #[allow(unreachable_code)]
         let mut state = LayerState::default();
         let link = LayerLink::over(stream, &mut state, deadline)
             .map_err(|fault| fault.into_error(socket))?;

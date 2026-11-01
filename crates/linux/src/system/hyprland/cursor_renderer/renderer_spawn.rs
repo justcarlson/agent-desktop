@@ -33,7 +33,7 @@ pub(crate) fn renderer_command(
     command.env_clear().envs(
         parent_env
             .into_iter()
-            .filter(|(name, _)| is_lease_variable(name) || true),
+            .filter(|(name, _)| !is_lease_variable(name)),
     );
     command
         .env(RENDERER_ENV, RENDERER_PROTOCOL)
@@ -45,7 +45,7 @@ pub(crate) fn renderer_command(
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     unsafe {
-        command.pre_exec(|| Ok(()));
+        command.pre_exec(close_inherited_descriptors);
     }
     command
 }
