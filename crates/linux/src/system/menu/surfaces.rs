@@ -5,6 +5,7 @@ use agent_desktop_core::{
 use super::inventory::scan_windows;
 use super::inventory_reader::Inventory;
 use super::menu_surface;
+use super::process_dialogs::ProcessDialogs;
 use super::surface_scan::NestedScan;
 use crate::system::SharedBus;
 use crate::system::process::process_facts;
@@ -89,21 +90,33 @@ fn windows_of_process(
     scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)
 }
 
-/// The titles of the dialogs drawn inside the windows of one process, which
-/// no list of its top-level windows holds. A blank title is an empty string.
-pub(crate) fn nested_dialog_titles(
+/// The dialogs of one process from one read of its windows: those drawn
+/// inside them and those that are top-level frames.
+pub(crate) fn process_dialogs(
     bus: &SharedBus,
     pid: u32,
     deadline: Deadline,
-) -> Result<Vec<String>, AdapterError> {
+) -> Result<ProcessDialogs, AdapterError> {
     let windows = windows_of_process(bus, pid, deadline)?;
     let mut inventory = Inventory::structural(bus, deadline);
     let scan = scan_windows(&windows, |window| inventory.read(window));
-    Ok(scan
-        .found
-        .into_iter()
-        .map(|nested| nested.title.unwrap_or_default())
-        .collect())
+    Ok(ProcessDialogs {
+        nested: scan
+            .found
+            .into_iter()
+            .map(|nested| nested.title.unwrap_or_default())
+            .collect(),
+        framed: framed_dialog_titles(&windows),
+    })
+}
+
+/// The titles of the showing windows whose frame has a dialog role.
+pub(crate) fn framed_dialog_titles(windows: &[ListedWindow]) -> Vec<String> {
+    windows
+        .iter()
+        .filter(|window| window.dialog && !window.unshown)
+        .map(|window| window.info.title.clone())
+        .collect()
 }
 
 /// Lists the surfaces the named process presents. The process identity is
