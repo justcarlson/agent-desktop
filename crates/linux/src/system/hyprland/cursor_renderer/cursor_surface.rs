@@ -73,18 +73,16 @@ impl CursorSurface {
         Ok(made)
     }
 
-    /// Moves the surface so its top-left corner sits at `margin` and shows
-    /// the drawn arrow, or the clear frame when `drawn` is false, then waits
-    /// for the frame callback. A compositor that shows nothing, such as one
-    /// with every output off, sends no callback; the wait then ends at
-    /// `deadline` without an error.
-    pub(crate) fn show(
+    /// Moves the surface so its top-left corner sits at `frame`'s point and
+    /// commits the drawn arrow, or the clear frame when `frame`'s flag is
+    /// false, without waiting. It returns the frame mark the callback
+    /// reaches, so several cursors can share one compositor frame.
+    pub(crate) fn commit_frame(
         &mut self,
-        link: &mut LayerLink,
+        link: &LayerLink,
         state: &mut LayerState,
         frame: (i32, i32, bool),
-        deadline: Deadline,
-    ) -> Result<(), WaylandFault> {
+    ) -> u32 {
         let (left, top, drawn) = frame;
         if self.margin != (left, top) {
             self.layer.set_margin(top, 0, 0, left);
@@ -102,14 +100,7 @@ impl CursorSurface {
         let mark = state.frames_sent;
         let _callback = self.surface.frame(&link.handle(), FrameMark(mark));
         self.surface.commit();
-        match link.wait(
-            state,
-            |state| state.frames_done >= mark || state.closed,
-            deadline,
-        ) {
-            Err(WaylandFault::Silent) => Ok(()),
-            other => other,
-        }
+        mark
     }
 
     /// Where the surface's top-left corner sits.
@@ -122,5 +113,23 @@ impl CursorSurface {
         self.layer.destroy();
         self.surface.destroy();
         self.canvas.destroy();
+    }
+}
+
+/// Waits until the frame callback for `mark` has fired. A compositor that
+/// shows nothing sends no callback, so the deadline passing is not an error.
+pub(crate) fn settle(
+    link: &mut LayerLink,
+    state: &mut LayerState,
+    mark: u32,
+    deadline: Deadline,
+) -> Result<(), WaylandFault> {
+    match link.wait(
+        state,
+        |state| state.frames_done >= mark || state.closed,
+        deadline,
+    ) {
+        Err(WaylandFault::Silent) => Ok(()),
+        other => other,
     }
 }

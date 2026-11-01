@@ -50,6 +50,7 @@ from scenarios import hyprland_capture_screen
 from scenarios import hyprland_close
 from scenarios import hyprland_close_dialog
 from scenarios import hyprland_cursor
+from scenarios import hyprland_cursor_agents
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_identity
@@ -76,6 +77,7 @@ __all__ = [
     "hyprland_close",
     "hyprland_close_dialog",
     "hyprland_cursor",
+    "hyprland_cursor_agents",
     "hyprland_desktop",
     "hyprland_focus",
     "hyprland_identity",

@@ -3,6 +3,14 @@ use agent_desktop_core::{CursorOverlayStyle, Deadline};
 use super::LayerClient;
 use crate::system::hyprland::cursor_renderer::arrow_bitmap::ArrowBitmap;
 use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
+use crate::system::hyprland::cursor_renderer::surface_key::SurfaceKey;
+
+fn key(cursor: &str) -> SurfaceKey {
+    SurfaceKey {
+        cursor: cursor.into(),
+        output: None,
+    }
+}
 
 fn deadline() -> Deadline {
     Deadline::detached_after(2_000).expect("deadline")
@@ -11,7 +19,9 @@ fn deadline() -> Deadline {
 fn drawn(fake: &FakeLayerCompositor) -> LayerClient {
     let mut client = LayerClient::over(fake.connect(), &fake.socket, deadline()).expect("client");
     let bitmap = ArrowBitmap::draw(&CursorOverlayStyle::default());
-    client.draw(&bitmap, (100, 200), deadline()).expect("draw");
+    client
+        .draw(&key(""), &bitmap, (100, 200), deadline())
+        .expect("draw");
     client
 }
 
@@ -63,10 +73,10 @@ fn a_compositor_that_shows_nothing_still_lets_a_draw_finish() {
     let bitmap = ArrowBitmap::draw(&CursorOverlayStyle::default());
     let quick = Deadline::detached_after(100).expect("deadline");
     client
-        .draw(&bitmap, (5, 5), quick)
+        .draw(&key(""), &bitmap, (5, 5), quick)
         .expect("a dark output is not an error");
     client
-        .clear(Deadline::detached_after(100).expect("deadline"))
+        .clear("", Deadline::detached_after(100).expect("deadline"))
         .expect("clear");
 }
 
@@ -85,15 +95,38 @@ fn frame_marks_keep_rising_when_the_surface_is_rebuilt() {
     let mut client = drawn(&fake);
     let bitmap = ArrowBitmap::draw(&CursorOverlayStyle::default());
     client
-        .draw(&bitmap, (110, 210), deadline())
+        .draw(&key(""), &bitmap, (110, 210), deadline())
         .expect("second frame");
     client.release();
     client
-        .draw(&bitmap, (120, 220), deadline())
+        .draw(&key(""), &bitmap, (120, 220), deadline())
         .expect("rebuilt frame");
     client.roundtrip(deadline()).expect("roundtrip");
     assert_eq!(
         client.state.frames_done, 3,
         "the rebuilt surface's first frame reused an old frame mark"
     );
+}
+
+#[test]
+fn each_cursor_key_gets_its_own_surface_and_forgetting_one_keeps_the_other() {
+    let fake = FakeLayerCompositor::start(true);
+    let mut client = LayerClient::over(fake.connect(), &fake.socket, deadline()).expect("client");
+    let bitmap = ArrowBitmap::draw(&CursorOverlayStyle::default());
+    client
+        .draw(&key("a"), &bitmap, (10, 20), deadline())
+        .expect("a");
+    client
+        .draw(&key("b"), &bitmap, (30, 40), deadline())
+        .expect("b");
+    assert_eq!(client.surface_count(), 2);
+    client.forget("a");
+    client.roundtrip(deadline()).expect("roundtrip");
+    assert_eq!(client.surface_count(), 1);
+    let destroyed = fake
+        .logged()
+        .iter()
+        .filter(|line| *line == "destroy layer")
+        .count();
+    assert_eq!(destroyed, 1);
 }
