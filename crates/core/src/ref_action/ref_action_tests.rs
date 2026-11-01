@@ -379,3 +379,6 @@ mod disabled_offscreen_tests;
 
 #[path = "ref_action_keyboard_tests.rs"]
 mod keyboard_tests;
+
+#[path = "ref_action_window_space_tests.rs"]
+mod window_space_tests;
