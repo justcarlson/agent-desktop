@@ -427,7 +427,8 @@ The active window is read before every button press and wheel step. A change
 stops delivery with `ACTION_FAILED`, `details.kind: "focus_gate"`,
 `cause: "focus_changed"`, `from` and `to`. SIGINT, SIGTERM or SIGHUP stop
 delivery with `details.kind: "hyprland_pointer"`, `cause: "cancelled"`. A stop
-before the first event is `not_delivered`. A stop after it is
+before the first event is `not_delivered`. A stop after it, or a run the
+compositor does not confirm reading before the deadline, is
 `delivery_uncertain` with `retry: unsafe` and these fields:
 
 | Field | Meaning |

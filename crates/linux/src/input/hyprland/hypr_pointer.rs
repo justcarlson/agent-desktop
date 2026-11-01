@@ -13,7 +13,6 @@ use super::focus_gate::FocusGate;
 use super::live_pointer_sink::LivePointerSink;
 use super::pointer_cancel::with_release_on_signal;
 use super::pointer_run::PointerRun;
-use super::pointer_sink::PointerSink;
 use super::run_plans::run_plans;
 use crate::input::delivery::{Delivery, Gate};
 use crate::input::mouse::drag_plan::plan_drag;
@@ -57,7 +56,7 @@ fn send_hidden(
         let mut sink = LivePointerSink::open(binding, deadline).map_err(nothing_sent)?;
         let mut focus = FocusGate::new(|| read_active(binding, deadline), None);
         let mut focus_check = || focus.check();
-        let delivery = run_plans(
+        run_plans(
             &mut sink,
             PointerRun {
                 displays: &displays,
@@ -67,9 +66,7 @@ fn send_hidden(
                 progress,
             },
             plans,
-        )?;
-        sink.finish()?;
-        Ok(delivery)
+        )
     })
 }
 

@@ -16,7 +16,8 @@ const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retr
 /// before each plan and the step gate before each press and wheel step. A
 /// stop after the first event releases every held button, confirms every
 /// release already sent, and returns an uncertain error with the count of
-/// events sent.
+/// events sent. A run is delivered only once the compositor has read every
+/// event.
 pub(crate) fn run_plans(
     sink: &mut dyn PointerSink,
     run: PointerRun<'_>,
@@ -56,7 +57,7 @@ pub(crate) fn run_plans(
                 unconfirmed |= event.releases();
             }
         }
-        Ok(())
+        sink.finish()
     })();
     match outcome {
         Ok(()) => Ok(Delivery {
