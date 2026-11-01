@@ -33,14 +33,12 @@ pub(crate) struct HolderWatch {
 impl HolderWatch {
     /// The watch for a renderer that starts with the holders in `holders`;
     /// a renderer started under a live holder draws nothing until it leaves.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn loaded(holders: &Path) -> Self {
         Self {
             suppressed: any_live(holders),
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn is_suppressed(self) -> bool {
         self.suppressed
     }

@@ -4,6 +4,8 @@
 //! until it is disabled, its session ends or turns the cursor off, its
 //! compositor goes, or the compositor closes a surface. While a cursor
 //! travels it polls without waiting and advances every travel each frame.
+//! A live hide holder clears every cursor: travels then go on unseen, and
+//! each idle tick rereads the holders to clear or draw again.
 //! On the way out it answers every travel still in flight, and removes the
 //! socket and record only while the record still names its own generation.
 
@@ -16,7 +18,10 @@ use rustix::event::{PollFd, PollFlags, Timespec};
 
 use super::agent_cursors::AgentCursors;
 use super::cursor_animation::{draw_at, draw_within, step_travels};
+use super::held_travel::{UNSEEN_STEP_MS, step_unseen};
+use super::holder_reply::refresh_holders;
 use super::holder_view::any_live;
+use super::holder_watch::HolderWatch;
 use super::initial_pose::initial_point;
 use super::layer_client::LayerClient;
 use super::record_read::{RecordRead, read_record, remove_if_generation};
@@ -161,8 +166,10 @@ impl RendererProcess {
     /// Serves until a stop condition, then cleans up its own files.
     pub(crate) fn serve(mut self) -> Result<(), AdapterError> {
         let mut checked = Instant::now();
+        let mut refreshed = Instant::now();
+        let mut watch = HolderWatch::loaded(&self.paths.holders);
         let outcome = loop {
-            if let Err(error) = self.wait_for_work() {
+            if let Err(error) = self.wait_for_work(watch) {
                 break Err(error);
             }
             if let Err(error) = self.client.pump() {
@@ -177,10 +184,16 @@ impl RendererProcess {
                     break Ok(());
                 }
             }
-            if self.accept_all() == Flow::Exit {
+            if self.accept_all(&mut watch) == Flow::Exit {
                 break Ok(());
             }
-            if self.step() == Flow::Exit {
+            if refreshed.elapsed() >= IDLE_POLL {
+                refreshed = Instant::now();
+                if let Err(error) = refresh_holders(&mut self, &mut watch) {
+                    break Err(error);
+                }
+            }
+            if self.step(watch) == Flow::Exit {
                 break Ok(());
             }
         };
@@ -190,8 +203,12 @@ impl RendererProcess {
         outcome
     }
 
-    fn step(&mut self) -> Flow {
+    fn step(&mut self, watch: HolderWatch) -> Flow {
         if !self.cursors.travelling() {
+            return Flow::Continue;
+        }
+        if watch.is_suppressed() {
+            step_unseen(&mut self.cursors).iter().for_each(arrived);
             return Flow::Continue;
         }
         match step_travels(&mut self.client, &mut self.cursors) {
@@ -206,11 +223,11 @@ impl RendererProcess {
         }
     }
 
-    fn wait_for_work(&self) -> Result<(), AdapterError> {
-        let pause = if self.cursors.travelling() {
-            Duration::ZERO
-        } else {
-            IDLE_POLL
+    fn wait_for_work(&self, watch: HolderWatch) -> Result<(), AdapterError> {
+        let pause = match (self.cursors.travelling(), watch.is_suppressed()) {
+            (true, false) => Duration::ZERO,
+            (true, true) => Duration::from_millis(UNSEEN_STEP_MS),
+            (false, _) => IDLE_POLL,
         };
         let timeout = Timespec::try_from(pause)
             .map_err(|_| AdapterError::internal("The renderer poll interval does not fit"))?;
@@ -225,12 +242,12 @@ impl RendererProcess {
         }
     }
 
-    fn accept_all(&mut self) -> Flow {
+    fn accept_all(&mut self, watch: &mut HolderWatch) -> Flow {
         while let Ok((stream, _)) = self.listener.accept() {
             if stream.set_nonblocking(false).is_err() {
                 continue;
             }
-            if serve_one(self, stream) == Flow::Exit {
+            if serve_one(self, watch, stream) == Flow::Exit {
                 return Flow::Exit;
             }
         }
