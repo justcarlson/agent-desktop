@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { spawnSync } = require('node:child_process');
+const { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } = require('node:fs');
+const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { test } = require('node:test');
 
@@ -9,6 +11,8 @@ const releaseWorkflow = read('.github/workflows/release.yml');
 const dryRunWorkflow = read('.github/workflows/release-dry-run.yml');
 
 const HELPER = 'agent-desktop-linux-clipboard-owner';
+const NOTICE = 'THIRD_PARTY_NOTICES.md';
+const LINUX_ONLY = process.platform === 'linux' ? false : 'the Linux tarball steps run on Linux runners only';
 const CURRENT_HOSTS = /^ubuntu-24\.04(-arm)?$/;
 const FLOOR_CONTAINER = /^ubuntu:22\.04@sha256:[0-9a-f]{64}$/;
 
@@ -128,6 +132,53 @@ test('the Linux CLI archive is built from both executables and listed exactly', 
     assert.ok(job.includes(`agent-desktop ${HELPER}`), `${name} must archive the helper beside agent-desktop`);
     assert.match(job, /check-linux-archive-contents\.sh cli/, name);
     assert.match(job, /-p agent-desktop-linux --bins/, `${name} must build the helper binary`);
+  }
+});
+
+function linuxTarballScript(jobText) {
+  const step = jobText.split(/(?=^ {6}- )/m).find((text) => text.startsWith('      - name: Create tarball (Linux)'));
+  assert.ok(step, 'the job must have a Create tarball (Linux) step');
+  const lines = step.split('\n');
+  const start = lines.findIndex((line) => line === '        run: |');
+  assert.notEqual(start, -1, 'the Linux tarball step must run a block script');
+  const body = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line !== '' && !line.startsWith('          ')) break;
+    body.push(line.slice(10));
+  }
+  return body.join('\n').replace(/\$\{\{ matrix\.target \}\}/g, 'x86_64-unknown-linux-gnu');
+}
+
+function runLinuxTarballStep(jobText) {
+  const work = mkdtempSync(join(tmpdir(), 'ad-tarball-step-'));
+  try {
+    const release = join(work, 'target', 'x86_64-unknown-linux-gnu', 'release');
+    mkdirSync(release, { recursive: true });
+    for (const name of ['agent-desktop', HELPER]) {
+      writeFileSync(join(release, name), `${name}\n`);
+      chmodSync(join(release, name), 0o755);
+    }
+    symlinkSync(join(root, 'scripts'), join(work, 'scripts'));
+    symlinkSync(join(root, NOTICE), join(work, NOTICE));
+    return spawnSync('bash', ['-e', '-o', 'pipefail', '-c', linuxTarballScript(jobText)], {
+      cwd: work,
+      env: { ...process.env, VERSION: '0.0.0-test' },
+      encoding: 'utf8',
+    });
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+test('the Linux CLI tarball step in both workflows stages the notices and passes the archive contents check', { skip: LINUX_ONLY }, () => {
+  for (const [name, job] of [
+    ['release.yml', jobBlock(releaseWorkflow, 'build')],
+    ['release-dry-run.yml', jobBlock(dryRunWorkflow, 'cli')],
+  ]) {
+    const run = runLinuxTarballStep(job);
+    assert.equal(run.status, 0, `${name} Linux tarball step failed:\n${run.stdout}${run.stderr}`);
+    assert.ok(linuxTarballScript(job).includes(NOTICE), `${name} must archive ${NOTICE} beside the executables`);
+    assert.match(run.stdout, /OK: CLI archive carries agent-desktop and agent-desktop-linux-clipboard-owner, both executable, and THIRD_PARTY_NOTICES\.md/, name);
   }
 });
 
