@@ -28,7 +28,7 @@ fn with_fields(error: AdapterError, fields: serde_json::Value) -> AdapterError {
     error.with_details(details)
 }
 
-fn with_progress(mut error: AdapterError, delivered_events: u32) -> AdapterError {
+pub(crate) fn with_progress(mut error: AdapterError, delivered_events: u32) -> AdapterError {
     if delivered_events > 0 || error.disposition == DeliverySemantics::uncertain() {
         error.message = if delivered_events == 0 {
             "A keyboard event was attempted but its delivery could not be confirmed".to_owned()
@@ -169,7 +169,10 @@ pub(crate) fn run_chunks(
     if !kept && let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
         let _ = session.stop(recovery);
     }
-    outcome.map(|delivered_events| Delivery { delivered_events })
+    outcome.map(|delivered_events| Delivery {
+        delivered_events,
+        virtual_keyboard: false,
+    })
 }
 
 pub(crate) fn send_chunks(
@@ -188,6 +191,7 @@ pub(crate) fn send_chunks(
     if chunks.is_empty() {
         return Ok(Delivery {
             delivered_events: 0,
+            virtual_keyboard: false,
         });
     }
     let kept = kept_session::take();

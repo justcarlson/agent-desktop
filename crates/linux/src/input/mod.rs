@@ -6,6 +6,7 @@ pub(crate) mod deliver;
 pub(crate) mod delivery;
 pub(crate) mod held_input;
 pub(crate) mod hyprland;
+pub(crate) mod hyprland_keyboard;
 pub(crate) mod keyboard;
 pub(crate) mod mouse;
 pub(crate) mod physical;

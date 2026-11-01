@@ -10,12 +10,14 @@ use super::delivery::{Delivery, Gate};
 use super::hyprland::cursor_guard::hidden_on_route;
 use super::hyprland::hypr_pointer;
 use super::hyprland::hypr_route::bound_route;
+use super::hyprland_keyboard::virtual_keyboard_delivery;
 use super::keyboard::keysym_step::KeysymStep;
 use super::mouse::drag_plan::plan_drag;
 use super::mouse::pointer_report::with_event_count;
 use super::plan::Plan;
 use super::wayland::keysym_send;
 use super::x11::{mouse_send, session};
+use crate::system::hyprland::bind::routed_binding::routed_binding;
 
 pub(crate) fn send_plans(
     plans: Vec<Plan>,
@@ -38,9 +40,20 @@ pub(crate) fn send_keysyms(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(_) => Err(AdapterError::not_supported("x11_keysym_input")),
-        Backend::Wayland => hidden_on_route(deadline, || {
-            keysym_send::send_chunks(chunks, gate, deadline)
-        }),
+        Backend::Wayland => {
+            hidden_on_route(deadline, || send_wayland_keysyms(chunks, gate, deadline))
+        }
+    }
+}
+
+fn send_wayland_keysyms(
+    chunks: &[Vec<KeysymStep>],
+    gate: Gate<'_>,
+    deadline: Deadline,
+) -> Result<Delivery, AdapterError> {
+    match routed_binding().map_err(|error| keysym_send::with_progress(error, 0))? {
+        Some(binding) => virtual_keyboard_delivery::send(&binding, chunks, gate, deadline),
+        None => keysym_send::send_chunks(chunks, gate, deadline),
     }
 }
 
