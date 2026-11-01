@@ -151,3 +151,7 @@ mod tests;
 #[cfg(test)]
 #[path = "run_plans_confirm_tests.rs"]
 mod confirm_tests;
+
+#[cfg(test)]
+#[path = "run_plans_hold_tests.rs"]
+mod hold_tests;
