@@ -129,3 +129,39 @@ fn a_named_agent_retires_the_unnamed_cursor_and_status_lists_agents() {
     send(&fixture, &disable()).expect("disable");
     renderer.join().expect("thread").expect("clean exit");
 }
+
+fn parked(agent: Option<&str>, x: f64, y: f64) -> RendererRequest {
+    match travel(agent, x, y) {
+        RendererRequest::Control { control, .. } => RendererRequest::Control {
+            control,
+            park: true,
+        },
+        other => other,
+    }
+}
+
+fn enable(agent: Option<&str>) -> RendererRequest {
+    RendererRequest::control(
+        CursorOverlayControl::enable(SESSION.into(), CursorOverlayStyle::default())
+            .with_agent_id(agent.map(str::to_owned)),
+    )
+}
+
+#[test]
+fn a_parked_cursor_stays_undrawn_when_it_is_redrawn() {
+    let fixture = RegistryFixture::new();
+    let fake = FakeLayerCompositor::start(true);
+    let renderer = serving(&fixture, &fake, Some("agent-a"), |_| true);
+    send(&fixture, &travel(Some("agent-a"), 40.0, 40.0)).expect("the travel arrives");
+    send(&fixture, &parked(Some("agent-a"), 600.0, 500.0)).expect("the present parks");
+    let before = fake.logged().len();
+    send(&fixture, &enable(Some("agent-a"))).expect("enable redraws");
+    let moved: Vec<String> = fake.logged()[before..]
+        .iter()
+        .filter(|line| line.starts_with("surface "))
+        .cloned()
+        .collect();
+    assert!(moved.is_empty(), "a parked cursor was drawn: {moved:?}");
+    send(&fixture, &disable()).expect("disable");
+    renderer.join().expect("thread").expect("clean exit");
+}
