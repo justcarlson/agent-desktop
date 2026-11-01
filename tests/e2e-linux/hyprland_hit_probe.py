@@ -1,10 +1,12 @@
-"""Probe: does a headed ref click on a native Wayland client under Hyprland land on its element?
+"""Probe: does a headed ref click on a Hyprland client land on its element?
 
 Run only inside an Omarchy VM session (test/omarchy-vm run), never on a host:
 
     python3 -I tests/e2e-linux/hyprland_hit_probe.py run ~/out/hit-probe
 
-For each toolkit (GTK3, GTK4, Qt6, all native Wayland) and each case it starts a fixture window,
+Surfaces: "main" is the stock session, "nested" a second Hyprland with no shell layers, and "xwayl"
+the same nested instance with the fixtures on its XWayland display (GDK_BACKEND=x11,
+QT_QPA_PLATFORM=xcb). For each toolkit (GTK3, GTK4, Qt6) and each case it starts a fixture window,
 sets up the case's cover, reads the receiver evidence the product could use before dispatch, sends
 `--headed click` on the ref of "Probe Target", and reads the fixture's own click log, which is the
 effect oracle. Cases:
@@ -50,7 +52,7 @@ def fixture(toolkit: str, cover: str) -> None:
 
     if toolkit == "qt6":
         return qt_fixture(cover, emit)
-    os.environ["GDK_BACKEND"] = "wayland"
+    os.environ.setdefault("GDK_BACKEND", "wayland")
     os.environ["GTK_USE_PORTAL"] = "0"
     import gi
     gi.require_version("Gtk", "3.0" if toolkit == "gtk3" else "4.0")
@@ -109,7 +111,7 @@ def fixture(toolkit: str, cover: str) -> None:
 
 
 def qt_fixture(cover: str, emit) -> None:
-    os.environ["QT_QPA_PLATFORM"] = "wayland"
+    os.environ.setdefault("QT_QPA_PLATFORM", "wayland")
     os.environ["QT_ACCESSIBILITY"] = os.environ["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
     from PyQt6.QtCore import QPoint, Qt, QTimer
     from PyQt6.QtWidgets import QApplication, QPushButton, QStackedLayout, QVBoxLayout, QWidget
@@ -441,6 +443,7 @@ def start_nested(env: dict[str, str], out: Path):
     launch = {key: value for key, value in env.items()
               if key not in ("HYPRLAND_INSTANCE_SIGNATURE", "AT_SPI_BUS_ADDRESS", "AGENT_DESKTOP_HOME")}
     log = (out / "nested.log").open("w")
+    x_sockets = x11_sockets()
     nested = subprocess.Popen(["Hyprland", "-c", str(config)], env=launch, stdout=log, stderr=log)
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline and nested.poll() is None:
@@ -452,10 +455,26 @@ def start_nested(env: dict[str, str], out: Path):
                 hypr = Hypr(bound)
                 hypr.ctl("output", "create", "headless", OUTPUT)
                 hypr.ctl(*output_command(lua))
+                bound["PROBE_XWAYLAND_DISPLAY"] = nested_display(x_sockets)
                 return nested, bound
         time.sleep(0.1)
     stop(nested)
     raise RuntimeError("the nested Hyprland never served its sockets")
+
+
+def x11_sockets() -> set[str]:
+    return set(os.listdir("/tmp/.X11-unix")) if os.path.isdir("/tmp/.X11-unix") else set()
+
+
+def nested_display(before: set[str]) -> str:
+    """The X display the nested instance's XWayland serves, or "" when none appeared."""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        new = sorted(name for name in x11_sockets() - before if name.startswith("X"))
+        if new:
+            return ":" + new[0][1:]
+        time.sleep(0.1)
+    return ""
 
 
 def matrix(binary: str, env: dict[str, str], surface: str, stream) -> list[dict]:
@@ -488,6 +507,13 @@ def run(out: Path) -> int:
         nested, bound = start_nested(env, out)
         try:
             rows += matrix(binary, bound, "nested", stream)
+            display = bound.pop("PROBE_XWAYLAND_DISPLAY", "")
+            if display:
+                xwayland = dict(bound, DISPLAY=display, GDK_BACKEND="x11", QT_QPA_PLATFORM="xcb")
+                rows += matrix(binary, xwayland, "xwayl", stream)
+            else:
+                rows.append({"surface": "xwayl", "toolkit": "-", "case": "-", "round": 0,
+                             "verdict": "setup_failed", "why": "the nested instance served no X display"})
         finally:
             stop(nested)
     for row in rows:
