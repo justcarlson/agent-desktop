@@ -391,6 +391,7 @@ cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 | `evidence_timed_out` | A compositor read ran out of time; the code is `TIMEOUT` | `evidence` names the read |
 | `target_not_shown` | The window is not on a workspace an output shows | |
 | `point_outside_target` | The aim point lies outside the window | |
+| `popup_surface` | The element is inside a popup surface, such as a menu, which Hyprland does not place; it has no bounds, and a pointer action refuses at once | |
 | `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
 | `window_cover` | A floating, pinned or fullscreen window takes the point before the target | `cover_address` |
 

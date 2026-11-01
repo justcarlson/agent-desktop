@@ -27,6 +27,7 @@ fn no_bound_hyprland_leaves_bounds_and_hits_to_the_toolkit_path() {
     let bus = SharedBus::default();
     let deadline = agent_desktop_core::Deadline::after(1_000).unwrap();
     assert!(bound_bounds(&bus, &handle, deadline).unwrap().is_none());
+    assert!(bound_position_refusal(&bus, &handle, deadline).is_none());
     let point = Point { x: 1.0, y: 1.0 };
     assert!(
         bound_hit(&bus, &handle, &point, deadline)

@@ -195,7 +195,7 @@ fn place_of(
         }));
     }
     if let Some(binding) = crate::input::hyprland::hypr_route::bound_route()? {
-        return hyprland_place(&binding, bus, frame, deadline);
+        return hyprland_place(&binding, bus, frame, element.is_menu_target(), deadline);
     }
     let facts = FrameFacts {
         size_identity: title.is_empty()
@@ -227,15 +227,21 @@ fn place_of(
 }
 
 /// The frame's toplevel origin in the bound Hyprland instance's layout.
-/// A timeout stays an error; a frame it cannot bind is unplaced.
+/// A timeout stays an error; a frame it cannot bind, or a popup surface, is
+/// unplaced.
 fn hyprland_place(
     binding: &crate::system::hyprland::bind::hyprland_binding::HyprlandBinding,
     bus: &SharedBus,
     frame: &AtspiElement,
+    menu_target: bool,
     deadline: Deadline,
 ) -> Result<Option<FramePlace>, AdapterError> {
     let client = crate::system::hyprland::placement::placement_read::frame_client(
-        binding, bus, frame, deadline,
+        binding,
+        bus,
+        frame,
+        menu_target,
+        deadline,
     )
     .map(Some);
     Ok(

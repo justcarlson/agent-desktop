@@ -167,10 +167,11 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Option<AdapterError> {
-        if crate::system::tray::target_of(handle).is_some() || bound_geometry::is_bound(handle) {
+        if crate::system::tray::target_of(handle).is_some() {
             return None;
         }
-        pointer_position_refusal(self.bus(), handle, deadline)
+        bound_geometry::bound_position_refusal(self.bus(), handle, deadline)
+            .unwrap_or_else(|| pointer_position_refusal(self.bus(), handle, deadline))
     }
 
     fn get_text_selection(

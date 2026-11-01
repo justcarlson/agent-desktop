@@ -347,8 +347,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `evidence: "over_fullscreen"`.
   Otherwise the action refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
-  `evidence_missing`, `target_not_shown`, `point_outside_target`, `layer_cover`
-  or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
+  `evidence_missing`, `target_not_shown`, `point_outside_target`,
+  `popup_surface`, `layer_cover` or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
   `evidence_timed_out`.
 - **Every layer counts.** The tool trusts no layer namespace, its own cursor
   namespace included. A shell bar or dock that covers the whole output, as the
@@ -356,7 +356,11 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   semantic action, or a coordinate command and read the effect.
 - **Bounds and hit tests** come from the compositor. A ref's live bounds and
   its `find` and `snapshot` bounds are its window rectangle at the window's
-  Hyprland origin, in the same layout points. The pre-action hit test hides the
+  Hyprland origin, in the same layout points. `hyprctl` lists only toplevel
+  windows, so an element inside a popup surface (a menu or a GTK 4 popover)
+  has no bounds, and a pointer action on it refuses at once with cause
+  `popup_surface`. Its semantic actions, such as `click` through the
+  accessibility action, still work. The pre-action hit test hides the
   agent's cursors, then reads the same window stack and layers; a cover answers
   `InterceptedBy` with its rectangle, evidence it cannot read answers unknown,
   and a read that runs out of time is `TIMEOUT`.

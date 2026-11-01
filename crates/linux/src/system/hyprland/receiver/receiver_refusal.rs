@@ -8,6 +8,7 @@ pub(crate) enum ReceiverRefusal {
     EvidenceTimedOut { check: &'static str },
     TargetNotShown,
     PointOutsideTarget,
+    PopupSurface,
     LayerCover { namespace: String, level: u8 },
     WindowCover { address: u64 },
 }
@@ -19,6 +20,7 @@ impl ReceiverRefusal {
             Self::EvidenceTimedOut { .. } => "evidence_timed_out",
             Self::TargetNotShown => "target_not_shown",
             Self::PointOutsideTarget => "point_outside_target",
+            Self::PopupSurface => "popup_surface",
             Self::LayerCover { .. } => "layer_cover",
             Self::WindowCover { .. } => "window_cover",
         }
@@ -34,6 +36,10 @@ impl ReceiverRefusal {
             }
             Self::TargetNotShown => "the target window is not shown on any output".to_owned(),
             Self::PointOutsideTarget => "the pointer target lies outside its window".to_owned(),
+            Self::PopupSurface => {
+                "the target is inside a popup surface, and Hyprland places only toplevel windows"
+                    .to_owned()
+            }
             Self::LayerCover { namespace, level } => {
                 format!("layer surface '{namespace}' at level {level} covers the pointer target")
             }
@@ -63,7 +69,7 @@ impl ReceiverRefusal {
             Self::WindowCover { address } => {
                 details["cover_address"] = json!(format!("0x{address:x}"))
             }
-            Self::TargetNotShown | Self::PointOutsideTarget => {}
+            Self::TargetNotShown | Self::PointOutsideTarget | Self::PopupSurface => {}
         }
         let code = match self {
             Self::EvidenceTimedOut { .. } => ErrorCode::Timeout,

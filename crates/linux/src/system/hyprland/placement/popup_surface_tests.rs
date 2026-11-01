@@ -2,7 +2,7 @@ use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::*;
 use crate::input::hyprland::bound_geometry::unplaced_as;
-use crate::tree::vocabulary::role_numbers::{MENU, PANEL};
+use crate::tree::vocabulary::role_numbers::{MENU, PANEL, POPUP_MENU};
 
 const FRAME: u32 = 23;
 
@@ -20,6 +20,7 @@ fn a_node_inside_a_menu_popup_is_refused_before_any_event() {
     assert_eq!(refusal.code, ErrorCode::ActionFailed);
     assert_eq!(cause(&refusal), "popup_surface");
     assert_eq!(refusal.disposition, DeliverySemantics::not_delivered());
+    assert!(popup_surface_refusal(Some(POPUP_MENU), false).is_some());
 }
 
 #[test]

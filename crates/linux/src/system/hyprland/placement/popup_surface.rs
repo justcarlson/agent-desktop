@@ -4,14 +4,15 @@
 
 use agent_desktop_core::AdapterError;
 
-/// The refusal for a node whose frame is a popup surface: a `menu` frame,
-/// or a `panel` frame reached from a menu target. Any other frame is a
+use crate::system::hyprland::receiver::receiver_refusal::ReceiverRefusal;
+use crate::tree::vocabulary::role_numbers::{MENU, PANEL, POPUP_MENU};
+
+/// The refusal for a node whose frame is a popup surface: a `menu` or
+/// popup menu frame, or a `panel` frame reached from a menu target. Any other frame is a
 /// toplevel and answers `None`.
-pub(crate) fn popup_surface_refusal(
-    _role: Option<u32>,
-    _menu_target: bool,
-) -> Option<AdapterError> {
-    None
+pub(crate) fn popup_surface_refusal(role: Option<u32>, menu_target: bool) -> Option<AdapterError> {
+    (matches!(role, Some(MENU | POPUP_MENU)) || menu_target && role == Some(PANEL))
+        .then(|| ReceiverRefusal::PopupSurface.to_error())
 }
 
 #[cfg(test)]

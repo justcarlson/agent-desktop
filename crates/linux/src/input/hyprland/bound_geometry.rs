@@ -12,7 +12,9 @@ use super::cursor_guard::with_cursors_hidden;
 use super::hypr_route::bound_route;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_context::CursorContext;
-use crate::system::hyprland::placement::placement_read::{place_target, placed_bounds};
+use crate::system::hyprland::placement::placement_read::{
+    place_target, placed_bounds, popup_refusal,
+};
 use crate::system::hyprland::receiver::receiver_hit::read_hit;
 use crate::system::hyprland::receiver::receiver_read::prove_receiver;
 use crate::system::{SharedBus, shell};
@@ -30,10 +32,17 @@ fn bound_target(
     Ok(bound_route()?.map(|binding| (binding, element)))
 }
 
-/// Whether the element takes its geometry from the bound Hyprland instance,
-/// which names its toplevel without the X11 twin rule.
-pub(crate) fn is_bound(handle: &NativeHandle) -> bool {
-    matches!(bound_target(handle), Ok(Some(_)))
+/// The refusal a pointer action on a bound element gets at once when the
+/// element has no bounds because its frame is a popup surface; `Some(None)`
+/// for any other bound element and for a frame that cannot be read, and
+/// `None` when the element is not bound.
+pub(crate) fn bound_position_refusal(
+    bus: &SharedBus,
+    handle: &NativeHandle,
+    deadline: Deadline,
+) -> Option<Option<AdapterError>> {
+    let (_, element) = bound_target(handle).ok().flatten()?;
+    Some(popup_refusal(bus, element, deadline).ok().flatten())
 }
 
 /// The element's global layout rectangle, `Some(None)` when the compositor
