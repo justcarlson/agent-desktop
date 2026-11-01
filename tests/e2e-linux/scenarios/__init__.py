@@ -54,6 +54,7 @@ from scenarios import hyprland_close_dialog
 from scenarios import hyprland_cursor
 from scenarios import hyprland_cursor_agents
 from scenarios import hyprland_cursor_hide
+from scenarios import hyprland_cursor_placement
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_focus_proof
