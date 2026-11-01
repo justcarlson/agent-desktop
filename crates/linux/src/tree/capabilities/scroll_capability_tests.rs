@@ -1,4 +1,6 @@
-use super::eligible;
+use std::cell::Cell;
+
+use super::{eligible, pointer_leg};
 use crate::system::display::display_cause::Cause;
 use crate::system::display::display_server::DisplayServer;
 use crate::system::display::display_unavailable::Unavailable;
@@ -15,25 +17,48 @@ fn component() -> Vec<String> {
     vec![COMPONENT_INTERFACE.to_owned()]
 }
 
+fn unavailable() -> DisplayServer {
+    DisplayServer::Unavailable(Unavailable {
+        cause: Cause::NotConfigured,
+        detail: String::new(),
+    })
+}
+
 #[test]
-fn wheel_eligibility_refuses_unsupported_routes() {
+fn wheel_eligibility_needs_a_wheel_role_bounds_and_a_pointer_leg() {
     let component = component();
     for role in [SCROLL_PANE, VIEWPORT, LIST, DOCUMENT_FRAME, DOCUMENT_WEB] {
-        assert!(eligible(role, &component, &x11()), "role {role}");
+        assert!(eligible(role, &component, true), "role {role}");
     }
     for role in [PUSH_BUTTON, PANEL] {
-        assert!(!eligible(role, &component, &x11()), "role {role}");
+        assert!(!eligible(role, &component, true), "role {role}");
     }
-    assert!(!eligible(SCROLL_PANE, &[], &x11()));
+    assert!(!eligible(SCROLL_PANE, &[], true));
     assert!(!eligible(
         SCROLL_PANE,
         &["org.a11y.atspi.Action".to_owned()],
-        &x11()
+        true
     ));
-    assert!(!eligible(SCROLL_PANE, &component, &DisplayServer::Wayland));
-    let unavailable = DisplayServer::Unavailable(Unavailable {
-        cause: Cause::NotConfigured,
-        detail: String::new(),
-    });
-    assert!(!eligible(SCROLL_PANE, &component, &unavailable));
+    assert!(!eligible(SCROLL_PANE, &component, false));
+}
+
+#[test]
+fn x11_has_a_pointer_leg_without_asking_for_a_hyprland_binding() {
+    let asked = Cell::new(false);
+    assert!(pointer_leg(&x11(), || {
+        asked.set(true);
+        false
+    }));
+    assert!(!asked.get());
+}
+
+#[test]
+fn a_wayland_session_has_a_pointer_leg_only_when_bound_to_hyprland() {
+    assert!(pointer_leg(&DisplayServer::Wayland, || true));
+    assert!(!pointer_leg(&DisplayServer::Wayland, || false));
+}
+
+#[test]
+fn an_unavailable_display_has_no_pointer_leg_even_when_bound() {
+    assert!(!pointer_leg(&unavailable(), || true));
 }
