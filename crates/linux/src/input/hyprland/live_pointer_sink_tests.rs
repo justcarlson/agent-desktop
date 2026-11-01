@@ -24,21 +24,54 @@ fn compositor() -> FakeCompositor {
     })
 }
 
-fn pressed_sink(compositor: &FakeCompositor) -> LivePointerSink {
+fn opened_sink(compositor: &FakeCompositor) -> LivePointerSink {
     let stream = UnixStream::connect(&compositor.socket).expect("connects");
     let deadline = Deadline::after(2_000).expect("deadline");
-    let mut sink =
-        LivePointerSink::over(stream, compositor.socket.clone(), deadline).expect("opens");
-    let point = OutputPoint {
+    LivePointerSink::over(stream, compositor.socket.clone(), deadline).expect("opens")
+}
+
+fn point_at(x: u32, y: u32) -> OutputPoint {
+    OutputPoint {
         output: "DP-1".to_owned(),
-        x: 120,
-        y: 120,
+        x,
+        y,
         x_extent: 1920 * 120,
         y_extent: 1080 * 120,
-    };
-    sink.motion(&point).expect("moves");
+    }
+}
+
+fn pressed_sink(compositor: &FakeCompositor) -> LivePointerSink {
+    let mut sink = opened_sink(compositor);
+    sink.motion(&point_at(120, 120)).expect("moves");
     sink.button(BTN_LEFT, true).expect("presses");
     sink
+}
+
+fn requests_for(
+    compositor: &FakeCompositor,
+    sink: &mut LivePointerSink,
+    point: &OutputPoint,
+) -> usize {
+    sink.finish().expect("settles");
+    let before = compositor.requests.load(Ordering::SeqCst);
+    sink.motion(point).expect("moves");
+    sink.finish().expect("settles");
+    compositor.requests.load(Ordering::SeqCst) - before
+}
+
+#[test]
+fn the_first_motion_moves_the_cursor_even_when_it_already_rests_on_the_aim() {
+    const POINTER_CREATION: usize = 2;
+    const ONE_MOTION: usize = 2;
+    let compositor = compositor();
+    let mut sink = opened_sink(&compositor);
+    let first = requests_for(&compositor, &mut sink, &point_at(953 * 120, 81 * 120));
+    let later = requests_for(&compositor, &mut sink, &point_at(960 * 120, 90 * 120));
+    assert_eq!(
+        first,
+        later + POINTER_CREATION + ONE_MOTION,
+        "Hyprland drops a motion to the pixel the cursor is on, so a single first motion leaves pointer focus on the window that was there before"
+    );
 }
 
 #[test]
