@@ -8,6 +8,7 @@ arrived; the compositor's `j/clients` and `j/cursorpos` say where.
 
 from __future__ import annotations
 
+import collections
 import contextlib
 import json
 import time
@@ -91,6 +92,13 @@ def scrolls(found: list[dict], widget: str) -> list[str]:
     if discrete:
         return discrete
     return [direction for item in wheel if (direction := _smooth_direction(item))]
+
+
+def pad_saw(found: list[dict]) -> str:
+    """Every event kind each pad widget logged, so a lost gesture shows whether anything reached the pad."""
+    counts = collections.Counter(f"{item.get('ev')}/{item.get('widget')}" for item in found)
+    seen = ", ".join(f"{kind} {count}" for kind, count in sorted(counts.items()))
+    return f" (pad saw: {seen or 'nothing'})"
 
 
 def since(found: list[dict], count: int) -> list[dict]:
