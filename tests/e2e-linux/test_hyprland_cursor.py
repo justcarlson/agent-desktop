@@ -22,6 +22,26 @@ def envelope(ok: bool, data: dict | None) -> Envelope:
     return Envelope(ok=ok, data=data, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0 if ok else 1)
 
 
+class FakeTier:
+    display = None
+
+
+class FakeApp:
+    windows = ["w-1"]
+
+
+class FakeContext:
+    mode = "headed"
+    tier = FakeTier()
+
+    def __init__(self, replies: list[Envelope]):
+        self.replies, self.calls = list(replies), []
+
+    def product(self, argv, **_kw):
+        self.calls.append(list(argv))
+        return self.replies.pop(0)
+
+
 class CursorLegTests(unittest.TestCase):
     def test_every_leg_is_registered_on_hyprland_with_an_implementation(self):
         for leg_id in LEG_IDS:
@@ -62,6 +82,22 @@ class CursorLegTests(unittest.TestCase):
         self.assertEqual(cursor.outcome_problems("end", stopped, "stopped"), [])
         self.assertEqual(len(cursor.outcome_problems("end", stopped, "not_running")), 1)
         self.assertEqual(len(cursor.outcome_problems("end", envelope(True, {}), "stopped")), 1)
+
+    def test_button_seven_takes_its_live_bounds_from_get_since_find_prints_none_for_a_ref(self):
+        found = {"matches": [{"name": "7", "ref_id": "@s1:e1", "role": "button"}], "snapshot_id": "s1"}
+        read = {"property": "bounds", "ref": "@s1:e1", "live": True,
+                "value": {"x": 100.0, "y": 200.0, "width": 40.0, "height": 20.0}}
+        ctx = FakeContext([envelope(True, found), envelope(True, read)])
+        ref, point = cursor._seven(ctx, FakeApp(), "run-1")
+        self.assertEqual((ref, point), ("@s1:e1", (120.0, 210.0)))
+        self.assertEqual(ctx.calls[1], ["--session", "run-1", "get", "@s1:e1", "--property", "bounds"])
+
+    def test_button_seven_with_stored_bounds_only_fails_the_leg(self):
+        found = {"matches": [{"name": "7", "ref_id": "@s1:e1", "role": "button"}], "snapshot_id": "s1"}
+        read = {"property": "bounds", "ref": "@s1:e1", "live": False,
+                "value": {"x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0}}
+        with self.assertRaises(AssertionError):
+            cursor._seven(FakeContext([envelope(True, found), envelope(True, read)]), FakeApp(), "run-1")
 
     def test_the_arrow_box_scales_and_stays_inside_the_image(self):
         self.assertEqual(cursor.arrow_box((0, 0), (100, 50), 2.0, (1000, 1000)), (199, 99, 28, 28))
