@@ -1,4 +1,5 @@
-use crate::system::display::display_server::DisplayServer;
+use crate::input::hyprland::hypr_route::bound_route;
+use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::tree::properties::node_read::COMPONENT_INTERFACE;
 use crate::tree::vocabulary::role_numbers::{
     DOCUMENT_FRAME, DOCUMENT_WEB, LIST, SCROLL_PANE, VIEWPORT,
@@ -21,9 +22,19 @@ const WHEEL_TARGETS: [u32; 8] = [
 
 /// Whether a node can take a wheel at its centre as a scroll: its role moves
 /// content under a wheel, it has bounds to aim at, and the session has a
-/// pointer leg. A Wayland session has none, so no node is eligible there.
-pub(crate) fn eligible(role: u32, interfaces: &[String], session: &DisplayServer) -> bool {
-    matches!(session, DisplayServer::X11(_)) && wheel_target(role, interfaces)
+/// pointer leg.
+pub(crate) fn eligible(role: u32, interfaces: &[String], pointer_leg: bool) -> bool {
+    pointer_leg && wheel_target(role, interfaces)
+}
+
+/// Whether this process's session has a pointer leg for a wheel.
+pub(crate) fn session_pointer_leg() -> bool {
+    pointer_leg(&session_server(), || matches!(bound_route(), Ok(Some(_))))
+}
+
+/// Whether `session` has a pointer leg for a wheel: an X11 display has one.
+pub(crate) fn pointer_leg(session: &DisplayServer, _hyprland_bound: impl FnOnce() -> bool) -> bool {
+    matches!(session, DisplayServer::X11(_))
 }
 
 /// The part of eligibility a node decides alone: a role that moves content

@@ -185,8 +185,14 @@ fn run_on_listening_wayland(test: &str, bound: bool) -> bool {
     if std::env::var_os(POINTER_GATE_CHILD).is_some() {
         return false;
     }
+    let tag = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        test.hash(&mut hasher);
+        hasher.finish()
+    };
     let dir = std::env::temp_dir().join(format!(
-        "ad-pointer-gate-{}-{test}-{bound}",
+        "ad-pointer-gate-{}-{tag:x}-{bound}",
         std::process::id()
     ));
     std::fs::create_dir_all(&dir).expect("a socket directory");
@@ -199,6 +205,8 @@ fn run_on_listening_wayland(test: &str, bound: bool) -> bool {
         .env(POINTER_GATE_CHILD, "1")
         .env("WAYLAND_DISPLAY", &socket)
         .env("XDG_RUNTIME_DIR", &dir)
+        .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent")
+        .env_remove("AT_SPI_BUS_ADDRESS")
         .env_remove("DISPLAY")
         .env_remove("HYPRLAND_INSTANCE_SIGNATURE");
     if bound {
@@ -244,4 +252,79 @@ fn an_unbound_wayland_session_still_fails_the_pointer_gate() {
         refusal.details.unwrap_or_default()["cause"],
         "wayland_session"
     );
+}
+
+fn own_window() -> agent_desktop_core::WindowInfo {
+    let crate::system::process::process_lookup::Lookup::Found(facts) =
+        crate::system::process::process_facts::lookup(std::process::id())
+    else {
+        panic!("the test process reads its own facts");
+    };
+    agent_desktop_core::WindowInfo {
+        id: "w-1.30-org-a11y-atspi-accessible-1".to_owned(),
+        title: "Pad".to_owned(),
+        app: "pad".to_owned(),
+        pid: std::process::id().into(),
+        process_instance: Some(facts.instance),
+        bounds: None,
+        state: agent_desktop_core::WindowState::default(),
+    }
+}
+
+fn focus_cause(bound: bool, test: &str) -> Option<serde_json::Value> {
+    if run_on_listening_wayland(test, bound) {
+        return None;
+    }
+    let error = LinuxAdapter::new()
+        .focus_window(&own_window(), &lease())
+        .expect_err("no compositor answers in the test");
+    Some(error.details.unwrap_or_default()["cause"].clone())
+}
+
+#[test]
+fn a_bound_hyprland_session_focuses_a_headed_target_through_the_compositor() {
+    let Some(cause) = focus_cause(
+        true,
+        "a_bound_hyprland_session_focuses_a_headed_target_through_the_compositor",
+    ) else {
+        return;
+    };
+
+    assert_ne!(cause, "wayland_session");
+}
+
+#[test]
+fn an_unbound_wayland_session_still_refuses_to_focus_another_window() {
+    let Some(cause) = focus_cause(
+        false,
+        "an_unbound_wayland_session_still_refuses_to_focus_another_window",
+    ) else {
+        return;
+    };
+
+    assert_eq!(cause, "wayland_session");
+}
+
+#[test]
+fn a_bound_hyprland_session_has_a_pointer_leg_for_the_wheel() {
+    if run_on_listening_wayland(
+        "a_bound_hyprland_session_has_a_pointer_leg_for_the_wheel",
+        true,
+    ) {
+        return;
+    }
+
+    assert!(crate::tree::capabilities::scroll_capability::session_pointer_leg());
+}
+
+#[test]
+fn an_unbound_wayland_session_has_no_pointer_leg_for_the_wheel() {
+    if run_on_listening_wayland(
+        "an_unbound_wayland_session_has_no_pointer_leg_for_the_wheel",
+        false,
+    ) {
+        return;
+    }
+
+    assert!(!crate::tree::capabilities::scroll_capability::session_pointer_leg());
 }
