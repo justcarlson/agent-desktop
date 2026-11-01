@@ -373,10 +373,11 @@ everywhere but a bound Hyprland.
 
 Headless scoped `press` does not activate a window: it requires the live focus
 guard to confirm the target. If focus cannot be confirmed and the user permits
-focus, bring the target forward with `--headed focus-window` (X11 or a bound
-Hyprland), then use global `press` (no `--app`, `--window-id` or `--headed`). A
-headless `press --window-id` with unconfirmed exact window focus returns
-`STALE_REF`, `check: exact_window_focus`, `cause:
+focus, bring the target forward with `--headed focus-window` on X11, then use
+global `press` (no `--app`, `--window-id` or `--headed`). On Hyprland the CLI
+sends no keys, so global `press` fails too: use a semantic ref action or report
+the limit. A headless `press --window-id` with unconfirmed exact window focus
+returns `STALE_REF`, `check: exact_window_focus`, `cause:
 exact_window_focus_unconfirmed`, `not_delivered`: bring the window forward,
 refresh `list-windows`, retry with its current id.
 
