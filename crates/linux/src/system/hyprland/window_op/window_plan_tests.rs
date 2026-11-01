@@ -90,7 +90,10 @@ fn a_resize_moves_the_window_back_to_its_old_corner() {
         vec![
             WindowStep::new(
                 "dispatch hl.dsp.window.resize({x=500,y=400,window=\"address:0x10\"})".into(),
-                vec![StepGoal::Size(500, 400)],
+                vec![StepGoal::Resized {
+                    wanted: (500, 400),
+                    from: (630, 755),
+                }],
             ),
             WindowStep::new(
                 "dispatch hl.dsp.window.move({x=40,y=60,window=\"address:0x10\"})".into(),

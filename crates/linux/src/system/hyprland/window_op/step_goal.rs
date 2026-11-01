@@ -9,6 +9,14 @@ use crate::system::window::window_op::window_op_verdict::POSITION_TOLERANCE;
 pub(crate) enum StepGoal {
     At(i64, i64),
     Size(i64, i64),
+    /// The requested size, or any size other than the one the window had
+    /// before. Hyprland resizes around the centre and holds a window at its
+    /// minimum size (S9-9, S9-10), so a clamped resize still moves the
+    /// window and the corner must go back after it.
+    Resized {
+        wanted: (i64, i64),
+        from: (i64, i64),
+    },
     Workspace(String),
     Fullscreen(i64),
 }
@@ -18,6 +26,7 @@ impl StepGoal {
         match self {
             Self::At(x, y) => near((*x, *y), state.at),
             Self::Size(width, height) => near((*width, *height), state.size),
+            Self::Resized { wanted, from } => near(*wanted, state.size) || !near(*from, state.size),
             Self::Workspace(name) => state.workspace == *name,
             Self::Fullscreen(mode) => state.fullscreen == *mode,
         }
@@ -27,6 +36,7 @@ impl StepGoal {
         match self {
             Self::At(x, y) => json!({ "x": x, "y": y }),
             Self::Size(width, height) => json!({ "width": width, "height": height }),
+            Self::Resized { wanted, .. } => json!({ "width": wanted.0, "height": wanted.1 }),
             Self::Workspace(name) => json!({ "workspace": name }),
             Self::Fullscreen(mode) => json!({ "fullscreen": mode }),
         }
