@@ -41,3 +41,25 @@ fn every_refusal_is_not_delivered_with_its_kind() {
         assert_eq!(details["physical_delivery_started"], false);
     }
 }
+
+#[test]
+fn every_refusal_ends_the_action_wait_instead_of_being_retried_inside_it() {
+    let refusals = [
+        HideRefusal::Timeout { pid: 7 },
+        HideRefusal::Failed {
+            cause: "renderer_refused",
+            detail: "refused".into(),
+        },
+        HideRefusal::Incompatible { pid: 7 },
+        HideRefusal::UnknownOverlay {
+            pid: None,
+            output: "DP-1".into(),
+        },
+    ];
+    for refusal in refusals {
+        let error = refusal.to_error();
+        assert!(!error.permits_retry_by_default(), "{refusal:?}");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(error.details.expect("details")["retryable"], false);
+    }
+}
