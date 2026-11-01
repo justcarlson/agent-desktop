@@ -147,6 +147,13 @@ fn enable(agent: Option<&str>) -> RendererRequest {
     )
 }
 
+fn shown_on_slow_output(fake: &FakeLayerCompositor) -> usize {
+    fake.logged()
+        .iter()
+        .filter(|line| *line == "slow output shown")
+        .count()
+}
+
 #[test]
 fn a_parked_cursor_stays_undrawn_when_it_is_redrawn() {
     let fixture = RegistryFixture::new();
@@ -162,6 +169,43 @@ fn a_parked_cursor_stays_undrawn_when_it_is_redrawn() {
         .cloned()
         .collect();
     assert!(moved.is_empty(), "a parked cursor was drawn: {moved:?}");
+    send(&fixture, &disable()).expect("disable");
+    renderer.join().expect("thread").expect("clean exit");
+}
+
+#[test]
+fn a_travel_is_acknowledged_only_once_the_output_it_arrives_on_shows_it() {
+    let fixture = RegistryFixture::new();
+    let outputs = vec![
+        [-1024, 0, 1024, 768, 1280, 960],
+        [0, 0, 1280, 800, 1280, 800],
+    ];
+    let fake = FakeLayerCompositor::start_with_slow_output(true, outputs, Some(1));
+    let renderer = serving(&fixture, &fake, Some("agent-a"), |_| true);
+    let shown_before = shown_on_slow_output(&fake);
+    send(&fixture, &travel(Some("agent-a"), 300.0, 400.0)).expect("the travel arrives");
+    assert!(
+        shown_on_slow_output(&fake) > shown_before,
+        "the arrival was acknowledged before its output showed it: {:?}",
+        fake.logged()
+    );
+    send(&fixture, &disable()).expect("disable");
+    renderer.join().expect("thread").expect("clean exit");
+}
+
+#[test]
+fn a_travel_whose_arrival_never_shows_is_refused_within_the_arrival_timeout() {
+    let fixture = RegistryFixture::new();
+    let fake = FakeLayerCompositor::start(false);
+    let renderer = serving(&fixture, &fake, Some("agent-a"), |_| true);
+    let started = Instant::now();
+    let travelling = sent(&fixture, &travel(Some("agent-a"), 300.0, 400.0));
+    assert_eq!(reply_kind(travelling), "cursor_arrival_unconfirmed");
+    assert!(
+        started.elapsed() < Duration::from_millis(agent_desktop_core::CURSOR_ARRIVAL_TIMEOUT_MS),
+        "the refusal took {:?}",
+        started.elapsed()
+    );
     send(&fixture, &disable()).expect("disable");
     renderer.join().expect("thread").expect("clean exit");
 }
