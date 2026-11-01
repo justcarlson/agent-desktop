@@ -3,6 +3,7 @@
 //! it gets a grace on top of the slice before its read counts as unanswered.
 
 use std::future::Future;
+use std::pin::pin;
 use std::time::Duration;
 
 use crate::system::bus::bus_slice::within_slice;
@@ -33,7 +34,14 @@ impl ReadPatience {
     /// Awaits `future` for the slice, then for the grace; `None` means it did
     /// not answer in either.
     pub(crate) async fn wait<T>(self, future: impl Future<Output = T>) -> Option<T> {
-        within_slice(self.slice, future).await
+        let mut future = pin!(future);
+        if let Some(answer) = within_slice(self.slice, future.as_mut()).await {
+            return Some(answer);
+        }
+        if self.grace.is_zero() {
+            return None;
+        }
+        within_slice(self.grace, future).await
     }
 }
 
