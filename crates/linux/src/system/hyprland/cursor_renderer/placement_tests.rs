@@ -199,6 +199,9 @@ fn with_no_output_layout_one_unpinned_surface_draws_at_scale_one() {
     let placed = place(&Point { x: 100.4, y: 200.6 }, &[], frame);
     assert_eq!(placed.len(), 1);
     assert_eq!(placed[0].output, None);
-    assert_eq!(placed[0].margin, (99, 199));
+    assert_eq!(placed[0].margin, (99, 200));
+    assert_eq!(placed[0].logical, (24, 32));
+    assert_eq!(placed[0].buffer, (24, 32));
+    assert_eq!(placed[0].offset, (0, 0));
     assert_eq!(placed[0].scale, 1.0);
 }

@@ -13,8 +13,6 @@ use super::agent_cursor::AgentCursor;
 use super::agent_cursors::AgentCursors;
 use super::cursor_travel::CursorTravel;
 use super::layer_client::LayerClient;
-use super::placement::Placement;
-use super::surface_key::SurfaceKey;
 
 const FRAME_WAIT_MS: u64 = 50;
 
@@ -77,8 +75,6 @@ fn stage(
     point: Point,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
-    let placement = Placement::for_point(&point, cursor.bitmap.hotspot);
-    cursor.pose = Some(point);
-    let surface = SurfaceKey::placed(key, &placement);
-    client.stage(&surface, &cursor.bitmap, placement.margin, deadline)
+    cursor.pose = Some(point.clone());
+    client.stage_point(key, cursor, &point, deadline)
 }

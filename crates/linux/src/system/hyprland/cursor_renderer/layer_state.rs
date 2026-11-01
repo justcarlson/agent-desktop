@@ -1,15 +1,21 @@
 //! The renderer's Wayland client state: the registry, round trips, the layer
 //! surface's configure and close events, and frame callbacks. Frame marks
 //! count for the whole connection, so a rebuilt surface never waits on a
-//! mark an earlier surface already reached.
+//! mark an earlier surface already reached. A closed surface pinned to an
+//! output is noted for the client to rebuild, since its output went; a
+//! closed unpinned surface closes the renderer.
 
 use wayland_client::protocol::{
-    wl_buffer, wl_callback, wl_compositor, wl_region, wl_registry, wl_shm, wl_shm_pool, wl_surface,
+    wl_buffer, wl_callback, wl_compositor, wl_region, wl_registry, wl_shm, wl_shm_pool,
 };
-use wayland_client::{Connection, Dispatch, QueueHandle, delegate_dispatch, delegate_noop};
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, delegate_dispatch, delegate_noop};
+use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_manager_v1;
+use wayland_protocols::wp::viewporter::client::{wp_viewport, wp_viewporter};
+use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_manager_v1;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use super::frame_mark::FrameMark;
+use super::layer_outputs::LayerOutputs;
 use crate::system::wayland::exchange::{Exchange, ExchangeHandler, HoldsExchange};
 
 /// What the compositor has told the renderer so far.
@@ -20,6 +26,7 @@ pub(crate) struct LayerState {
     pub(crate) closed: bool,
     pub(crate) frames_sent: u32,
     pub(crate) frames_done: u32,
+    pub(crate) outputs: LayerOutputs,
 }
 
 impl HoldsExchange for LayerState {
@@ -40,7 +47,10 @@ delegate_noop!(LayerState: wl_shm_pool::WlShmPool);
 delegate_noop!(LayerState: zwlr_layer_shell_v1::ZwlrLayerShellV1);
 delegate_noop!(LayerState: ignore wl_shm::WlShm);
 delegate_noop!(LayerState: ignore wl_buffer::WlBuffer);
-delegate_noop!(LayerState: ignore wl_surface::WlSurface);
+delegate_noop!(LayerState: zxdg_output_manager_v1::ZxdgOutputManagerV1);
+delegate_noop!(LayerState: wp_viewporter::WpViewporter);
+delegate_noop!(LayerState: wp_viewport::WpViewport);
+delegate_noop!(LayerState: wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1);
 
 impl Dispatch<wl_callback::WlCallback, FrameMark> for LayerState {
     fn event(
@@ -57,12 +67,12 @@ impl Dispatch<wl_callback::WlCallback, FrameMark> for LayerState {
     }
 }
 
-impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for LayerState {
+impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, Option<u32>> for LayerState {
     fn event(
         state: &mut Self,
         layer: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
         event: zwlr_layer_surface_v1::Event,
-        _: &(),
+        pinned: &Option<u32>,
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
@@ -70,6 +80,10 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for LayerState {
             zwlr_layer_surface_v1::Event::Configure { serial, .. } => {
                 layer.ack_configure(serial);
                 state.configured = Some(serial);
+            }
+            zwlr_layer_surface_v1::Event::Closed if pinned.is_some() => {
+                state.outputs.closed_layers.push(layer.id());
+                state.outputs.changed = true;
             }
             zwlr_layer_surface_v1::Event::Closed => state.closed = true,
             _ => {}
