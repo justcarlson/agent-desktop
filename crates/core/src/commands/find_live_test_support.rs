@@ -18,6 +18,16 @@ pub(crate) fn framed_label_screen_bounds() -> crate::Rect {
     }
 }
 
+/// Where the framed fixture's button is now, as a live bounds read answers.
+pub(crate) fn live_button_bounds() -> crate::Rect {
+    crate::Rect {
+        x: 1294.0,
+        y: 330.0,
+        width: 64.0,
+        height: 48.0,
+    }
+}
+
 fn framed_label_window_bounds() -> crate::Rect {
     crate::Rect {
         x: 48.0,
@@ -104,7 +114,12 @@ impl ObservationOps for LiveFindAdapter {
         } else {
             "OnlyInWindowOne"
         };
-        let mut children = vec![self.node(Self::evidence("button", Some(marker)), Vec::new())];
+        let mut button = Self::evidence("button", Some(marker));
+        if self.framed_label {
+            button.ref_evidence.bounds = LocatorField::Known(framed_label_screen_bounds());
+            button.ref_evidence.window_bounds = LocatorField::Known(framed_label_window_bounds());
+        }
+        let mut children = vec![self.node(button, Vec::new())];
         if self.framed_label {
             let mut label = Self::evidence("statictext", Some(FRAMED_LABEL));
             label.ref_evidence.bounds = LocatorField::Known(framed_label_screen_bounds());
@@ -151,6 +166,22 @@ impl ObservationOps for LiveFindAdapter {
                 },
             },
         ])
+    }
+
+    fn resolve_element_strict(
+        &self,
+        _entry: &crate::refs::RefEntry,
+        _deadline: crate::Deadline,
+    ) -> Result<NativeHandle, AdapterError> {
+        Ok(NativeHandle::null())
+    }
+
+    fn get_element_bounds(
+        &self,
+        _handle: &NativeHandle,
+        _deadline: crate::Deadline,
+    ) -> Result<Option<crate::Rect>, AdapterError> {
+        Ok(Some(live_button_bounds()))
     }
 
     fn resolve_locator_anchor(

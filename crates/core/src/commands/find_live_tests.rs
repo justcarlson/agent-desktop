@@ -1,4 +1,6 @@
-use super::test_support::{FRAMED_LABEL, LiveFindAdapter, framed_label_screen_bounds};
+use super::test_support::{
+    FRAMED_LABEL, LiveFindAdapter, framed_label_screen_bounds, live_button_bounds,
+};
 use super::*;
 use crate::{
     AppError,
@@ -108,6 +110,39 @@ fn a_context_match_shows_the_screen_rectangle_not_the_window_rectangle_a_ref_sto
         found["bounds"],
         serde_json::json!(framed_label_screen_bounds())
     );
+}
+
+/// The path a caller takes to aim at a ref: `find` names the ref and prints
+/// no rectangle for it, so the rectangle comes from `get --property bounds`
+/// on that ref, which reads it live.
+#[test]
+fn a_ref_match_prints_no_bounds_and_get_reads_them_live_for_its_ref() {
+    let _guard = HomeGuard::new();
+    let adapter = LiveFindAdapter::with_framed_label();
+
+    let response = execute(
+        named_find("w-1", "OnlyInWindowOne"),
+        &adapter,
+        &CommandContext::default(),
+    )
+    .expect("live find should succeed");
+
+    let found = &response["matches"][0];
+    let ref_id = found["ref_id"]
+        .as_str()
+        .expect("a button match carries a ref");
+    assert!(found.get("bounds").is_none(), "{found}");
+    let read = crate::commands::get::execute(
+        crate::commands::get::GetArgs {
+            ref_id: ref_id.to_owned(),
+            property: crate::commands::get::GetProperty::Bounds,
+        },
+        &adapter,
+        &CommandContext::default(),
+    )
+    .expect("get reads the ref find printed");
+    assert_eq!(read["live"], true);
+    assert_eq!(read["value"], serde_json::json!(live_button_bounds()));
 }
 
 #[test]
