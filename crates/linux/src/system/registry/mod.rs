@@ -283,9 +283,11 @@ pub(crate) fn read_registry_query(
 mod tests;
 
 pub(crate) mod app_outcome;
+pub(super) mod app_patience;
 pub(super) mod app_read;
 pub(crate) mod frame_read;
 pub(super) mod listed_window;
+pub(super) mod read_patience;
 pub(super) mod registry_app;
 pub(super) mod registry_frames;
 #[cfg(test)]
