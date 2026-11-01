@@ -32,9 +32,15 @@ pub(crate) fn session_pointer_leg() -> bool {
     pointer_leg(&session_server(), || matches!(bound_route(), Ok(Some(_))))
 }
 
-/// Whether `session` has a pointer leg for a wheel: an X11 display has one.
-pub(crate) fn pointer_leg(session: &DisplayServer, _hyprland_bound: impl FnOnce() -> bool) -> bool {
-    matches!(session, DisplayServer::X11(_))
+/// Whether `session` has a pointer leg for a wheel: an X11 display has
+/// XTEST, and a Wayland session bound to a Hyprland instance has its virtual
+/// pointer. `hyprland_bound` is asked only on Wayland.
+pub(crate) fn pointer_leg(session: &DisplayServer, hyprland_bound: impl FnOnce() -> bool) -> bool {
+    match session {
+        DisplayServer::X11(_) => true,
+        DisplayServer::Wayland => hyprland_bound(),
+        DisplayServer::Unavailable(_) => false,
+    }
 }
 
 /// The part of eligibility a node decides alone: a role that moves content

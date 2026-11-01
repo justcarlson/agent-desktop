@@ -54,7 +54,7 @@ behave as on a generic Wayland session.
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms; a bound Hyprland: a virtual keyboard |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | Bound Hyprland: a virtual pointer, `--headed`; see [Pointer on Hyprland](#pointer-on-hyprland). Other compositors: none, `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops | EWMH on the X11 display | Bound Hyprland: every window through the compositor, move and resize floating only. Other compositors: Xwayland clients only; native windows and un-minimize refused |
-| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included; on a bound Hyprland, `--headed focus-window` activates through the compositor |
+| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included. On a bound Hyprland, `--headed focus-window`, headed scoped `press`, headed ref actions and `launch --activate` activate through the compositor |
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Bound Hyprland: window or display, no dialog. Other compositors: portal consent, display only. Primary display by default, `--screen` picks a monitor |
 | `list-displays` | RandR monitors | Mutter `DisplayConfig`; see [Displays on Wayland](#displays-on-wayland) for other compositors |

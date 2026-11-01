@@ -343,6 +343,10 @@ agent-desktop --headed focus-window --app foot
   `compositor_only`) and what else changed (`side_effects`): a workspace switch,
   a special workspace revealed or closed, and the cursor, which Hyprland moves
   into the window it activates. `docs/json-output.md` has every cause.
+- Headed ref actions, headed scoped `press` and `launch --activate` activate
+  the same way, with the same refusals and side effects, and report no
+  `data.activation`. A refused `launch --activate` still succeeds, with the
+  reason in `data.suggestion`.
 - An open special workspace over the window's monitor is `ACTION_FAILED`, cause
   `special_workspace_open`, `not_delivered`: Hyprland keeps it in front. Close
   it, then retry.
@@ -428,10 +432,11 @@ Headless `press --app <name>` delivers only while the target process owns the
 active window. On X11 a background or minimized app is refused: `ACTION_FAILED`,
 `check: window_active`, cause `display_active_window`, `not_delivered`; the
 message says the application's active window could not be confirmed. `--headed`
-brings the window forward, un-minimizes it and sends the keys (X11). On Wayland,
-headed app- or window-scoped `press` refuses with `ACTION_NOT_SUPPORTED`, cause
-`wayland_session`, Xwayland clients included, and so does `focus-window`
-everywhere but a bound Hyprland.
+brings the window forward, un-minimizes it and sends the keys (X11). On a bound
+Hyprland the compositor brings it forward and the virtual keyboard sends the
+keys. On any other Wayland session, headed app- or window-scoped `press` refuses
+with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included,
+and so does `focus-window`.
 
 Headless scoped `press` does not activate a window: it requires the live focus
 guard to confirm the target. If focus cannot be confirmed and the user permits
