@@ -13,6 +13,7 @@ pub(crate) mod cursor_surface;
 pub(crate) mod cursor_travel;
 pub(crate) mod exe_identity;
 pub(crate) mod frame_mark;
+pub(crate) mod held_travel;
 pub(crate) mod hide_broadcast;
 pub(crate) mod hide_hold;
 pub(crate) mod hide_refusal;
