@@ -409,6 +409,7 @@ cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 | `popup_surface` | The element is inside a popup surface, such as a menu, which Hyprland does not place; it has no bounds, and a pointer action refuses at once | |
 | `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
 | `window_cover` | A floating, pinned or fullscreen window takes the point before the target | `cover_address` |
+| `native_wayland_client` | The target window is a native Wayland client (`xwayland: false`). Hyprland cannot prove which of the app's own surfaces takes the point, so every headed ref click, scroll and drag refuses. Use `click @ref` without `--headed`, or `mouse-click --xy` | |
 
 Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 `not_delivered`:
