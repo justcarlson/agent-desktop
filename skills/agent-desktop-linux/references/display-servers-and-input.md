@@ -342,7 +342,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   group the later window in `hyprctl clients` on top. Otherwise the action refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
   `evidence_missing`, `target_not_shown`, `point_outside_target`, `layer_cover`
-  or `window_cover`.
+  or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
+  `evidence_timed_out`.
 - **Every layer counts.** The tool trusts no layer namespace, its own cursor
   namespace included. A shell bar or dock that covers the whole output, as the
   stock Omarchy bar does, refuses every ref pointer action under it. Use a
@@ -351,12 +352,14 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   its `find` and `snapshot` bounds are its window rectangle at the window's
   Hyprland origin, in the same layout points. The pre-action hit test hides the
   agent's cursors, then reads the same window stack and layers; a cover answers
-  `InterceptedBy` with its rectangle, and evidence it cannot read answers
-  unknown.
+  `InterceptedBy` with its rectangle, evidence it cannot read answers unknown,
+  and a read that runs out of time is `TIMEOUT`.
 - **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
-  `hover_unsupported`, and sends nothing. Use `hover --xy`. `drag` by ref checks
-  both points against the window stack before it starts, then moves with no
-  further proof.
+  `hover_unsupported`, and sends nothing. Use `hover --xy`.
+- **`drag` by ref** proves both endpoints as a ref click does, before it starts.
+  Each must be shown, inside its window and uncovered, or the drag refuses
+  before any event with the same causes. The move itself carries no further
+  proof. `drag --from-xy` and `--to-xy` stay coordinate commands.
 - **Modifiers** are not held: `--modifiers` is `ACTION_NOT_SUPPORTED`, cause
   `modifiers_unsupported`, `not_delivered`.
 - **Focus gate.** The active window is read before every button press and

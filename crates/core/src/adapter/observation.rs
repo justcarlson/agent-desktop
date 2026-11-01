@@ -310,14 +310,15 @@ pub trait ObservationOps: Send + Sync {
     /// Strict receiver proof for a drag endpoint given by ref. An adapter
     /// whose hit test can answer unknown proves here that the endpoint
     /// receives the pointer, and refuses with a `not_delivered` error when
-    /// it cannot.
+    /// it cannot. `handle` is the endpoint the caller already resolved under
+    /// the interaction lease, as for [`Self::confirm_pointer_receiver`].
     fn confirm_drag_receiver(
         &self,
-        entry: &RefEntry,
+        handle: &NativeHandle,
         point: crate::Point,
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
-        let _ = (entry, point, deadline);
+        let _ = (handle, point, deadline);
         Ok(())
     }
 }
