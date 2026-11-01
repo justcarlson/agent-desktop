@@ -27,9 +27,9 @@ from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
 from scenarios.hyprland_desktop import keeps_focus
 
 HOST_SCRIPT = Path(__file__).resolve().parents[1] / "apps" / "dialog_host.py"
-HOST_NAMES = ("dialog host",)
-HOST_EXECUTABLE = "ad-dialog-host"
 DIALOG_CLASS = "ad-dialog-host"
+HOST_NAMES = ("dialog host", DIALOG_CLASS)
+HOST_EXECUTABLE = "ad-dialog-host"
 HOST_SETTLE_S = 10.0
 HOLD_S = 3.0
 
