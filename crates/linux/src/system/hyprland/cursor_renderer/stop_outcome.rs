@@ -7,7 +7,8 @@ pub(crate) enum StopOutcome {
     Stopped,
     /// The renderer exited after a signal, confirmed through its pidfd.
     Terminated,
-    /// The renderer was still alive after SIGKILL.
+    /// The renderer was still alive after SIGKILL, or its exit could not be
+    /// observed because its pidfd could not be opened.
     ExitUnconfirmed,
     /// A live renderer of another build did not exit after `disable`; it
     /// was not signalled.
