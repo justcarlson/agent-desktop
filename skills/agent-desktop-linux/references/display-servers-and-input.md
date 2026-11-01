@@ -345,7 +345,13 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   workspace. When `hyprctl clients` reports neither `allowedOverFullscreen`
   nor the older `overFullscreen` and that decides the order, the cause is `evidence_missing` with
   `evidence: "over_fullscreen"`.
-  Otherwise the action refuses before any event with
+  A headed ref action first activates the window, as `focus-window` does, so a
+  window on a hidden special workspace or another workspace is revealed before
+  any check. A cover the pre-action hit test sees then fails core's
+  `receives_events` check: `ACTION_FAILED`, `not_delivered`, reason
+  `occluded by layer` or `occluded by window`, with the layer namespace in
+  `occluder.name`. Anything that check passes or cannot read meets the
+  receiver proof before each burst, which refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
   `evidence_missing`, `target_not_shown`, `point_outside_target`,
   `popup_surface`, `layer_cover` or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
