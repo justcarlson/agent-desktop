@@ -28,7 +28,8 @@ pub(crate) fn prove_receiver(
     check_receiver(&stack, target, point, &DenyAllOverlays).map_err(|refusal| refusal.to_error())
 }
 
-fn read_stack(
+/// Reads every client, every layer surface and what each monitor shows.
+pub(crate) fn read_stack(
     binding: &HyprlandBinding,
     deadline: Deadline,
 ) -> Result<ReceiverStack, ReceiverRefusal> {

@@ -2,6 +2,7 @@
 //! `zwlr_virtual_pointer_v1`, and the one path every headed Hyprland
 //! mutation takes to hide the agent's cursors around its events.
 
+pub(crate) mod bound_geometry;
 pub(crate) mod cursor_guard;
 pub(crate) mod focus_gate;
 pub(crate) mod hypr_pointer;

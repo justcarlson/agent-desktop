@@ -337,7 +337,9 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   the element inside its window and prove the receiver from the compositor
   before each burst. The window must be mapped and shown, and the point must be
   inside it. No `top` or `overlay` layer and no floating, pinned or fullscreen
-  window may cover the point. Otherwise the action refuses before any event with
+  window drawn above the target may cover the point. Hyprland draws pinned
+  windows above floating ones, floating ones above tiled ones, and within a
+  group the later window in `hyprctl clients` on top. Otherwise the action refuses before any event with
   `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
   `evidence_missing`, `target_not_shown`, `point_outside_target`, `layer_cover`
   or `window_cover`.
@@ -345,9 +347,16 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   namespace included. A shell bar or dock that covers the whole output, as the
   stock Omarchy bar does, refuses every ref pointer action under it. Use a
   semantic action, or a coordinate command and read the effect.
-- **By ref, `hover` and `drag` refuse.** `hover @ref` is `ACTION_NOT_SUPPORTED`,
-  cause `hover_unsupported`. `drag` by ref refuses because Wayland gives a ref
-  no global bounds. Both send nothing. Use `hover --xy` or `drag --from-xy`.
+- **Bounds and hit tests** come from the compositor. A ref's live bounds and
+  its `find` and `snapshot` bounds are its window rectangle at the window's
+  Hyprland origin, in the same layout points. The pre-action hit test hides the
+  agent's cursors, then reads the same window stack and layers; a cover answers
+  `InterceptedBy` with its rectangle, and evidence it cannot read answers
+  unknown.
+- **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
+  `hover_unsupported`, and sends nothing. Use `hover --xy`. `drag` by ref checks
+  both points against the window stack before it starts, then moves with no
+  further proof.
 - **Modifiers** are not held: `--modifiers` is `ACTION_NOT_SUPPORTED`, cause
   `modifiers_unsupported`, `not_delivered`.
 - **Focus gate.** The active window is read before every button press and
