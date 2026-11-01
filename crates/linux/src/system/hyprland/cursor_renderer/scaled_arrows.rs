@@ -1,6 +1,7 @@
 //! Arrows drawn for each output scale. The arrow a cursor already holds is
-//! its scale-1 drawing; other scales draw it at the style's size times the
-//! scale, and a few recent drawings are kept so a travel redraws none.
+//! its scale-1 drawing; other scales draw it at the style's size, kept
+//! within its bounds, times the scale, and a few recent drawings are kept
+//! so a travel redraws none.
 
 use agent_desktop_core::CursorOverlayStyle;
 
@@ -30,9 +31,7 @@ impl ScaledArrows {
         {
             return bitmap.clone();
         }
-        let mut style = cursor.style.clone();
-        style.set_size(cursor.style.size() * steps as f64 / SCALE_STEP);
-        let bitmap = ArrowBitmap::draw(&style);
+        let bitmap = ArrowBitmap::draw_for_output(&cursor.style, steps as f64 / SCALE_STEP);
         if self.drawn.len() >= KEPT {
             self.drawn.remove(0);
         }
