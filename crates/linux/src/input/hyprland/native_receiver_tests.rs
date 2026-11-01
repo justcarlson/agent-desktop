@@ -69,3 +69,24 @@ fn an_unreadable_client_list_is_refused() {
     let error = check_native_receiver(b"not json", TARGET).unwrap_err();
     assert_eq!(error.details.as_ref().unwrap()["cause"], "evidence_missing");
 }
+
+#[test]
+fn a_failed_client_list_request_is_refused_as_missing_evidence() {
+    let read = Err(AdapterError::new(ErrorCode::Internal, "socket closed"));
+    let error = check_native_read(read, TARGET).unwrap_err();
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.as_ref().unwrap();
+    assert_eq!(details["cause"], "evidence_missing");
+    assert_eq!(details["evidence"], "client_xwayland");
+}
+
+#[test]
+fn a_client_list_request_that_runs_out_of_time_is_refused_as_timed_out_evidence() {
+    let read = Err(AdapterError::new(ErrorCode::Timeout, "deadline passed"));
+    let error = check_native_read(read, TARGET).unwrap_err();
+    assert_eq!(error.code, ErrorCode::Timeout);
+    let details = error.details.as_ref().unwrap();
+    assert_eq!(details["cause"], "evidence_timed_out");
+    assert_eq!(details["evidence"], "client_xwayland");
+}
