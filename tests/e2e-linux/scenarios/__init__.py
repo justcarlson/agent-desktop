@@ -51,6 +51,7 @@ from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_identity
 from scenarios import hyprland_identity_title
+from scenarios import hyprland_window_ops
 from scenarios import wayland_outputs
 
 __all__ = [
