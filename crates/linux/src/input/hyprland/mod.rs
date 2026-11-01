@@ -1,0 +1,17 @@
+//! Pointer input on the bound Hyprland instance through
+//! `zwlr_virtual_pointer_v1`, and the one path every headed Hyprland
+//! mutation takes to hide the agent's cursors around its events.
+
+pub(crate) mod cursor_guard;
+pub(crate) mod focus_gate;
+pub(crate) mod output_map;
+pub(crate) mod output_point;
+pub(crate) mod pointer_run;
+pub(crate) mod pointer_sink;
+pub(crate) mod run_plans;
+pub(crate) mod show_on_drop;
+pub(crate) mod step_event;
+pub(crate) mod wheel_axis;
+
+#[cfg(test)]
+pub(crate) mod fake_pointer_sink;
