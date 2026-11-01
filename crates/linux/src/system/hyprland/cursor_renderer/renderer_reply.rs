@@ -85,6 +85,16 @@ pub(crate) fn arrived(stream: &UnixStream) {
     write_reply(stream, &ok_reply(json!({})));
 }
 
+/// Refuses a travel whose arrival frame no output showed in time, so the
+/// caller is never told the cursor arrived when that is unknown.
+pub(crate) fn arrival_unconfirmed(stream: &UnixStream) {
+    let refusal = AdapterError::new(
+        ErrorCode::Timeout,
+        "No output showed the cursor's arrival frame before the arrival timeout",
+    );
+    write_reply(stream, &error_reply("cursor_arrival_unconfirmed", &refusal));
+}
+
 /// Answers every travel in flight with a refusal of `kind`.
 pub(crate) fn answer_travels(cursors: &mut AgentCursors, kind: &str) {
     let refusal = AdapterError::new(
