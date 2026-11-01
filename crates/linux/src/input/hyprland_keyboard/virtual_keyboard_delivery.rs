@@ -67,10 +67,12 @@ pub(crate) fn deliver<W: KeyboardWire>(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    let _ = (wire, owner, layout, chunks, gate, deadline);
+    let sink = VirtualKeyboardSink::new(wire, layout);
+    let mut session = KeycodeSession::new(sink, owner, layout, chunks);
+    let delivery = run_chunks(&mut session, chunks, gate, deadline)?;
     Ok(Delivery {
-        delivered_events: 0,
-        virtual_keyboard: false,
+        virtual_keyboard: true,
+        ..delivery
     })
 }
 
