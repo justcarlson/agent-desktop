@@ -19,7 +19,8 @@ from runner.helper import activate, display, managed, one, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_common import main_instance, shared
-from scenarios.hyprland_cursor import NAMESPACE, OVERLAY_LEVEL, SETTLE_S, alive, ended, live_button, record_of
+from scenarios.hyprland_cursor import (NAMESPACE, OVERLAY_LEVEL, SETTLE_S, alive, app_shown, ended, live_button,
+                                       record_of)
 
 AGENT_ENV = "AGENT_DESKTOP_AGENT_ID"
 TIP_SLACK = 3.0
@@ -169,7 +170,7 @@ def agent_identity_and_profiles(ctx: LegContext) -> None:
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
     ctx.before("hyprland.layers", surfaces_of(runtime, main))
     require(not surfaces_of(runtime, main), f"a cursor layer exists before the leg: {surfaces_of(runtime, main)}")
-    with managed(ctx, "Calculator") as app:
+    with managed(ctx, "Calculator") as app, app_shown(ctx.tier, app.pid):
         tree = root(ctx, app)
         before = display(tree)
         ctx.before("atspi.display", before)
@@ -202,7 +203,7 @@ def refusal_problems(envelope) -> list[str]:
 def missing_agent_id_refused(ctx: LegContext) -> None:
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
     ctx.before("hyprland.layers", surfaces_of(runtime, main))
-    with managed(ctx, "Calculator") as app:
+    with managed(ctx, "Calculator") as app, app_shown(ctx.tier, app.pid):
         tree = root(ctx, app)
         before = display(tree)
         ctx.before("atspi.display", before)
@@ -271,7 +272,7 @@ class ArrivalWatch:
 def arrival_ack_before_dispatch(ctx: LegContext) -> None:
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
     ctx.before("hyprland.layers", surfaces_of(runtime, main))
-    with managed(ctx, "Calculator") as app:
+    with managed(ctx, "Calculator") as app, app_shown(ctx.tier, app.pid):
         tree = root(ctx, app)
         before = display(tree)
         ctx.before("atspi.display", before)

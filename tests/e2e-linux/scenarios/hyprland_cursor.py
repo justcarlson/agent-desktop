@@ -24,8 +24,10 @@ from runner.verdict import LegContext
 from scenarios.hyprland_binding import pair_env
 from scenarios.hyprland_capture_common import capture_path, ids_by_pid, saved_image
 from scenarios.hyprland_capture_screen import grim
-from scenarios.hyprland_common import Sampler, desktop, main_instance, shared
+from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance, shared
 from scenarios.hyprland_desktop import _undo, keeps_focus
+from scenarios.hyprland_focus_controls import (SPECIAL, control, cursor, lua_call, restore_desktop, shown,
+                                               toggle_argv)
 
 NAMESPACE = "agent-desktop-cursor"
 OVERLAY_LEVEL = "3"
@@ -261,6 +263,59 @@ def _frame(runtime: Path, main: dict, pid: int) -> dict:
     return found[0]
 
 
+def focus_monitor_argv(name: str, lua: bool) -> list[str]:
+    if lua:
+        return ["dispatch", lua_call("hl.dsp.focus", {"monitor": name})]
+    hyprland.lua_string(name)
+    return ["dispatch", "focusmonitor", name]
+
+
+def focused_monitor(tier) -> str:
+    main = main_instance(tier)
+    found = [item["name"] for item in hyprland.query(shared(tier), main["signature"], "monitors", pid=main["pid"])
+             if item.get("focused")]
+    require(len(found) == 1, f"expected one focused monitor, found {found}")
+    return found[0]
+
+
+def _monitor_id(tier, name: str) -> int | None:
+    main = main_instance(tier)
+    found = [item["id"] for item in hyprland.query(shared(tier), main["signature"], "monitors", pid=main["pid"])
+             if item["name"] == name]
+    return found[0] if found else None
+
+
+@contextlib.contextmanager
+def app_shown(tier, pid: int, monitor: str | None = None):
+    """The app's special workspace open on `monitor`, the focused monitor when None, for the leg.
+
+    The run starts every app on a silent special workspace, and the cursor is parked over a hidden
+    target, so a leg that needs the cursor drawn over its app opens that workspace first. `j/monitors`
+    confirms it is shown and `j/clients` that the app is on that monitor before the leg acts. On exit
+    every special workspace is closed, the bystander has focus and the OS pointer is back where it
+    was. Yields the monitor's name.
+    """
+    runtime, main = shared(tier), main_instance(tier)
+    holder, point = bystander(tier), cursor(tier)
+    workspace = (_frame(runtime, main, pid).get("workspace") or {}).get("name", "")
+    require(workspace.startswith(SPECIAL), f"the app is on {workspace!r}, not on a special workspace")
+    require(not any(special for _, special in shown(tier).values()),
+            f"a special workspace is open before the leg: {shown(tier)}")
+    try:
+        target = monitor or focused_monitor(tier)
+        if focused_monitor(tier) != target:
+            control(tier, lambda lua: focus_monitor_argv(target, lua))
+            require(raw.poll(lambda: focused_monitor(tier) == target, SETTLE_S), f"{target} never took focus")
+        control(tier, lambda lua: toggle_argv(workspace, lua))
+        require(raw.poll(lambda: shown(tier).get(target, ("", ""))[1] == workspace, SETTLE_S),
+                f"{workspace} is not shown on {target}: {shown(tier)}")
+        require(raw.poll(lambda: _frame(runtime, main, pid).get("monitor") == _monitor_id(tier, target), SETTLE_S),
+                f"the app did not move to {target}")
+        yield target
+    finally:
+        restore_desktop(tier, holder, point)
+
+
 @implementation("cursor.window_capture_excludes_overlay")
 def window_capture_excludes_overlay(ctx: LegContext) -> None:
     """The cursor shows on the screen and never in a window capture.
@@ -269,7 +324,7 @@ def window_capture_excludes_overlay(ctx: LegContext) -> None:
     so the click's own effect on the app is in both and only the cursor differs.
     """
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
-    with managed(ctx, "Calculator") as app:
+    with managed(ctx, "Calculator") as app, app_shown(ctx.tier, app.pid):
         window_id = ids_by_pid(ctx.product(["list-windows"]), [app.pid])[app.pid]
         tree = root(ctx, app)
         before = display(tree)
