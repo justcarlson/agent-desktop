@@ -44,7 +44,7 @@ helper tool.
 | Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; `--headed` only, on X11 or a bound Hyprland |
 | Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, on X11 or a bound Hyprland. On Hyprland, `hover` by ref refuses at once with cause `hover_unsupported` and `hover --xy` works; headed ref clicks, scrolls and drags refuse before any event, with cause `native_wayland_client` on a native Wayland window and `receiver_unproven` on an XWayland window; use `click @ref` without `--headed`, or `mouse-click --xy`. Other Wayland sessions refuse with `ACTION_NOT_SUPPORTED`. See `references/display-servers-and-input.md` |
 | Focus | `focus` | Needs `--headed` for the focus permission. Calls AT-SPI `Component.GrabFocus` on a focusable node that is not yet `focused`, not the pointer, and verifies the state; a GTK4 app rejects the call, so `focus` ends `ACTION_FAILED` `grab_focus_rejected` there and `focus-window` is the way to focus its window |
-| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and capability-detected Mutter Wayland sessions; pointer commands need `--headed` and X11 or a bound Hyprland. See `references/display-servers-and-input.md` |
+| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11, capability-detected Mutter Wayland sessions and a bound Hyprland; pointer commands need `--headed` and X11 or a bound Hyprland. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; on a bound Hyprland, `list-windows` also lists windows without an accessibility tree, such as foot. `focus-window` and graceful `close-app` need X11 or a bound Hyprland; there `focus-window` activates only with `--headed` and reports `data.activation`. Move, resize, minimize, maximize and restore need an X11 client or a bound Hyprland, where move and resize act on floating windows only. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | X11; GNOME Wayland through Mutter; other Wayland compositors through `wl_output` and `zxdg_output_manager_v1`. See `references/display-servers-and-input.md` |
@@ -223,7 +223,7 @@ Retry after the cause is gone.
   `not_delivered` refusal (Windows works the other way round). On Wayland, headed
   pointer commands and a headed `select` refuse at once with
   `ACTION_NOT_SUPPORTED`, cause `wayland_session`; a headed `type` needs the
-  Mutter RemoteDesktop capability. `references/display-servers-and-input.md`
+  Mutter RemoteDesktop capability or a bound Hyprland. `references/display-servers-and-input.md`
   has the full rules.
 - `select` tries the semantic route first and the pointer second; the pointer
   route needs an explicit `--headed` request on X11. A Qt combo's semantic
