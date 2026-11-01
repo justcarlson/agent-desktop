@@ -178,3 +178,70 @@ fn the_lifecycle_overrides_are_wired_to_the_adapter() {
         .expect_err("no desktop here");
     not_the_default(&error);
 }
+
+const POINTER_GATE_CHILD: &str = "AD_ADAPTER_POINTER_GATE_CHILD";
+
+fn run_on_listening_wayland(test: &str, bound: bool) -> bool {
+    if std::env::var_os(POINTER_GATE_CHILD).is_some() {
+        return false;
+    }
+    let dir = std::env::temp_dir().join(format!(
+        "ad-pointer-gate-{}-{test}-{bound}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("a socket directory");
+    let socket = dir.join("wayland-gate");
+    let _ = std::fs::remove_file(&socket);
+    let listener = std::os::unix::net::UnixListener::bind(&socket).expect("a listening socket");
+    let mut command = std::process::Command::new(std::env::current_exe().expect("test binary"));
+    command
+        .args(["--exact", &format!("adapter::tests::{test}"), "--nocapture"])
+        .env(POINTER_GATE_CHILD, "1")
+        .env("WAYLAND_DISPLAY", &socket)
+        .env("XDG_RUNTIME_DIR", &dir)
+        .env_remove("DISPLAY")
+        .env_remove("HYPRLAND_INSTANCE_SIGNATURE");
+    if bound {
+        command.env(crate::input::hyprland::hypr_route::TEST_ROUTE_VARIABLE, "1");
+    } else {
+        command.env_remove(crate::input::hyprland::hypr_route::TEST_ROUTE_VARIABLE);
+    }
+    let output = command.output().expect("isolated test starts");
+    drop(listener);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(output.status.success(), "{output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+        "{test} must execute exactly one test: {output:?}"
+    );
+    true
+}
+
+#[test]
+fn a_bound_hyprland_session_passes_the_pointer_gate() {
+    if run_on_listening_wayland("a_bound_hyprland_session_passes_the_pointer_gate", true) {
+        return;
+    }
+    let refusal = LinuxAdapter::new().physical_pointer_refusal();
+
+    assert!(refusal.is_none(), "{refusal:?}");
+}
+
+#[test]
+fn an_unbound_wayland_session_still_fails_the_pointer_gate() {
+    if run_on_listening_wayland(
+        "an_unbound_wayland_session_still_fails_the_pointer_gate",
+        false,
+    ) {
+        return;
+    }
+    let refusal = LinuxAdapter::new()
+        .physical_pointer_refusal()
+        .expect("an unbound Wayland session refuses pointer input");
+
+    assert_eq!(refusal.code, ErrorCode::ActionNotSupported);
+    assert_eq!(
+        refusal.details.unwrap_or_default()["cause"],
+        "wayland_session"
+    );
+}
