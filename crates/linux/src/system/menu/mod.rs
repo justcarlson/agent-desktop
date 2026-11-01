@@ -20,6 +20,7 @@ pub(super) mod menu_wait;
 pub(super) mod menu_wait_live_tests;
 pub(crate) mod nested_surface;
 pub(crate) mod overview;
+pub(crate) mod process_dialogs;
 #[cfg(test)]
 pub(super) mod sheet_live_tests;
 pub(in crate::system) mod surface_scan;
