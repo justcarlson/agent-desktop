@@ -97,7 +97,7 @@ impl CursorSurface {
             deadline,
         );
         if let Err(fault) = configured {
-            made.destroy();
+            made.destroy(state);
             return Err(fault);
         }
         Ok(made)
@@ -133,6 +133,7 @@ impl CursorSurface {
         state.frames_sent = state.frames_sent.wrapping_add(1);
         let mark = state.frames_sent;
         let _callback = self.surface.frame(&link.handle(), FrameMark(mark));
+        state.frames_pending.insert(mark, self.surface.id());
         self.surface.commit();
         mark
     }
@@ -142,8 +143,13 @@ impl CursorSurface {
         self.margin
     }
 
-    /// Destroys the layer surface, the surface and the buffers.
-    pub(crate) fn destroy(&self) {
+    /// Destroys the layer surface, the surface and the buffers, and drops
+    /// the frames still pending on it, whose callbacks never come.
+    pub(crate) fn destroy(&self, state: &mut LayerState) {
+        let surface = self.surface.id();
+        state
+            .frames_pending
+            .retain(|_, pending| *pending != surface);
         if let Some(fractional) = &self.fractional {
             fractional.destroy();
         }
@@ -156,20 +162,30 @@ impl CursorSurface {
     }
 }
 
-/// Waits until the frame callback for `mark` has fired. A compositor that
-/// shows nothing sends no callback, so the deadline passing is not an error.
+/// Waits until the callback of every frame `frames` spans has fired: the
+/// marks after its first value up to and including its second, on every
+/// surface still alive. A compositor that shows nothing sends no callback,
+/// so the deadline passing is not an error.
 pub(crate) fn settle(
     link: &mut LayerLink,
     state: &mut LayerState,
-    mark: u32,
+    frames: (u32, u32),
     deadline: Deadline,
 ) -> Result<(), WaylandFault> {
     match link.wait(
         state,
-        |state| state.frames_done >= mark || state.closed,
+        |state| state.closed || !any_pending(state, frames),
         deadline,
     ) {
         Err(WaylandFault::Silent) => Ok(()),
         other => other,
     }
+}
+
+fn any_pending(state: &LayerState, (after, through): (u32, u32)) -> bool {
+    let span = through.wrapping_sub(after);
+    state
+        .frames_pending
+        .keys()
+        .any(|mark| mark.wrapping_sub(after).wrapping_sub(1) < span)
 }
