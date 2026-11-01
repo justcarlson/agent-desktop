@@ -4,22 +4,27 @@ Hyprland composes a toplevel on a workspace a monitor shows and asks it for
 every frame, so `screenshot --window-id` answers with the first frame. A slow
 painter in view draws a tick about every 200 ms; each capture must show the
 newest tick it committed before the request, drawn within one draw of it. A
-painted terminal in view does not change; it must be captured faster than the
-redraw wait can answer an unchanged window, and within a 250 ms batch budget.
+painted terminal in view does not change; `screenshot` and `batch` must each
+capture it with exactly one image-copy capture session, counted in the
+product's Wayland protocol log. The redraw wait opens a second session for an
+unchanged window, so a count of one shows it was skipped. Elapsed times are
+kept as a record only.
 """
 
 from __future__ import annotations
+
+import json
+import re
 
 from oracle import atspi_raw as raw
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.hyprland_capture import (SHARE, _batch, _capture, _oracle_discriminates, _placement,
+from scenarios.hyprland_capture import (SHARE, _capture, _oracle_discriminates, _placement,
                                         _settled_capture, painted_problems, scale_of)
 from scenarios.hyprland_capture_common import (COMMIT_MARGIN_NS, capture_path, colour, dominant, first_drawn,
                                                ids_by_pid, monotonic_ns, near, newest_drawn, painted, saved_image,
                                                settled_tick, slow_painted, tick_of, written)
-from scenarios.hyprland_capture_refusals import batch_entry_problems
 from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
 from scenarios.hyprland_desktop import keeps_focus
 from scenarios.hyprland_windows import client, cursor, move, restore_desktop
@@ -28,7 +33,7 @@ ROUNDS = 3
 TICKS_BETWEEN = 3
 SLOW_DELAY_MS = 200
 STILL_PAINT = "5070a0"
-IN_VIEW_BUDGET_MS = 250
+SESSION_REQUEST = re.compile(r" -> ext_image_copy_capture_manager_v1@\d+\.create_session\(")
 
 
 @implementation("capture.hyprland_in_view_first_frame")
@@ -85,26 +90,43 @@ def _view_round(ctx, window_id: str, log, label: str) -> tuple[list[str], tuple[
     return [], (tick, mark)
 
 
+def capture_sessions(envelope) -> int:
+    """The image-copy capture sessions one product run asked for, from its WAYLAND_DEBUG log."""
+    return len(SESSION_REQUEST.findall(envelope.stderr))
+
+
+def _one_session(label: str, envelope) -> list[str]:
+    sessions = capture_sessions(envelope)
+    if sessions == 1:
+        return []
+    return [f"{label}: an unchanged window in view used {sessions} capture sessions, not 1, "
+            f"so it {'waited for a redraw' if sessions > 1 else 'left no protocol log'}"]
+
+
 def _still_in_view(ctx, window_id: str, found: dict) -> list[str]:
-    """An unchanged window in view is answered sooner than the redraw wait could answer it."""
+    """An unchanged window in view is answered from its first capture session, with no redraw wait."""
     size, scale = tuple(found["size"]), scale_of(ctx.tier, found)
     envelope, image = _settled_capture(ctx, window_id, "in-view-still", size, scale)
     if image is None:
         return [f"in view still: capture failed: {envelope.raw[:300]}"]
-    envelope, image = _capture(ctx, window_id, "in-view-still-timed")
+    logged = dict(ctx.tier.env, WAYLAND_DEBUG="1")
+    path = capture_path(ctx.tier, "in-view-still-logged")
+    envelope = ctx.product(["screenshot", "--window-id", window_id, str(path)], env=logged)
+    image = saved_image(envelope, path) if envelope.ok else None
     if image is None:
         return [f"in view still: capture failed: {envelope.raw[:300]}"]
     problems = painted_problems("in view still", image, STILL_PAINT, size, scale)
-    if envelope.elapsed_ms > IN_VIEW_BUDGET_MS:
-        problems.append(f"in view still: an unchanged window in view took {envelope.elapsed_ms:.0f} ms, "
-                        f"more than {IN_VIEW_BUDGET_MS} ms, so it waited for a redraw")
+    problems += _one_session("in view still", envelope)
     path = capture_path(ctx.tier, "in-view-still-batch")
-    batched = _batch(ctx, window_id, path, IN_VIEW_BUDGET_MS)
-    found_problems, outcome = batch_entry_problems(IN_VIEW_BUDGET_MS, batched)
-    problems += found_problems
-    if outcome != "captured":
+    entries = json.dumps([{"command": "screenshot", "args": {"window_id": window_id, "output_path": str(path)}}])
+    batched = ctx.product(["batch", entries], env=logged)
+    ctx.finding(f"in view still, record only: screenshot {envelope.elapsed_ms:.0f} ms, "
+                f"batch {batched.elapsed_ms:.0f} ms")
+    results = (batched.data or {}).get("results") or []
+    if not batched.ok or len(results) != 1 or results[0].get("ok") is not True:
         path.unlink(missing_ok=True)
-        return problems + [f"in view still: a {IN_VIEW_BUDGET_MS} ms batch answered {outcome}, not a capture"]
+        return problems + [f"in view still: the batch did not capture: {batched.raw[:300]}"]
+    problems += _one_session("in view still batch", batched)
     colour_found, share = dominant(saved_image(batched, path))
     if not near(colour_found, colour(STILL_PAINT)) or share < SHARE:
         problems.append(f"in view still: the batch capture is {share:.0%} {colour_found}, "
