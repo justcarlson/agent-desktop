@@ -159,7 +159,7 @@ def ref_receiver_evidence(ctx: LegContext) -> None:
         ctx.before("hyprland.clients", clients_summary(tier, instance))
         problems = [problem for verb, want in GESTURES
                     for problem in gesture_problems(ctx, env, log, button, verb, want)]
-        problems += scroll_problems(ctx, env, log, button)
+        problems += scroll_problems(ctx, env, log, pad_ref(ctx, env, owned, PAD_SCROLL))
         with layer_cover(tier, instance):
             problems += covered_click(ctx, env, log, button, "layer_cover", "slurp layer cover")
         problems += gesture_problems(ctx, env, log, button, "click", [1])
