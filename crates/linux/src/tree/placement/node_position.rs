@@ -194,6 +194,9 @@ fn place_of(
             drawn: None,
         }));
     }
+    if let Some(binding) = crate::input::hyprland::hypr_route::bound_route()? {
+        return hyprland_place(&binding, bus, frame, deadline);
+    }
     let facts = FrameFacts {
         size_identity: title.is_empty()
             && crate::system::window::frame_identity::permits_on_bus(
@@ -221,6 +224,29 @@ fn place_of(
         }),
         ClientMatch::Several(_) | ClientMatch::NoClient => None,
     })
+}
+
+/// The frame's toplevel origin in the bound Hyprland instance's layout.
+/// A timeout stays an error; a frame it cannot bind is unplaced.
+fn hyprland_place(
+    binding: &crate::system::hyprland::bind::hyprland_binding::HyprlandBinding,
+    bus: &SharedBus,
+    frame: &AtspiElement,
+    deadline: Deadline,
+) -> Result<Option<FramePlace>, AdapterError> {
+    let client = crate::system::hyprland::placement::placement_read::frame_client(
+        binding, bus, frame, deadline,
+    )
+    .map(Some);
+    Ok(
+        crate::input::hyprland::bound_geometry::unplaced_as(client, None)?
+            .as_ref()
+            .and_then(crate::system::hyprland::placement::frame_origin::origin_of)
+            .map(|origin| FramePlace {
+                origin,
+                drawn: None,
+            }),
+    )
 }
 
 /// Puts the node rectangles of a finished walk where a pointer can be aimed

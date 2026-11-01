@@ -198,7 +198,7 @@ D-Bus or X11 error.
   advertised GNOME surfaces; see `references/shell-tray-and-notifications.md`.
 - Ordinary app pointer commands on Wayland, except on a bound Hyprland, and
   window screenshots on Wayland, except on a bound Hyprland. On Hyprland,
-  `hover` and `drag` by ref refuse. Shell ref clicks also refuse on Wayland, and
+  `hover` by ref refuses. Shell ref clicks also refuse on Wayland, and
   on X11 unless the shell's own tree proves the receiver.
 
 ## Missing tools

@@ -395,8 +395,8 @@ Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 | `modifiers_unsupported` | `ACTION_NOT_SUPPORTED` | Held modifiers were asked for |
 | `unsupported_step` | `ACTION_NOT_SUPPORTED` | The plan holds a button or key the virtual pointer does not send |
 
-`drag` by ref refuses before any event, because Wayland gives a ref no global
-bounds.
+`drag` by ref checks both points against the compositor's window stack before
+it starts, then moves with no further proof.
 
 The active window is read before every button press and wheel step. A change
 stops delivery with `ACTION_FAILED`, `details.kind: "focus_gate"`,

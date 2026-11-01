@@ -3,12 +3,14 @@ use agent_desktop_core::{Point, Rect};
 use super::overlay_filter::OverlayFilter;
 use super::receiver_refusal::ReceiverRefusal;
 use super::stack::ReceiverStack;
+use super::stack_client::StackClient;
 
 const ABOVE_WINDOWS: u8 = 2;
 
 /// Refuses unless `point` lies inside the shown toplevel `target` with no
 /// top or overlay layer and no floating, pinned or fullscreen window over
-/// it. A layer counts as a cover unless `filter` accepts it as this tool's
+/// it, counting a window only when it draws above the target. A layer counts
+/// as a cover unless `filter` accepts it as this tool's
 /// own cursor overlay.
 pub(crate) fn check_receiver(
     stack: &ReceiverStack,
@@ -16,10 +18,11 @@ pub(crate) fn check_receiver(
     point: &Point,
     filter: &dyn OverlayFilter,
 ) -> Result<(), ReceiverRefusal> {
-    let client = stack
+    let (target_rank, client) = stack
         .clients
         .iter()
-        .find(|client| client.address == target)
+        .enumerate()
+        .find(|(_, client)| client.address == target)
         .ok_or(ReceiverRefusal::EvidenceMissing {
             check: "target_client",
         })?;
@@ -37,8 +40,9 @@ pub(crate) fn check_receiver(
             level: layer.level,
         });
     }
-    if let Some(cover) = stack.clients.iter().find(|other| {
+    if let Some((_, cover)) = stack.clients.iter().enumerate().find(|(rank, other)| {
         other.address != target
+            && above((*rank, other), (target_rank, client))
             && other.shown
             && (other.floating || other.pinned || other.fullscreen)
             && (other.pinned || stack.desktop.in_view(&other.workspace))
@@ -51,7 +55,20 @@ pub(crate) fn check_receiver(
     Ok(())
 }
 
-fn holds(rect: &Rect, point: &Point) -> bool {
+/// Whether `other` draws above `target`. Hyprland lists `j/clients` in its
+/// stacking order, bottom first, and draws every floating, pinned or
+/// fullscreen window above the tiled ones and every pinned window above the
+/// rest; within one of those groups the later window is on top.
+fn above(other: (usize, &StackClient), target: (usize, &StackClient)) -> bool {
+    let group = |client: &StackClient| match (client.pinned, client.floating || client.fullscreen) {
+        (true, _) => 2,
+        (false, true) => 1,
+        (false, false) => 0,
+    };
+    (group(other.1), other.0) > (group(target.1), target.0)
+}
+
+pub(crate) fn holds(rect: &Rect, point: &Point) -> bool {
     point.x >= rect.x
         && point.x < rect.x + rect.width
         && point.y >= rect.y
