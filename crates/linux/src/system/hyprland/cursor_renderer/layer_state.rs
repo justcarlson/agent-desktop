@@ -1,10 +1,16 @@
 //! The renderer's Wayland client state: the registry, round trips, the layer
 //! surface's configure and close events, and frame callbacks. Frame marks
 //! count for the whole connection, so a rebuilt surface never waits on a
-//! mark an earlier surface already reached. A closed surface pinned to an
+//! mark an earlier surface already reached. Each mark stays pending, with
+//! the surface it was committed on, until its own callback fires, because
+//! outputs show frames at their own pace and a later mark on one output
+//! says nothing about an earlier one on another. A closed surface pinned to an
 //! output is noted for the client to rebuild, since its output went; a
 //! closed unpinned surface closes the renderer.
 
+use std::collections::BTreeMap;
+
+use wayland_client::backend::ObjectId;
 use wayland_client::protocol::{
     wl_buffer, wl_callback, wl_compositor, wl_region, wl_registry, wl_shm, wl_shm_pool,
 };
@@ -26,6 +32,7 @@ pub(crate) struct LayerState {
     pub(crate) closed: bool,
     pub(crate) frames_sent: u32,
     pub(crate) frames_done: u32,
+    pub(crate) frames_pending: BTreeMap<u32, ObjectId>,
     pub(crate) outputs: LayerOutputs,
 }
 
@@ -63,6 +70,7 @@ impl Dispatch<wl_callback::WlCallback, FrameMark> for LayerState {
     ) {
         if let wl_callback::Event::Done { .. } = event {
             state.frames_done = state.frames_done.max(mark.0);
+            state.frames_pending.remove(&mark.0);
         }
     }
 }
