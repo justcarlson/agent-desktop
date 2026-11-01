@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, ErrorCode};
@@ -5,6 +6,7 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 use super::output_point::OutputPoint;
 use super::pointer_sink::PointerSink;
 use super::wheel_axis::WheelAxis;
+use crate::input::x11::progress::Progress;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SinkEvent {
@@ -18,6 +20,7 @@ pub(crate) enum SinkEvent {
 pub(crate) struct FakePointerSink {
     pub(crate) events: Vec<SinkEvent>,
     pub(crate) fail_at: Option<usize>,
+    pub(crate) cancel_after: Option<(usize, Arc<Progress>)>,
 }
 
 impl FakePointerSink {
@@ -26,6 +29,11 @@ impl FakePointerSink {
             return Err(AdapterError::new(ErrorCode::ActionFailed, "sink broke"));
         }
         self.events.push(event);
+        if let Some((count, progress)) = &self.cancel_after
+            && *count == self.events.len()
+        {
+            progress.cancel();
+        }
         Ok(())
     }
 }
