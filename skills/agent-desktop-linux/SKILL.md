@@ -24,11 +24,12 @@ Needs Ubuntu 24.04+ (x86_64 or aarch64), a graphical session of the signed-in
 user and a running AT-SPI bus. Other distributions need the at-spi2-core bridge
 fix dc0dc33; Ubuntu 22.04's bridge aborts on `Action.GetActions`. The archive
 loader floor is glibc 2.35. Run the CLI inside the target apps' desktop session:
-the session bus, display and runtime directory come from its environment. A TTY
-login, a container without a bus or another user's session sees no apps. On
-Hyprland, a shell without display variables, such as an SSH shell, binds the
-user's one live Hyprland instance from `/run/user/<uid>`; several live instances
-refuse with `hyprland_ambiguous`. See `references/display-servers-and-input.md`.
+the session bus, display and runtime directory come from its environment. A
+shell that cannot reach the session or accessibility bus, a container without a
+bus or another user's session sees no apps. On Hyprland, a shell without
+display variables, such as an SSH shell, binds the user's one live Hyprland
+instance from `/run/user/<uid>`; several live instances refuse with
+`hyprland_ambiguous`. See `references/display-servers-and-input.md`.
 GNOME is the measured desktop; X11 and Wayland sessions both work and differ in
 input, capture and window control. Observation and semantic actions need no
 helper tool.
