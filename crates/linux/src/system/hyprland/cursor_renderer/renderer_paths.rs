@@ -44,7 +44,7 @@ impl RendererPaths {
     pub(crate) fn in_dir(dir: &Path, session_key: &str) -> Result<Self, AdapterError> {
         let socket = dir.join(format!("{session_key}.sock"));
         let length = socket.as_os_str().len();
-        if length > usize::MAX - 1 {
+        if length > SUN_PATH_LIMIT {
             return Err(path_too_long(&socket, length));
         }
         Ok(Self {
