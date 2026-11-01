@@ -43,17 +43,18 @@ pub(crate) fn hit_of(stack: &ReceiverStack, target: u64, point: &Point) -> HitTe
 }
 
 /// [`hit_of`] on a fresh read of the bound instance's stack. A read that
-/// fails is unknown.
+/// runs out of time is a timeout; any other failed read is unknown.
 pub(crate) fn read_hit(
     binding: &HyprlandBinding,
     target: u64,
     point: &Point,
     deadline: Deadline,
 ) -> Result<HitTestResult, AdapterError> {
-    Ok(match read_stack(binding, deadline) {
-        Ok(stack) => hit_of(&stack, target, point),
-        Err(_) => HitTestResult::Unknown,
-    })
+    match read_stack(binding, deadline) {
+        Ok(stack) => Ok(hit_of(&stack, target, point)),
+        Err(refusal @ ReceiverRefusal::EvidenceTimedOut { .. }) => Err(refusal.to_error()),
+        Err(_) => Ok(HitTestResult::Unknown),
+    }
 }
 
 #[cfg(test)]

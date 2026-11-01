@@ -14,6 +14,7 @@ use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_context::CursorContext;
 use crate::system::hyprland::placement::placement_read::{place_target, placed_bounds};
 use crate::system::hyprland::receiver::receiver_hit::read_hit;
+use crate::system::hyprland::receiver::receiver_read::prove_receiver;
 use crate::system::{SharedBus, shell};
 use crate::tree::{AtspiElement, atspi_element};
 
@@ -75,6 +76,26 @@ pub(crate) fn bound_hit(
         read_hit(&binding, placed.address, point, deadline)
     })
     .map(Some)
+}
+
+/// Proves that `point` reaches the element before a drag by ref uses it as
+/// an endpoint: the element is placed on its shown toplevel and the
+/// compositor's stack, read with the agent's cursors hidden, must show no
+/// cover. Anything less refuses before any event.
+pub(crate) fn prove_bound_point(
+    bus: &SharedBus,
+    handle: &NativeHandle,
+    point: &Point,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    let Some((binding, element)) = bound_target(handle)? else {
+        return Ok(());
+    };
+    let placed = place_target(&binding, bus, element, Some(point), deadline)?;
+    let mut hider = crate::system::hyprland::cursor_hider(&CursorContext { binding: &binding });
+    with_cursors_hidden(hider.as_mut(), deadline, || {
+        prove_receiver(&binding, placed.address, &placed.at, deadline)
+    })
 }
 
 /// A timeout stays an error; any other refusal to place the element

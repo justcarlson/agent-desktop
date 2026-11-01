@@ -7,7 +7,9 @@ use agent_desktop_core::{
 };
 
 use crate::input::hyprland::bound_geometry;
+use crate::input::physical::target_pointer::confirm_receiver;
 use crate::system::SharedBus;
+use crate::tree::live_read::pointer_refusal::pointer_position_refusal;
 
 pub struct LinuxAdapter {
     bus: SharedBus,
@@ -168,11 +170,7 @@ impl ObservationOps for LinuxAdapter {
         if crate::system::tray::target_of(handle).is_some() || bound_geometry::is_bound(handle) {
             return None;
         }
-        crate::tree::live_read::pointer_refusal::pointer_position_refusal(
-            self.bus(),
-            handle,
-            deadline,
-        )
+        pointer_position_refusal(self.bus(), handle, deadline)
     }
 
     fn get_text_selection(
@@ -205,12 +203,20 @@ impl ObservationOps for LinuxAdapter {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         let handle = self.resolve_element_strict(entry, deadline)?;
-        crate::input::physical::target_pointer::confirm_receiver(
-            self.bus(),
-            &handle,
-            &point,
-            deadline,
-        )
+        confirm_receiver(self.bus(), &handle, &point, deadline)
+    }
+
+    fn confirm_drag_receiver(
+        &self,
+        entry: &RefEntry,
+        point: Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        if crate::input::hyprland::hypr_route::bound_route()?.is_none() {
+            return Ok(());
+        }
+        let handle = self.resolve_element_strict(entry, deadline)?;
+        bound_geometry::prove_bound_point(self.bus(), &handle, &point, deadline)
     }
 
     fn list_windows(

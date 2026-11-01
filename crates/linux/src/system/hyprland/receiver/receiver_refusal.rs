@@ -5,6 +5,7 @@ use serde_json::json;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ReceiverRefusal {
     EvidenceMissing { check: &'static str },
+    EvidenceTimedOut { check: &'static str },
     TargetNotShown,
     PointOutsideTarget,
     LayerCover { namespace: String, level: u8 },
@@ -15,6 +16,7 @@ impl ReceiverRefusal {
     fn cause(&self) -> &'static str {
         match self {
             Self::EvidenceMissing { .. } => "evidence_missing",
+            Self::EvidenceTimedOut { .. } => "evidence_timed_out",
             Self::TargetNotShown => "target_not_shown",
             Self::PointOutsideTarget => "point_outside_target",
             Self::LayerCover { .. } => "layer_cover",
@@ -27,6 +29,9 @@ impl ReceiverRefusal {
             Self::EvidenceMissing { check } => {
                 format!("Hyprland gave no {check} evidence for the pointer target")
             }
+            Self::EvidenceTimedOut { check } => {
+                format!("Hyprland did not answer the {check} read within the deadline")
+            }
             Self::TargetNotShown => "the target window is not shown on any output".to_owned(),
             Self::PointOutsideTarget => "the pointer target lies outside its window".to_owned(),
             Self::LayerCover { namespace, level } => {
@@ -38,7 +43,8 @@ impl ReceiverRefusal {
         }
     }
 
-    /// The not-delivered error this refusal returns before any event.
+    /// The not-delivered error this refusal returns before any event. A read
+    /// that ran out of time is a timeout.
     pub(crate) fn to_error(&self) -> AdapterError {
         let mut details = json!({
             "kind": "receiver_evidence",
@@ -47,7 +53,9 @@ impl ReceiverRefusal {
             "physical_delivery_started": false,
         });
         match self {
-            Self::EvidenceMissing { check } => details["evidence"] = json!(check),
+            Self::EvidenceMissing { check } | Self::EvidenceTimedOut { check } => {
+                details["evidence"] = json!(check)
+            }
             Self::LayerCover { namespace, level } => {
                 details["layer_namespace"] = json!(namespace);
                 details["layer_level"] = json!(level);
@@ -57,7 +65,11 @@ impl ReceiverRefusal {
             }
             Self::TargetNotShown | Self::PointOutsideTarget => {}
         }
-        AdapterError::new(ErrorCode::ActionFailed, self.message())
+        let code = match self {
+            Self::EvidenceTimedOut { .. } => ErrorCode::Timeout,
+            _ => ErrorCode::ActionFailed,
+        };
+        AdapterError::new(code, self.message())
             .with_details(details)
             .with_disposition(DeliverySemantics::not_delivered())
             .with_suggestion(

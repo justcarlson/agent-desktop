@@ -328,3 +328,46 @@ fn an_unbound_wayland_session_has_no_pointer_leg_for_the_wheel() {
 
     assert!(!crate::tree::capabilities::scroll_capability::session_pointer_leg());
 }
+
+fn drag_endpoint_proof(bound: bool, test: &str) -> Option<Result<(), AdapterError>> {
+    if run_on_listening_wayland(test, bound) {
+        return None;
+    }
+    let element = crate::tree::AtspiElement::new(":1.30", "/org/a11y/atspi/accessible/1", 1);
+    let deadline = Deadline::after(1_000).expect("deadline");
+    Some(bound_geometry::prove_bound_point(
+        &SharedBus::default(),
+        &element.into_native_handle(),
+        &Point { x: 10.0, y: 10.0 },
+        deadline,
+    ))
+}
+
+#[test]
+fn a_bound_hyprland_session_refuses_a_drag_endpoint_it_cannot_place() {
+    let Some(proof) = drag_endpoint_proof(
+        true,
+        "a_bound_hyprland_session_refuses_a_drag_endpoint_it_cannot_place",
+    ) else {
+        return;
+    };
+
+    let error = proof.expect_err("an endpoint with no placement has no receiver proof");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.details.unwrap_or_default()["kind"],
+        "receiver_evidence"
+    );
+}
+
+#[test]
+fn an_unbound_session_leaves_a_drag_endpoint_to_the_hit_test() {
+    let Some(proof) = drag_endpoint_proof(
+        false,
+        "an_unbound_session_leaves_a_drag_endpoint_to_the_hit_test",
+    ) else {
+        return;
+    };
+
+    assert!(proof.is_ok(), "{proof:?}");
+}

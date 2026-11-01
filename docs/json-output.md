@@ -388,6 +388,7 @@ cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 | Cause | Meaning | Extra `details` |
 |-------|---------|-----------------|
 | `evidence_missing` | A compositor read failed or was incomplete | `evidence` names the read |
+| `evidence_timed_out` | A compositor read ran out of time; the code is `TIMEOUT` | `evidence` names the read |
 | `target_not_shown` | The window is not on a workspace an output shows | |
 | `point_outside_target` | The aim point lies outside the window | |
 | `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
@@ -403,8 +404,8 @@ Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 | `modifiers_unsupported` | `ACTION_NOT_SUPPORTED` | Held modifiers were asked for |
 | `unsupported_step` | `ACTION_NOT_SUPPORTED` | The plan holds a button or key the virtual pointer does not send |
 
-`drag` by ref checks both points against the compositor's window stack before
-it starts, then moves with no further proof.
+`drag` by ref proves both endpoints the same way before it starts, with the
+same refusals. The move itself carries no further proof.
 
 The active window is read before every button press and wheel step. A change
 stops delivery with `ACTION_FAILED`, `details.kind: "focus_gate"`,

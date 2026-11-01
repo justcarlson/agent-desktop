@@ -122,6 +122,8 @@ pub fn execute(
             from.focused = focused;
             Ok((from, to, lease))
         })?;
+        confirm_endpoint(&from, deadline, adapter)?;
+        confirm_endpoint(&to, deadline, adapter)?;
         ensure_point_deadline(
             deadline,
             Some(json!({
@@ -190,6 +192,18 @@ pub fn execute(
         WaitForScope::From => from.source_entry.as_ref().or(to.source_entry.as_ref()),
     };
     apply_post_action_wait(response, wait_entry, adapter, context)
+}
+
+fn confirm_endpoint(
+    resolved: &crate::commands::point_resolve::ResolvedPoint,
+    deadline: crate::Deadline,
+    adapter: &dyn PlatformAdapter,
+) -> Result<(), AppError> {
+    let Some(entry) = resolved.source_entry.as_ref() else {
+        return Ok(());
+    };
+    adapter.confirm_drag_receiver(entry, resolved.point.clone(), deadline)?;
+    Ok(())
 }
 
 #[cfg(test)]
