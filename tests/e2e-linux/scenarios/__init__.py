@@ -68,6 +68,7 @@ from scenarios import hyprland_focus_reports
 from scenarios import hyprland_parallel
 from scenarios import hyprland_parallel_cancel
 from scenarios import hyprland_parallel_faults
+from scenarios import hyprland_keys
 from scenarios import wayland_outputs
 
 __all__ = [
