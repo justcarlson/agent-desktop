@@ -376,9 +376,9 @@ and `details.observed`. A window already as asked is `not_delivered` with
   layout, so a resize would change its neighbours. Make it floating yourself
   first.
 - A resize keeps the window's top-left corner. Hyprland holds a window at its
-  minimum size, so a smaller request ends `ACTION_FAILED`,
-  `delivered_unverified`, cause `readback_mismatch`, with `details.requested`
-  and `details.observed`.
+  minimum size, so a smaller request puts the corner back and ends
+  `ACTION_FAILED`, `delivered_unverified`, cause `readback_mismatch`, with
+  `details.requested` and `details.observed`.
 - `minimize` moves the window to the special workspace
   `agent-desktop-minimized-<workspace>`, named for the workspace it came from,
   without showing that special workspace. `restore` moves it back and then
@@ -390,6 +390,10 @@ and `details.observed`. A window already as asked is `not_delivered` with
   does when a window leaves. The report names the change in
   `details.side_effects` as `active_window_changed` with the old and new
   addresses.
+- Minimizing or restoring a tiled window changes the layout of its workspace:
+  the other tiled windows fill its space, and a restored window can take a
+  different slot than it left. The report does not list these size changes.
+  Minimize a floating window to keep the layout.
 - `maximize` runs only on the focused window or when no window has focus,
   because Hyprland clears the user's focus when it maximizes another window.
   Otherwise it is `ACTION_NOT_SUPPORTED`, cause `maximize_takes_focus`: focus
