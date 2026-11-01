@@ -19,7 +19,7 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `POLICY_DENIED` on `click` or `type` | A required policy or capability is absent. Read the failed check. Headed policy gives physical input only where the receiver can be proven |
 | Tray item lists no `Activate` or `ContextMenu` | No primary protocol action. Use an advertised virtual menu entry. Headed input does not prove a native receiver from the item's title |
 | `POLICY_DENIED` on `press` | Blocked combo. Do not use `--force` unless you mean it |
-| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Use global `press` or the app's own UI. A bound Hyprland focuses and closes through the compositor instead: `--headed focus-window` brings the target forward when the user permits focus |
+| `ACTION_NOT_SUPPORTED` `wayland_session` | Wayland focus, headed scoped `press` or control of native Wayland windows is unavailable. Use global `press` or the app's own UI. A bound Hyprland focuses, closes and controls windows through the compositor instead: `--headed focus-window` brings the target forward when the user permits focus |
 | `POLICY_DENIED` `window_not_focused` or `hidden_special_workspace` | A headless `focus-window` on Hyprland found the window unfocused and sent nothing. If the user asked to focus the window or bring it forward, run `--headed focus-window`. Otherwise do not add `--headed` |
 | `ACTION_FAILED` `special_workspace_open` | A Hyprland special workspace covers the window's monitor. Close it, then retry `focus-window` |
 | `PLATFORM_NOT_SUPPORTED` `hyprland_ambiguous` | Several Hyprland instances run and none is named. Set `HYPRLAND_INSTANCE_SIGNATURE` to one of `details.signatures` |
