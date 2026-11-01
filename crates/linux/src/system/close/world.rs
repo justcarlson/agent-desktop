@@ -5,6 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 
 use super::close_route::CloseRoute;
 use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::menu::process_dialogs::ProcessDialogs;
 use crate::system::menu::surfaces;
 use crate::system::process::liveness::{self, Liveness};
 use crate::system::process::process_lookup::Lookup;
@@ -35,7 +36,10 @@ pub(super) trait World {
     fn pause(&self);
     fn toplevels(&self) -> ControlRead<Vec<Toplevel>>;
     fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>>;
-    fn nested_dialogs(&self) -> Vec<String>;
+    /// The process's dialogs as its accessibility tree shows them. Dialog
+    /// frames are read only on the compositor route, whose toplevel list
+    /// carries no window type.
+    fn dialogs(&self) -> ProcessDialogs;
     fn request_close(&self, window: u32) -> Result<(), ControlError>;
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError>;
     fn timeout_error(&self) -> AdapterError;
@@ -104,9 +108,13 @@ impl World for Live<'_> {
         }
     }
 
-    fn nested_dialogs(&self) -> Vec<String> {
+    fn dialogs(&self) -> ProcessDialogs {
         let look = self.deadline.capped(Duration::from_millis(NESTED_LOOK_MS));
-        surfaces::nested_dialog_titles(self.bus, self.pid, look).unwrap_or_default()
+        let mut found = surfaces::process_dialogs(self.bus, self.pid, look).unwrap_or_default();
+        if !matches!(self.route(), CloseRoute::Compositor(_)) {
+            found.framed.clear();
+        }
+        found
     }
 
     fn request_close(&self, window: u32) -> Result<(), ControlError> {

@@ -14,9 +14,10 @@ pub(super) struct Standing {
 
 impl Standing {
     pub(super) fn of(world: &impl World, windows: Vec<Toplevel>) -> Self {
+        let dialogs = world.dialogs();
         Self {
             windows,
-            nested: world.nested_dialogs(),
+            nested: dialogs.nested,
         }
     }
 
@@ -31,3 +32,7 @@ impl Standing {
         !self.nested.is_empty() || self.windows.iter().any(refusal::is_dialog)
     }
 }
+
+#[cfg(test)]
+#[path = "standing_tests.rs"]
+mod tests;
