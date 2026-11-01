@@ -49,6 +49,7 @@ impl HideRefusal {
         let mut details = json!({
             "kind": self.kind(),
             "physical_delivery_started": false,
+            "retryable": false,
         });
         let mut error = AdapterError::new(code, self.message());
         match self {
