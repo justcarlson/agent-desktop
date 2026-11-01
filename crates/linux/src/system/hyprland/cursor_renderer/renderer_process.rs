@@ -211,6 +211,11 @@ impl RendererProcess {
         self.wanted = wanted;
         self
     }
+
+    /// Replaces the multi-agent check, for tests that run without a session store.
+    pub(crate) fn with_multi_agent(self, _multi_agent: fn(&str) -> bool) -> Self {
+        self
+    }
 }
 
 fn first_point(target: &RendererTarget) -> Point {
