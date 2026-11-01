@@ -22,6 +22,7 @@ class Envelope:
     elapsed_ms: float
     argv: list[str]
     exit_code: int | None = None
+    stderr: str = ""
 
 
 def _binary_path() -> str:
@@ -131,4 +132,5 @@ def run_product(
         elapsed_ms=elapsed,
         argv=full_argv,
         exit_code=result.returncode,
+        stderr=stderr,
     )
