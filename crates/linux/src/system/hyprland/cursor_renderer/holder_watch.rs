@@ -35,8 +35,9 @@ impl HolderWatch {
     /// a renderer started under a live holder draws nothing until it leaves.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn loaded(holders: &Path) -> Self {
-        let _ = holders;
-        Self::default()
+        Self {
+            suppressed: any_live(holders),
+        }
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -50,8 +51,7 @@ impl HolderWatch {
         holders: &Path,
         canvas: &mut dyn HolderCanvas,
     ) -> Result<(), AdapterError> {
-        let live = self.suppressed;
-        let _ = holders;
+        let live = any_live(holders);
         if live == self.suppressed {
             return Ok(());
         }
@@ -94,7 +94,9 @@ impl HolderWatch {
         holders: &Path,
         canvas: &mut dyn HolderCanvas,
     ) -> Result<(), HolderFault> {
-        let _ = holders;
+        if any_live(holders) {
+            return Ok(());
+        }
         self.suppressed = false;
         canvas
             .redraw()

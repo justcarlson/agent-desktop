@@ -25,6 +25,7 @@ pub(crate) mod holder_view;
 pub(crate) mod holder_watch;
 pub(crate) mod hypr_cursor;
 pub(crate) mod initial_pose;
+pub(crate) mod keep_drawn_flag;
 pub(crate) mod layer_audit;
 pub(crate) mod layer_client;
 pub(crate) mod layer_globals;

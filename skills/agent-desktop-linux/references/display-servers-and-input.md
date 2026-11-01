@@ -366,10 +366,16 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `evidence_missing`, `target_not_shown`, `point_outside_target`,
   `popup_surface`, `layer_cover` or `window_cover`. A read that runs out of time is `TIMEOUT`, cause
   `evidence_timed_out`.
-- **Every layer counts.** The tool trusts no layer namespace, its own cursor
-  namespace included. A shell bar or dock that covers the whole output, as the
-  stock Omarchy bar does, refuses every ref pointer action under it. Use a
-  semantic action, or a coordinate command and read the effect.
+- **Every layer counts.** The tool trusts no layer namespace. Its own cursor
+  layers pass only after their renderer confirmed this command's hide; any
+  other `agent-desktop-cursor` layer refuses the command before any event. A
+  shell bar or dock that covers the whole output, as the stock Omarchy bar
+  does, refuses every ref pointer action under it. Use a semantic action, or a
+  coordinate command and read the effect.
+- **Long input keeps the cursors hidden.** Input that runs longer than 10 s
+  renews its hide. If the renewal fails, the input stops before its next event
+  with `ACTION_FAILED`, kind `cursor_hide_renewal_failed`, `uncertain`. Read
+  the target's state before you retry.
 - **Bounds and hit tests** come from the compositor. A ref's live bounds and
   its `find` and `snapshot` bounds are its window rectangle at the window's
   Hyprland origin, in the same layout points. `hyprctl` lists only toplevel
