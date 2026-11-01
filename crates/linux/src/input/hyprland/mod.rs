@@ -8,6 +8,7 @@ pub(crate) mod focus_gate;
 pub(crate) mod hypr_pointer;
 pub(crate) mod hypr_route;
 pub(crate) mod live_pointer_sink;
+pub(crate) mod motion_request;
 pub(crate) mod native_receiver;
 pub(crate) mod output_map;
 pub(crate) mod output_point;
