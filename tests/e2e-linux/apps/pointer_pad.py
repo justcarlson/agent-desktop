@@ -1,9 +1,12 @@
 """A GTK3 window that writes every pointer event it receives to a log, for the Hyprland pointer legs.
 
 argv[1] is the JSON-lines log. Each line has `ev`, `widget` and `t` (monotonic seconds).
-The window holds a button named "Pad Button" and an event area named "Pad Area".
-Presses carry `n` (1, 2 or 3: GTK's single, double and triple press), the button and the
-point in window-local logical pixels (`wx`, `wy`). Wheel events carry the direction.
+The window holds a button named "Pad Button", a scroll pane named "Pad Scroll" (widget `scroll`,
+the wheel target for scroll by ref) and an event area named "Pad Area".
+Presses carry `n` (1 for every physical press; 2 or 3 for the synthetic double or triple press GTK3
+adds after the second or third one), the button and the
+point in window-local logical pixels (`wx`, `wy`). Wheel events carry the direction, which is
+"smooth" for a Wayland wheel under the smooth-scroll mask, and the deltas `dx` and `dy`.
 The area also logs motion, so a drag shows its press, its path and its release.
 """
 
@@ -63,6 +66,12 @@ def main(argv):
     button.set_size_request(320, 120)
     watch(button, "button")
     box.pack_start(button, False, False, 0)
+    scroll = Gtk.ScrolledWindow()
+    scroll.get_accessible().set_name("Pad Scroll")
+    scroll.set_size_request(320, 60)
+    scroll.add(Gtk.Label(label="\n".join(f"Row {row}" for row in range(40))))
+    watch(scroll, "scroll")
+    box.pack_start(scroll, False, False, 0)
     area = Gtk.EventBox()
     area.get_accessible().set_name("Pad Area")
     area.set_size_request(320, 240)

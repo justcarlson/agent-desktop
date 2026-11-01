@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -58,8 +60,19 @@ class PadLogTests(unittest.TestCase):
         self.assertEqual(pad.presses(LOG, "button"), [1, 2])
         self.assertEqual(pad.presses(LOG, "area"), [1])
 
-    def test_scrolls_leave_out_smooth_events(self):
+    def test_scrolls_keep_discrete_events_over_smooth_ones(self):
         self.assertEqual(pad.scrolls(LOG, "area"), ["down"])
+
+    def test_scrolls_read_a_smooth_wheel_from_the_sign_of_its_delta(self):
+        smooth = [{"ev": "scroll", "widget": "area", "direction": "smooth", "dx": dx, "dy": dy, "t": 1.0}
+                  for dx, dy in ((0.0, 1.0), (0.0, -1.0), (1.0, 0.0), (-1.0, 0.0), (0.0, 0.0), (None, None))]
+        self.assertEqual(pad.scrolls(smooth, "area"), ["down", "up", "right", "left"])
+
+    def test_gdk3_presses_add_the_synthetic_double_and_triple_press(self):
+        self.assertEqual(pad.gdk3_presses(1), [1])
+        self.assertEqual(pad.gdk3_presses(2), [1, 1, 2])
+        self.assertEqual(pad.gdk3_presses(3), [1, 1, 2, 1, 3])
+        self.assertEqual(dict(refs.GESTURES)["triple-click"], [1, 1, 2, 1, 3])
 
     def test_since_drops_the_events_before_the_mark(self):
         self.assertEqual(pad.since(LOG, 6), LOG[6:])
@@ -156,6 +169,73 @@ class RegistryTests(unittest.TestCase):
     def test_ref_drag_stays_off_hyprland(self):
         for leg_id in ("ref_actions.drag", "ref_actions.drag_headless_refusal"):
             self.assertNotIn("hyprland", legs.leg_by_id(leg_id).tiers)
+
+
+class RunningDragTests(unittest.TestCase):
+    def test_the_running_drag_inherits_the_interaction_lease_fd(self):
+        read_end, write_end = os.pipe()
+        self.addCleanup(os.close, read_end)
+        self.addCleanup(os.close, write_end)
+        tier = mock.Mock(env={})
+        with (mock.patch.dict(os.environ, {pointer.product.LEASE_FD_ENV: str(read_end)}),
+              mock.patch.object(pointer.product, "_binary_path", return_value="/bin/agent-desktop"),
+              mock.patch.object(pointer.subprocess, "Popen") as popen):
+            pointer._running_drag(tier, {}, (1, 2), (3, 4))
+        kwargs = popen.call_args.kwargs
+        self.assertEqual(kwargs["env"][pointer.product.LEASE_FD_ENV], str(read_end))
+        self.assertEqual(tuple(kwargs["pass_fds"]), (read_end,))
+
+
+class LostClickTests(unittest.TestCase):
+    def test_a_lost_click_says_whether_the_pointer_reached_the_pad(self):
+        self.assertEqual(pointer.missed_click(LOG[4:]), " (presses elsewhere: [('button', 1), ('button', 2)], area motions: 0)")
+        self.assertEqual(pointer.missed_click(LOG[:4]), " (presses elsewhere: [], area motions: 2)")
+
+
+class GlobalLayoutTests(unittest.TestCase):
+    """The layout leg clicks the pad again from the other output and puts the nested cursor back."""
+
+    def run_leg(self):
+        reads, sent, controls = [], [], []
+        ctx = mock.Mock(tier=mock.Mock(), mode="headed")
+        for stage in ("before", "after", "restored"):
+            getattr(ctx, stage).side_effect = lambda channel, value, stage=stage: reads.append((stage, channel))
+        ctx.product.side_effect = lambda argv, env=None: sent.append(argv) or mock.Mock(ok=True, data={}, argv=argv, raw="")
+        cursor = {"x": 5, "y": 6}
+        monitors = [{"name": "A", "x": 0, "y": 0}, {"name": "B", "x": 1280, "y": 0}]
+        client = {"at": [0, 0], "size": [100, 100]}
+
+        @pointer.contextlib.contextmanager
+        def pad(*_):
+            yield mock.Mock(pid=1), client, Path("/dev/null")
+
+        def query(_tier, _instance, what):
+            return monitors if what == "monitors" else dict(cursor)
+
+        def clicked(_ctx, _env, _log, _client, point, count):
+            sent.append(("click", point, count))
+            return []
+
+        with mock.patch.multiple(
+                pointer, nested=mock.Mock(return_value=({"signature": "s"}, True)),
+                instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
+                pointer_pad=pad, monitor_of=mock.Mock(return_value={"name": "A"}),
+                layout=mock.Mock(return_value=[]), moved_output=mock.MagicMock(),
+                pad_client=mock.Mock(return_value=client), settled_client=mock.Mock(return_value=client),
+                cursor_at=mock.Mock(side_effect=[(50, 75), (1320, 40)]), instance_query=query,
+                instance_control=mock.Mock(side_effect=lambda _t, _i, argv: controls.append(argv)),
+                click_problems=clicked, wheel_problems=mock.Mock(return_value=[]),
+                drag_problems=mock.Mock(return_value=[])):
+            pointer.global_layout_coordinates(ctx)
+        return reads, sent, controls
+
+    def test_it_clicks_back_from_the_other_output_and_restores_the_cursor(self):
+        reads, sent, controls = self.run_leg()
+        far = sent.index(["mouse-move", "--xy=1320,40"])
+        self.assertEqual(sent[far + 1], ("click", (60.0, 70.0), 1))
+        self.assertEqual(controls, [pointer.cursor_argv(5, 6, True)])
+        self.assertEqual([stage for stage, channel in reads if channel == "hyprland.cursor"],
+                         ["before", "after", "restored"])
 
 
 if __name__ == "__main__":
