@@ -74,6 +74,16 @@ where
 
     /// Waits until the compositor has answered every request sent so far.
     pub(crate) fn roundtrip(&mut self, state: &mut S) -> Result<(), WaylandFault> {
+        self.roundtrip_by(state, self.deadline)
+    }
+
+    /// [`Self::roundtrip`] bounded by `deadline` in place of the link's own,
+    /// for a wait that must still run once the link's deadline has passed.
+    pub(crate) fn roundtrip_by(
+        &mut self,
+        state: &mut S,
+        deadline: Deadline,
+    ) -> Result<(), WaylandFault> {
         self.rounds += 1;
         let round = self.rounds;
         let _callback = self.connection.display().sync(&self.queue.handle(), round);
@@ -81,7 +91,7 @@ where
             &mut self.queue,
             state,
             |state| state.exchange().has_finished(round),
-            self.deadline,
+            deadline,
         )
     }
 

@@ -1,6 +1,7 @@
 //! The virtual pointer sink on the bound Hyprland instance's Wayland socket,
 //! connected only after its peer is proven to be the bound compositor.
 
+use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -42,11 +43,19 @@ impl LivePointerSink {
         binding: &HyprlandBinding,
         deadline: Deadline,
     ) -> Result<Self, AdapterError> {
-        let socket = binding.wayland_socket.clone();
+        Self::over(
+            connect_bound(binding)?,
+            binding.wayland_socket.clone(),
+            deadline,
+        )
+    }
+
+    /// The sink over a stream already proven to reach the bound compositor.
+    fn over(stream: UnixStream, socket: PathBuf, deadline: Deadline) -> Result<Self, AdapterError> {
         let fault =
             |fault: crate::system::wayland::wayland_fault::WaylandFault| fault.into_error(&socket);
         let mut state = PointerState::default();
-        let mut link = Link::over(connect_bound(binding)?, &mut state, deadline).map_err(fault)?;
+        let mut link = Link::over(stream, &mut state, deadline).map_err(fault)?;
         let exchange = &state.exchange;
         let manager_global = exchange
             .find(MANAGER, MANAGER_VERSION)
@@ -202,3 +211,7 @@ impl PointerSink for LivePointerSink {
         sent && self.flush().is_ok()
     }
 }
+
+#[cfg(test)]
+#[path = "live_pointer_sink_tests.rs"]
+mod tests;
