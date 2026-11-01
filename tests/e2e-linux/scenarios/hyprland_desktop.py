@@ -139,8 +139,7 @@ def headed_changes_only_target(ctx: LegContext) -> None:
             seven = ref(ctx, app, role="button", name="7")
             before = display(tree)
             ctx.before("atspi.display", before)
-            problems = _headed_refusals(ctx, seven, inside_point(ctx.tier, app.pid),
-                                        unbound_env(ctx.tier))
+            problems = _headed_refusals(ctx, seven)
             second_instance.print_outer_window(ctx.tier, nested, "with-calculator")
             ctx.after("atspi.display", display(tree))
             problems += [] if display(tree) == before else ["a refused headed command changed Calculator"]
@@ -155,42 +154,18 @@ def headed_changes_only_target(ctx: LegContext) -> None:
 
 
 def absent_ref_problems(ctx: LegContext, absent: str) -> list[str]:
-    """An absent ref is an identity refusal in both modes: a bound session opens the pointer gate, so the
-    ref is read and found missing before any event."""
+    """Headless, an absent ref is an identity refusal; headed, the Wayland pointer gate refuses first."""
     envelope = ctx.product(["click", absent, "--timeout-ms", "500"])
+    if ctx.mode == "headed":
+        return boundary_problems("absent ref", envelope, ("ACTION_NOT_SUPPORTED",), physical=True,
+                                 cause="wayland_session")
     return boundary_problems("absent ref", envelope, ("ELEMENT_NOT_FOUND", "STALE_REF"))
 
 
-def unbound_env(tier) -> dict[str, str]:
-    """The tier's environment with the Hyprland instance hidden: no signature and a private runtime
-    directory with no `hypr` folder, while the display socket stays the session's. The pointer gate
-    refuses there, so a headed refusal can never click anything."""
-    main = main_instance(tier)
-    private = tier.runtime_dir / "unbound-runtime"
-    private.mkdir(mode=0o700, exist_ok=True)
-    env = {key: value for key, value in tier.env.items() if key != "HYPRLAND_INSTANCE_SIGNATURE"}
-    env.update(XDG_RUNTIME_DIR=str(private),
-               WAYLAND_DISPLAY=str(hyprland.wayland_path(shared(tier), main["wayland"])))
-    return env
-
-
-def inside_point(tier, pid: int) -> str:
-    """The centre of the one toplevel of `pid`, as `--xy` text, so a pointer check aims only inside a
-    window the test owns."""
-    main = main_instance(tier)
-    toplevels = [item for item in hyprland.query(shared(tier), main["signature"], "clients", pid=main["pid"])
-                 if item.get("pid") == pid]
-    require(len(toplevels) == 1, f"pid {pid} has {len(toplevels)} toplevels")
-    (x, y), (width, height) = toplevels[0]["at"], toplevels[0]["size"]
-    return f"{x + width // 2},{y + height // 2}"
-
-
-def _headed_refusals(ctx: LegContext, seven: str, point: str, env: dict[str, str]) -> list[str]:
-    """A headed ref click and a mouse-click inside the owned window, both run where no instance binds,
-    so the Wayland pointer gate refuses them before any event."""
-    problems = boundary_problems("headed ref click", ctx.product(["click", seven], env=env),
+def _headed_refusals(ctx: LegContext, seven: str) -> list[str]:
+    problems = boundary_problems("headed ref click", ctx.product(["click", seven]),
                                  ("ACTION_NOT_SUPPORTED",), cause="wayland_session")
-    problems += boundary_problems("mouse-click", ctx.product(["mouse-click", "--xy", point], env=env),
+    problems += boundary_problems("mouse-click", ctx.product(["mouse-click", "--xy", "1,1"]),
                                   ("ACTION_NOT_SUPPORTED",), physical=True, cause="wayland_session")
     return problems
 
@@ -234,11 +209,10 @@ def hyprland_delivery_boundaries(ctx: LegContext) -> None:
         ctx.before("proc.members", members(ctx.tier.runtime_dir))
         with Sampler({"desktop": read}) as sampler:
             problems = absent_ref_problems(ctx, seven.split(":", 1)[0] + ":e999999")
-            point = inside_point(ctx.tier, app.pid)
             if ctx.mode == "headed":
-                problems += _headed_refusals(ctx, seven, point, unbound_env(ctx.tier))
+                problems += _headed_refusals(ctx, seven)
             else:
-                problems += boundary_problems("headless mouse-click", ctx.product(["mouse-click", "--xy", point]),
+                problems += boundary_problems("headless mouse-click", ctx.product(["mouse-click", "--xy", "1,1"]),
                                               ("POLICY_DENIED",))
                 problems += headless_focus_problems(ctx, app)
         ctx.after("atspi.display", display(tree))

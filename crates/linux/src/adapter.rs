@@ -6,7 +6,6 @@ use agent_desktop_core::{
     Rect, RefEntry, SnapshotSurface, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
-use crate::input::hyprland::bound_geometry;
 use crate::system::SharedBus;
 
 pub struct LinuxAdapter {
@@ -120,11 +119,7 @@ impl ObservationOps for LinuxAdapter {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::live_element(target, deadline);
         }
-        let mut live = crate::tree::get_live_element(self.bus(), handle, deadline)?;
-        if let Some(bounds) = bound_geometry::bound_bounds(self.bus(), handle, deadline)? {
-            live.bounds = bounds;
-        }
-        Ok(live)
+        crate::tree::get_live_element(self.bus(), handle, deadline)
     }
 
     fn get_element_bounds(
@@ -134,9 +129,6 @@ impl ObservationOps for LinuxAdapter {
     ) -> Result<Option<Rect>, AdapterError> {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::bounds(target, deadline);
-        }
-        if let Some(bounds) = bound_geometry::bound_bounds(self.bus(), handle, deadline)? {
-            return Ok(bounds);
         }
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
@@ -153,11 +145,7 @@ impl ObservationOps for LinuxAdapter {
                 .map_or_else(Vec::new, |state| state.states);
             return Ok(agent_desktop_core::PointerObservation { bounds, states });
         }
-        let mut seen = crate::tree::live_read::observe_pointer(self.bus(), handle, deadline)?;
-        if let Some(bounds) = bound_geometry::bound_bounds(self.bus(), handle, deadline)? {
-            seen.bounds = bounds;
-        }
-        Ok(seen)
+        crate::tree::live_read::observe_pointer(self.bus(), handle, deadline)
     }
 
     fn pointer_position_refusal(
@@ -165,7 +153,7 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Option<AdapterError> {
-        if crate::system::tray::target_of(handle).is_some() || bound_geometry::is_bound(handle) {
+        if crate::system::tray::target_of(handle).is_some() {
             return None;
         }
         crate::tree::live_read::pointer_refusal::pointer_position_refusal(
@@ -191,9 +179,6 @@ impl ObservationOps for LinuxAdapter {
     ) -> Result<HitTestResult, AdapterError> {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::hit_test(target, point, deadline);
-        }
-        if let Some(hit) = bound_geometry::bound_hit(self.bus(), handle, &point, deadline)? {
-            return Ok(hit);
         }
         crate::tree::hit_test(self.bus(), handle, point, deadline)
     }
@@ -327,7 +312,12 @@ impl ActionOps for LinuxAdapter {
 }
 impl InputOps for LinuxAdapter {
     fn physical_pointer_refusal(&self) -> Option<AdapterError> {
-        crate::input::hyprland::pointer_capability::session_pointer_refusal()
+        match crate::input::backend::backend() {
+            Ok(crate::input::backend::Backend::Wayland) => Some(
+                crate::input::wayland::keysym_send::pointer_refusal("physical pointer input"),
+            ),
+            _ => None,
+        }
     }
 
     fn keyboard_needs_window_activation(&self) -> bool {

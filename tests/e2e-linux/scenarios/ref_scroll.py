@@ -1,7 +1,6 @@
 from oracle.atspi_raw import poll
 from runner.helper import changed, command, managed, nodes, one, ref, require, root, snapshot
 from runner.legs import implementation
-from scenarios import hyprland_pointer_refs
 from scenarios.headed_actions import assert_ok
 from scenarios.ref_effects import desktop_restored, policy_refusal
 from scenarios.scroll import raw_value
@@ -22,8 +21,6 @@ def inside(control, viewport):
 @implementation("ref_actions.scroll")
 @implementation("ref_actions.scroll_headless_refusal")
 def scroll(ctx):
-    if ctx.tier.name == "hyprland":
-        return hyprland_pointer_refs.ref_gesture(ctx, "scroll")
     with managed(ctx, "Settings", ("multitasking",)) as app, desktop_restored(ctx):
         tree = root(ctx, app)
         bar = content_bar(tree)

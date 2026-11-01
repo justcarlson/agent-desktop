@@ -54,8 +54,6 @@ from scenarios import hyprland_cursor_agents
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_identity
-from scenarios import hyprland_pointer
-from scenarios import hyprland_pointer_refs
 from scenarios import hyprland_window_ops
 from scenarios import hyprland_keys
 from scenarios import wayland_outputs
@@ -81,8 +79,6 @@ __all__ = [
     "hyprland_desktop",
     "hyprland_focus",
     "hyprland_identity",
-    "hyprland_pointer",
-    "hyprland_pointer_refs",
     "hyprland_window_ops",
     "hyprland_keys",
     "identity",

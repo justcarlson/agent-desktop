@@ -27,9 +27,7 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `AMBIGUOUS_TARGET` with `details.candidates` on Hyprland | Several same-titled windows of one process match and their sizes do not tell them apart. Nothing was sent. Report the candidates to the user and stop; never change the user's windows to tell them apart |
 | `ACTION_NOT_SUPPORTED` `active_layout_unknown`, `owner_keymap_*`, `extended_keymap_*` | On a bound Hyprland the CLI could not build a keymap for the keys. Nothing was sent. Use `set-value` for text; see `references/display-servers-and-input.md`, Hyprland keys |
 | `INVALID_ARGS` on a `w-hypr-` id | The window has no accessibility tree, so `snapshot` and `find` cannot read it. Pick a window that lists `"accessible": true` |
-| `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on a Wayland session that is not a bound Hyprland, or `hover` by ref on Hyprland. Use a semantic action, `set-value`, a global `press`, or on Hyprland the `--xy` form |
-| `ACTION_FAILED` kind `receiver_evidence` on Hyprland | A ref pointer action could not prove its receiver, so nothing was sent. `layer_cover` names the covering layer (a full-output shell bar refuses every point), `window_cover` a floating, pinned or fullscreen window, `target_not_shown` a window on no visible workspace. Use a semantic action, or uncover the target and take a fresh snapshot |
-| `ACTION_FAILED` kind `focus_gate`, or `hyprland_pointer` cause `cancelled`, with `delivery_uncertain` | Hyprland pointer input stopped mid-sequence. `delivered_events` counts what was sent and held buttons were released. Take a fresh snapshot before any retry |
+| `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland. Use a semantic action, `set-value` or a global `press` |
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | Notification protocol missing, or its owner is not the detected shell backend. Run inside the supported desktop session; see the shell reference |
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | No SNI watcher exists. Start the session's tray backend providing `org.kde.StatusNotifierWatcher`; extension advice requires a detected backend |
 | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` | Roles and parent chains do not establish the shell container or opener. Use an app surface or the logical SNI tray. English labels, wrapper depth and screen position cannot establish popup identity |
@@ -196,10 +194,9 @@ D-Bus or X11 error.
   drawn, so do not wait for one.
 - `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`. Use the
   advertised GNOME surfaces; see `references/shell-tray-and-notifications.md`.
-- Ordinary app pointer commands on Wayland, except on a bound Hyprland, and
-  window screenshots on Wayland, except on a bound Hyprland. On Hyprland,
-  `hover` by ref refuses. Shell ref clicks also refuse on Wayland, and
-  on X11 unless the shell's own tree proves the receiver.
+- Ordinary app pointer commands and window screenshots on Wayland. Shell ref
+  clicks also refuse on Wayland, and on X11 unless the shell's own tree proves the
+  receiver.
 
 ## Missing tools
 

@@ -7,8 +7,6 @@ use serde_json::json;
 
 use crate::input::backend::Backend;
 use crate::input::deliver::{ensure_budget, ensure_headed_click_policy};
-use crate::input::hyprland::hypr_route::bound_route;
-use crate::input::hyprland::ref_pointer::RefPointer;
 use crate::input::keyboard::keymap::Keymap;
 use crate::input::mouse::gesture::Gesture;
 use crate::input::mouse::press_clock::PressClock;
@@ -52,15 +50,7 @@ pub(crate) fn click_steps(
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
     if world.backend()? == Backend::Wayland {
-        let Some(binding) = bound_route()? else {
-            return Err(world.pointer_refusal("click"));
-        };
-        let route = RefPointer {
-            binding: &binding,
-            element,
-            deadline,
-        };
-        return route.click(world, &spec);
+        return Err(world.pointer_refusal("click"));
     }
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
     let map = Keymap::default();
@@ -98,15 +88,7 @@ pub(crate) fn scroll_steps(
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
     if world.backend()? == Backend::Wayland {
-        let Some(binding) = bound_route()? else {
-            return Err(world.pointer_refusal("scroll"));
-        };
-        let route = RefPointer {
-            binding: &binding,
-            element,
-            deadline,
-        };
-        return route.scroll(world, deltas);
+        return Err(world.pointer_refusal("scroll"));
     }
     let at = aim_point(world, element, None, deadline)?;
     let map = Keymap::default();
@@ -126,19 +108,6 @@ pub(crate) fn send_bursts(
     at: &Point,
     gesture: Gesture,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
-    send_bursts_with(world, gesture, deadline, &mut |check| {
-        world.validate_pointer(element, at, check)
-    })
-}
-
-/// Sends each burst after `prove` shows the receiver, within the press
-/// budget of the gesture.
-pub(crate) fn send_bursts_with(
-    world: &impl PhysicalWorld,
-    gesture: Gesture,
-    deadline: Deadline,
-    prove: &mut dyn FnMut(Deadline) -> Result<(), AdapterError>,
 ) -> Result<(), AdapterError> {
     let Gesture {
         plans,
@@ -182,7 +151,11 @@ pub(crate) fn send_bursts_with(
             } else {
                 Ok(deadline)
             }
-            .and_then(|check| prove(check).map_err(|error| clock.explain(error, check, deadline)));
+            .and_then(|check| {
+                world
+                    .validate_pointer(element, at, check)
+                    .map_err(|error| clock.explain(error, check, deadline))
+            });
             proven.map_err(|mut error| {
                 let details = error.details.get_or_insert_with(|| serde_json::json!({}));
                 details["delivered_clicks"] = clicks[..next].iter().sum::<u32>().into();
@@ -199,23 +172,16 @@ pub(crate) fn send_bursts_with(
     Ok(())
 }
 
-/// Confirms that a hover by ref reaches its element. A bound Hyprland
-/// instance refuses it, because the hover point carries no receiver
-/// evidence; any other Wayland session refused it at the pointer gate.
 pub(crate) fn confirm_receiver(
     bus: &SharedBus,
     handle: &NativeHandle,
     point: &Point,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    if crate::system::tray::target_of(handle).is_some() {
+    if crate::system::tray::target_of(handle).is_some()
+        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland))
+    {
         return Ok(());
-    }
-    if matches!(crate::input::backend::backend(), Ok(Backend::Wayland)) {
-        return match bound_route()? {
-            Some(_) => Err(crate::input::hyprland::pointer_capability::hover_ref_refused()),
-            None => Ok(()),
-        };
     }
     let element = atspi_element(handle)?;
     super::target_world::validate_pointer_receiver(bus, element, point, deadline)
