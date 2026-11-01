@@ -397,7 +397,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
 - **Focus gate.** The active window is read before every button press and
   every wheel step. If it changes mid-sequence, delivery stops with
   `ACTION_FAILED`, kind `focus_gate`, cause `focus_changed`.
-- **Partial delivery.** A sequence that stops after its first event reports
+- **Partial delivery.** A sequence that stops after its first event, or whose
+  events the compositor does not confirm before the deadline, reports
   `delivery_uncertain` with `retry: unsafe`, `physical_delivery_started: true`,
   `delivered_events` and `buttons_released`. Pressed buttons are always
   released, and releases sent before the stop are confirmed too.
