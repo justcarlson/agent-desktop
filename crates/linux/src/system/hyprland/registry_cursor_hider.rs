@@ -35,17 +35,11 @@ pub(crate) fn cursor_hider_for(
     binding: &HyprlandBinding,
     runtime_dir: Option<&Path>,
 ) -> Box<dyn CursorHider> {
-    let _ = (binding, runtime_dir);
-    Box::new(super::no_cursor_hider::NoCursorHider)
-}
-
-#[allow(dead_code)]
-fn registry_hider(binding: &HyprlandBinding, runtime_dir: Option<&Path>) -> RegistryCursorHider {
-    RegistryCursorHider {
+    Box::new(RegistryCursorHider {
         binding: binding.clone(),
         registry: runtime_dir.map(|runtime| compositor_dir(runtime, &binding.signature)),
         hold: None,
-    }
+    })
 }
 
 impl CursorHider for RegistryCursorHider {

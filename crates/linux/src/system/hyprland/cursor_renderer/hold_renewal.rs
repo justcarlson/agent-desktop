@@ -89,9 +89,6 @@ fn until_renewal(lease: &Mutex<HolderLease>, timings: RenewTimings) -> Duration 
 fn renew_once(lease: &Mutex<HolderLease>, work_end: u64, timings: RenewTimings) -> bool {
     let mut lease = lease.lock().unwrap_or_else(PoisonError::into_inner);
     let now = now_ms();
-    if now > 0 {
-        return false;
-    }
     let expiry = lease.expiry();
     let later = expiry_for(work_end, now, timings.cap_ms);
     if later <= expiry {

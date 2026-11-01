@@ -36,6 +36,7 @@ from scenarios.hyprland_pointer_pad import (covering_layers, events, instance_en
 SHOW_SETTLE_S = 3.0
 HOLD_MS = 8_000
 REFUSAL_KINDS = ("cursor_hide_timeout", "cursor_hide_failed")
+KEEP_DRAWN_FLAG = "keep-drawn-for-test"
 
 
 def registry_of(runtime: Path, session: str) -> Path:
@@ -83,6 +84,18 @@ def dpms_argv(state: str, lua: bool) -> list[str]:
 
 def holder_body(pid: int, started_at: int, nonce: str, expiry_ms: int) -> dict:
     return {"pid": pid, "start_time": started_at, "nonce": nonce, "expiry": expiry_ms}
+
+
+@contextlib.contextmanager
+def keep_drawn(registry: Path):
+    """The renderer's test flag that keeps the cursor drawn through a hide, removed on exit."""
+    flag = registry / KEEP_DRAWN_FLAG
+    descriptor = os.open(flag, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    os.close(descriptor)
+    try:
+        yield flag
+    finally:
+        flag.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager
@@ -317,21 +330,17 @@ def _screen_after_resume(screen: Screen) -> list[str]:
     return [f"a resumed renderer still blocks the screen capture: {envelope.raw[:300]}"]
 
 
-@implementation("pointer.ref_receiver_evidence_under_cursor")
-def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
-    """A ref click lands while the session's own cursor is drawn over the target.
-
-    The headed click hides the cursor, accepts the acknowledged renderer's
-    layer as its own and lands once; the cursor is drawn again afterwards.
-    """
+def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
+    """A headed ref click on the pad while the session cursor layer covers it lands exactly once."""
     tier, runtime = ctx.tier, shared(ctx.tier)
     instance, _ = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "under-cursor") as (owned, client, log):
+    with pointer_pad(tier, instance, label) as (owned, client, log):
         session = started(ctx, env)
         try:
             renderer_of(runtime, instance, session)
+            registry = registry_of(runtime, session)
             bound = dict(env, AGENT_DESKTOP_SESSION=session)
             button = pad_ref(ctx, bound, owned)
             placed = ctx.product(["click", button], env=bound, headed=False)
@@ -342,13 +351,17 @@ def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
             require(raw.poll(over, SHOW_SETTLE_S), f"no cursor layer is over the pad: {layers_of(runtime, instance)}")
             ctx.before("hyprland.layers", layers_of(runtime, instance))
             start = len(events(log))
-            clicked = ctx.product(["click", button], env=bound, headed=True)
+            with keep_drawn(registry) if kept else contextlib.nullcontext():
+                clicked = ctx.product(["click", button], env=bound, headed=True)
+                drawn_during = over()
             found = since(settled(log, lambda found: presses(found, "button") != [] and len(found) > start), start)
             problems = []
             if not clicked.ok:
                 problems.append(f"the click under the cursor refused: {clicked.raw[:400]}")
             if presses(found, "button") != [1]:
                 problems.append(f"the pad logged {presses(found, 'button')} under the cursor, not one press")
+            if kept and not drawn_during:
+                problems.append("the kept cursor layer was gone right after the click")
             if not raw.poll(over, SHOW_SETTLE_S):
                 problems.append("the cursor layer did not come back after the click")
             ctx.after("hyprland.layers", layers_of(runtime, instance))
@@ -358,3 +371,15 @@ def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
         require(record_of(runtime, session) is None, "the session's renderer record survived session end")
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
+
+
+@implementation("pointer.ref_receiver_evidence_under_cursor")
+def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
+    """The headed click hides the session cursor, accepts its acknowledged layer as its own and lands once."""
+    _click_under_cursor(ctx, "under-cursor", kept=False)
+
+
+@implementation("pointer.cursor_pass_through")
+def cursor_pass_through(ctx: LegContext) -> None:
+    """With the renderer's test flag keeping the cursor drawn through the hide, the click still lands once."""
+    _click_under_cursor(ctx, "pass-through", kept=True)

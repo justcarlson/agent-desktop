@@ -185,7 +185,17 @@ the renderer does not exit after a signal, or its process cannot be checked,
 `ACTION_FAILED` and `details.kind: "cursor_renderer_exit_unconfirmed"`. The
 renderer also exits when the session ends elsewhere, when its compositor
 stops, and when the overlay is turned off. On Hyprland each cursor is an
-arrow with no label, and a `--screen` capture shows it.
+arrow with no label.
+
+Before a `--screen` capture and before headed input on Hyprland, the tool hides
+every agent cursor on the compositor, from every session, and draws them again
+after. A `--screen` capture never shows them. If a renderer does not confirm
+the hide within 500 ms, the command fails with `TIMEOUT` and
+`details.kind: "cursor_hide_timeout"` and sends nothing. Other hide refusals are
+`ACTION_FAILED` and also send nothing: `cursor_hide_failed`,
+`cursor_renderer_incompatible` (another build's renderer runs on the
+compositor), and `cursor_unknown_overlay` (another program draws an
+`agent-desktop-cursor` layer). Retry after the cause is gone.
 
 ## What differs on Linux
 

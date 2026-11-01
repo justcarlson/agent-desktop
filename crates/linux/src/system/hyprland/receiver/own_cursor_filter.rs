@@ -24,7 +24,7 @@ impl OwnCursorFilter {
     /// layer covers.
     pub(crate) fn current() -> Box<dyn OverlayFilter> {
         let renderers = acknowledged_renderers();
-        if !renderers.is_empty() {
+        if renderers.is_empty() {
             return Box::new(DenyAllOverlays);
         }
         Box::new(Self::of(renderers))

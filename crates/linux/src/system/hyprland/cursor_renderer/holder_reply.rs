@@ -1,10 +1,13 @@
 //! How the renderer answers `hide` and `show` from a holder, and follows the
-//! holders on each idle tick, over its own surfaces.
+//! holders on each idle tick, over its own surfaces. While the registry holds
+//! the keep-drawn test flag, the cursor stays drawn and each `hide` reply says
+//! so.
 
 use agent_desktop_core::{AdapterError, Deadline};
 use serde_json::{Value, json};
 
 use super::holder_watch::{HolderCanvas, HolderWatch};
+use super::keep_drawn_flag::keep_drawn_for_test;
 use super::renderer_process::RendererProcess;
 use super::renderer_reply::Flow;
 use super::renderer_request::RendererRequest;
@@ -15,14 +18,28 @@ use super::renderer_wire::{error_reply, ok_reply};
 #[cfg_attr(not(test), allow(dead_code))]
 const HOLDER_WAIT_MS: u64 = 200;
 
-/// The renderer's surfaces as a holder canvas.
+/// The renderer's surfaces as a holder canvas; `keep_drawn` skips the clear.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ProcessCanvas<'a> {
     pub(crate) process: &'a mut RendererProcess,
+    pub(crate) keep_drawn: bool,
+}
+
+impl ProcessCanvas<'_> {
+    fn over(process: &mut RendererProcess) -> ProcessCanvas<'_> {
+        let keep_drawn = keep_drawn_for_test(&process.paths.dir);
+        ProcessCanvas {
+            process,
+            keep_drawn,
+        }
+    }
 }
 
 impl HolderCanvas for ProcessCanvas<'_> {
     fn clear_all(&mut self) -> Result<(), AdapterError> {
+        if self.keep_drawn {
+            return Ok(());
+        }
         let deadline = Deadline::detached_after(HOLDER_WAIT_MS)?;
         cursor_keys(self.process)
             .iter()
@@ -58,13 +75,18 @@ pub(crate) fn holder_reply(
     request: &RendererRequest,
 ) -> (Value, Flow) {
     let holders = process.paths.holders.clone();
-    let mut canvas = ProcessCanvas { process };
+    let mut canvas = ProcessCanvas::over(process);
+    let kept = canvas.keep_drawn && matches!(request, RendererRequest::Hide { .. });
     let answered = match request {
         RendererRequest::Hide { holder, .. } => watch.hide(&holders, holder, &mut canvas),
         RendererRequest::Show { .. } => watch.show(&holders, &mut canvas),
         RendererRequest::Status | RendererRequest::Control { .. } => Ok(()),
     };
     match answered {
+        Ok(()) if kept => (
+            ok_reply(json!({"kept_drawn_for_test": true})),
+            Flow::Continue,
+        ),
         Ok(()) => (ok_reply(json!({})), Flow::Continue),
         Err((kind, error)) => {
             let flow = if kind == "cursor_renderer_draw_failed" {
@@ -85,7 +107,7 @@ pub(crate) fn refresh_holders(
     watch: &mut HolderWatch,
 ) -> Result<(), AdapterError> {
     let holders = process.paths.holders.clone();
-    watch.refresh(&holders, &mut ProcessCanvas { process })
+    watch.refresh(&holders, &mut ProcessCanvas::over(process))
 }
 
 #[cfg(test)]

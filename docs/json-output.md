@@ -352,7 +352,7 @@ otherwise:
 
 | `details.kind` | When |
 |----------------|------|
-| `cursor_renderer_incompatible` | Another build's renderer serves the session; `details.pid` names it |
+| `cursor_renderer_incompatible` | Another build's renderer serves the session, or holds a record on the compositor during a hide (`not_delivered`); `details.pid` names it |
 | `cursor_socket_path_too_long` | The renderer socket path exceeds the Unix limit; `details.length` and `details.limit` (107) |
 | `cursor_renderer_exit_unconfirmed` | `disable` signalled the renderer and its exit was not confirmed, or could not open the renderer's pidfd for a reason other than "no such process"; the record stays |
 | `cursor_renderer_gone` | The renderer exited before it answered |
@@ -364,6 +364,10 @@ otherwise:
 | `cursor_holders_not_supported` | A request to hide the cursor for a capture; the renderer does not hide it |
 | `cursor_renderer_bad_request` | The renderer could not read the request |
 | `cursor_renderer_start_timeout` | `TIMEOUT`: the renderer did not start listening in time |
+| `cursor_hide_timeout` | `TIMEOUT`, `not_delivered`: a live renderer did not acknowledge the hide before a capture or headed input within 500 ms; `details.pid` names it and nothing was sent |
+| `cursor_hide_failed` | `not_delivered`: the hide holder could not be written, a renderer refused the hide, or the layer stack could not be read; `details.cause` is `holder`, `renderer_refused` or `layer_stack` |
+| `cursor_unknown_overlay` | `not_delivered`: an `agent-desktop-cursor` layer belongs to no renderer that hid; `details.layer_pid` and `details.layer_output` name it |
+| `cursor_hide_renewal_failed` | `uncertain`: work longer than 10 s could not renew its hide holder, so the input stopped before its next event |
 
 An `XDG_RUNTIME_DIR` that is not absolute is `PLATFORM_NOT_SUPPORTED`.
 
