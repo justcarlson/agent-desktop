@@ -217,6 +217,7 @@ def missing_agent_id_refused(ctx: LegContext) -> None:
             if surfaces_of(runtime, main) or record_of(runtime, session):
                 problems.append(f"the refused click started a renderer: {surfaces_of(runtime, main)}")
             ctx.after("atspi.display", display(tree))
+            ctx.after("hyprland.layers", surfaces_of(runtime, main))
             named = agent_click(ctx, session, seven, "agent-a")
             require(named.ok, f"the positive control click failed: {named.raw[:400]}")
             if not raw.poll(lambda: display(tree) != before, SETTLE_S):

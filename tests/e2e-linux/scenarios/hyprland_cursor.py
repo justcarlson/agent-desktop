@@ -273,6 +273,7 @@ def window_capture_excludes_overlay(ctx: LegContext) -> None:
         window_id = ids_by_pid(ctx.product(["list-windows"]), [app.pid])[app.pid]
         tree = root(ctx, app)
         before = display(tree)
+        ctx.before("atspi.display", before)
         session = started(ctx)
         try:
             owner = renderer_of(runtime, main, session)
@@ -281,6 +282,7 @@ def window_capture_excludes_overlay(ctx: LegContext) -> None:
             pressed = ctx.product(["--session", session, "click", seven])
             require(pressed.ok, f"the click that places the cursor failed: {pressed.raw[:400]}")
             require(raw.poll(lambda: display(tree) != before, SETTLE_S), "the click had no effect")
+            ctx.after("atspi.display", display(tree))
             shown = grim(ctx.tier, monitor["name"]), _window(ctx, window_id, "cursor-shown")
             ctx.before("pixels.window", [shown[1].width, shown[1].height])
             disabled = ctx.product(["--session", session, "cursor-overlay", "disable"])
