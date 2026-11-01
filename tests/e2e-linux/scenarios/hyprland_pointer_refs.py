@@ -26,10 +26,10 @@ from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, dra
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, NATIVE, PAD_BUTTON, PAD_SCROLL, XWAYLAND,
                                             apart_from_last_click, covering_layers, events, gdk3_presses,
-                                            gdk3_x11_wheel_matches, global_point, instance_control,
+                                            global_point, instance_control,
                                             instance_env, instance_query, pad_client, pad_ref, pad_saw,
                                             pads_left, pointer_pad, presses,
-                                            scrolls, settled, since)
+                                            settled, since, wheel_notches)
 from scenarios.hyprland_window_ops import float_argv
 
 SLURP_NAMESPACE = "selection"
@@ -52,15 +52,22 @@ def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int
 
 
 def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
-    """Three notches, so a burst merged into one wheel event fails even after GDK3's baseline notch."""
+    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline, so one
+    priming notch by ref sets it and may log nothing. Every measured notch must then log as one unit."""
+    start = len(events(log))
+    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", "1"], env=env))
+    seen = since(settled(log, lambda all_: bool(wheel_notches(since(all_, start), "scroll"))), start)
+    if len(wheel_notches(seen, "scroll")) > 1:
+        return [f"scroll by ref: the priming notch logged {len(wheel_notches(seen, 'scroll'))} wheel events,"
+                f" expected 0 or 1{pad_saw(seen)}"]
     start = len(events(log))
     delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", str(SCROLL_NOTCHES)], env=env))
-    seen = since(settled(log, lambda all_: len(scrolls(since(all_, start), "scroll")) >= SCROLL_NOTCHES), start)
-    found = scrolls(seen, "scroll")
-    if gdk3_x11_wheel_matches(found, "down", SCROLL_NOTCHES):
-        return []
-    return [f"scroll by ref: the pad scroll pane logged {found}, expected {SCROLL_NOTCHES} notches down,"
-            f" or {SCROLL_NOTCHES - 1} when GDK3 takes the first as its baseline{pad_saw(seen)}"]
+    want = ["down"] * SCROLL_NOTCHES
+    seen = since(settled(log, lambda all_: len(wheel_notches(since(all_, start), "scroll")) >= SCROLL_NOTCHES),
+                 start)
+    found = wheel_notches(seen, "scroll")
+    return [] if found == want else [f"scroll by ref: the pad scroll pane logged {found}, expected {want}"
+                                     f"{pad_saw(seen)}"]
 
 
 def preflight_occluder(error: dict) -> dict:
