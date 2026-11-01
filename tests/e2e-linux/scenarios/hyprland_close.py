@@ -133,20 +133,25 @@ def _mapped_pair(tier, pid: int) -> list[dict] | None:
     return own if len(own) == 2 and all(item.get("mapped") for item in own) else None
 
 
-def pair_interpreter(work: Path, python: Path) -> Path:
-    """A private copy of the Python interpreter, named for the close pair alone.
+def private_interpreter(work: Path, python: Path, executable: str) -> Path:
+    """A private copy of the Python interpreter, named `executable` for one app alone.
 
-    list-apps names a process by its executable, so a pair run by the shared interpreter shares
+    list-apps names a process by its executable, so an app run by the shared interpreter shares
     its name with every other Python program in the session, and `close-app` cannot name it
     alone. The `pyvenv.cfg` beside the copy points it at the original interpreter's standard
     library and system packages, as a venv does."""
-    folder = work / "close-pair-python"
+    folder = work / f"{executable}-python"
     (folder / "bin").mkdir(mode=0o700, parents=True, exist_ok=True)
     (folder / "pyvenv.cfg").write_text(f"home = {python.parent}\ninclude-system-site-packages = true\n")
-    target = folder / "bin" / PAIR_EXECUTABLE
+    target = folder / "bin" / executable
     if not target.exists():
         shutil.copy2(python, target)
     return target
+
+
+def pair_interpreter(work: Path, python: Path) -> Path:
+    """The private interpreter of the close pair."""
+    return private_interpreter(work, python, PAIR_EXECUTABLE)
 
 
 @contextlib.contextmanager
