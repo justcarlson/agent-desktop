@@ -111,13 +111,50 @@ jobs:
           jq -r '"Image: Omarchy \(.omarchy_version) (\(.version)), kernel \(.kernel)"' \
             "$OMARCHY_VM_CACHE/$CHANNEL/current/latest.json" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # The runner has no GPU. vgem gives a render node that QEMU's
+      # egl-headless display opens with Mesa's software path, so the guest
+      # gets virgl and a nested Hyprland instance gets outputs with real modes.
+      - name: Load vgem for a render node
+        run: |
+          echo "Kernel: $(uname -r)"
+          if ! sudo modprobe vgem; then
+            echo "modprobe vgem failed; trying linux-modules-extra-$(uname -r)"
+            sudo apt-get install -y -qq --no-install-recommends "linux-modules-extra-$(uname -r)" || true
+            sudo modprobe vgem || { echo "::error::vgem does not load on kernel $(uname -r)"; exit 1; }
+          fi
+          sudo udevadm settle || true
+          lsmod | grep -w vgem || true
+          ls /dev/dri || true
+          node=
+          for dev in /sys/class/drm/renderD*; do
+            [[ -e $dev ]] || continue
+            # On 7.0 kernels vgem is a faux device: its driver link reads faux_driver.
+            path=$(readlink -f "$dev")
+            driver=$(basename "$(readlink -f "$dev/device/driver")")
+            echo "$(basename "$dev"): driver $driver, path $path"
+            if [[ $driver == vgem || $path == */vgem/* ]]; then
+              node=/dev/dri/$(basename "$dev")
+            fi
+          done
+          nodes=(/dev/dri/renderD*)
+          if [[ -z $node && ${#nodes[@]} -eq 1 && -e ${nodes[0]} ]]; then
+            echo "::warning::no render node names vgem; using the only one, ${nodes[0]}"
+            node=${nodes[0]}
+          fi
+          [[ -n $node && -e $node ]] || { echo "::error::vgem loaded but no vgem render node appeared in /dev/dri"; exit 1; }
+          echo "Render node: $node"
+          ls -l /dev/dri
+          sudo chmod 0666 /dev/dri/*
+          echo "RENDER_NODE=$node" >>"$GITHUB_ENV"
+          echo "vgem render node: $node on kernel $(uname -r)" | tee -a "$GITHUB_STEP_SUMMARY"
+
       # QEMU runs in an Arch container on the runner's KVM: Arch's current
       # QEMU, the same as omarchy-iso's install test and an Omarchy workstation.
       - name: Run the tests in the VM
         run: |
           sudo chmod 0666 /dev/kvm
-          docker run --rm --device /dev/kvm -v "$PWD:/w" -v "$OMARCHY_VM_CACHE:$OMARCHY_VM_CACHE:ro" -w /w \
-            -e CHANNEL -e REPO -e OMARCHY_VM_CACHE -e VM_STATE_DIR=/tmp -e MEM -e SMP \
+          docker run --rm --device /dev/kvm --device /dev/dri -v "$PWD:/w" -v "$OMARCHY_VM_CACHE:$OMARCHY_VM_CACHE:ro" -w /w \
+            -e CHANNEL -e REPO -e OMARCHY_VM_CACHE -e VM_STATE_DIR=/tmp -e MEM -e SMP -e RENDER_NODE \
             ghcr.io/archlinux/archlinux:latest bash -euo pipefail -c '
               # pacman 7 fails every sync on a kernel without Landlock.
               if ! grep -qw landlock /sys/kernel/security/lsm 2>/dev/null; then
@@ -128,7 +165,8 @@ jobs:
               sed -i "1i Server = https://mirror.omarchy.org/\$repo/os/\$arch" /etc/pacman.d/mirrorlist
               for attempt in 1 2 3; do
                 if pacman -Syu --noconfirm --needed qemu-system-x86 qemu-hw-display-virtio-gpu \
-                    qemu-hw-display-virtio-vga qemu-img openssh jq >/dev/null; then
+                    qemu-hw-display-virtio-vga qemu-img openssh jq qemu-hw-display-virtio-gpu-gl \
+                    qemu-hw-display-virtio-vga-gl qemu-ui-egl-headless qemu-ui-opengl virglrenderer mesa >/dev/null; then
                   break
                 elif (( attempt < 3 )); then
                   echo "pacman failed, attempt $attempt of 3; trying again in 15 s"
@@ -138,6 +176,26 @@ jobs:
                   exit 1
                 fi
               done
+              # vm-boot hardcodes virtio-vga and -display none. Patch a writable
+              # copy of the channel dir for virgl: big files symlinked, vm-boot copied.
+              src=$(realpath "$OMARCHY_VM_CACHE/$CHANNEL/current")
+              version=$(basename "$src")
+              copy=/tmp/omarchy-vm-gl
+              mkdir -p "$copy/$CHANNEL/$version"
+              for f in "$src"/*; do
+                ln -s "$f" "$copy/$CHANNEL/$version/$(basename "$f")"
+              done
+              rm "$copy/$CHANNEL/$version/vm-boot"
+              cp "$src/vm-boot" "$copy/$CHANNEL/$version/vm-boot"
+              ln -sfn "$version" "$copy/$CHANNEL/current"
+              sed -i -e "s|-device virtio-vga -device|-device virtio-vga-gl -device|" \
+                -e "s|-display none|-display egl-headless,rendernode=$RENDER_NODE|" "$copy/$CHANNEL/$version/vm-boot"
+              echo "Patched vm-boot line:"
+              grep -n -- "-display" "$copy/$CHANNEL/$version/vm-boot"
+              grep -q -- "virtio-vga-gl .*egl-headless,rendernode=$RENDER_NODE" "$copy/$CHANNEL/$version/vm-boot" ||
+                { echo "::error::the vm-boot patch did not apply"; exit 1; }
+              ls -l /dev/dri
+              export OMARCHY_VM_CACHE=$copy
               # The tier tools and test apps; tests/e2e-linux/runner/gate.py is the list.
               pkgs=()
               for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd \
