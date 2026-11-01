@@ -7,6 +7,7 @@ use super::pointer_sink::PointerSink;
 use crate::input::delivery::Delivery;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
+use crate::input::x11::progress::Progress;
 
 const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retrying: some input may already have been delivered";
 
@@ -33,6 +34,7 @@ pub(crate) fn run_plans(
         plan_gate,
         step_gate,
         deadline,
+        progress,
         ..
     } = run;
     let mut held: Vec<u32> = Vec::new();
@@ -42,6 +44,7 @@ pub(crate) fn run_plans(
             plan_gate()?;
             for event in plan {
                 deadline.ensure_remaining()?;
+                ensure_not_cancelled(progress)?;
                 if event.gated() {
                     step_gate()?;
                 }
@@ -97,6 +100,21 @@ pub(crate) fn off_output(x: i32, y: i32) -> AdapterError {
     }))
     .with_disposition(DeliverySemantics::not_delivered())
     .with_suggestion("Run 'list-displays' and pass a point inside one display's bounds")
+}
+
+fn ensure_not_cancelled(progress: &Progress) -> Result<(), AdapterError> {
+    if !progress.is_cancelled() {
+        return Ok(());
+    }
+    Err(AdapterError::new(
+        ErrorCode::ActionFailed,
+        "A signal cancelled the pointer input before it finished",
+    )
+    .with_details(json!({
+        "kind": "hyprland_pointer",
+        "cause": "cancelled",
+        "physical_delivery_started": false,
+    })))
 }
 
 fn stopped(error: AdapterError, sent: u32, released: Option<bool>) -> AdapterError {

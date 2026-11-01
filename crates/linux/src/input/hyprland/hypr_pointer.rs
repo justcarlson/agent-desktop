@@ -10,6 +10,7 @@ use serde_json::json;
 use super::cursor_guard::{nothing_sent, with_cursors_hidden};
 use super::focus_gate::FocusGate;
 use super::live_pointer_sink::LivePointerSink;
+use super::pointer_cancel::with_release_on_signal;
 use super::pointer_run::PointerRun;
 use super::run_plans::run_plans;
 use crate::input::delivery::{Delivery, Gate};
@@ -26,11 +27,25 @@ use crate::system::hyprland::ipc::bound_request::bound_request;
 const ACTIVE_COMMAND: &str = "j/activewindow";
 
 /// Sends `plans` through the bound instance's virtual pointer. `plan_gate`
-/// runs before each plan, after the cursors are hidden.
+/// runs before each plan, after the cursors are hidden. A signal stops the
+/// run at its next event and releases its held buttons.
 pub(crate) fn send(
     binding: &HyprlandBinding,
     plans: &[Plan],
     plan_gate: Gate<'_>,
+    deadline: Deadline,
+) -> Result<Delivery, AdapterError> {
+    let slot = crate::input::x11::worker_slot::shared();
+    with_release_on_signal(&slot, deadline, |progress| {
+        send_hidden(binding, plans, plan_gate, progress, deadline)
+    })
+}
+
+fn send_hidden(
+    binding: &HyprlandBinding,
+    plans: &[Plan],
+    plan_gate: Gate<'_>,
+    progress: &Progress,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     let mut hider = crate::system::hyprland::cursor_hider(&CursorContext { binding });
@@ -45,7 +60,7 @@ pub(crate) fn send(
                 plan_gate,
                 step_gate: &mut || focus.check(),
                 deadline,
-                progress: &Progress::default(),
+                progress,
             },
             plans,
         )?;
