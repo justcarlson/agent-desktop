@@ -19,7 +19,7 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_close import _register, _release
 from scenarios.hyprland_common import bystander, main_instance
-from scenarios.hyprland_focus_controls import cursor, lua_call, restore_desktop, shown
+from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, restore_desktop, shown
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, PAD_BUTTON, PAD_SCROLL, apart_from_last_click,
