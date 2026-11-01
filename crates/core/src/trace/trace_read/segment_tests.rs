@@ -1,24 +1,11 @@
+use super::input_tests::test_temp_dir::TempDir;
 use super::segment::{MAX_LINE_BYTES, parse_segment_filename, read_segment_events};
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
-static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
-
-fn temp_dir(prefix: &str) -> PathBuf {
-    loop {
-        let dir = std::env::temp_dir().join(format!(
-            "agent-desktop-{prefix}-{}-{}",
-            std::process::id(),
-            NEXT_DIR.fetch_add(1, Ordering::Relaxed)
-        ));
-        match fs::create_dir(&dir) {
-            Ok(()) => return dir,
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => panic!("create a private segment directory: {error}"),
-        }
-    }
+fn temp_dir(prefix: &str) -> TempDir {
+    TempDir::new(prefix)
 }
 
 fn write_segment(dir: &Path, name: &str, lines: &[&str]) -> std::path::PathBuf {
