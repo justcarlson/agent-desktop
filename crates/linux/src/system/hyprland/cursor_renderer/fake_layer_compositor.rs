@@ -1,6 +1,7 @@
 //! A scripted compositor for the renderer's unit tests. It advertises the
 //! drawing globals beside a seat, an activation global and outputs, logs
-//! every bind and every request that shapes the cursor surface, sends a
+//! every bind and every request that shapes the cursor surface (a margin
+//! also as `surface <id> at <left> <top>`, so tests tell cursors apart), sends a
 //! configure on a layer surface's first commit, and answers frame callbacks
 //! unless told to stay dark, as a compositor with every output off does.
 
@@ -183,6 +184,10 @@ impl Server<'_> {
             (Kind::Surface, 6) => self.commit(object),
             (Kind::Layer(..), _) => {
                 self.layer_request(opcode, bytes);
+                if opcode == 3 {
+                    let side = |at| word(bytes, at) as i32;
+                    self.note(format!("surface {object} at {} {}", side(20), side(8)));
+                }
                 Vec::new()
             }
             _ => Vec::new(),
@@ -210,6 +215,7 @@ impl Server<'_> {
 
     fn layer_request(&self, opcode: u16, bytes: &[u8]) {
         let line = match opcode {
+            0 => format!("size {} {}", word(bytes, 8), word(bytes, 12)),
             1 => format!("anchor {}", word(bytes, 8)),
             2 => format!("exclusive zone {}", word(bytes, 8) as i32),
             3 => {
