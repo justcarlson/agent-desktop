@@ -424,7 +424,7 @@ before the first event is `not_delivered`. A stop after it is
 |-------|---------|
 | `physical_delivery_started` | `true` |
 | `delivered_events` | Events sent before the stop |
-| `buttons_released` | `true` when every held button was released; `false` when the compositor went away first |
+| `buttons_released` | `true` when the compositor confirmed every release; `false` when it went away or did not confirm within 1 s |
 
 ## Error codes
 

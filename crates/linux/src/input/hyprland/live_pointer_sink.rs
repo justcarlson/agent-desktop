@@ -25,6 +25,7 @@ const MANAGER_VERSION: u32 = 2;
 const OUTPUT_VERSION: u32 = 4;
 const WHEEL_STEP: f64 = 15.0;
 const NEED: &str = "pointer input on Hyprland";
+const RELEASE_SETTLE_MS: u64 = 1_000;
 
 /// Sends pointer frames through one virtual pointer per output. Event times
 /// come from the monotonic clock, so presses of separate commands are never
@@ -103,6 +104,15 @@ impl LivePointerSink {
         self.link
             .roundtrip(&mut self.state)
             .map_err(|fault| fault.into_error(&self.socket))
+    }
+
+    /// Waits, past the run's deadline, until the compositor has read the
+    /// releases. A client that exits after a bare flush can lose them:
+    /// libwayland-server destroys a hung-up client before reading what it
+    /// sent last. The wait stays under the signal release's own.
+    fn settle_release(&mut self) -> bool {
+        Deadline::detached_after(RELEASE_SETTLE_MS)
+            .is_ok_and(|deadline| self.link.roundtrip_by(&mut self.state, deadline).is_ok())
     }
 
     fn flush(&self) -> Result<(), AdapterError> {
@@ -208,7 +218,7 @@ impl PointerSink for LivePointerSink {
             .filter(|sent| !*sent)
             .count()
             == 0;
-        sent && self.flush().is_ok()
+        sent && self.settle_release()
     }
 }
 
