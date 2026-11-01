@@ -199,16 +199,23 @@ pub(crate) fn send_bursts_with(
     Ok(())
 }
 
+/// Confirms that a hover by ref reaches its element. A bound Hyprland
+/// instance refuses it, because the hover point carries no receiver
+/// evidence; any other Wayland session refused it at the pointer gate.
 pub(crate) fn confirm_receiver(
     bus: &SharedBus,
     handle: &NativeHandle,
     point: &Point,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    if crate::system::tray::target_of(handle).is_some()
-        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland))
-    {
+    if crate::system::tray::target_of(handle).is_some() {
         return Ok(());
+    }
+    if matches!(crate::input::backend::backend(), Ok(Backend::Wayland)) {
+        return match bound_route()? {
+            Some(_) => Err(crate::input::hyprland::pointer_capability::hover_ref_refused()),
+            None => Ok(()),
+        };
     }
     let element = atspi_element(handle)?;
     super::target_world::validate_pointer_receiver(bus, element, point, deadline)
