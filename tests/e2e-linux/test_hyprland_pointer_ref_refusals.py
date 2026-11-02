@@ -1,3 +1,4 @@
+import contextlib
 import json
 import tempfile
 import unittest
@@ -35,23 +36,33 @@ def always(envelope: Envelope):
 
 
 class LegRunTests(unittest.TestCase):
-    def run_leg(self, leg, mode: str, answer, lines=(), cursors=None) -> tuple[FakeContext, str | None]:
+    def run_leg(self, leg, mode: str, answer, logged=(), cursors=None) -> tuple[FakeContext, str | None]:
+        """Runs `leg` on fake pads; each product call appends `logged` to the shown pad's log."""
         cursor_reads = iter(cursors) if cursors else None
         with tempfile.TemporaryDirectory() as directory:
-            pads = fake_app(Path(directory), "pad", list(lines))
-
+            pads = fake_app(Path(directory), "pad", [])
             shown = {}
 
+            @contextlib.contextmanager
             def pad(tier, instance, label, backend):
                 shown["backend"] = backend
-                return pads()
+                with pads() as (owned, client, log):
+                    shown["log"] = log
+                    yield owned, client, log
+
+            def respond(argv):
+                envelope = answer(argv, shown.get("backend"))
+                with shown["log"].open("a") as handle:
+                    handle.writelines(json.dumps(line) + "\n" for line in logged)
+                return envelope
 
             patches = {**nested_patches(), "pads_left": lambda tier: [], "pad_ref": lambda *a: "@s1:e1",
                        "pointer_pad": pad, "active_address": lambda *a: "0x1"}
             if cursor_reads:
                 patches["cursor_at"] = lambda *a: next(cursor_reads)
-            ctx = FakeContext(lambda argv: answer(argv, shown.get("backend")))
+            ctx = FakeContext(respond)
             ctx.mode = mode
+            patches = {name: fake for name, fake in patches.items() if hasattr(refusals, name)}
             with mock.patch.multiple(refusals, **patches), mock.patch.object(refusals, "QUIET_S", 0.0):
                 try:
                     leg(ctx)
@@ -76,7 +87,7 @@ class LegRunTests(unittest.TestCase):
         self.assertIsNotNone(failure)
 
     def test_a_refused_drag_the_pad_still_saw_fails(self):
-        _, failure = self.run_leg(refusals.ref_drag_refused, "headed", by_backend, lines=[MOTION])
+        _, failure = self.run_leg(refusals.ref_drag_refused, "headed", by_backend, logged=[MOTION])
         self.assertIn("the pad logged", failure or "")
 
     def test_headless_ref_drag_refused_by_policy_passes(self):
@@ -86,7 +97,7 @@ class LegRunTests(unittest.TestCase):
 
     def test_headless_ref_drag_refused_for_its_receiver_fails(self):
         _, failure = self.run_leg(refusals.ref_drag_headless_refused, "headless", by_backend)
-        self.assertIn("POLICY_DENIED", failure or "")
+        self.assertIn("receiver_unproven", failure or "")
 
     def test_headless_hover_by_ref_refused_by_policy_passes(self):
         ctx, failure = self.run_leg(refusals.hover_by_ref_headless_refused, "headless",
