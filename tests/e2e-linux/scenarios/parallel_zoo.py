@@ -14,6 +14,7 @@ import contextlib
 import fcntl
 import os
 import time
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,7 @@ ACTIVATE, CHANGED = "activate", "changed"
 ZOOS = {"A": "Zoo GTK3", "B": "Zoo GTK4", "C": "Zoo GTK3", "D": "Zoo Qt"}
 LAUNCH_S, RESPONSIVE_S, FOCUS_S = 20.0, 3.0, 3.0
 IME_KEYBOARDS = ("hl-virtual-keyboard-fcitx5",)
+_KEYBOARDS_BEFORE: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 @dataclass
@@ -174,8 +176,17 @@ def shown_desktop(ctx: LegContext, launched: dict[str, Zoo], names: str):
 
 
 def common_reads(ctx: LegContext, stage: str) -> None:
+    """The lease state, and the keyboard changes `left_keyboard_problems` finds against the leg's
+    before read, so the verdict allows what that check allows and nothing more."""
     getattr(ctx, stage)("proc.lease", lease_state())
-    getattr(ctx, stage)("hyprland.keyboards", keyboards(ctx.tier))
+    now = keyboards(ctx.tier)
+    if stage == "before":
+        _KEYBOARDS_BEFORE[ctx] = now
+    before = _KEYBOARDS_BEFORE.setdefault(ctx, now)
+    left = left_keyboard_problems(before, now)
+    if left:
+        ctx.finding(f"keyboards {stage}: {left}; before {before}, now {now}")
+    getattr(ctx, stage)("hyprland.keyboards", left)
 
 
 def focus_entry(tier, zoo: Zoo) -> None:
