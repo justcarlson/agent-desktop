@@ -21,6 +21,8 @@ struct HoverCaptureAdapter {
     focused_bounds: Option<Rect>,
     refuses_receiver: bool,
     receiver_checks: AtomicU32,
+    refuses_ref_hover: bool,
+    resolutions: AtomicU32,
 }
 
 impl HoverCaptureAdapter {
@@ -31,7 +33,14 @@ impl HoverCaptureAdapter {
             focused_bounds: None,
             refuses_receiver: false,
             receiver_checks: AtomicU32::new(0),
+            refuses_ref_hover: false,
+            resolutions: AtomicU32::new(0),
         }
+    }
+
+    fn refusing_ref_hover(mut self) -> Self {
+        self.refuses_ref_hover = true;
+        self
     }
 
     fn refusing_receiver(mut self) -> Self {
@@ -51,6 +60,7 @@ impl ObservationOps for HoverCaptureAdapter {
         _entry: &RefEntry,
         _deadline: crate::Deadline,
     ) -> Result<NativeHandle, AdapterError> {
+        self.resolutions.fetch_add(1, Ordering::SeqCst);
         Ok(NativeHandle::null())
     }
 
@@ -103,6 +113,13 @@ impl ObservationOps for HoverCaptureAdapter {
 impl ActionOps for HoverCaptureAdapter {}
 
 impl InputOps for HoverCaptureAdapter {
+    fn ref_hover_refusal(&self, _entry: &RefEntry) -> Option<AdapterError> {
+        self.refuses_ref_hover.then(|| {
+            AdapterError::new(crate::ErrorCode::ActionNotSupported, "no ref hover")
+                .with_disposition(crate::DeliverySemantics::not_delivered())
+        })
+    }
+
     fn mouse_event(
         &self,
         event: MouseEvent,
