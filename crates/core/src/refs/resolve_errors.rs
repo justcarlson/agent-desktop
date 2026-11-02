@@ -64,3 +64,12 @@ pub fn mark_deadline_elapsed(mut error: AdapterError) -> AdapterError {
 #[cfg(test)]
 #[path = "resolve_errors_tests.rs"]
 mod tests;
+
+/// A lookup that no longer finds the ref's owner application means the owner
+/// exited, so the ref is stale rather than naming an unknown application.
+pub(crate) fn owner_exited_as_stale(error: AdapterError) -> AdapterError {
+    if error.code != ErrorCode::AppNotFound {
+        return error;
+    }
+    AdapterError::stale_ref_because("The application the ref was captured from has exited")
+}
