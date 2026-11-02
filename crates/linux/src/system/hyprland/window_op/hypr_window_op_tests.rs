@@ -5,8 +5,8 @@ use super::*;
 use crate::system::hyprland::window_op::client_state::ClientState;
 use crate::system::hyprland::window_op::output_origin::OutputOrigin;
 use crate::system::hyprland::window_op::window_op_fixture::{
-    HOLDER, LEGACY_REPLY, LUA_REPLY, TARGET, desktop, floating_at, frame, holder, state, window,
-    world,
+    HOLDER, LEGACY_REPLY, LUA_REPLY, MAXIMIZE, TAG, TARGET, UNSET, UNTAG, desktop, floating_at,
+    frame, holder, state, tagged, window, world,
 };
 
 #[test]
@@ -171,19 +171,6 @@ fn restore_is_proven_by_the_restored_state_scope() {
         "window_restored_state"
     );
     assert_eq!(fake.dispatches().len(), 2);
-}
-
-const MAXIMIZE: &str = "dispatch hl.dsp.window.fullscreen({mode=\"maximized\",action=\"set\",window=\"address:0x10\"})";
-const UNSET: &str = "dispatch hl.dsp.window.fullscreen_state({internal=0,client=0,action=\"set\",window=\"address:0x10\"})";
-
-const RECORD: &str = "agent-desktop-restore:40,60,630,755";
-const TAG: &str = "dispatch hl.dsp.window.tag({tag=\"+agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
-const UNTAG: &str = "dispatch hl.dsp.window.tag({tag=\"-agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
-
-fn tagged(state: ClientState) -> ClientState {
-    let mut state = state;
-    state.marks.tags = vec![RECORD.into()];
-    state
 }
 
 #[test]
