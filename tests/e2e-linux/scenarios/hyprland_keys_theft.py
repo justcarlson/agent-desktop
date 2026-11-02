@@ -22,9 +22,9 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_common import desktop, main_instance, shared
 from scenarios.hyprland_focus_controls import active, focus_argv, move
-from scenarios.hyprland_keys_cancel import finished, running_product
 from scenarios.hyprland_keys_common import give_focus, key_log, keyboards, presses, toplevel
 from scenarios.hyprland_keys_controls import ENTRY, focused_zoo, zoo_ref, zoo_text
+from scenarios.hyprland_keys_process import finished, running_product
 
 STOLEN = "stolen"
 ATTEMPTS = 3
