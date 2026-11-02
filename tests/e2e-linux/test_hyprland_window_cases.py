@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from runner.product import Envelope
+from runner.verdict import LegContext, evaluate
 from scenarios import (hyprland_window_app as app, hyprland_window_checks as checks,
                        hyprland_window_legacy as legacy, hyprland_window_nested as nested,
                        hyprland_window_ops as ops, hyprland_window_refusals as refusals)
@@ -239,6 +240,31 @@ class RefusalLegTests(unittest.TestCase):
                 mock.patch.object(refusals.raw, "poll", side_effect=lambda read, _s: read()):
             with refusals.parked_sizer(ctx, {"address": "0xb2"}, {}) as target:
                 self.assertEqual(target, ("w-1", "0xa1", "31", 7, Path("/dev/null")))
+
+    def test_every_oracle_the_leg_reads_is_read_before_after_and_restored(self):
+        ctx = LegContext(SimpleNamespace(), "headless", member_reader=lambda _tier: frozenset())
+        target = ("w-1", "0xa1", "31", 7, Path("/dev/null"))
+
+        @contextlib.contextmanager
+        def parked(*_a):
+            yield target
+
+        @contextlib.contextmanager
+        def quiet(*_a):
+            yield SimpleNamespace(changes=[])
+
+        with mock.patch.object(refusals, "parked_sizer", parked), mock.patch.object(refusals, "Sampler", quiet), \
+                mock.patch.object(refusals, "generation", return_value=[7, 100]), \
+                mock.patch.object(refusals, "desktop", return_value={"focus": "0xb2"}), \
+                mock.patch.object(refusals, "_unsupported", return_value=[]), \
+                mock.patch.object(refusals, "_supported", return_value=[]), \
+                mock.patch.object(refusals, "_absent", return_value=[]), \
+                mock.patch.object(refusals, "keeps_focus", return_value=[]), \
+                mock.patch.object(refusals, "watched"), mock.patch.object(refusals, "located"), \
+                mock.patch.object(refusals, "bystander"), mock.patch.object(refusals, "cursor"), \
+                mock.patch.object(refusals, "restore_desktop"), mock.patch.object(refusals, "main_instance"):
+            refusals.window_operation_refusals(ctx)
+        self.assertEqual(evaluate(ctx), [])
 
     def test_a_refusal_the_app_saw_fails(self):
         log = Path(tempfile.mkdtemp()) / "sizer.events"
