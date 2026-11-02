@@ -5,7 +5,7 @@ use wayland_client::{Proxy, delegate_dispatch};
 
 use super::*;
 use crate::system::wayland::exchange::{ExchangeHandler, HoldsExchange};
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
 use crate::system::wayland::link::Link;
 

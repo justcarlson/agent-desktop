@@ -6,7 +6,7 @@ use agent_desktop_core::{
 
 use super::{holder_reply, refresh_holders};
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
-use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
+use crate::system::hyprland::cursor_renderer::fake_layer_compositor_test_support::FakeLayerCompositor;
 use crate::system::hyprland::cursor_renderer::holder_file::now_ms;
 use crate::system::hyprland::cursor_renderer::holder_lease::HolderLease;
 use crate::system::hyprland::cursor_renderer::holder_watch::HolderWatch;

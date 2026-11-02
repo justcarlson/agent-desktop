@@ -64,7 +64,7 @@ fn the_generated_binding_names_the_hyprland_mapping_global() {
 }
 
 fn served(globals: Vec<(&'static str, u32)>) -> WaylandAnswer {
-    use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+    use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
     let compositor = FakeCompositor::start(Script::Answer {
         globals,
         outputs: vec![],
@@ -91,7 +91,7 @@ fn a_live_wayland_socket_reports_whether_it_advertises_the_mapping_global() {
 
 #[test]
 fn a_wayland_socket_that_never_answers_is_silent() {
-    use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+    use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
     let compositor = FakeCompositor::start(Script::Silent);
     let deadline = Deadline::after(200).expect("deadline");
     assert_eq!(

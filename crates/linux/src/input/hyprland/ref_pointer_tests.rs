@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, P
 
 use super::*;
 use crate::actions::physical_target::tests::fake::{FakeWorld, element};
-use crate::system::hyprland::receiver::fake_stack_ipc::{CannedReply, FakeStackIpc};
+use crate::system::hyprland::receiver::fake_stack_ipc_test_support::{CannedReply, FakeStackIpc};
 
 pub(crate) const TARGET: u64 = 0xa1;
 

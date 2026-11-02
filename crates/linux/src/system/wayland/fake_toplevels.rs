@@ -5,7 +5,7 @@
 //! `hyprland_toplevel_mapping_manager_v1` that answers each mapping request
 //! with the toplevel's address or `failed`.
 
-use super::fake_compositor::{Arg, message};
+use super::fake_compositor_test_support::{Arg, message};
 
 pub(super) const LIST: &str = "ext_foreign_toplevel_list_v1";
 pub(super) const MAPPER: &str = "hyprland_toplevel_mapping_manager_v1";

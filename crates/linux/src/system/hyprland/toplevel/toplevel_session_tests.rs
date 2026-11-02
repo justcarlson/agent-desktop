@@ -2,7 +2,7 @@ use agent_desktop_core::{Deadline, ErrorCode};
 
 use super::*;
 use crate::system::hyprland::toplevel::fake_binding::binding_for;
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
 
 const GLOBALS: [(&str, u32); 3] = [

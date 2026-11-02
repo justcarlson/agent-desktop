@@ -1,6 +1,6 @@
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::process::proc_stat::read_stat;
-use crate::system::wayland::fake_compositor::FakeCompositor;
+use crate::system::wayland::fake_compositor_test_support::FakeCompositor;
 
 /// A binding whose Wayland socket is `compositor` and whose compositor
 /// process is this test process, which serves the fake socket.

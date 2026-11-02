@@ -5,7 +5,7 @@ use std::time::Instant;
 use agent_desktop_core::DeliverySemantics;
 
 use super::*;
-use crate::system::wayland::fake_compositor::{FakeCompositor, FakeOutput, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, FakeOutput, Script};
 
 const BTN_LEFT: u32 = 0x110;
 

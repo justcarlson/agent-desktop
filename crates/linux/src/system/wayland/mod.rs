@@ -18,6 +18,6 @@ pub(crate) mod wlr_toplevel;
 pub(crate) mod wlr_toplevels;
 
 #[cfg(test)]
-pub(crate) mod fake_compositor;
+pub(crate) mod fake_compositor_test_support;
 #[cfg(test)]
 pub(crate) mod fake_toplevels;

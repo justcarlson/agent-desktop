@@ -1,7 +1,7 @@
 use agent_desktop_core::Deadline;
 
 use super::*;
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
 use crate::system::wayland::registry_read::read_registry;
 use crate::system::wayland::socket_connect::connect;
 

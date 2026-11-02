@@ -3,7 +3,7 @@ use wayland_client::Proxy;
 
 use super::*;
 use crate::system::hyprland::toplevel::fake_binding::binding_for;
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
 
 fn reader() -> (FakeCompositor, ToplevelReader) {

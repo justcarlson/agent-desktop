@@ -71,8 +71,8 @@ pub(crate) mod surface_parts;
 pub(crate) mod tracked_output;
 
 #[cfg(test)]
-pub(crate) mod fake_layer_compositor;
+pub(crate) mod fake_layer_compositor_test_support;
 #[cfg(test)]
-pub(crate) mod fake_renderer;
+pub(crate) mod fake_renderer_test_support;
 #[cfg(test)]
 pub(crate) mod registry_fixture;

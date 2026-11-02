@@ -18,4 +18,4 @@ pub(crate) mod stack_parse;
 pub(crate) mod stacking;
 
 #[cfg(test)]
-pub(crate) mod fake_stack_ipc;
+pub(crate) mod fake_stack_ipc_test_support;

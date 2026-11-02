@@ -9,7 +9,7 @@ use crate::system::hyprland::protocol::MAPPING_INTERFACE;
 use crate::system::hyprland::toplevel::fake_binding::binding_for;
 use crate::system::process::process_facts;
 use crate::system::process::process_lookup::Lookup;
-use crate::system::wayland::fake_compositor::{FakeCompositor, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, Script};
 use crate::system::wayland::fake_toplevels::FakeToplevel;
 use crate::system::wayland::wlr_toplevels::{SEAT_INTERFACE, WLR_MANAGER_INTERFACE};
 
