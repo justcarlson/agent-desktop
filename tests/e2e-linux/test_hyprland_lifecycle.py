@@ -136,12 +136,19 @@ class AttachedLifecycleTests(unittest.TestCase):
             "/usr/bin/env -i 'A=b c' WAYLAND_DISPLAY=wayland-1 gnome-calculator '--x=it'\"'\"'s' "
             f">>{self.work}/log 2>&1\n"))
 
-    def test_only_new_generations_of_the_launched_command_on_this_display_are_adopted(self):
+    def test_only_new_bus_activated_generations_of_the_launched_command_on_this_display_are_adopted(self):
         env = {"XDG_RUNTIME_DIR": str(self.shared), "WAYLAND_DISPLAY": "wayland-1"}
-        make_proc(self.proc, 90, 900, comm="gnome-calculato", environ=env)
-        make_proc(self.proc, 91, 100, comm="gnome-calculato", environ=env)
-        make_proc(self.proc, 92, 900, comm="gnome-calculato", environ=dict(env, WAYLAND_DISPLAY="wayland-2"))
-        make_proc(self.proc, 93, 900, comm="xdg-desktop-por", environ=env)
+        apps = "0::/user.slice/user-1000.slice/user@1000.service/app.slice"
+        activated = f"{apps}/app-dbus\\x2d:1.2\\x2dorg.gnome.Calculator.slice/dbus-:1.2-org.gnome.Calculator@0.service"
+        make_proc(self.proc, 90, 900, comm="gnome-calculato", environ=env, cgroup=activated)
+        make_proc(self.proc, 91, 100, comm="gnome-calculato", environ=env, cgroup=activated)
+        make_proc(self.proc, 92, 900, comm="gnome-calculato", environ=dict(env, WAYLAND_DISPLAY="wayland-2"),
+                  cgroup=activated)
+        make_proc(self.proc, 93, 900, comm="xdg-desktop-por", environ=env, cgroup=activated)
+        make_proc(self.proc, 94, 900, comm="gnome-calculato", environ=env,
+                  cgroup=f"{apps}/app-Hyprland-gnome\\x2dcalculator-4242.scope")
+        make_proc(self.proc, 95, 900, comm="gnome-calculato", environ=env,
+                  cgroup=f"{apps}/app-gnome\\x2dcalculator@1.service")
         tier = SimpleNamespace(runtime_dir=self.work, wayland_display="wayland-1")
         adopted = attached_session.adopt_activated(tier, ("gnome-calculator",), 500, self.proc)
         self.assertEqual(adopted, [(90, 900, "gnome-calculato")])
