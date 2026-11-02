@@ -13,7 +13,7 @@ use crate::input::x11::progress::Progress;
 const OWNER_US_RU: &str = include_str!("../wayland/keymap/us_ru.xkb");
 const KEYSYM_B: u32 = 0x42;
 const ENGLISH: u32 = 0;
-const SHIFT_DOWN_GATE: u32 = 4;
+const AFTER_SHIFT_DOWN_GATE: u32 = 5;
 
 fn live() -> Deadline {
     Deadline::after(5_000).expect("a five second deadline builds")
@@ -39,6 +39,17 @@ fn the_gate_passes_until_a_signal_and_refuses_after_without_asking_the_inner_gat
 }
 
 #[test]
+fn a_signal_during_the_inner_gate_refuses_that_key_down() {
+    let progress = Progress::default();
+    let mut inner = || {
+        progress.cancel();
+        Ok(())
+    };
+    let mut gate = stop_on_signal(&mut inner, &progress);
+    assert!(gate().is_err());
+}
+
+#[test]
 fn a_signal_with_shift_held_releases_shift_and_destroys_the_keyboard() {
     let progress = Progress::default();
     let wire = FakeWire::new();
@@ -46,7 +57,7 @@ fn a_signal_with_shift_held_releases_shift_and_destroys_the_keyboard() {
     let calls = Cell::new(0);
     let mut inner = || {
         calls.set(calls.get() + 1);
-        if calls.get() == SHIFT_DOWN_GATE {
+        if calls.get() == AFTER_SHIFT_DOWN_GATE {
             progress.cancel();
         }
         Ok(())
