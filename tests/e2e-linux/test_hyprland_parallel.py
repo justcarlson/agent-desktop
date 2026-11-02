@@ -254,3 +254,44 @@ class ChildEnvironmentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FfiChildTests(unittest.TestCase):
+    def test_a_live_c_abi_child_is_not_read_to_end_before_it_gets_its_line(self):
+        import subprocess
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_faults as faults
+
+        started, popen = [], subprocess.Popen
+
+        def blocked_on_stdin(*_args, **kwargs):
+            child = popen([sys.executable, "-I", "-c", "import sys; sys.stdin.readline()"], **kwargs)
+            started.append(child)
+            return child
+
+        sampler = SimpleNamespace(watch=lambda *_args: None, state=lambda: (frozenset(), frozenset(
+            child.pid for child in started)))
+        outcome = []
+
+        def run() -> None:
+            try:
+                faults.same_process_problems(SimpleNamespace(env={}), None, sampler, {}, "@s1:e1", {})
+            except AssertionError as error:
+                outcome.append(str(error))
+
+        with patch.object(faults, "ffi_library", return_value=Path("/private/lib.so")), \
+                patch.object(faults.agents, "agent_env", return_value={}), \
+                patch.object(faults.subprocess, "Popen", side_effect=blocked_on_stdin):
+            worker = threading.Thread(target=run, daemon=True)
+            worker.start()
+            worker.join(10.0)
+            hung = worker.is_alive()
+            for child in started:
+                child.kill()
+            worker.join(10.0)
+        self.assertFalse(hung, "the runner blocked reading a live child's stderr")
+        self.assertEqual(len(outcome), 1)
+        self.assertIn("closed its output early", outcome[0])
