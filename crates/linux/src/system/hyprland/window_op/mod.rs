@@ -13,6 +13,8 @@ pub(crate) mod live_window_world;
 pub(crate) mod step_goal;
 pub(crate) mod window_command;
 pub(crate) mod window_op_entry;
+#[cfg(test)]
+pub(crate) mod window_op_fixture;
 pub(crate) mod window_op_refusal;
 pub(crate) mod window_plan;
 pub(crate) mod window_step;
