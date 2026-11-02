@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 use std::os::unix::net::UnixListener;
 use std::path::Path;
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use agent_desktop_core::{CursorOverlayControl, CursorOverlayStyle};
 
@@ -73,4 +75,55 @@ fn a_starting_renderer_asks_its_compositor_not_to_animate_cursor_layers() {
     let seen = commands.lock().expect("commands").clone();
     assert!(seen.iter().any(|command| command == RULE), "{seen:?}");
     drop(process);
+}
+
+fn announce_reload_on_signal(socket: &Path) -> mpsc::Sender<()> {
+    let _ = std::fs::remove_file(socket);
+    let listener = UnixListener::bind(socket).expect("bind events");
+    let (signal, signalled) = mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        let Ok((mut stream, _)) = listener.accept() else {
+            return;
+        };
+        while signalled.recv().is_ok() {
+            let _ = stream.write_all(b"activewindow>>foot,shell\nconfigreloaded>>\n");
+        }
+    });
+    signal
+}
+
+fn rules_sent(commands: &Arc<Mutex<Vec<String>>>) -> usize {
+    let seen = commands.lock().expect("commands");
+    seen.iter().filter(|command| *command == RULE).count()
+}
+
+#[test]
+fn a_config_reload_makes_a_running_renderer_ask_again_not_to_animate_cursor_layers() {
+    let fixture = RegistryFixture::new();
+    let fake = FakeLayerCompositor::start(true);
+    let target = own_target(&fixture, &fake);
+    let commands = record_commands(&target.binding.ipc_socket);
+    let reload = announce_reload_on_signal(&fixture.root().join(".socket2.sock"));
+    let enable =
+        CursorOverlayControl::enable("fixture-session".into(), CursorOverlayStyle::default());
+    let process =
+        RendererProcess::start_over(fake.connect(), fixture.paths.clone(), &target, &enable)
+            .expect("renderer starts")
+            .with_wanted(|_| true);
+    let renderer = std::thread::spawn(move || process.serve());
+    assert_eq!(rules_sent(&commands), 1);
+
+    reload.send(()).expect("announce reload");
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while rules_sent(&commands) < 2 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    let sent = rules_sent(&commands);
+    std::fs::remove_dir_all(fixture.root().join("hypr")).expect("remove compositor dir");
+    renderer
+        .join()
+        .expect("renderer thread")
+        .expect("clean exit");
+    assert_eq!(sent, 2, "{:?}", commands.lock().expect("commands"));
 }
