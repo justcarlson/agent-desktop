@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from runner import legs
 from runner.product import Envelope
-from scenarios import hyprland_identity as identity, hyprland_window_ops as ops
+from scenarios import hyprland_identity as identity, hyprland_window_checks as ops
 
 NOT_DELIVERED = {"delivery": "not_delivered", "retry": "safe"}
 WINDOW_LEGS = (
@@ -44,8 +44,9 @@ class FakeContext:
         self.envelope = envelope
         self.argv: list[list[str]] = []
 
-    def product(self, argv):
+    def product(self, argv, env=None, **_):
         self.argv.append(argv)
+        self.env = env
         return self.envelope
 
 
@@ -92,9 +93,8 @@ class PlacementTests(unittest.TestCase):
 class OperationVerdictTests(unittest.TestCase):
     def run_operated(self, envelope, reads, expected):
         ctx = FakeContext(envelope)
-        with mock.patch.object(ops, "client", side_effect=lambda *_: reads[-1]), \
-                mock.patch.object(ops.raw, "poll", return_value=None):
-            return ops.operated(ctx, "move", ["move-window"], "0xa1", expected)
+        with mock.patch.object(ops.raw, "poll", return_value=None):
+            return ops.operated(ctx, "move", ["move-window"], lambda: ops.placement(reads[-1]), expected)
 
     def test_a_verified_report_with_the_read_back_passes(self):
         self.assertEqual(self.run_operated(report("delivered_verified"), [toplevel()], {"at": [40, 60]}), [])
@@ -112,8 +112,7 @@ class OperationVerdictTests(unittest.TestCase):
     def run_refusal(self, envelope, reads, cause="tiled_window"):
         ctx = FakeContext(envelope)
         states = iter(reads)
-        with mock.patch.object(ops, "client", side_effect=lambda *_: next(states)):
-            return ops.refusal(ctx, "tiled move", ["move-window"], "0xa1", cause)
+        return ops.refusal(ctx, "tiled move", ["move-window"], lambda: ops.placement(next(states)), cause)
 
     def test_a_refusal_that_sent_nothing_passes(self):
         self.assertEqual(self.run_refusal(refused("tiled_window"), [toplevel(), toplevel()]), [])
@@ -134,8 +133,7 @@ class OperationVerdictTests(unittest.TestCase):
     def run_satisfied(self, envelope, reads):
         ctx = FakeContext(envelope)
         states = iter(reads)
-        with mock.patch.object(ops, "client", side_effect=lambda *_: next(states)):
-            return ops.satisfied(ctx, "move again", ["move-window"], "0xa1")
+        return ops.satisfied(ctx, "move again", ["move-window"], lambda: ops.placement(next(states)))
 
     def test_an_already_satisfied_operation_is_not_delivered_and_changes_nothing(self):
         self.assertEqual(self.run_satisfied(report("not_delivered"), [toplevel(), toplevel()]), [])
