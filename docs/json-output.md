@@ -393,10 +393,10 @@ its value.
 
 | Value | Meaning |
 |-------|---------|
-| `stopped` | The renderer exited when asked |
+| `stopped` | The renderer exited when asked, or exited cleanly on its own just before the request reached it |
 | `terminated` | It ignored the request; a signal stopped it after its process identity was checked, and its exit is confirmed |
 | `not_running` | No renderer was running for the session |
-| `stale` | The record named a process that is gone or replaced; nothing was signalled and the record was removed |
+| `stale` | The record named a process that died without removing it, or a replaced one; nothing was signalled and the record was removed |
 | `incompatible` | A renderer from another agent-desktop build ignored the request; it was not signalled and keeps its files |
 
 A refusal is `ACTION_FAILED` with `details.kind`, except where the table says
