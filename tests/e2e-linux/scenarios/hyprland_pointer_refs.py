@@ -4,8 +4,8 @@ Positive ref input goes to the nested second instance, where no shell layer cove
 Covers the leg places are its own: a slurp selection layer, and a foot terminal it floats or
 pins over the pad. The session instance is used only for refusals that send no event.
 Every headed ref pointer action refuses before any event. On a native Wayland pad the cause is
-`native_wayland_client` (probes/linux/FINDINGS.md L42-4, L42-5), which
-`pointer.native_wayland_ref_refused` checks. On an XWayland pad, and on the L42/L45 fixtures whose
+`native_wayland_client` (probes/linux/FINDINGS.md L47-4, L47-5), which
+`pointer.native_wayland_ref_refused` checks. On an XWayland pad, and on the L47/L45 fixtures whose
 target sits under an in-window overlay or a same-client popup, it is `receiver_unproven` (L45-2), which
 the other legs check.
 """
