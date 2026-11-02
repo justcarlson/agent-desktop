@@ -166,6 +166,43 @@ class NestedPlacementTests(unittest.TestCase):
 
 
 
+class OutputMoveFramesTests(unittest.TestCase):
+    def run_geometry(self, lua: bool) -> list[str]:
+        events = []
+        sized = SimpleNamespace(refused=lambda *_a: [], floated=lambda: {"size": [500, 400], "at": [40, 60]},
+                                satisfied=lambda *_a: [], argv=lambda *a: list(a),
+                                monitor=lambda: {"name": "WAYLAND-1", "x": -1024, "y": -640})
+
+        @contextlib.contextmanager
+        def fake_sizer(*_a):
+            yield None, {}, None
+
+        @contextlib.contextmanager
+        def moved(*_a):
+            events.append("moved")
+            yield
+            events.append("moved back")
+
+        @contextlib.contextmanager
+        def frames(ctx, instance):
+            events.append("shown")
+            yield
+            events.append("hidden")
+
+        with mock.patch.object(nested, "sizer", fake_sizer), mock.patch.object(nested, "Sized", return_value=sized), \
+                mock.patch.object(nested, "moved_output", moved), mock.patch.object(nested, "nested_frames", frames, create=True), \
+                mock.patch.object(nested, "placed", return_value=[]), \
+                mock.patch.object(nested, "size_problems", return_value=[]):
+            self.assertEqual(nested.geometry_cases(SimpleNamespace(tier=None), {}, lua, "legacy config"), [])
+        return events
+
+    def test_a_legacy_instance_moves_its_output_only_while_the_outer_session_shows_it(self):
+        self.assertEqual(self.run_geometry(False), ["shown", "moved", "moved back", "hidden"])
+
+    def test_a_lua_instance_moves_its_output_hidden(self):
+        self.assertEqual(self.run_geometry(True), ["moved", "moved back"])
+
+
 class ChangedOutputTests(unittest.TestCase):
     def test_a_restore_on_a_moved_output_expects_the_old_offset_from_the_new_origin(self):
         log = Path(tempfile.mkdtemp()) / "sizer.events"
