@@ -4,13 +4,17 @@ import os
 import sys
 import tempfile
 import time
+import contextlib
+import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import legs
+from runner import legs, verdict
 from scenarios import hyprland_cursor_ack as ack
 
 LEG_IDS = ("cursor.arrival_ack_before_dispatch_delayed",
@@ -122,6 +126,65 @@ class CursorAckLegTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 2.0)
         self.assertEqual(ack.transitions(timeline.reads, "7"), ["73"])
         self.assertEqual([value for _, value in timeline.reads[:2]], ["7", "7"])
+
+
+class CursorAckLegRunTests(unittest.TestCase):
+    def run_leg(self, leg_id: str, run, line: dict, timeline_reads: list[tuple[int, str]]) -> verdict.LegContext:
+        tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=None, env={})
+        ctx = verdict.LegContext(tier, "headless", legs.leg_by_id(leg_id), member_reader=lambda _: frozenset())
+        shown = {"value": "0"}
+        presses = {"7": "7", "3": "73", "1": "731"}
+
+        class FakeTimeline:
+            def __init__(self, read_display, before, quiet_s=ack.QUIET_S):
+                self.reads = timeline_reads
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory)
+
+            def click(ctx, session, ref, agent):
+                if ref == "3":
+                    (registry / ack.ACK_TRACE).write_text(json.dumps(line) + "\n")
+                shown["value"] = presses[ref]
+                return SimpleNamespace(ok=True, raw="{}", elapsed_ms=50.0)
+
+            with patch.object(ack, "managed", return_value=contextlib.nullcontext(SimpleNamespace(pid=7))), \
+                    patch.object(ack, "app_shown", return_value=contextlib.nullcontext()), \
+                    patch.object(ack, "root", return_value="tree"), \
+                    patch.object(ack, "display", side_effect=lambda tree: shown["value"]), \
+                    patch.object(ack, "shared", return_value=Path("/private/test")), \
+                    patch.object(ack, "main_instance", return_value={}), \
+                    patch.object(ack, "surfaces_of", return_value=[]), \
+                    patch.object(ack, "started_multi", return_value="sess"), \
+                    patch.object(ack, "button", side_effect=lambda ctx, app, session, name: (name, (0.0, 0.0))), \
+                    patch.object(ack, "agent_click", side_effect=click), \
+                    patch.object(ack, "record_of", return_value={"pid": 9}), \
+                    patch.object(ack, "registry_of", return_value=registry), \
+                    patch.object(ack, "ended"), \
+                    patch.object(ack, "gone_problems", return_value=[]), \
+                    patch.object(ack, "undone", side_effect=lambda tree, before: before), \
+                    patch.object(ack, "DisplayTimeline", FakeTimeline), \
+                    patch.object(ack.raw, "poll", side_effect=lambda predicate, timeout: predicate()):
+                run(ctx)
+        return ctx
+
+    def test_the_delayed_leg_reads_every_oracle_before_after_and_restored(self):
+        ctx = self.run_leg(LEG_IDS[0], ack.arrival_ack_delayed, delayed_line(100, 700),
+                           reads((100, "7"), (705, "7"), (710, "73")))
+        self.assertEqual(verdict.evaluate(ctx), [])
+        self.assertTrue(any("600" in finding for finding in ctx.findings), ctx.findings)
+
+    def test_the_withheld_leg_reads_every_oracle_before_after_and_restored(self):
+        ctx = self.run_leg(LEG_IDS[1], ack.arrival_ack_withheld, withheld_line(100),
+                           reads((100, "7"), (960, "7"), (970, "73")))
+        self.assertEqual(verdict.evaluate(ctx), [])
+        self.assertTrue(any("withhold" in finding for finding in ctx.findings), ctx.findings)
 
 
 if __name__ == "__main__":
