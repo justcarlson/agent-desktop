@@ -22,6 +22,8 @@ def inside(control, viewport):
 @implementation("ref_actions.scroll")
 @implementation("ref_actions.scroll_headless_refusal")
 def scroll(ctx):
+    """On X11 a ref scroll changes the visible Settings rows. On hyprland the headed leg asserts the
+    receiver_unproven refusal of an XWayland pad, and the headless leg the policy refusal."""
     if ctx.tier.name == "hyprland":
         return hyprland_pointer_refs.ref_gesture(ctx, "scroll")
     with managed(ctx, "Settings", ("multitasking",)) as app, desktop_restored(ctx):

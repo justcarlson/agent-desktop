@@ -138,6 +138,8 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
         if failures:
             outcome = report.FAIL
             detail = "; ".join(failures)
+        elif leg.disposition == report.REFUSED:
+            outcome = report.REFUSED
     except TierUnavailable:
         raise
     except NotImplementedError as error:
@@ -167,7 +169,7 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
     except OSError as error:
         result.outcome = report.ERROR
         ctx.finding(f"evidence could not be written: {error}")
-    if result.outcome != report.PASS:
+    if not report.held(result.outcome):
         try:
             _recover_failed_members(ctx)
         except OSError as error:
@@ -273,11 +275,11 @@ def main(argv: list[str]) -> int:
                     else {leg.id for leg in legs.REGISTRY})
     for leg_id in sorted(selected_ids):
         try:
-            selected = legs.leg_by_id(leg_id)
+            selected = legs.leg_rows(leg_id)
         except KeyError:
             print(f"gate: unknown leg {leg_id}", file=sys.stderr)
             return report.exit_code(0, True)
-        if args.leg and not set(selected.tiers).intersection(tiers):
+        if args.leg and not {tier for row in selected for tier in row.tiers}.intersection(tiers):
             print(f"gate: {leg_id} is not registered for {args.tier}", file=sys.stderr)
             return report.exit_code(0, True)
     env = dict(os.environ)
