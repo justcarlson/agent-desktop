@@ -55,6 +55,7 @@ from scenarios import hyprland_cursor_hide
 from scenarios import hyprland_cursor_placement
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
+from scenarios import hyprland_focus_proof
 from scenarios import hyprland_identity
 from scenarios import hyprland_pointer
 from scenarios import hyprland_pointer_refs
@@ -87,6 +88,7 @@ __all__ = [
     "hyprland_cursor_placement",
     "hyprland_desktop",
     "hyprland_focus",
+    "hyprland_focus_proof",
     "hyprland_identity",
     "hyprland_pointer",
     "hyprland_pointer_refs",

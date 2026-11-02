@@ -14,6 +14,9 @@ def grab(node):
 @implementation("ref_actions.focus")
 @implementation("ref_actions.focus_headless_refusal")
 def focus(ctx):
+    if ctx.tier.name == "hyprland":
+        from scenarios import hyprland_ref_focus
+        return hyprland_ref_focus.focus(ctx)
     with managed(ctx, "Qt") as app:
         tree = root(ctx, app)
         target = ref(ctx, app, name="Text entry", role="textfield")
