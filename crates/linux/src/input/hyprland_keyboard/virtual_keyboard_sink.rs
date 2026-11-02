@@ -74,6 +74,7 @@ impl<W: KeyboardWire> KeycodeSink for VirtualKeyboardSink<W> {
             AdapterError::internal("the virtual keyboard sent a key before its keymap")
         })?;
         let modifiers = state.update_key(code, down)?;
+        tracing::debug!(code, down, time, "virtual keyboard key edge");
         self.wire.key(time, code, down)?;
         if modifiers != self.reported {
             self.wire.modifiers(modifiers)?;
@@ -87,6 +88,7 @@ impl<W: KeyboardWire> KeycodeSink for VirtualKeyboardSink<W> {
             return Ok(());
         }
         self.closed = true;
+        tracing::debug!("virtual keyboard destroyed");
         self.wire.destroy()
     }
 }
