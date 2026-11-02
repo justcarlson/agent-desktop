@@ -99,6 +99,19 @@ def inherited_problems(agent: agents.Agent) -> list[str]:
     return [f"{agent.name} inherited lease variables {found}"] if found else []
 
 
+def delivery_problems(sampler, pid: int, effects_seen: tuple[float, ...], envelope) -> list[str]:
+    """The serialized leg's checks on one queued delivery: an observed hold, no effect before it, none
+    past the lag bound after it, and, where an envelope exists, a reported wait behind the gate."""
+    seen = sampler.events().get(pid, {})
+    span = oracle.Span("A", seen.get("enqueue"), seen.get("acquire"), seen.get("release"), effects_seen,
+                       oracle.reported_contention(envelope))
+    found = oracle.overlap_problems([span]) + oracle.early_effect_problems([span]) + oracle.lag_problems([span])
+    if envelope is not None:
+        gate = [hold for hold in sampler.holds({os.getpid(): "runner", pid: "A"}) if hold.holder == "runner"]
+        found += oracle.queueing_problems([span], oracle.holds_of([span], gate))
+    return found
+
+
 def _contender_problems(tier, launched, sampler, refs, targets, session: str, since: float) -> list[str]:
     problems = []
     for name in "DB":
@@ -135,6 +148,8 @@ def lease_phase_problems(tier, gate, sampler, launched, refs, targets, session: 
     problems += agents.outcome_problems(waiter)
     agents.settle(lambda: effects(launched, "A", since))
     delivered = effects(launched, "A", since)
+    problems += [f"the queued agent: {item}" for item in delivery_problems(sampler, waiter.pid, delivered,
+                                                                            waiter.envelope)]
     allowed.setdefault("A", []).extend(delivered)
     if len(delivered) != 1:
         problems.append(f"the queued agent delivered {len(delivered)} clicks after release, not 1")
@@ -183,10 +198,13 @@ def same_process_problems(tier, gate, sampler, launched, ref: str, allowed) -> l
         second = _ffi_line(child)
         child.wait(agents.EXIT_S)
         gate.take()
-        if not _ffi_envelope(second).ok:
+        holder = _ffi_envelope(second)
+        if not holder.ok:
             problems.append(f"the C ABI holder did not deliver after release: {second}")
         agents.settle(lambda: effects(launched, "A", since))
         delivered = effects(launched, "A", since)
+        problems += [f"the C ABI holder: {item}" for item in delivery_problems(sampler, child.pid, delivered,
+                                                                                holder)]
         allowed.setdefault("A", []).extend(delivered)
         if len(delivered) != 1:
             problems.append(f"the C ABI holder delivered {len(delivered)} clicks, not 1")
