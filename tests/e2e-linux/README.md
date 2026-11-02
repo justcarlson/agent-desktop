@@ -92,7 +92,7 @@ Use `--leg <id>` with the same tier to reproduce a single registered leg:
 bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
 ```
 
-`runner/legs.py` is the inventory of IDs, tiers, modes, oracles and dispositions. Pass `--leg id1,id2,id3` to run a bounded batch in one private tier session. Every requested ID must be registered for the selected tier; a mismatch exits 2. A single ID executes all its registered modes; it is not a mode selector.
+`runner/legs.py` is the inventory of IDs, tiers, modes, oracles and dispositions. Rows for the hyprland tier live in `runner/legs_hyprland.py`, which `legs.py` loads. Pass `--leg id1,id2,id3` to run a bounded batch in one private tier session. Every requested ID must be registered for the selected tier; a mismatch exits 2. A single ID executes all its registered modes; it is not a mode selector.
 
 A pass requires independent before/after observations, restoration where state changed, and the same attributed app process generations after cleanup. A refusal leg must assert its expected error and absence of effect.
 
