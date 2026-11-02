@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     Action, AdapterError, ClipboardContent, ClipboardFormat, Deadline, DragParams, InputOps,
-    InteractionLease, KeyCombo, MouseEvent, ObservationOps, OperationReport, RefEntry,
+    InteractionLease, KeyCombo, MouseEvent, OperationReport, RefEntry,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -20,10 +20,7 @@ impl InputOps for LinuxAdapter {
         pointer_capability::ref_gesture_refusal(
             action,
             || pointer_capability::session_hover_refusal(entry),
-            || {
-                let resolve = || self.resolve_element_strict(entry, deadline);
-                bound_geometry::ref_receiver_refusal(resolve, self.bus(), deadline)
-            },
+            || bound_geometry::ref_receiver_refusal(entry, deadline),
         )
     }
 
