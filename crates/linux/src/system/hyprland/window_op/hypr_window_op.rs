@@ -12,6 +12,8 @@ use serde_json::{Value, json};
 
 use super::client_state::ClientState;
 use super::config_dialect::{ConfigDialect, DIALECT_PROBE, dialect_of};
+use super::output_origin::OutputOrigin;
+use super::restore_geometry::{needs_origins, placed, recorded};
 use super::window_op_refusal::{refused, rejected, unverified, window_gone};
 use super::window_plan::plan;
 use super::window_step::WindowStep;
@@ -42,7 +44,19 @@ pub(crate) fn window_op_reported(
         report.result.details = Some(json!({ "observed": state.to_json() }));
         return Ok(report);
     }
-    let dispatched = send_steps(world, state.address, &steps);
+    let origins = if needs_origins(op, &state) {
+        world
+            .origins()
+            .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?
+    } else {
+        Vec::new()
+    };
+    let steps = if matches!(op, WindowOp::Maximize) {
+        [recorded(&state, &origins)?, steps].concat()
+    } else {
+        steps
+    };
+    let dispatched = applied(world, &state, &steps, &origins, op);
     let observed = dispatched.as_ref().ok().map(ClientState::to_json);
     let after = world.desktop().ok();
     let mut report =
@@ -88,22 +102,48 @@ fn read_before(
     Ok((state, dialect, before))
 }
 
+/// Sends `steps`, then, for a restore that cleared a maximize, the steps
+/// that put the window back where its record says.
+fn applied(
+    world: &mut impl WindowWorld,
+    state: &ClientState,
+    steps: &[WindowStep],
+    origins: &[OutputOrigin],
+    op: &WindowOp,
+) -> Result<ClientState, AdapterError> {
+    let settled = send_steps(world, state.address, steps, 0)?;
+    let after = settled.last().cloned().ok_or_else(window_gone)?;
+    if !matches!(op, WindowOp::Restore) || state.fullscreen == 0 {
+        return Ok(after);
+    }
+    let held = settled
+        .len()
+        .checked_sub(2)
+        .map_or(state, |index| &settled[index]);
+    let placing = placed(held, &after, origins)?;
+    let mut placed_states = send_steps(world, state.address, &placing, steps.len())?;
+    Ok(placed_states.pop().unwrap_or(after))
+}
+
+/// Sends each step and returns the state each one settled in. `sent` is
+/// how many steps of the same operation went before.
 fn send_steps(
     world: &mut impl WindowWorld,
     address: u64,
     steps: &[WindowStep],
-) -> Result<ClientState, AdapterError> {
-    let mut last = None;
+    sent: usize,
+) -> Result<Vec<ClientState>, AdapterError> {
+    let mut settled = Vec::with_capacity(steps.len());
     for (index, step) in steps.iter().enumerate() {
         let reply = world
             .request(&step.command)
             .map_err(|error| error.with_disposition(DeliverySemantics::uncertain()))?;
         if reply.trim() != ACCEPTED {
-            return Err(rejected(&reply, index > 0));
+            return Err(rejected(&reply, sent + index > 0));
         }
-        last = Some(settle(world, address, step)?);
+        settled.push(settle(world, address, step)?);
     }
-    last.ok_or_else(window_gone)
+    Ok(settled)
 }
 
 fn settle(

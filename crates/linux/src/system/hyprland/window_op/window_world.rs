@@ -1,6 +1,7 @@
 use agent_desktop_core::AdapterError;
 
 use super::client_state::ClientState;
+use super::output_origin::OutputOrigin;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
 use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
@@ -12,6 +13,7 @@ use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
 pub(crate) trait WindowWorld {
     fn inventory(&mut self) -> Result<(Vec<HyprClient>, Vec<ToplevelView>), AdapterError>;
     fn states(&mut self) -> Result<Vec<ClientState>, AdapterError>;
+    fn origins(&mut self) -> Result<Vec<OutputOrigin>, AdapterError>;
     fn desktop(&mut self) -> Result<DesktopState, AdapterError>;
     fn request(&mut self, command: &str) -> Result<String, AdapterError>;
     fn live_instance(&self, pid: u32) -> Option<String>;

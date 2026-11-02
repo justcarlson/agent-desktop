@@ -54,3 +54,15 @@ fn workspace_moves_never_follow_and_name_a_named_workspace() {
         "dispatch movetoworkspacesilent name:-3,address:0x10"
     );
 }
+
+#[test]
+fn a_tag_is_set_and_removed_by_address() {
+    assert_eq!(
+        tag_command(0x10, "agent-desktop-restore:-5,7,500,400", true),
+        "dispatch hl.dsp.window.tag({tag=\"+agent-desktop-restore:-5,7,500,400\",window=\"address:0x10\"})"
+    );
+    assert_eq!(
+        tag_command(0x10, "agent-desktop-restore:-5,7,500,400", false),
+        "dispatch hl.dsp.window.tag({tag=\"-agent-desktop-restore:-5,7,500,400\",window=\"address:0x10\"})"
+    );
+}
