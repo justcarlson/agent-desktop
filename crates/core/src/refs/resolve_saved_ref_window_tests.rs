@@ -91,6 +91,26 @@ fn an_entry_without_a_window_id_refuses_windows_of_other_generations() {
 }
 
 #[test]
+fn a_ref_whose_owner_exited_is_stale_not_an_unknown_app() {
+    let _guard = HomeGuard::new();
+    for recorded_window_id in [Some("w-1"), None] {
+        let mut adapter = RuleAdapter::new(tree_with(vec![node("button", "Run")]));
+        adapter.owner_exited = true;
+        let mut entry = entry();
+        entry.source.source_window_id = recorded_window_id.map(Into::into);
+
+        let error = refused(&adapter, &entry);
+
+        assert_eq!(
+            error.code,
+            ErrorCode::StaleRef,
+            "{recorded_window_id:?}: {error:?}"
+        );
+        assert_eq!(adapter.observations.load(Ordering::SeqCst), 0);
+    }
+}
+
+#[test]
 fn a_token_missing_from_a_cut_short_read_is_not_proven_absent() {
     let _guard = HomeGuard::new();
     let mut unread = node("scrollarea", "Feed");
