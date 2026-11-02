@@ -9,6 +9,7 @@ pub(crate) mod active_layout;
 mod control_text;
 #[cfg(test)]
 pub(crate) mod fake_wire;
+pub(crate) mod keyboard_cancel;
 pub(crate) mod keyboard_state;
 pub(crate) mod keyboard_wire;
 pub(crate) mod keymap_fd;
