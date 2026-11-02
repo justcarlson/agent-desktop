@@ -121,11 +121,13 @@ impl ObservationOps for LinuxAdapter {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::live_element(target, deadline);
         }
-        let mut live = crate::tree::get_live_element(self.bus(), handle, deadline)?;
-        if let Some(bounds) = bound_geometry::bound_bounds(self.bus(), handle, deadline)? {
-            live.bounds = bounds;
-        }
-        Ok(live)
+        let live = crate::tree::get_live_element(self.bus(), handle, deadline)?;
+        Ok(
+            match bound_geometry::bound_bounds(self.bus(), handle, deadline)? {
+                Some(placed) => bound_geometry::with_bound_bounds(live, placed),
+                None => live,
+            },
+        )
     }
 
     fn get_element_bounds(
