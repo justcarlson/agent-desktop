@@ -67,4 +67,10 @@ check "every tier gets the FFI library beside the CLI" \
   "$([[ $(run_tier hyprland) == "$home/bin/libagent_desktop_ffi.so" ]] && echo ok)"
 unset -f bash
 
+# The VM workflow builds the FFI library with its own profile: the crate
+# refuses --release because it needs panic=unwind.
+wf=$here/../.github/workflows/omarchy-vm.yml
+check "the VM workflow builds the FFI library with the release-ffi profile" \
+  "$(grep -q -- '--profile release-ffi -p agent-desktop-ffi' "$wf" && grep -q 'target/release-ffi/libagent_desktop_ffi.so' "$wf" && ! grep -q -- '--release -p agent-desktop-ffi' "$wf" && echo ok)"
+
 exit "$failed"
