@@ -5,7 +5,8 @@
 //! and for shell elements, which keep their own path.
 
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, HitTestResult, NativeHandle, Point, Rect, RefEntry,
+    AdapterError, Deadline, ErrorCode, HitTestResult, LiveElement, NativeHandle, Point, Rect,
+    RefEntry,
 };
 
 use super::cursor_guard::with_cursors_hidden;
@@ -64,6 +65,13 @@ pub(crate) fn bound_bounds(
         None,
     )
     .map(Some)
+}
+
+/// `live` with the bound instance's answer for its bounds: the rectangle the
+/// compositor places, or none when it cannot place the element.
+pub(crate) fn with_bound_bounds(mut live: LiveElement, placed: Option<Rect>) -> LiveElement {
+    live.bounds = placed;
+    live
 }
 
 /// Whether `point` reaches the element, read from the compositor's stack
