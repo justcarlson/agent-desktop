@@ -1,4 +1,4 @@
-"""The receiver fixtures of probes/linux/FINDINGS.md L42 and L45 on the nested instance's XWayland
+"""The receiver fixtures of probes/linux/FINDINGS.md L47 and L45 on the nested instance's XWayland
 display, for the Hyprland ref pointer legs.
 
 The fixture is `hyprland_hit_probe.py fixture <toolkit> <case>`: a window whose "Probe Target" button

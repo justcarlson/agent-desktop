@@ -2,7 +2,7 @@
 //! the element's window rectangle placed at its toplevel's compositor
 //! origin. Before any event the receiver gate must pass, and today it
 //! refuses every target: the compositor's stack cannot see the surfaces
-//! inside a client (probes/linux/FINDINGS.md L42-4, L42-5, L45-2). The
+//! inside a client (probes/linux/FINDINGS.md L47-4, L47-5, L45-2). The
 //! stack proof before every burst stays as the check a passing gate would
 //! still need.
 

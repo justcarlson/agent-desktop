@@ -4,7 +4,7 @@
 //! surfaces, and the stack does not show where it goes. On a native Wayland
 //! client an in-window overlay or a same-client popup took ref clicks while
 //! the stack and the accessibility descent both reported the target
-//! (probes/linux/FINDINGS.md L42-4, L42-5). On an XWayland client the same
+//! (probes/linux/FINDINGS.md L47-4, L47-5). On an XWayland client the same
 //! covers took 12 of 12 overlay clicks and every GTK popup click while the
 //! stack proof passed (L45-2). No other receiver proof exists, so every
 //! target refuses before any pointer or modifier event: a native Wayland
