@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import sys
 import unittest
 from pathlib import Path
@@ -23,6 +24,10 @@ NEW_LEGS = {
     "capture.hyprland_deadline_or_cancel_released": (("hyprland",), ("headless",), "asserted-refusal"),
     "pointer.session_ref_pointer_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
     "pointer.session_hover_coordinates": (("hyprland",), ("headed",), "pass"),
+    "lifecycle.hyprland_window_operation_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
+    "pointer.hover_by_ref_refused": (("hyprland",), ("headed",), "asserted-refusal"),
+    "pointer.hover_coordinates": (("hyprland",), ("headed",), "pass"),
+    "pointer.coordinate_multi_click_xwayland": (("hyprland",), ("headed",), "pass"),
 }
 REUSED = (
     "non_interference.active_window_unchanged_by_semantic_click",
@@ -30,6 +35,25 @@ REUSED = (
     "observation.stale_ref_after_ui_change",
     "batch_contract.entry_failure_and_stop_on_error",
 )
+
+
+def scenario_leg_ids() -> dict[str, str]:
+    """Each leg id a scenario module names, as a literal `implementation(...)` argument or a key of a
+    module-level `LEGS` map, with the module that names it."""
+    named: dict[str, str] = {}
+    for path in sorted((ROOT / "scenarios").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "implementation"
+                    and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+                named[node.args[0].value] = path.name
+        for node in tree.body:
+            if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+                    and any(isinstance(target, ast.Name) and target.id == "LEGS" for target in node.targets)):
+                for key in node.value.keys:
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                        named[key.value] = path.name
+    return named
 
 
 class HyprlandRegistryTests(unittest.TestCase):
@@ -71,10 +95,17 @@ class HyprlandRegistryTests(unittest.TestCase):
         import scenarios  # noqa: F401
 
         implemented = legs.implementations()
-        for leg in legs.REGISTRY:
-            if "hyprland" in leg.tiers or leg.id in NEW_LEGS:
-                with self.subTest(leg=leg.id):
-                    self.assertIn(leg.id, implemented)
+        expected = {leg.id for leg in legs.REGISTRY if "hyprland" in leg.tiers} | set(NEW_LEGS)
+        for leg_id in sorted(expected):
+            with self.subTest(leg=leg_id):
+                self.assertIn(leg_id, implemented)
+
+    def test_every_leg_a_scenario_names_is_registered(self):
+        named = scenario_leg_ids()
+        self.assertIn("pointer.coordinates_have_no_receiver_proof", named)
+        unregistered = sorted(f"{module}: {leg_id}" for leg_id, module in named.items()
+                              if leg_id not in {leg.id for leg in legs.REGISTRY})
+        self.assertEqual(unregistered, [])
 
     def test_each_tier_keeps_the_run_order_it_had_before_the_hyprland_rows_moved(self):
         def run_order(tier):
