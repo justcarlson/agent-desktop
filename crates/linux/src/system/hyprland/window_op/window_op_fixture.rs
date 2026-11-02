@@ -121,3 +121,15 @@ pub(crate) fn window() -> WindowInfo {
 pub(crate) fn floating_at(at: (i64, i64)) -> ClientState {
     state(TARGET, at, (630, 755))
 }
+
+pub(crate) const MAXIMIZE: &str = "dispatch hl.dsp.window.fullscreen({mode=\"maximized\",action=\"set\",window=\"address:0x10\"})";
+pub(crate) const UNSET: &str = "dispatch hl.dsp.window.fullscreen_state({internal=0,client=0,action=\"set\",window=\"address:0x10\"})";
+pub(crate) const RECORD: &str = "agent-desktop-restore:40,60,630,755";
+pub(crate) const TAG: &str = "dispatch hl.dsp.window.tag({tag=\"+agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
+pub(crate) const UNTAG: &str = "dispatch hl.dsp.window.tag({tag=\"-agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
+
+pub(crate) fn tagged(state: ClientState) -> ClientState {
+    let mut state = state;
+    state.marks.tags = vec![RECORD.into()];
+    state
+}

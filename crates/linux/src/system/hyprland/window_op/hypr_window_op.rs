@@ -202,3 +202,7 @@ fn changes(before: &DesktopState, after: &DesktopState) -> Vec<Value> {
 #[cfg(test)]
 #[path = "hypr_window_op_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "hypr_window_op_restore_tests.rs"]
+mod restore_tests;
