@@ -1,6 +1,6 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-use super::{capability_refusal, hover_ref_refused};
+use super::{capability_refusal, hover_ref_refused, hover_refusal};
 use crate::input::backend::Backend;
 
 #[test]
@@ -53,4 +53,43 @@ fn hover_by_ref_is_refused_before_any_event() {
     assert_eq!(refusal.code, ErrorCode::ActionNotSupported);
     assert_eq!(details["cause"], "hover_unsupported");
     assert_eq!(details["physical_delivery_started"], false);
+}
+
+#[test]
+fn a_bound_instance_refuses_a_hover_by_ref_with_hover_unsupported() {
+    let refusal = hover_refusal(false, Ok(Backend::Wayland), || Ok(true))
+        .unwrap_or_else(|| panic!("a bound instance must refuse a hover by ref"));
+    let details = refusal.details.unwrap_or_default();
+
+    assert_eq!(refusal.code, ErrorCode::ActionNotSupported);
+    assert_eq!(details["cause"], "hover_unsupported");
+    assert_eq!(details["physical_delivery_started"], false);
+    assert_eq!(
+        refusal.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+}
+
+#[test]
+fn a_tray_item_keeps_its_hover_on_a_bound_instance() {
+    let mut asked = false;
+    let refusal = hover_refusal(true, Ok(Backend::Wayland), || {
+        asked = true;
+        Ok(true)
+    });
+
+    assert!(refusal.is_none());
+    assert!(!asked);
+}
+
+#[test]
+fn an_unbound_or_x11_session_leaves_the_hover_by_ref_to_the_pointer_gate() {
+    assert!(hover_refusal(false, Ok(Backend::Wayland), || Ok(false)).is_none());
+    assert!(
+        hover_refusal(false, Ok(Backend::Wayland), || {
+            Err(AdapterError::internal("mismatch"))
+        })
+        .is_none()
+    );
+    assert!(hover_refusal(false, Ok(Backend::X11(":0".into())), || Ok(true)).is_none());
 }

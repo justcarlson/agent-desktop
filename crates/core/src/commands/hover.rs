@@ -37,6 +37,7 @@ pub fn execute(
     }
     require_cursor_policy(context, "hover")?;
     require_pointer_capability(adapter)?;
+    require_ref_hover(args.ref_id.as_deref(), adapter, context)?;
     validate_post_action_wait(context)?;
     let deadline = point_deadline(args.timeout_ms)?;
     let point_args = PointResolveArgs {
@@ -111,6 +112,21 @@ pub fn execute(
     drop(lease);
     drop(cursor);
     apply_post_action_wait(response, resolved.source_entry.as_ref(), adapter, context)
+}
+
+fn require_ref_hover(
+    ref_id: Option<&str>,
+    adapter: &dyn PlatformAdapter,
+    context: &CommandContext,
+) -> Result<(), AppError> {
+    let Some(ref_id) = ref_id else {
+        return Ok(());
+    };
+    let entry = crate::commands::helpers::load_ref_entry(ref_id, context)?;
+    match adapter.ref_hover_refusal(&entry) {
+        Some(error) => Err(error.into()),
+        None => Ok(()),
+    }
 }
 
 fn confirm_receiver(
