@@ -2,16 +2,20 @@
 //! instance. The keys run through the same chunked delivery as the portal
 //! route: the focus gate before every key-down, release of every held key on
 //! a stop, and `uncertain` with the confirmed count once a key went out.
+//! A signal stops the delivery before its next key-down, and the held keys
+//! are released before the signal's own action is taken.
 
 use agent_desktop_core::{AdapterError, Deadline};
 use serde_json::json;
 
 use super::active_layout::read_active_layout;
 use super::control_text::refuse_control;
+use super::keyboard_cancel::stop_on_signal;
 use super::keyboard_wire::KeyboardWire;
 use super::virtual_keyboard_sink::VirtualKeyboardSink;
 use super::wayland_wire::WaylandWire;
 use crate::input::delivery::{Delivery, Gate};
+use crate::input::hyprland::pointer_cancel::with_release_on_signal;
 use crate::input::keyboard::keysym_step::KeysymStep;
 use crate::input::wayland::keymap::keycode_session::KeycodeSession;
 use crate::input::wayland::keymap::refusal::keymap_refused;
@@ -38,12 +42,16 @@ pub(crate) fn send(
         });
     }
     refuse_control(&chunks)?;
-    let (wire, owner) =
-        WaylandWire::open(binding, deadline).map_err(|error| with_progress(error, 0))?;
-    let layouts = owner_layouts(&owner).map_err(|error| with_progress(error, 0))?;
-    let layout =
-        read_active_layout(binding, &layouts, deadline).map_err(|error| with_progress(error, 0))?;
-    deliver(wire, owner, layout, &chunks, gate, deadline)
+    let slot = crate::input::x11::worker_slot::shared();
+    with_release_on_signal(&slot, deadline, |progress| {
+        let mut gate = stop_on_signal(gate, progress);
+        let (wire, owner) =
+            WaylandWire::open(binding, deadline).map_err(|error| with_progress(error, 0))?;
+        let layouts = owner_layouts(&owner).map_err(|error| with_progress(error, 0))?;
+        let layout = read_active_layout(binding, &layouts, deadline)
+            .map_err(|error| with_progress(error, 0))?;
+        deliver(wire, owner, layout, &chunks, &mut gate, deadline)
+    })
 }
 
 fn owner_layouts(owner: &str) -> Result<Vec<String>, AdapterError> {

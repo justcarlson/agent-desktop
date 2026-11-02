@@ -67,8 +67,7 @@ fn a_signal_with_shift_held_releases_shift_and_destroys_the_keyboard() {
         &mut gate,
         live(),
     )
-    .err()
-    .expect("a signal stops the delivery");
+    .expect_err("a signal stops the delivery");
 
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert!(
