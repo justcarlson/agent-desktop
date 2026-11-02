@@ -37,9 +37,7 @@ from scenarios.hyprland_window_ops import float_argv
 
 SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
-OCCLUDER_ROLES = {"layer_cover": "layer", "window_cover": "window"}
 DELIVERED_EVENTS = {"press", "release", "scroll"}
-ACTIVATION_CAUSES = {"layer_cover": "frame_not_active", "window_cover": "activation_refused"}
 COVER_SHAPE = ("address", "at", "size", "floating", "pinned", "mapped", "hidden")
 UNPROVEN = "receiver_unproven"
 FALLBACKS = ("without --headed", "--xy")
@@ -94,15 +92,22 @@ def earlier_core_refusal(argv: list[str], envelope) -> str | None:
     return None
 
 
+def active_address(tier, instance: dict) -> str | None:
+    """The address of the window the compositor has active, read from `j/activewindow`."""
+    return (instance_query(tier, instance, "activewindow") or {}).get("address")
+
+
 def refused_without_input(ctx, env, instance: dict, label: str, argvs: list[list[str]], reached,
                           earlier=None) -> list[str]:
     """Each headed ref action refuses as receiver_unproven, or by `earlier`, a refusal that comes
-    before the adapter; the app logs no input, and the compositor's cursor stays where it was.
-    `reached()` counts the input the app has logged."""
+    before the adapter; the app logs no input, and the compositor's active window and cursor stay
+    where they were, so an unfocused target is never activated. `reached()` counts the input the app
+    has logged."""
     problems = []
     for argv in argvs:
         name = f"{label}: headed {action_label(argv)}"
         logged, before = reached(), cursor_at(ctx.tier, instance)
+        active = active_address(ctx.tier, instance)
         envelope = ctx.product(argv, env=env)
         found = unproven_problems(name, envelope)
         accepted = earlier(argv, envelope) if found and earlier else None
@@ -115,6 +120,9 @@ def refused_without_input(ctx, env, instance: dict, label: str, argvs: list[list
         after = cursor_at(ctx.tier, instance)
         if after != before:
             problems.append(f"{name}: the cursor moved from {before} to {after}")
+        now = active_address(ctx.tier, instance)
+        if now != active:
+            problems.append(f"{name}: the active window changed from {active} to {now}")
     return problems
 
 
@@ -166,33 +174,6 @@ def preflight_occluder(error: dict) -> dict:
     checks = (error.get("details") or {}).get("checks") or []
     failed = [check for check in checks if check.get("check") == "receives_events" and check.get("status") == "fail"]
     return (failed[0].get("occluder") or {}) if len(failed) == 1 else {}
-
-
-def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
-    """A cover is refused before any pointer event, by whichever check meets it first: the activation
-    the cover undoes (Hyprland moves the cursor onto a window cover, which then stays active, and slurp's
-    layer keeps the keyboard), core's hit test, or the XWayland receiver refusal. Every refusal is
-    not_delivered."""
-    error = envelope.error or {}
-    details = error.get("details") or {}
-    problems = []
-    if envelope.ok or error.get("code") != "ACTION_FAILED":
-        problems.append(f"{label}: answered {envelope.raw[:300]}")
-    occluder = preflight_occluder(error)
-    if occluder:
-        if occluder.get("role") != OCCLUDER_ROLES.get(cause):
-            problems.append(f"{label}: occluded by {occluder.get('role')}/{occluder.get('name')}, expected {cause}")
-    elif details.get("activation_sent") is True:
-        if details.get("cause") != ACTIVATION_CAUSES.get(cause):
-            problems.append(f"{label}: activation refused with {details.get('cause')}, expected {cause}")
-    elif details.get("kind") != "receiver_evidence" or details.get("cause") != UNPROVEN:
-        problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {cause}"
-                        f" or {UNPROVEN}")
-    if not occluder and details.get("physical_delivery_started") is not False:
-        problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
-    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
-        problems.append(f"{label}: not reported not_delivered")
-    return problems
 
 
 def _spawn_owned(tier, instance: dict, argv: list[str], label: str, found) -> OwnedApp:
@@ -265,10 +246,11 @@ def layer_cover(tier, instance: dict):
 
 
 def covered_click(ctx, env, log: Path, button: str, cause: str, label: str) -> list[str]:
-    """Motion is left out: an XWayland pad that a headed activation reveals under the still cursor
-    logs the motion X sends with the enter, and a refused click moves nothing."""
+    """A click on the pad under a `cause` cover refuses as receiver_unproven before core activates
+    the pad, so neither the cover's activation nor core's hit test answers first. Motion is left out:
+    an XWayland pad logs the motion X sends with an enter, and a refused click moves nothing."""
     start = len(events(log))
-    problems = receiver_refusal(label, ctx.product(["click", button], env=env), cause)
+    problems = unproven_problems(label, ctx.product(["click", button], env=env))
     seen = since(settled(log, lambda found: bool(delivered_input(since(found, start))), 0.5), start)
     if delivered_input(seen):
         problems.append(f"{label}: the pad logged an event under the cover{pad_saw(seen)}")
@@ -280,8 +262,7 @@ def delivered_input(found: list[dict]) -> list[dict]:
 
 
 def cover_changed(before: dict, after: dict | None) -> bool:
-    """Whether the cover moved, resized, changed stacking or left its workspace. Its focus history
-    may move: a headed ref click activates the pad first."""
+    """Whether the cover moved, resized, changed stacking or left its workspace."""
     shape = lambda client: ({key: client.get(key) for key in COVER_SHAPE},
                             (client.get("workspace") or {}).get("name"))
     return after is None or shape(before) != shape(after)
@@ -296,9 +277,9 @@ def clients_summary(tier, instance: dict) -> list[tuple]:
 def ref_receiver_evidence(ctx: LegContext) -> None:
     """Every headed ref pointer action on an XWayland window refuses as receiver_unproven before any
     event: on the bare pad, under a slurp layer and a floating or pinned foot, and on the fixtures whose
-    target sits under an in-window overlay or a same-client popup. The app logs no input, and on the
-    bare pad and the fixtures the cursor stays put. A cover may meet the click first, through the
-    activation it undoes or core's hit test; those refusals are not_delivered too."""
+    target sits under an in-window overlay or a same-client popup. The app logs no input. On the bare
+    pad, under the foot covers and on the fixtures, the active window and the cursor stay put; under
+    a cover the pad starts unfocused, so a refusal that activated it would show."""
     tier = ctx.tier
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
@@ -313,7 +294,10 @@ def ref_receiver_evidence(ctx: LegContext) -> None:
         for pinned in (False, True):
             label = "pinned cover" if pinned else "floating cover"
             with window_cover(tier, instance, lua, owned.pid, pinned):
-                problems += covered_click(ctx, env, log, button, "window_cover", label)
+                require(active_address(tier, instance) != client.get("address"),
+                        f"the pad is still active under the {label}")
+                problems += refused_without_input(ctx, env, instance, label, pad_actions(button, pane, client),
+                                                  lambda: pad_input(log))
         ctx.after("hyprland.clients", clients_summary(tier, instance))
         ctx.after("applog.pad", len(events(log)))
         ctx.restored("hyprland.clients", clients_summary(tier, instance))
@@ -323,8 +307,8 @@ def ref_receiver_evidence(ctx: LegContext) -> None:
 
 
 def _session_refusals(ctx, owned, client: dict, log: Path) -> list[str]:
-    """A headed ref click activates the pad first, which reveals its hidden special workspace the way
-    `focus-window` does, so the click meets the stock shell layers over the output, not a hidden target."""
+    """A headed ref click on the pad on its hidden special workspace, under the stock shell layers,
+    refuses before core activates the pad, so the special workspace stays hidden."""
     tier, main = ctx.tier, main_instance(ctx.tier)
     env = instance_env(tier, main)
     button = pad_ref(ctx, env, owned)
@@ -335,8 +319,8 @@ def _session_refusals(ctx, owned, client: dict, log: Path) -> list[str]:
     require(layers, f"no top or overlay layer holds {aim}; this leg expects the stock Omarchy shell layers")
     ctx.finding(f"shell layers over the pad button: {layers}")
     problems = covered_click(ctx, env, log, button, "layer_cover", f"shell layer {layers[0]}")
-    if not raw.poll(lambda: special in {open_ for _, open_ in shown(tier).values()}, 3.0):
-        problems.append(f"the headed click did not reveal {special}: {shown(tier)}")
+    if raw.poll(lambda: special in {open_ for _, open_ in shown(tier).values()}, INPUT_SETTLE_S):
+        problems.append(f"the refused click revealed {special}: {shown(tier)}")
     return problems
 
 
