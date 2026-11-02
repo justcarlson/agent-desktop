@@ -13,9 +13,16 @@ popup (a same-client, non-grabbing popup over the target centre).
 
 Per run it records the evidence a receiver proof could read before dispatch (the compositor's clients
 for the fixture pid and the AT-SPI `GetAccessibleAtPoint` descent at the point), the product's current
-`--headed hover` answer on the ref, the enter events after the motion, and, as the last step, the
-product's `--headed click` answer with the fixture's click log. Results go to `<out>/results.jsonl` and
-a summary table to stdout.
+`--headed hover` answer on the ref, the enter events after the motion, the product's `--headed click`
+answer with the fixture's click log, and, as the last step, a `--headed mouse-click --xy` at the same
+point. That coordinate click names the real receiver: the widget the fixture logs as clicked, or the
+last widget the pointer entered when nothing logs a click.
+
+The descent runs twice at the point, in window coordinates from the frame and in screen coordinates
+(`coord` 0) at the product's point. Each row's `descent_verdict` says whether the deepest named node of
+each descent is the real receiver, and the summary counts, per surface, the toolkit and case pairs
+whose descent named it in every round. Results go to `<out>/results.jsonl` and a summary table to
+stdout.
 """
 
 from __future__ import annotations
@@ -182,6 +189,40 @@ def centre(bounds) -> tuple[int, int] | None:
         return None
 
 
+def deepest_name(chain: list | None) -> str | None:
+    named = [name for name in chain or [] if name]
+    return named[-1] if named else None
+
+
+def real_receiver(xy_clicked: list, entered: list) -> str | None:
+    """The widget the coordinate click reached: its click line, or the last enter when none logs."""
+    if xy_clicked:
+        return xy_clicked[-1]
+    return entered[-1] if entered else None
+
+
+def descent_verdict(chain: list | None, receiver: str | None) -> str:
+    if receiver is None:
+        return "no_receiver"
+    if chain is None:
+        return "no_descent"
+    return "named" if deepest_name(chain) == receiver else f"missed:{deepest_name(chain)}"
+
+
+def descent_summary(rows: list[dict], key: str) -> dict[str, str]:
+    """Per surface, the toolkit and case pairs whose descent named the real receiver in every round."""
+    pairs: dict[tuple[str, str, str], list[str]] = {}
+    for row in rows:
+        verdict = (row.get("descent_verdict") or {}).get(key, row.get("verdict", "probe_error"))
+        pairs.setdefault((row["surface"], row["toolkit"], row["case"]), []).append(verdict)
+    totals: dict[str, list[int]] = {}
+    for (surface, _, _), verdicts in pairs.items():
+        count = totals.setdefault(surface, [0, 0])
+        count[0] += all(verdict == "named" for verdict in verdicts)
+        count[1] += 1
+    return {surface: f"{named}/{total}" for surface, (named, total) in totals.items()}
+
+
 def one_run(binary: str, env: dict[str, str], hypr, atspi, toolkit: str, case: str) -> dict:
     import subprocess
     app = subprocess.Popen([sys.executable, "-I", __file__, "fixture", toolkit, case], env=env,
@@ -214,6 +255,9 @@ def one_run(binary: str, env: dict[str, str], hypr, atspi, toolkit: str, case: s
             wx, wy, ww, wh = atspi.describe(target).get("window", (0, 0, 0, 0))
             chain = atspi.descend(frames[0], (wx + ww // 2, wy + wh // 2), 1)
             result["descent"] = [item.get("name") for item in chain]
+        if frames:
+            screen = atspi.descend(frames[0], point, 0)
+            result["descent_screen"] = [item.get("name") for item in screen]
         (x, y), (width, height) = client["at"], client["size"]
         park = (x + width - 8, y + height - 8)
         result["park"] = hit.product(binary, env, "--headed", "mouse-move", f"--xy={park[0]},{park[1]}").get("ok")
@@ -240,6 +284,13 @@ def one_run(binary: str, env: dict[str, str], hypr, atspi, toolkit: str, case: s
         ok = bool(result["click"].get("ok"))
         result["click_verdict"] = (("hit" if clicked == ["Probe Target"] else "false_success") if ok
                                    else ("refused" if not clicked else "refused_with_effect"))
+        mark = len(lines.seen)
+        result["xy_click"] = hit.product(binary, env, "--headed", "mouse-click", f"--xy={point[0]},{point[1]}")
+        seen = lines.until(lambda all_: any(item.get("ev") == "clicked" for item in all_[mark:]), SETTLE)[mark:]
+        result["xy_clicked"] = [item.get("widget") for item in seen if item.get("ev") == "clicked"]
+        result["receiver"] = real_receiver(result["xy_clicked"], entered)
+        result["descent_verdict"] = {key: descent_verdict(result.get(key), result["receiver"])
+                                     for key in ("descent", "descent_screen")}
         return result
     finally:
         hit.stop(app)
@@ -298,7 +349,11 @@ def run(out: Path) -> int:
               f"hover={row['hover_verdict']:28} enters={row['enters']} move={cause(row['move'])} "
               f"hover_ref={cause(row['hover_ref'])} hover_ref_events={row['hover_ref_events']} "
               f"stack={row['stack_clients']} descent={(row.get('descent') or ['-'])[-1]} "
-              f"click={row['click_verdict']}:{cause(row['click'])} clicked={row['clicked']}")
+              f"click={row['click_verdict']}:{cause(row['click'])} clicked={row['clicked']} "
+              f"receiver={row['receiver']} descent_screen={deepest_name(row.get('descent_screen')) or '-'} "
+              f"verdict={row['descent_verdict']}")
+    for key in ("descent", "descent_screen"):
+        print(f"{key} named the real receiver: {descent_summary(rows, key)}")
     return 0
 
 
