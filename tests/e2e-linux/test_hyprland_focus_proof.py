@@ -29,14 +29,21 @@ def envelope(ok: bool, *, data: dict | None = None, error: dict | None = None, e
     return Envelope(ok=ok, data=data, error=error, raw="{}", elapsed_ms=elapsed_ms, argv=[], exit_code=code)
 
 
-def unverified(cause="frame_not_active", sent=True, delivery="delivered_unverified", started=False,
-               code="ACTION_FAILED") -> Envelope:
-    return envelope(False, error={"code": code,
-                                  "details": {"cause": cause, "activation_sent": sent,
-                                              "physical_delivery_started": started,
-                                              "compositor_active": True, "toplevel_activated": True,
-                                              "in_view": True, "frame_active": False},
-                                  "disposition": {"delivery": delivery, "retry": "unsafe"}})
+SENT = "Hyprland made the window active but the application does not report it active; the activation was sent"
+
+
+def unverified(cause="frame_not_active", sent=True, delivery="not_delivered", started=False,
+               code="ACTION_FAILED", message=SENT, side_effects=None) -> Envelope:
+    details = {"cause": cause, "activation_sent": sent,
+               "physical_delivery_started": started, "compositor_active": True,
+               "toplevel_activated": True, "in_view": True, "frame_active": False}
+    if side_effects is not None:
+        details["side_effects"] = side_effects
+    return envelope(False, error={"code": code, "message": message, "details": details,
+                                  "disposition": {"delivery": delivery, "retry": "safe"}})
+
+
+MOVED = [{"kind": "cursor_moved", "from": {"x": 640.0, "y": 400.0}, "to": {"x": 957.0, "y": 413.0}}]
 
 
 class FocusProofRegistryTests(unittest.TestCase):
@@ -103,16 +110,35 @@ class ContradictoryProofTests(unittest.TestCase):
         self.assertEqual(self.proof.activation_report_problems("p", unverified(), "frame_not_active"), [])
 
     def test_a_claim_of_no_side_effect_or_a_missing_activation_fails(self):
-        for case in (unverified(delivery="not_delivered"), unverified(sent=False), unverified(started=True),
+        for case in (unverified(delivery="delivered_unverified"), unverified(sent=False), unverified(started=True),
+                     unverified(message="Hyprland made the window active"),
                      unverified(cause="activation_refused"), unverified(code="STALE_REF"),
                      envelope(True, data={})):
             with self.subTest(case=case.error):
                 self.assertNotEqual(self.proof.activation_report_problems("p", case, "frame_not_active"), [])
 
-    def test_a_refusal_must_come_back_within_the_timeout_and_a_second(self):
-        self.assertEqual(self.proof.deadline_problems("p", unverified(), 1500), [])
-        late = envelope(False, error=unverified().error, elapsed_ms=2600.0)
-        self.assertNotEqual(self.proof.deadline_problems("p", late, 1500), [])
+    def test_a_cursor_the_activation_moved_must_be_reported_as_a_side_effect(self):
+        here, there = {"x": 640, "y": 400}, {"x": 957, "y": 413}
+        self.assertEqual(self.proof.side_effect_problems("p", unverified(side_effects=MOVED), here, there), [])
+        self.assertEqual(self.proof.side_effect_problems("p", unverified(), here, here), [])
+        self.assertNotEqual(self.proof.side_effect_problems("p", unverified(), here, there), [])
+
+    def test_a_refusal_must_come_back_within_the_press_deadline_and_a_second(self):
+        self.assertEqual(self.proof.DEADLINE_MS, 5000)
+        on_time = envelope(False, error=unverified().error, elapsed_ms=4758.0)
+        self.assertEqual(self.proof.deadline_problems("p", on_time, self.proof.DEADLINE_MS), [])
+        late = envelope(False, error=unverified().error, elapsed_ms=6100.0)
+        self.assertNotEqual(self.proof.deadline_problems("p", late, self.proof.DEADLINE_MS), [])
+
+    def test_a_click_refused_before_activation_names_its_cause_and_sends_nothing(self):
+        early = envelope(False, error={"code": "ACTION_FAILED",
+                                       "details": {"cause": "native_wayland_client", "physical_delivery_started": False},
+                                       "disposition": {"delivery": "not_delivered", "retry": "safe"}})
+        self.assertEqual(self.proof.unactivated_problems("c", early, "native_wayland_client"), [])
+        for case in (unverified(cause="native_wayland_client"), unverified(),
+                     envelope(True, data={"disposition": {"delivery": "delivered_unverified"}})):
+            with self.subTest(case=case.raw):
+                self.assertNotEqual(self.proof.unactivated_problems("c", case, "native_wayland_client"), [])
 
     def test_the_fixture_withholds_its_active_state_while_the_flag_exists(self):
         script = self.proof.APP_SCRIPT.read_text()
@@ -120,6 +146,7 @@ class ContradictoryProofTests(unittest.TestCase):
         self.assertIn("GLib.set_prgname(APP_CLASS)", script)
         self.assertIn('"focus-in-event"', script)
         self.assertIn("os.path.exists(flag)", script)
+        self.assertIn('os.environ["GDK_BACKEND"] = sys.argv[3]', script)
         self.assertIn(self.proof.APP_CLASS, self.proof.APP_NAMES)
 
 
@@ -142,6 +169,16 @@ class StoppedCloseTests(unittest.TestCase):
                                          (refused, True, (["0x1"], []))):
             with self.subTest(report=report.ok, alive=alive, toplevels=toplevels):
                 self.assertNotEqual(self.close.stopped_close_problems(report, alive, toplevels), [])
+
+
+class QtLaunchTests(unittest.TestCase):
+    def test_the_hyprland_route_runs_qt_on_wayland_with_accessibility_on(self):
+        from scenarios import hyprland_ref_focus
+
+        self.assertEqual(hyprland_ref_focus.QT_ENV["QT_QPA_PLATFORM"], "wayland")
+        self.assertEqual(hyprland_ref_focus.QT_ENV["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"], "1")
+        self.assertTrue(hyprland_ref_focus.QT_SCRIPT.name == "qt_window.py" and hyprland_ref_focus.QT_SCRIPT.exists())
+        self.assertIn("qt_window.py", hyprland_ref_focus.QT_NAMES)
 
 
 class RoutingTests(unittest.TestCase):
