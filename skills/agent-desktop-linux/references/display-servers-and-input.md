@@ -289,6 +289,12 @@ its own. Ending a session releases its held keys.
   renews its hide. If the renewal fails, the input stops before its next event
   with `ACTION_FAILED`, kind `cursor_hide_renewal_failed`, `uncertain`. Read
   the target's state before you retry.
+- **Focus.** A headed `type` or `press` by ref first activates the target's
+  window through the compositor, as `--headed focus-window` does; a refused
+  activation ends the command before any key. The focus gate then runs before
+  each key-down, as on other Wayland sessions. If focus moves mid-text, the
+  CLI stops, releases every held key and modifier, and returns
+  `delivery_uncertain` with `delivered_events`. Read the
 ## Pointer on Hyprland
 
 On a bound Hyprland, `--headed` pointer commands go through a
