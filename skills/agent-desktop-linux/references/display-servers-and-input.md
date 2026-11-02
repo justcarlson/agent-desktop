@@ -345,8 +345,9 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   or a popup of the same app over the target. Such clicks reported success
   while another widget got them, on native Wayland and XWayland apps alike.
   So `--headed` `click`, `double-click`, `triple-click`, `right-click`,
-  `scroll` and `drag` by ref refuse before any pointer, button, wheel or key
-  event: `ACTION_FAILED`, kind `receiver_evidence`, `not_delivered`,
+  `scroll` and `drag` by ref refuse before any window activation, cursor
+  move, or pointer, button, wheel or key event, so an unfocused target stays
+  unfocused: `ACTION_FAILED`, kind `receiver_evidence`, `not_delivered`,
   `physical_delivery_started: false`. The cause is `native_wayland_client`
   for a window that `hyprctl clients` reports with `xwayland: false`, and
   `receiver_unproven` for one with `xwayland: true`. A client list that does
