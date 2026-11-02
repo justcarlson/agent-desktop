@@ -56,9 +56,7 @@ agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact        # verify: re-read
 - `STALE_REF`: the element is gone or no longer matches. `details.kind` is `saved_ref_absent`, or `retained_object_stale` on macOS. Take a fresh snapshot and use the new ref.
 - `AMBIGUOUS_TARGET`: an identical element appeared (`saved_ref_ambiguous`), or the ref was not proven unique at capture (`identity_not_unique`). Repeating the ref or re-snapshotting identical twins gives the same refusal; act on a control that is unique in the window. `identity_not_unique` also follows a snapshot that could not read the whole window in time: retake it with a larger `--timeout-ms`.
 - `TIMEOUT` with `details.kind: resolution_identity_unknown`: a live read did not answer, so identity is unproven. Nothing was sent; retry.
-- `STALE_REF`: the ref no longer matches the live UI. Take a fresh snapshot and use the new ref.
 - Take refs and window ids only from this CLI's own `snapshot`, `find` and `list-windows` output. Never reuse a window id, element index or ref from another desktop tool.
-- `AMBIGUOUS_TARGET` on an element ref: more than one live element matches. Narrow the target with `find --role --name --exact` or `--root`, then use the new ref.
 - `AMBIGUOUS_TARGET` on a window: when `details` lists distinct window ids and you know which window the user means, pass its id with `--window-id`. Otherwise report the candidates to the user and stop. Never rename, resize, move or close the user's windows to tell them apart.
 - `SNAPSHOT_NOT_FOUND`: the snapshot id expired. Snapshot again.
 

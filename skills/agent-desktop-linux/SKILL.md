@@ -257,7 +257,7 @@ Retry after the cause is gone.
 - Window ops act on X11 clients; headed scoped `press`, headed ref actions
   and `focus-window` require an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
-  current desktop.
+  current desktop; on Hyprland only a headed activation does.
 - The exact FFI ref calls (`ad_resolve_element_exact` and
   `ad_execute_ref_action_exact_with_policy`) fail with `ACTION_NOT_SUPPORTED` on every
   platform; their bounds rule applies first: bounds must be window-relative.
@@ -269,11 +269,6 @@ Retry after the cause is gone.
   `setParent(None)`) lets a ref resolve onto a control the user can no longer
   see. GTK4 then answers `ok` with `delivered_unverified` and no effect. No
   identity rule reaches this; check the application's own effect.
-  current desktop; on Hyprland only `--headed focus-window` does.
-  current desktop; on Hyprland only a headed activation does.
-- Linux exact FFI refs carrying bounds or a bounds hash require window-relative
-  geometry, even when the ref also carries a name or identifier. Geometry-free
-  identity refs are supported.
 
 ## References
 
