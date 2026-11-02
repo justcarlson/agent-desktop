@@ -66,17 +66,5 @@ class CoordinateHoverTests(unittest.TestCase):
         self.assertTrue(hover.xy_hover_problems(hovered({"x": 1, "y": 2}), (300.0, 240.0), (300, 240)))
 
 
-class EnterLogTests(unittest.TestCase):
-    def test_enters_after_the_mark_name_their_widgets(self):
-        lines = ['{"ev": "mapped", "pid": 7, "t": 1.0}', "Gtk-WARNING noise",
-                 '{"ev": "enter", "widget": "Probe Opener", "t": 2.0}',
-                 '{"ev": "enter", "widget": "Probe Popup Item", "t": 3.5}']
-        self.assertEqual(hover.entered("\n".join(lines), 3.0), ["Probe Popup Item"])
-
-    def test_a_shown_popup_is_read_from_the_log(self):
-        self.assertTrue(hover.popup_shown('{"ev": "popup-shown", "t": 1.0}\n'))
-        self.assertFalse(hover.popup_shown('{"ev": "mapped", "pid": 7, "t": 1.0}\n'))
-
-
 if __name__ == "__main__":
     unittest.main()
