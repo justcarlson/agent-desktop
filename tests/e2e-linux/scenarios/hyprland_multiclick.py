@@ -9,9 +9,6 @@ logs it twice and a triple click three times. The log names the widget, not the 
 gesture count; the GTK 3 pointer pad's press count is checked by
 `pointer.coordinates_have_no_receiver_proof`. The report still says `receiver_proof: false`,
 because the compositor cannot show which surface took the events.
-
-The registry entries for this leg belong to `runner/legs.py`; until they land there,
-`register()` adds the implementation for a registry that names it.
 """
 
 from __future__ import annotations
@@ -34,7 +31,6 @@ COUNTS = (2, 3)
 CLICK_GAP_S = 1.0
 CLICK_SETTLE_S = 3.0
 EXTRA_CLICK_SETTLE_S = 0.5
-LEGS = {"pointer.coordinate_multi_click_xwayland": "coordinate_multi_click_xwayland"}
 
 
 def fixture_click_problems(label: str, envelope, found: list[dict], count: int) -> list[str]:
@@ -128,9 +124,3 @@ def coordinate_multi_click_xwayland(ctx: LegContext) -> None:
     ctx.restored("hyprland.cursor", cursor_at(tier, instance))
     ctx.restored("applog.fixture", fixtures_running(started))
     ctx.finding("each mouse-click --count report says receiver_proof: false")
-
-
-def register(implementation) -> None:
-    """Adds the leg's implementation through the registry's `implementation` decorator."""
-    for leg_id, name in LEGS.items():
-        implementation(leg_id)(globals()[name])
