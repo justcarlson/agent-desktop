@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
+import subprocess
 import sys
 import types
 import unittest
@@ -254,6 +255,26 @@ class TheftActivationTests(unittest.TestCase):
                 self.assertEqual(reads, [("before", "hyprland.focus_on_activate", True),
                                          ("after", "hyprland.focus_on_activate", False),
                                          ("restored", "hyprland.focus_on_activate", True)])
+
+    def test_an_applied_change_whose_answer_times_out_is_still_set_back(self):
+        patches, state = self.compositor(False)
+        ctx, reads = self.leg()
+        with patches:
+            applies = theft.hyprland.control.side_effect
+
+            def applies_then_times_out(runtime, signature, argv):
+                answer = applies(runtime, signature, argv)
+                if len(state["argv"]) == 1:
+                    raise subprocess.TimeoutExpired(argv, 2.0)
+                return answer
+
+            theft.hyprland.control.side_effect = applies_then_times_out
+            with self.assertRaises(subprocess.TimeoutExpired):
+                with theft.toolkit_activation_ignored(ctx):
+                    self.fail("the block ran after the option change timed out")
+        self.assertTrue(state["on"])
+        self.assertEqual(state["argv"][-1], ["keyword", "misc:focus_on_activate", "true"])
+        self.assertEqual(reads[-1], ("restored", "hyprland.focus_on_activate", True))
 
     def test_a_refused_option_change_fails_before_any_attempt(self):
         patches, state = self.compositor(True, answer="error: no such option")
