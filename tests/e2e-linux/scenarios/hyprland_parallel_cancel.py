@@ -112,8 +112,7 @@ def partial_stage(ctx: LegContext, gate, sampler, launched, refs, session: str, 
     typed = zoo.entry_text(tier, launched["B"]) or ""
     if not typed or typed == PACED or not PACED.startswith(typed):
         problems.append(f"partial: the entry reads {typed!r}, not a strict prefix of the text")
-    if keyboards(tier) != before:
-        problems.append(f"partial: the keyboards changed: {before} to {keyboards(tier)}")
+    problems += [f"partial: {item}" for item in zoo.left_keyboard_problems(before, keyboards(tier))]
     ctx.finding(f"the cancelled paced type left {typed!r} in the entry")
     return problems
 
