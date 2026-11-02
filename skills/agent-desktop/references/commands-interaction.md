@@ -6,6 +6,8 @@ Commands that change UI state. Run `agent-desktop <command> --help` for flags.
 
 `--headed` is global (`agent-desktop --headed click @s8f3k2p9:e5`) and applies to every `batch` entry. A headed action may focus the exact source window first, and a pointer action needs a verified target point.
 
+Where the platform cannot prove which surface takes the pointer at that point, a headed ref pointer action (`click`, `double-click`, `triple-click`, `right-click`, `scroll`, `drag`) refuses before any input: `ACTION_FAILED` with `details.cause`, `physical_delivery_started: false` and `disposition.delivery: "not_delivered"`. Run the ref action without `--headed`, or aim with coordinates (`mouse-click --xy`) and read the effect from the app. Linux on Hyprland refuses this way on every window; its skill names the causes.
+
 `press` is always physical keyboard input. `hover`, `drag`, `mouse-move`, `mouse-click` and `mouse-wheel` are physical cursor input and need `--headed`. Raw coordinates carry no window identity, so they never focus an app. `key-down`, `key-up`, `mouse-down` and `mouse-up` are reserved and never deliver input. They return `ACTION_NOT_SUPPORTED`, except that a headless `mouse-down` or `mouse-up` returns `POLICY_DENIED` first. Use `press`, `mouse-click` or `drag`.
 
 Which gestures have a headless path:
