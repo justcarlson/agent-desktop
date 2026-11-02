@@ -2,8 +2,11 @@
 
 The runner's gate holds the per-user interaction lease. A queued agent
 waits behind it with no lease token or descriptor of the runner's; headed
-contenders with a short timeout must return `TIMEOUT`, kind `lock_timeout`
-on `interaction.lock`, and send nothing. Two threads of one process acting
+contenders must return `TIMEOUT`, kind `lock_timeout` on `interaction.lock`,
+and send nothing. B is a `type` with a 1500 ms timeout; D is a
+`mouse-click --xy` with its default 5000 ms budget, because a headed ref
+click on Hyprland refuses on its receiver check before it waits on the
+lease. Two threads of one process acting
 through the C ABI must give the second a `TIMEOUT`, kind
 `interaction_process_lock_timeout`. Once the gate releases the lease each
 queued delivery lands exactly once and no timed-out contender sends late
@@ -29,6 +32,7 @@ from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
 from scenarios import parallel_oracle as oracle
 from scenarios import parallel_zoo as zoo
+from scenarios.hyprland_cursor import live_button
 
 CONTEND_MS = "1500"
 FFI_HOLDER_MS, FFI_CONTENDER_MS = "30000", "1000"
@@ -71,6 +75,13 @@ def agent_argv(name: str, ref: str, timeout: str = agents.AGENT_TIMEOUT_MS, text
     return ["click", ref, "--timeout-ms", timeout]
 
 
+def contender_argv(name: str, refs: dict, targets: dict) -> list[str]:
+    """B types with a short timeout; D clicks by coordinates, the headed click that waits on the lease."""
+    if name == "D":
+        return agents.xy_click_argv(targets["D"])
+    return agent_argv(name, refs[name], CONTEND_MS)
+
+
 def effects(launched, name: str, since: float) -> tuple[float, ...]:
     widget, event = (zoo.ENTRY, zoo.CHANGED) if name == "B" else (zoo.BUTTON, zoo.ACTIVATE)
     return agents.effect_times(launched[name].log, widget, event, since)
@@ -88,10 +99,10 @@ def inherited_problems(agent: agents.Agent) -> list[str]:
     return [f"{agent.name} inherited lease variables {found}"] if found else []
 
 
-def _contender_problems(tier, launched, sampler, refs, session: str, since: float) -> list[str]:
+def _contender_problems(tier, launched, sampler, refs, targets, session: str, since: float) -> list[str]:
     problems = []
     for name in "DB":
-        contender = agents.spawn(tier, sampler, name, agent_argv(name, refs[name], CONTEND_MS), session=session,
+        contender = agents.spawn(tier, sampler, name, contender_argv(name, refs, targets), session=session,
                                  headed=True)
         with agents.reaped([contender]):
             problems += inherited_problems(contender)
@@ -110,14 +121,14 @@ def _contender_problems(tier, launched, sampler, refs, session: str, since: floa
     return problems
 
 
-def lease_phase_problems(tier, gate, sampler, launched, refs, session: str, allowed) -> list[str]:
+def lease_phase_problems(tier, gate, sampler, launched, refs, targets, session: str, allowed) -> list[str]:
     """A queued waiter, two timed-out contenders, then the waiter's delivery after the gate lets go."""
     since = time.monotonic()
     waiter = agents.spawn(tier, sampler, "A", agent_argv("A", refs["A"]), session=session)
     with agents.reaped([waiter]):
         agents.queued(sampler, [waiter], "the waiter queues behind the gate")
         problems = inherited_problems(waiter)
-        problems += _contender_problems(tier, launched, sampler, refs, session, since)
+        problems += _contender_problems(tier, launched, sampler, refs, targets, session, since)
         contended = time.monotonic()
         agents.turn(gate, sampler, waiter, [waiter])
         waiter.finish()
@@ -197,12 +208,13 @@ def physical_lock_timeout(ctx: LegContext) -> None:
     with zoo.zoos(tier, "ABD") as launched, zoo.multi_session(ctx) as session:
         with zoo.shown_desktop(ctx, launched, "ABD"):
             refs, plain = session_refs(ctx, launched, session), _plain_ref(ctx, launched["A"].app)
+            targets = {"D": live_button(ctx, launched["D"].app, session, zoo.BUTTON)[1]}
             ctx.before("applog.strays", [])
             with agents.released_lease(), agents.LockSampler() as sampler:
                 gate = agents.Gate()
                 try:
                     gate.take()
-                    problems += lease_phase_problems(tier, gate, sampler, launched, refs, session, allowed)
+                    problems += lease_phase_problems(tier, gate, sampler, launched, refs, targets, session, allowed)
                     problems += same_process_problems(tier, gate, sampler, launched, plain, allowed)
                 finally:
                     gate.close()
