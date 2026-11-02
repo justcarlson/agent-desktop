@@ -253,6 +253,48 @@ class OwnListingTests(unittest.TestCase):
                 self.assertTrue(self.check(envelope))
 
 
+class EffectsLegTests(unittest.TestCase):
+    LEG = "session.hyprland_effects_stay_on_bound_instance"
+    SENTINEL = {"address": "0xs", "pid": 30, "mapped": True, "hidden": False, "at": [0, 0], "size": [600, 400],
+                "workspace": {"name": "1"}, "floating": False, "fullscreen": 0}
+    HOLDER = {"address": "0xa", "pid": 7, "mapped": True, "hidden": False, "at": [0, 0], "size": [600, 400],
+              "workspace": {"name": "1"}, "floating": False, "fullscreen": 0}
+
+    def clients(self, instance: dict) -> list[dict]:
+        self.reads += 1
+        found = self.SENTINEL if instance["signature"] == "nested" else self.HOLDER
+        return [dict(found, focusHistoryID=self.reads)]
+
+    @staticmethod
+    def answer(argv, env) -> Envelope:
+        if argv != ["list-windows"]:
+            return refused("WINDOW_NOT_FOUND")
+        if env["HYPRLAND_INSTANCE_SIGNATURE"] == "nested":
+            return windows({"id": "w-hypr-20-500-1", "pid": 30, "accessible": False})
+        return windows({"id": "w-hypr-10-500-1", "pid": 7, "accessible": False})
+
+    def test_a_passing_run_reads_each_oracle_before_after_and_restored_despite_volatile_client_fields(self):
+        from runner import verdict
+        effects = module("hyprland_binding_effects")
+        self.reads = 0
+        ctx = verdict.LegContext(tier(), "headless", legs.leg_by_id(self.LEG), member_reader=lambda _tier: frozenset())
+        ctx.product = lambda argv, env=None, headed=False: self.answer(argv, env)
+        nested = dict(NESTED, sentinel=[30, 900])
+        with mock.patch.object(effects, "main_instance", return_value=MAIN), \
+                mock.patch.object(effects.second_instance, "ensure_sized", return_value=nested), \
+                mock.patch.object(effects.second_instance, "stop") as stop, \
+                mock.patch.object(effects, "_clients", side_effect=lambda _tier, instance: self.clients(instance)), \
+                mock.patch.object(effects, "desktop", return_value={"focus": "x"}), \
+                mock.patch.object(effects, "bystander", return_value={"pid": 7, "address": "0xa"}), \
+                mock.patch.object(effects, "_start", return_value=500), \
+                mock.patch.object(effects, "operated", return_value=[]), \
+                mock.patch.object(effects, "unchanged", return_value=[]):
+            effects.hyprland_effects_stay_on_bound_instance(ctx)
+        self.assertEqual(verdict.evaluate(ctx), [])
+        self.assertEqual(list(ctx.reads["hyprland.second_clients"]), ["before", "after", "restored"])
+        stop.assert_called_once()
+
+
 class ClientsStateTests(unittest.TestCase):
     def client(self, address: str, workspace: str) -> dict:
         return {"address": address, "pid": 7, "mapped": True, "hidden": False, "at": [0, 0], "size": [600, 900],
