@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import tempfile
@@ -117,7 +118,7 @@ class SizerLogTests(unittest.TestCase):
 
 class FakeSized:
     def __init__(self, now: dict, log: Path):
-        self.now, self.log, self.steps = now, log, []
+        self.now, self.log, self.steps, self.argvs = now, log, [], []
 
     def read(self):
         return dict(self.now)
@@ -127,10 +128,12 @@ class FakeSized:
 
     def operated(self, label, argv, expected):
         self.steps.append(("operated", argv[0]))
+        self.argvs.append(argv)
         return []
 
     def satisfied(self, label, argv):
         self.steps.append(("satisfied", argv[0]))
+        self.argvs.append(argv)
         return []
 
 
@@ -145,6 +148,11 @@ class NestedPlacementTests(unittest.TestCase):
             there = FakeSized({"at": [0, 0]}, log)
             self.assertEqual(nested.placed(there, "scaled", [-984, -580], [480, 360]), [])
             self.assertEqual(there.steps, [("operated", "move-window"), ("operated", "resize-window")])
+            self.assertEqual(there.argvs[0][-2:], ["--x=-984", "--y=-580"])
+
+    def test_a_point_is_written_in_the_form_a_negative_value_parses_in(self):
+        self.assertEqual(checks.point(-50, -20), ["--x=-50", "--y=-20"])
+        self.assertEqual(checks.point(40, 60), ["--x=40", "--y=60"])
 
     def test_inside_reads_the_monitor_in_logical_pixels(self):
         monitor = {"x": -1024, "y": -640, "width": 1280, "height": 800, "scale": 1.25}
@@ -212,6 +220,26 @@ class ForeignTests(unittest.TestCase):
 
 
 class RefusalLegTests(unittest.TestCase):
+    def test_the_parked_sizer_compares_the_bystander_with_its_own_placement(self):
+        tier = SimpleNamespace()
+        ctx = SimpleNamespace(tier=tier, product=lambda *_a, **_k: None)
+        settled = {"at": [1, 2], "size": [3, 4], "floating": False, "fullscreen": 0, "workspace": "1"}
+
+        @contextlib.contextmanager
+        def fake_sizer(*_a):
+            yield SimpleNamespace(pid=7), {"address": "0xa1"}, Path("/dev/null")
+
+        with mock.patch.object(refusals, "located", return_value=still(settled)), \
+                mock.patch.object(refusals, "sizer", fake_sizer), \
+                mock.patch.object(refusals, "listed_ids", return_value=["w-1"]), \
+                mock.patch.object(refusals, "workspaces_in_use", return_value=set()), \
+                mock.patch.object(refusals, "spare_workspaces", return_value=["31"]), \
+                mock.patch.object(refusals, "move"), mock.patch.object(refusals, "restore_desktop"), \
+                mock.patch.object(refusals, "main_instance"), \
+                mock.patch.object(refusals.raw, "poll", side_effect=lambda read, _s: read()):
+            with refusals.parked_sizer(ctx, {"address": "0xb2"}, {}) as target:
+                self.assertEqual(target, ("w-1", "0xa1", "31", 7, Path("/dev/null")))
+
     def test_a_refusal_the_app_saw_fails(self):
         log = Path(tempfile.mkdtemp()) / "sizer.events"
         log.write_text("")

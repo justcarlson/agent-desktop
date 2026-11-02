@@ -16,7 +16,7 @@ from scenarios.hyprland_pointer import FRACTIONAL, NEGATIVE_ORIGIN, monitor_of, 
 from scenarios.hyprland_pointer_pad import instance_control, instance_env, instance_query
 from scenarios.hyprland_window_app import (client_of, quiet_problems, reader, settled_count, size_problems, sizer,
                                            state_problems)
-from scenarios.hyprland_window_checks import (SETTLE_S, float_argv, holds, operated, refusal, satisfied,
+from scenarios.hyprland_window_checks import (SETTLE_S, float_argv, holds, operated, point, refusal, satisfied,
                                               window_argv)
 
 PLAIN_SIZE = (500, 400)
@@ -73,7 +73,7 @@ class Sized:
 def placed(sized: Sized, label: str, at: list[int], size: list[int]) -> list[str]:
     """Move, then resize, which keeps the corner; read both back from `j/clients` and the size
     from the app's log. A move to where the window already is must be satisfied."""
-    move = sized.argv("move-window", "--x", str(at[0]), "--y", str(at[1]))
+    move = sized.argv("move-window", *point(*at))
     if holds(sized.read(), {"at": list(at)}):
         problems = sized.satisfied(f"{label} move", move)
     else:

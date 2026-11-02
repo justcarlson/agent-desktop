@@ -21,8 +21,7 @@ from scenarios.hyprland_desktop import keeps_focus
 from scenarios.hyprland_focus_controls import (control, cursor, listed_ids, move, restore_desktop,
                                                spare_workspaces, workspaces_in_use)
 from scenarios.hyprland_window_app import quiet_problems, settled_count, sizer
-from scenarios.hyprland_window_checks import (MINIMIZED, SETTLE_S, float_argv, operated, placement, refusal,
-                                              window_argv)
+from scenarios.hyprland_window_checks import MINIMIZED, SETTLE_S, float_argv, operated, point, refusal, window_argv
 from scenarios.hyprland_window_ops import _absent, _foreign, located, watched
 
 LABEL = "refusals"
@@ -34,17 +33,17 @@ def generation(pid: int) -> list[int]:
 
 
 @contextlib.contextmanager
-def parked_sizer(ctx: LegContext, holder: dict, point: dict):
+def parked_sizer(ctx: LegContext, holder: dict, pointer: dict):
     """The sizer alone and tiled on a spare workspace, the desktop given back to the bystander.
     Yields its window id, address, workspace, pid and log."""
     tier = ctx.tier
-    settled = placement((located(tier, holder["address"]))())
+    settled = located(tier, holder["address"])()
     with sizer(tier, main_instance(tier), LABEL) as (owned, found, log):
         ids = listed_ids(ctx.product(["list-windows"], headed=False), owned.pid)
         require(len(ids) == 1, f"list-windows gives the sizer {ids}")
         workspace = spare_workspaces(workspaces_in_use(tier), 1)[0]
         move(tier, found["address"], workspace)
-        restore_desktop(tier, holder, point)
+        restore_desktop(tier, holder, pointer)
         require(raw.poll(lambda: located(tier, holder["address"])() == settled, SETTLE_S),
                 f"the bystander did not settle back to {settled}")
         yield ids[0], found["address"], workspace, owned.pid, log
@@ -77,7 +76,7 @@ def _supported(ctx: LegContext, target: tuple, read) -> list[str]:
     control(ctx.tier, lambda lua: float_argv(address, lua))
     require(raw.poll(lambda: read()["floating"] is True, SETTLE_S), f"{address} did not float")
     first = read()
-    argv = lambda x, y: window_argv("move-window", window_id, "--x", str(x), "--y", str(y))
+    argv = lambda x, y: window_argv("move-window", window_id, *point(x, y))
     problems = operated(ctx, "floating move", argv(40, 60), read, {"at": [40, 60], "workspace": workspace})
     return problems + operated(ctx, "floating move back", argv(*first["at"]), read,
                                {"at": first["at"], "size": first["size"], "workspace": workspace})
@@ -86,10 +85,10 @@ def _supported(ctx: LegContext, target: tuple, read) -> list[str]:
 def window_operation_refusals(ctx: LegContext) -> None:
     tier, main = ctx.tier, main_instance(ctx.tier)
     read_desktop = lambda: desktop(tier, main)
-    holder, point = bystander(tier), cursor(tier)
+    holder, pointer = bystander(tier), cursor(tier)
     ctx.before("hyprland.desktop", read_desktop())
     try:
-        with parked_sizer(ctx, holder, point) as target:
+        with parked_sizer(ctx, holder, pointer) as target:
             read = located(tier, target[1])
             started = generation(target[3])
             ctx.before("proc.target", started)
@@ -106,5 +105,5 @@ def window_operation_refusals(ctx: LegContext) -> None:
             ctx.after("hyprland.desktop", read_desktop())
             require(not problems, "; ".join(problems))
     finally:
-        restore_desktop(tier, holder, point)
+        restore_desktop(tier, holder, pointer)
     ctx.restored("hyprland.desktop", read_desktop())
