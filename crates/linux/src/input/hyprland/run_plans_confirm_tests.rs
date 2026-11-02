@@ -6,7 +6,7 @@ use agent_desktop_core::{
 };
 
 use super::*;
-use crate::input::hyprland::fake_pointer_sink::FakePointerSink;
+use crate::input::hyprland::fake_pointer_sink::{FakePointerSink, SinkEvent};
 use crate::input::keyboard::keymap::Keymap;
 use crate::input::mouse::drag_plan::plan_drag;
 use crate::input::mouse::pointer_plan::plan_click;
@@ -126,4 +126,37 @@ fn a_confirmed_run_needs_no_separate_release_settle() {
     let delivery = run(&mut sink, &Progress::default(), &click(2));
     assert_eq!(delivery.map(|d| d.delivered_events).ok(), Some(5));
     assert_eq!((sink.finished, sink.settled), (1, 0));
+}
+
+fn failing_after_send_at(index: usize) -> FakePointerSink {
+    FakePointerSink {
+        fail_after_send_at: Some(index),
+        ..FakePointerSink::default()
+    }
+}
+
+#[test]
+fn a_motion_that_fails_after_it_was_sent_is_uncertain() {
+    let mut sink = failing_after_send_at(0);
+    let error = run(&mut sink, &Progress::default(), &click(1))
+        .err()
+        .unwrap_or_else(|| panic!("a motion that failed to confirm must not succeed"));
+    assert_eq!(sink.events.len(), 1);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.unwrap_or_default();
+    assert_eq!(details["physical_delivery_started"], true);
+    assert_eq!(details["delivered_events"], 1);
+}
+
+#[test]
+fn a_press_that_fails_after_it_was_sent_is_released() {
+    let mut sink = failing_after_send_at(1);
+    let error = run(&mut sink, &Progress::default(), &click(1))
+        .err()
+        .unwrap_or_else(|| panic!("a press that failed to flush must not succeed"));
+    assert_eq!(sink.events.last(), Some(&SinkEvent::Recover(vec![0x110])));
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.unwrap_or_default();
+    assert_eq!(details["delivered_events"], 2);
+    assert_eq!(details["buttons_released"], true);
 }

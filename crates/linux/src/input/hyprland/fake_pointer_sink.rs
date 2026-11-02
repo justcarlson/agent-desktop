@@ -20,6 +20,7 @@ pub(crate) enum SinkEvent {
 pub(crate) struct FakePointerSink {
     pub(crate) events: Vec<SinkEvent>,
     pub(crate) fail_at: Option<usize>,
+    pub(crate) fail_after_send_at: Option<usize>,
     pub(crate) cancel_after: Option<(usize, Arc<Progress>)>,
     pub(crate) finish_error: Option<ErrorCode>,
     pub(crate) finished: usize,
@@ -32,6 +33,12 @@ impl FakePointerSink {
             return Err(AdapterError::new(ErrorCode::ActionFailed, "sink broke"));
         }
         self.events.push(event);
+        if self.fail_after_send_at == Some(self.events.len() - 1) {
+            return Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "sink broke after sending",
+            ));
+        }
         if let Some((count, progress)) = &self.cancel_after
             && *count == self.events.len()
         {
