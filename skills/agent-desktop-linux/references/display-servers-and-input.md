@@ -310,6 +310,7 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `drag --from-xy`, `hover --xy`) prove nothing about the receiver. The report
   says `details.receiver_proof: false` and counts `details.delivered_events`.
   Read the effect from the app afterwards.
+- **Double and triple click** fall back to `mouse-click --xy X,Y --count 2|3`.
 - **Ref pointer commands refuse on every window.** Hyprland sees only which
   window takes a point. The app then routes the point to its own surfaces,
   and neither Hyprland nor the accessibility tree shows an in-window overlay
