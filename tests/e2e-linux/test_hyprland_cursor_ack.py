@@ -46,43 +46,49 @@ class CursorAckLegTests(unittest.TestCase):
 
     def test_a_delayed_ack_passes_when_a_read_after_it_still_shows_the_old_display(self):
         timeline = reads((100, "7"), (705, "7"), (710, "73"), (900, "73"))
-        self.assertEqual(ack.delayed_problems([delayed_line(100, 700)], timeline, "7"), [])
+        self.assertEqual(ack.delayed_problems([delayed_line(100, 700)], timeline, "7", "73"), [])
 
     def test_a_delayed_ack_fails_when_the_display_changed_before_the_ack(self):
         timeline = reads((100, "7"), (650, "7"), (660, "73"))
-        problems = ack.delayed_problems([delayed_line(100, 700)], timeline, "7")
+        problems = ack.delayed_problems([delayed_line(100, 700)], timeline, "7", "73")
         self.assertTrue(any("may have reached the app before" in problem for problem in problems), problems)
 
     def test_a_delayed_ack_fails_when_it_came_early_or_past_the_arrival_timeout(self):
         timeline = reads((100, "7"), (1100, "7"), (1110, "73"))
-        self.assertTrue(ack.delayed_problems([delayed_line(100, 500)], timeline, "7"))
-        self.assertTrue(ack.delayed_problems([delayed_line(100, 1050)], timeline, "7"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 500)], timeline, "7", "73"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 1050)], timeline, "7", "73"))
 
     def test_a_delayed_ack_fails_without_a_trace_or_with_a_withheld_line(self):
         timeline = reads((100, "7"), (800, "7"), (810, "73"))
-        self.assertTrue(ack.delayed_problems([], timeline, "7"))
-        self.assertTrue(ack.delayed_problems([delayed_line(100, 700), withheld_line(100)], timeline, "7"))
+        self.assertTrue(ack.delayed_problems([], timeline, "7", "73"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 700), withheld_line(100)], timeline, "7", "73"))
 
     def test_a_click_that_lands_twice_or_never_fails(self):
         twice = reads((100, "7"), (800, "7"), (810, "73"), (820, "733"))
         never = reads((100, "7"), (800, "7"))
-        self.assertTrue(ack.delayed_problems([delayed_line(100, 700)], twice, "7"))
-        self.assertTrue(ack.delayed_problems([delayed_line(100, 700)], never, "7"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 700)], twice, "7", "73"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 700)], never, "7", "73"))
+
+    def test_two_deliveries_between_two_reads_fail_as_a_wrong_display(self):
+        coalesced = reads((100, "7"), (800, "7"), (810, "733"))
+        self.assertTrue(ack.delayed_problems([delayed_line(100, 700)], coalesced, "7", "73"))
+        coalesced = reads((100, "7"), (1810, "7"), (1820, "733"))
+        self.assertTrue(ack.withheld_problems([withheld_line(100)], coalesced, "7", "73"))
 
     def test_a_withheld_ack_passes_when_the_display_held_past_the_arrival_timeout(self):
         timeline = reads((100, "7"), (960, "7"), (1810, "7"), (1820, "73"))
         lines = [withheld_line(100), withheld_line(1000)]
-        self.assertEqual(ack.withheld_problems(lines, timeline, "7"), [])
+        self.assertEqual(ack.withheld_problems(lines, timeline, "7", "73"), [])
 
     def test_a_withheld_ack_fails_when_the_click_landed_inside_the_arrival_timeout(self):
         timeline = reads((100, "7"), (500, "7"), (510, "73"))
-        self.assertTrue(ack.withheld_problems([withheld_line(100)], timeline, "7"))
+        self.assertTrue(ack.withheld_problems([withheld_line(100)], timeline, "7", "73"))
 
     def test_a_withheld_ack_fails_when_any_ack_was_sent(self):
         timeline = reads((100, "7"), (1810, "7"), (1820, "73"))
         sent = {**withheld_line(100), "acked_ns": 700 * MS}
-        self.assertTrue(ack.withheld_problems([sent], timeline, "7"))
-        self.assertTrue(ack.withheld_problems([delayed_line(100, 700)], timeline, "7"))
+        self.assertTrue(ack.withheld_problems([sent], timeline, "7", "73"))
+        self.assertTrue(ack.withheld_problems([delayed_line(100, 700)], timeline, "7", "73"))
 
     def test_transitions_list_each_new_value_once(self):
         timeline = reads((1, "7"), (2, "73"), (3, "73"), (4, "731"))
@@ -186,6 +192,12 @@ class CursorAckLegRunTests(unittest.TestCase):
         self.assertEqual(verdict.evaluate(ctx), [])
         self.assertTrue(any("withhold" in finding for finding in ctx.findings), ctx.findings)
 
+
+    def test_the_withheld_leg_fails_when_its_click_landed_twice_between_reads(self):
+        with self.assertRaises(Exception) as caught:
+            self.run_leg(LEG_IDS[1], ack.arrival_ack_withheld, withheld_line(100),
+                         reads((100, "7"), (960, "7"), (970, "733")))
+        self.assertIn("733", str(caught.exception))
 
 if __name__ == "__main__":
     unittest.main()
