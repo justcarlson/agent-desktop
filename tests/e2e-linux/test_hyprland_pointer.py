@@ -367,8 +367,9 @@ class UnprovenReceiverTests(unittest.TestCase):
         landed = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=1.0, argv=[], exit_code=0)
         self.assertTrue(refs.unproven_problems("c", landed))
 
-    def refuse(self, logged: list[int], cursors: list[tuple[float, float]], answer=None) -> list[str]:
-        ctx = mock.Mock(tier=mock.Mock())
+    def refuse(self, logged: list[int], cursors: list[tuple[float, float]], answer=None, earlier=None,
+               ctx=None) -> list[str]:
+        ctx = ctx or mock.Mock(tier=mock.Mock())
         ctx.product.return_value = answer or unproven()
         counts, points = iter(logged), iter(cursors)
         seen = {"count": 0}
@@ -379,7 +380,8 @@ class UnprovenReceiverTests(unittest.TestCase):
 
         with mock.patch.multiple(refs, cursor_at=mock.Mock(side_effect=lambda *_: next(points)),
                                  raw=mock.Mock(poll=lambda check, _timeout: check())):
-            return refs.refused_without_input(ctx, {}, {"signature": "n"}, "pad", [["click", "@s:e1"]], reached)
+            return refs.refused_without_input(ctx, {}, {"signature": "n"}, "pad", [["click", "@s:e1"]], reached,
+                                              earlier)
 
     def test_a_refusal_with_no_input_and_a_still_cursor_passes(self):
         self.assertEqual(self.refuse([0, 0, 0], [(10.0, 10.0), (10.0, 10.0)]), [])
@@ -394,6 +396,41 @@ class UnprovenReceiverTests(unittest.TestCase):
 
     def test_a_native_cause_is_a_problem(self):
         self.assertEqual(len(self.refuse([0, 0, 0], [(1.0, 1.0)] * 2, unproven(cause="native_wayland_client"))), 1)
+
+    def occluded(self, code="ACTION_FAILED", delivery="not_delivered", **details) -> Envelope:
+        error = {"code": code, "message": "Target is not actionable: receives_events (occluded by window)",
+                 "details": details or {"checks": [{"check": "receives_events", "status": "fail",
+                                                    "occluder": {"kind": "window"}}]},
+                 "disposition": {"delivery": delivery, "retry": "safe"}}
+        return Envelope(ok=False, data=None, error=error, raw=json.dumps({"error": error}), elapsed_ms=1.0,
+                        argv=["agent-desktop"], exit_code=1)
+
+    def test_an_earlier_core_refusal_is_only_an_occluded_hit_test_or_a_drag_that_ran_out_its_deadline(self):
+        self.assertTrue(refs.earlier_core_refusal(["click", "@s:e1"], self.occluded()))
+        lease = dict(kind="interaction_process_lock_timeout", contention_count=0)
+        self.assertTrue(refs.earlier_core_refusal(["drag", "--from", "@s:e1"], self.occluded("TIMEOUT", **lease)))
+        self.assertIsNone(refs.earlier_core_refusal(["click", "@s:e1"], self.occluded("TIMEOUT", **lease)))
+        stack = dict(kind="receiver_evidence", cause="evidence_timed_out", physical_delivery_started=False)
+        self.assertTrue(refs.earlier_core_refusal(["drag", "--from-xy", "1,1"], self.occluded("TIMEOUT", **stack)))
+        spent = dict(kind="deadline", elapsed_ms=5000, timeout_ms=5000)
+        self.assertTrue(refs.earlier_core_refusal(["drag", "--from-xy", "1,1"], self.occluded("TIMEOUT", **spent)))
+        early = dict(spent, elapsed_ms=4000)
+        self.assertIsNone(refs.earlier_core_refusal(["drag", "--from-xy", "1,1"], self.occluded("TIMEOUT", **early)))
+        started = dict(stack, physical_delivery_started=True)
+        self.assertIsNone(refs.earlier_core_refusal(["drag", "--from-xy", "1,1"], self.occluded("TIMEOUT", **started)))
+        self.assertIsNone(refs.earlier_core_refusal(["click", "@s:e1"], self.occluded(delivery="delivered_unverified")))
+        self.assertIsNone(refs.earlier_core_refusal(["click", "@s:e1"], self.occluded(kind="hyprland_pointer")))
+        self.assertIsNone(refs.earlier_core_refusal(["click", "@s:e1"], unproven(cause="native_wayland_client")))
+
+    def test_an_accepted_earlier_refusal_is_a_finding_and_still_wants_no_input(self):
+        ctx = mock.Mock(tier=mock.Mock())
+        ctx.product.return_value = self.occluded()
+        self.assertEqual(self.refuse([0, 0, 0], [(1.0, 1.0)] * 2, self.occluded(), refs.earlier_core_refusal, ctx),
+                         [])
+        ctx.finding.assert_called_once()
+        self.assertEqual(self.refuse([0, 1, 1], [(1.0, 1.0)] * 2, self.occluded(), refs.earlier_core_refusal),
+                         ["pad: headed click: the app logged 1 input events"])
+        self.assertTrue(self.refuse([0, 0, 0], [(1.0, 1.0)] * 2, self.occluded()))
 
     def test_the_pad_takes_every_ref_pointer_action_and_both_ends_of_a_drag(self):
         actions = refs.pad_actions("@s:button", "@s:pane", {"at": [0, 0], "size": [100, 100]})
@@ -417,15 +454,16 @@ class UnprovenReceiverTests(unittest.TestCase):
             opened.append((toolkit, case))
             yield mock.Mock(pid=7), {"at": [0, 0], "size": [100, 100]}, Path("/dev/null")
 
-        def refuse(_ctx, _env, _instance, label, argvs, _reached):
-            labels.append((label, [argv[0] for argv in argvs]))
+        def refuse(_ctx, _env, _instance, label, argvs, _reached, earlier=None):
+            labels.append((label, [argv[0] for argv in argvs], earlier))
             return []
 
         with mock.patch.multiple(refs, receiver_fixture=started, fixture_ref=mock.Mock(return_value="@s:t"),
                                  refused_without_input=refuse, fixture_events=mock.Mock(return_value=[])):
             self.assertEqual(refs.fixture_refusals(mock.Mock(tier=mock.Mock()), {}, {"signature": "n"}), [])
         self.assertEqual(opened, [("gtk4", "overlay"), ("gtk4", "popup")])
-        self.assertEqual([label for label, _ in labels], ["gtk4 overlay fixture", "gtk4 popup fixture"])
+        self.assertEqual([label for label, _, _ in labels], ["gtk4 overlay fixture", "gtk4 popup fixture"])
+        self.assertEqual([earlier for _, _, earlier in labels], [None, refs.earlier_core_refusal])
 
     def test_the_receiver_leg_refuses_every_pad_action_then_the_covers_then_the_fixtures(self):
         order = []
