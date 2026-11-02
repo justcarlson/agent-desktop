@@ -1,6 +1,6 @@
-use agent_desktop_core::{AdapterError, ErrorCode};
+use agent_desktop_core::{Action, AdapterError, Direction, DragParams, ErrorCode, KeyCombo, Point};
 
-use super::{capability_refusal, hover_ref_refused, hover_refusal};
+use super::{capability_refusal, hover_ref_refused, hover_refusal, ref_gesture_refusal};
 use crate::input::backend::Backend;
 
 #[test]
@@ -92,4 +92,58 @@ fn an_unbound_or_x11_session_leaves_the_hover_by_ref_to_the_pointer_gate() {
         .is_none()
     );
     assert!(hover_refusal(false, Ok(Backend::X11(":0".into())), || Ok(true)).is_none());
+}
+
+fn asked(action: &Action) -> &'static str {
+    let mut asked = "none";
+    let hover = || {
+        asked = "hover";
+        None
+    };
+    ref_gesture_refusal(action, hover, || None);
+    if asked != "none" {
+        return asked;
+    }
+    let receiver = || {
+        asked = "receiver";
+        None
+    };
+    ref_gesture_refusal(action, || None, receiver);
+    asked
+}
+
+#[test]
+fn every_ref_pointer_gesture_asks_the_receiver_gate_and_hover_asks_its_own() {
+    let drag = Action::Drag(DragParams {
+        from: Point { x: 0.0, y: 0.0 },
+        to: Point { x: 1.0, y: 1.0 },
+        duration_ms: None,
+        drop_delay_ms: None,
+    });
+    for action in [
+        Action::Click,
+        Action::DoubleClick,
+        Action::TripleClick,
+        Action::RightClick,
+        Action::Scroll(Direction::Down, 3),
+        drag,
+    ] {
+        assert_eq!(asked(&action), "receiver", "{}", action.name());
+    }
+    assert_eq!(asked(&Action::Hover), "hover");
+}
+
+#[test]
+fn keyboard_and_semantic_actions_are_never_refused_as_pointer_gestures() {
+    for action in [
+        Action::TypeText("hi".into()),
+        Action::PressKey(KeyCombo {
+            key: "a".into(),
+            modifiers: vec![],
+        }),
+        Action::ScrollTo,
+        Action::SetFocus,
+    ] {
+        assert_eq!(asked(&action), "none", "{}", action.name());
+    }
 }

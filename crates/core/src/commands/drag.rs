@@ -68,6 +68,8 @@ pub fn execute(
     let auto_wait = args.timeout_ms.is_some_and(|timeout_ms| timeout_ms > 0);
     let cursor = crate::cursor_overlay::hold_cursor(context, deadline);
     let (from, to, lease, params) = before_first_event(|| {
+        refuse_ref_endpoint(from_args, deadline, adapter, context)?;
+        refuse_ref_endpoint(to_args, deadline, adapter, context)?;
         if auto_wait {
             wait_for_point_with_deadline(from_args, deadline, adapter, context)?;
             wait_for_point_with_deadline(to_args, deadline, adapter, context)?;
@@ -192,6 +194,28 @@ pub fn execute(
         WaitForScope::From => from.source_entry.as_ref().or(to.source_entry.as_ref()),
     };
     apply_post_action_wait(response, wait_entry, adapter, context)
+}
+
+fn refuse_ref_endpoint(
+    args: PointResolveArgs<'_>,
+    deadline: crate::Deadline,
+    adapter: &dyn PlatformAdapter,
+    context: &CommandContext,
+) -> Result<(), AppError> {
+    let Some(ref_id) = args.ref_id else {
+        return Ok(());
+    };
+    let entry = crate::commands::helpers::load_ref_entry(ref_id, context)?;
+    let gesture = crate::Action::Drag(DragParams {
+        from: crate::Point { x: 0.0, y: 0.0 },
+        to: crate::Point { x: 0.0, y: 0.0 },
+        duration_ms: None,
+        drop_delay_ms: None,
+    });
+    match adapter.ref_pointer_refusal(&entry, &gesture, deadline) {
+        Some(error) => Err(error.into()),
+        None => Ok(()),
+    }
 }
 
 fn confirm_endpoint(

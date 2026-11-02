@@ -77,6 +77,7 @@ fn execute_with_deadline(
     ),
     AdapterError,
 > {
+    refuse_ref_pointer(context, &request, deadline)?;
     let polls = request.timeout_ms.is_some_and(|timeout_ms| timeout_ms > 0);
     let mut saw_ambiguity = false;
     let mut refusal: Option<AdapterError> = None;
@@ -168,6 +169,26 @@ fn with_refusal(mut error: AdapterError, refusal: Option<&AdapterError>) -> Adap
         None => details = serde_json::json!({ "error_details": details, "refusal": recorded }),
     }
     error.with_details(details)
+}
+
+fn refuse_ref_pointer(
+    context: RefActionWaitContext<'_>,
+    request: &ActionRequest,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if !matches!(
+        request.headed_requirement(),
+        crate::HeadedRequirement::FocusedWindowAndCursor
+    ) {
+        return Ok(());
+    }
+    match context
+        .adapter
+        .ref_pointer_refusal(context.entry, &request.action, deadline)
+    {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 pub(crate) fn operation_deadline(request: &ActionRequest) -> Result<Deadline, AdapterError> {
