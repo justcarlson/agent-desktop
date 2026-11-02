@@ -75,7 +75,8 @@ def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedAp
         try:
             name = node.name
         except Exception as error:
-            commands = tuple(COMMANDS[key] for key, aliases in ALIASES.items() if aliases == names)
+            commands = tuple(COMMANDS[key] for key, aliases in ALIASES.items()
+                             if aliases == names and key in COMMANDS)
             if (names is not None and raw.unresponsive(error)
                     and not proc.may_match(pid, process_name, commands or names)):
                 continue
