@@ -426,5 +426,36 @@ class RendererRecordTests(unittest.TestCase):
         self.assertIn("no headed agent started", setup.final_problems()[0])
 
 
+class LeftKeyboardTests(unittest.TestCase):
+    PHYSICAL = ("at-translated-set-2-keyboard", True, "us", "English (US)", 0)
+    POWER = ("power-button", False, "us", "English (US)", 0)
+    IME = ("hl-virtual-keyboard-fcitx5", True, "us", "English (US)", 0)
+
+    def problems(self, before, after):
+        from scenarios import parallel_zoo as zoo
+
+        return zoo.left_keyboard_problems(before, after)
+
+    def test_the_input_method_keyboard_arriving_and_taking_main_is_not_left_input(self):
+        before = [self.PHYSICAL, self.POWER]
+        after = [(*self.PHYSICAL[:1], False, *self.PHYSICAL[2:]), self.IME, self.POWER]
+        self.assertEqual(self.problems(before, after), [])
+
+    def test_a_virtual_keyboard_left_by_another_client_fails(self):
+        left = ("hl-virtual-keyboard-agent-desktop", False, "us", "English (US)", 0)
+        problems = self.problems([self.PHYSICAL, self.POWER], [self.PHYSICAL, left, self.POWER])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("hl-virtual-keyboard-agent-desktop", problems[0])
+
+    def test_a_changed_layout_group_fails(self):
+        switched = (*self.PHYSICAL[:4], 1)
+        problems = self.problems([self.PHYSICAL, self.POWER], [switched, self.POWER])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("at-translated-set-2-keyboard", problems[0])
+
+    def test_a_lost_keyboard_fails(self):
+        self.assertEqual(len(self.problems([self.PHYSICAL, self.POWER], [self.PHYSICAL])), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
