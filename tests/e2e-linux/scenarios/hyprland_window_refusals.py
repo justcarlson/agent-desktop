@@ -101,6 +101,7 @@ def window_operation_refusals(ctx: LegContext) -> None:
             ctx.after("proc.target", ended)
             with Sampler(watched(tier, holder)) as sampler:
                 problems += _supported(ctx, target, read)
+            ctx.restored("proc.target", generation(target[3]))
             problems += sampler.changes + keeps_focus(tier, read_desktop())
             ctx.after("hyprland.desktop", read_desktop())
             require(not problems, "; ".join(problems))
