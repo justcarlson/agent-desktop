@@ -116,6 +116,19 @@ class HyprlandRegistryTests(unittest.TestCase):
                 self.assertIn(leg_id, {leg.id for leg in legs.REGISTRY})
                 self.assertTrue(callable(getattr(importlib.import_module(module), name, None)))
 
+    def test_each_tier_keeps_the_run_order_it_had_before_the_hyprland_rows_moved(self):
+        def run_order(tier):
+            return [leg.id for leg in legs.REGISTRY if tier in leg.tiers]
+
+        hyprland = run_order("hyprland")
+        zoo = hyprland.index("ref_contract.zoo_gtk3")
+        self.assertLess(hyprland.index("non_interference.headed_changes_only_target"), zoo)
+        self.assertLess(hyprland.index("capture.hyprland_deadline_or_cancel_released"), zoo)
+        self.assertGreater(hyprland.index("focus.hyprland_other_workspace"), zoo)
+        wayland = run_order("wayland")
+        self.assertLess(wayland.index("session.other_wayland_route_unchanged"),
+                        wayland.index("ref_contract.zoo_gtk3"))
+
     def test_hyprland_is_selectable_but_not_a_default_tier(self):
         self.assertIn("hyprland", main.TIER_CHOICES)
         self.assertNotIn("hyprland", main.DEFAULT_TIERS)
