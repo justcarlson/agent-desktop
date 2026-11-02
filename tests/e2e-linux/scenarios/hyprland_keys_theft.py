@@ -101,8 +101,8 @@ def toolkit_activation_ignored(ctx: LegContext):
 
     original = read()
     ctx.before("hyprland.focus_on_activate", original)
-    put(False)
     try:
+        put(False)
         off = read()
         ctx.after("hyprland.focus_on_activate", off)
         require(not off, f"{ACTIVATE_OPTION} did not turn off, so the zoo can take focus back after the steal")
