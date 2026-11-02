@@ -107,6 +107,25 @@ class ProcessOracleTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, code):
                     apps._owners(tier)
 
+    def test_zoo_owner_scan_skips_an_unresponsive_bystander(self):
+        class Stalled:
+            bus = ":1.3"
+
+            @property
+            def name(self):
+                raise TimeoutError("bystander stalled")
+
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        for app in ("Zoo GTK3", "Zoo Qt"):
+            with self.subTest(app=app), \
+                patch.object(apps.raw, "registry", return_value=[Stalled()]), \
+                patch.object(apps.raw, "owner_pid", return_value=125), \
+                patch.object(apps.proc, "facts", return_value=(99, 125, "python3",
+                    {"XDG_RUNTIME_DIR": "/private/a"})), \
+                patch.object(apps.proc, "may_match", return_value=False) as matched:
+                self.assertEqual(apps._owners(tier, names=apps.ALIASES[app]), [])
+                self.assertEqual(matched.call_args.args[2], apps.ALIASES[app])
+
     def test_owner_scan_skips_a_process_during_unreadable_exec(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))
         frame = SimpleNamespace(role=23, bus=":1.2", path="/frame",
