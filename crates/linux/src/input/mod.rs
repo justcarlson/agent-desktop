@@ -1,3 +1,4 @@
+mod adapter;
 pub(crate) mod backend;
 pub(crate) mod blocked_combo;
 pub(crate) mod clipboard;
