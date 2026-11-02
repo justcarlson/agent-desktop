@@ -10,6 +10,8 @@ a legacy config instance; `lua` names the dialect the instance answers in.
 
 from __future__ import annotations
 
+import contextlib
+
 from oracle import atspi_raw as raw
 from runner.helper import require
 from scenarios.hyprland_focus_controls import focus_argv, listed_ids
@@ -85,6 +87,26 @@ def placed(sized: Sized, label: str, at: list[int], size: list[int]) -> list[str
     return problems + size_problems(label, sized.log, list(size))
 
 
+def nested_frames(ctx, instance: dict):
+    """`hyprland_cursor_hide.nested_frames`, imported late because that module imports this one."""
+    from scenarios.hyprland_cursor_hide import nested_frames as frames
+    return frames(ctx, instance)
+
+
+@contextlib.contextmanager
+def output_frames(ctx, instance: dict, lua: bool):
+    """Shows a legacy instance in the outer session while its output moves and moves back.
+
+    A legacy config instance hidden on a silent special workspace takes only its first
+    `keyword monitor` and answers `ok` to every later one (L46-5). A Lua instance needs no frames.
+    """
+    if lua:
+        yield
+        return
+    with nested_frames(ctx, instance):
+        yield
+
+
 def geometry_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
     """Move and resize a floating sizer, at a negative origin and a fractional scale too, then give
     it its first geometry back."""
@@ -98,7 +120,7 @@ def geometry_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
         problems += placed(sized, f"{label} plain", [40, 60], list(PLAIN_SIZE))
         problems += sized.satisfied(f"{label} move again", sized.argv("move-window", "--x", "40", "--y", "60"))
         output = sized.monitor()["name"]
-        with moved_output(tier, instance, lua, output, NEGATIVE_ORIGIN, FRACTIONAL):
+        with output_frames(ctx, instance, lua), moved_output(tier, instance, lua, output, NEGATIVE_ORIGIN, FRACTIONAL):
             monitor = sized.monitor()
             corner = [int(monitor["x"]) + 40, int(monitor["y"]) + 60]
             require(corner[0] < 0 and corner[1] < 0, f"{output} did not move to a negative origin: {monitor}")
