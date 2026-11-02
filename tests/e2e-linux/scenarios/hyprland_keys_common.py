@@ -26,6 +26,8 @@ from scenarios.wayland_input import text_ref
 APP_SCRIPT = Path(__file__).resolve().parents[1] / "apps" / "key_log.py"
 KEY_LOG_CLASS = "ad-key-log"
 KEY_LOG_NAMES = ("key log", KEY_LOG_CLASS)
+OPAQUE = "opaque"
+OPAQUE_NAME = "opaque key log field"
 SETTLE_S = 10.0
 TEXT_ROLE = 61
 SHIFT, CONTROL, ALT, SUPER = 1, 4, 8, 64
@@ -37,9 +39,16 @@ def _owner(tier):
     return found[0] if len(found) == 1 else None
 
 
+def key_log_argv(interpreter: Path, log: Path, opaque: bool) -> list[str]:
+    argv = [str(interpreter), str(APP_SCRIPT), str(log)]
+    return [*argv, OPAQUE] if opaque else argv
+
+
 @contextlib.contextmanager
-def key_log(tier, label: str):
-    """The key log app, registered to the run. Yields the app and its log path."""
+def key_log(tier, label: str, opaque: bool = False):
+    """The key log app, registered to the run. Yields the app and its log path.
+
+    With `opaque`, its field reports the entry role with no editable text."""
     require(not apps._owners(tier, names=KEY_LOG_NAMES), "a key log app from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
@@ -48,7 +57,7 @@ def key_log(tier, label: str):
     interpreter = private_interpreter(tier.runtime_dir, Path(python).resolve(), KEY_LOG_CLASS)
     log = tier.runtime_dir / f"key-log-{label}.jsonl"
     log.write_text("")
-    attached_session.spawn(tier, [str(interpreter), str(APP_SCRIPT), str(log)], env,
+    attached_session.spawn(tier, key_log_argv(interpreter, log, opaque), env,
                            tier.runtime_dir / f"key-log-{label}.log", toplevels=(KEY_LOG_CLASS, 1))
     with raw.bounded_until(time.monotonic() + SETTLE_S):
         owner = raw.poll(lambda: _owner(tier), SETTLE_S)
