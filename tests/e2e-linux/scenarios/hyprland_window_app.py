@@ -1,7 +1,7 @@
 """The window sizer on any Hyprland instance the run owns, and reads of its log.
 
 The sizer (`apps/hyprland_window_sizer.py`) logs each size and toplevel state the compositor
-gives it. That log is the app's own view of a window operation, read beside `j/clients`.
+gives it; the size is the oracle (L46-1). That log is the app's own view of a window operation, read beside `j/clients`.
 """
 
 from __future__ import annotations
@@ -47,13 +47,13 @@ def size_problems(label: str, log: Path, size: list[int]) -> list[str]:
     return [] if size_matches(seen, size) else [f"{label}: the app's log shows size {seen}, j/clients {size}"]
 
 
-def state_problems(label: str, log: Path, maximized: bool) -> list[str]:
-    """The sizer's last toplevel state is maximized exactly when `maximized`."""
-    raw.poll(lambda: (logged(log, "state") or {}).get("maximized") is maximized, LOG_SETTLE_S)
-    seen = logged(log, "state")
-    if (seen or {}).get("maximized") is maximized:
-        return []
-    return [f"{label}: the app's log shows state {seen}, expected maximized {maximized}"]
+def resized_problems(label: str, log: Path, before: list[int], size: list[int]) -> list[str]:
+    """The sizer was given `size`, the size `j/clients` reports, and it is not `before`. The app's
+    toplevel state is no oracle here: Hyprland sends it maximized when it tiles the window at map
+    time and never changes it on a maximize or a restore (L46-1)."""
+    if size_matches({"w": size[0], "h": size[1]}, before):
+        return [f"{label}: j/clients keeps the size {size} it had before, {before}"]
+    return size_problems(label, log, size)
 
 
 def settled_count(log: Path, quiet_s: float = 0.5) -> int:
