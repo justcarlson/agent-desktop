@@ -5,7 +5,8 @@ import json
 from uuid import uuid4
 
 from oracle.atspi_raw import RawNode, call, poll
-from runner.helper import managed, nodes, one, require, root, snapshot as snapshot_tree
+from runner.helper import nodes, one, require, root, snapshot as snapshot_tree
+from scenarios import hyprland_zoo
 from scenarios.ref_contract_identity import identify, raw_target, same_ref
 
 
@@ -109,7 +110,7 @@ def zoo(ctx):
     toolkit = ctx.leg.id.split("zoo_", 1)[1].removesuffix("_windows")
     label = {"gtk3": "GTK3", "gtk4": "GTK4", "qt": "Qt"}[toolkit]
     path = ctx.tier.runtime_dir / f"ref-contract-{toolkit}-{uuid4().hex}.log"
-    with managed(ctx, "Zoo " + label, (str(path),)) as app:
+    with hyprland_zoo.zoo_app(ctx, "Zoo " + label, (str(path),)) as app:
         reset(path)
         yield app, path
 
