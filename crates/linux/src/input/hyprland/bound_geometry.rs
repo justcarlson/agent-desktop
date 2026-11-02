@@ -5,22 +5,23 @@
 //! and for shell elements, which keep their own path.
 
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, HitTestResult, NativeHandle, Point, Rect,
+    AdapterError, Deadline, ErrorCode, HitTestResult, NativeHandle, Point, Rect, RefEntry,
 };
 
 use super::cursor_guard::with_cursors_hidden;
 use super::hypr_route::bound_route;
-use super::native_receiver::refuse_unproven_receiver;
+use super::native_receiver::{entry_receiver_refusal, refuse_unproven_receiver};
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_context::CursorContext;
 use crate::system::hyprland::cursor_hider::CursorHider;
+use crate::system::hyprland::ipc::bound_request::bound_request;
 use crate::system::hyprland::placement::placed_target::PlacedTarget;
 use crate::system::hyprland::placement::placement_read::{
-    frame_client, place_target, placed_bounds, popup_refusal,
+    place_target, placed_bounds, popup_refusal,
 };
 use crate::system::hyprland::receiver::receiver_hit::read_hit;
 use crate::system::hyprland::receiver::receiver_read::prove_receiver;
-use crate::system::{SharedBus, shell};
+use crate::system::{SharedBus, shell, tray};
 use crate::tree::{AtspiElement, atspi_element};
 
 fn bound_target(
@@ -109,24 +110,23 @@ pub(crate) fn prove_bound_point(
     prove_placed_point(&binding, &placed, hider.as_mut(), deadline)
 }
 
-/// The receiver gate's refusal for a ref pointer gesture, read before core
-/// activates the element's window or moves the cursor, so an unfocused
-/// target stays unfocused. `None` when no Hyprland is bound, for shell
-/// elements, and when the element or its frame cannot be resolved, which
-/// leaves the answer to the gate at delivery.
-pub(crate) fn ref_receiver_refusal(
-    resolve: impl FnOnce() -> Result<NativeHandle, AdapterError>,
-    bus: &SharedBus,
-    deadline: Deadline,
-) -> Option<AdapterError> {
-    bound_route().ok().flatten()?;
-    let handle = resolve().ok()?;
-    let (binding, element) = bound_target(&handle).ok().flatten()?;
-    let frame = element.frame()?;
-    match frame_client(&binding, bus, frame, element.is_menu_target(), deadline) {
-        Ok(client) => refuse_unproven_receiver(&binding, client.address, deadline).err(),
-        Err(error) => Some(error),
+/// The refusal for a ref pointer gesture on the bound Hyprland instance,
+/// read from the saved entry before core resolves the element, activates its
+/// window or moves the cursor. No headed ref pointer gesture delivers there,
+/// so every bound answer refuses, whether or not the element still resolves.
+/// `None` when no Hyprland is bound and for tray and shell refs, which keep
+/// their own path.
+pub(crate) fn ref_receiver_refusal(entry: &RefEntry, deadline: Deadline) -> Option<AdapterError> {
+    if tray::owns(entry) {
+        return None;
     }
+    let binding = bound_route().ok().flatten()?;
+    let pid = entry.process.pid.get();
+    if shell::is_shell_process(pid) {
+        return None;
+    }
+    let clients = bound_request(&binding, "j/clients", deadline).ok();
+    Some(entry_receiver_refusal(clients.as_deref(), pid))
 }
 
 /// [`prove_bound_point`] for a placed endpoint and the hider that hides the

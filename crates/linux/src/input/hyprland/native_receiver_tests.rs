@@ -92,3 +92,45 @@ fn a_client_list_request_that_runs_out_of_time_is_refused_as_timed_out_evidence(
     assert_eq!(details["cause"], "evidence_timed_out");
     assert_eq!(details["evidence"], "client_xwayland");
 }
+
+fn process_clients(flags: &[Option<bool>]) -> Vec<u8> {
+    let listed: Vec<serde_json::Value> = flags
+        .iter()
+        .map(|flag| match flag {
+            Some(flag) => serde_json::json!({ "pid": 4242, "xwayland": flag }),
+            None => serde_json::json!({ "pid": 4242 }),
+        })
+        .chain([serde_json::json!({ "pid": 7, "xwayland": false })])
+        .collect();
+    serde_json::to_vec(&listed).unwrap()
+}
+
+fn entry_cause(clients: Option<&[u8]>) -> serde_json::Value {
+    let error = entry_receiver_refusal(clients, 4242);
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.unwrap();
+    assert_eq!(details["physical_delivery_started"], false);
+    details["cause"].clone()
+}
+
+#[test]
+fn a_ref_whose_process_has_only_native_windows_refuses_as_native_wayland() {
+    let reply = process_clients(&[Some(false), Some(false)]);
+    assert_eq!(entry_cause(Some(&reply)), "native_wayland_client");
+}
+
+#[test]
+fn a_ref_whose_process_cannot_be_told_native_refuses_as_unproven() {
+    for flags in [
+        vec![Some(true)],
+        vec![Some(false), Some(true)],
+        vec![None],
+        vec![],
+    ] {
+        let reply = process_clients(&flags);
+        assert_eq!(entry_cause(Some(&reply)), "receiver_unproven", "{flags:?}");
+    }
+    assert_eq!(entry_cause(Some(b"not json")), "receiver_unproven");
+    assert_eq!(entry_cause(None), "receiver_unproven");
+}
