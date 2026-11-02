@@ -84,3 +84,38 @@ class CancelVerdictTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CancelDebugLogTests(unittest.TestCase):
+    def test_each_signal_gets_its_own_product_log_in_the_runtime_dir(self):
+        runtime = Path("/run/user/1000/rt")
+        self.assertEqual(cancel.product_log(runtime, signal.SIGTERM), runtime / "product-cancel-SIGTERM.log")
+        self.assertNotEqual(cancel.product_log(runtime, signal.SIGTERM), cancel.product_log(runtime, signal.SIGKILL))
+
+    def test_a_debug_log_receives_the_products_stderr_under_the_debug_filter(self):
+        from types import SimpleNamespace
+        from unittest import mock
+
+        from scenarios import hyprland_keys_process as process
+
+        with tempfile.TemporaryDirectory() as scratch:
+            log = Path(scratch) / "product.log"
+            tier = SimpleNamespace(env={"PATH": os.environ.get("PATH", "")})
+            with mock.patch.object(process.product, "_binary_path", return_value="/bin/sh"):
+                running = process.running_product(tier, ["-c", 'echo "$RUST_LOG" >&2'], headed=False,
+                                                  debug_log=log)
+                code, _ = process.finished(running, 10.0)
+            self.assertEqual(code, 0)
+            self.assertEqual(log.read_text().strip(), process.DEBUG_FILTER)
+
+    def test_without_a_debug_log_the_product_has_no_debug_filter(self):
+        from types import SimpleNamespace
+        from unittest import mock
+
+        from scenarios import hyprland_keys_process as process
+
+        tier = SimpleNamespace(env={"PATH": os.environ.get("PATH", "")})
+        with mock.patch.object(process.product, "_binary_path", return_value="/bin/sh"):
+            running = process.running_product(tier, ["-c", 'echo "[$RUST_LOG]"'], headed=False)
+            code, out = process.finished(running, 10.0)
+        self.assertEqual((code, out.strip()), (0, "[]"))
