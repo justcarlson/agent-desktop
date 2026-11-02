@@ -487,6 +487,14 @@ class HeadedClickTests(unittest.TestCase):
         self.assertEqual(cancel.argv_of("D", refs, targets), ["mouse-click", "--xy", "482,53"])
         self.assertEqual(cancel.argv_of("A", refs, targets)[:2], ["click", "@s1:e1"])
 
+    def test_the_lock_timeout_contenders_wait_on_the_lease_before_any_receiver_check(self):
+        from scenarios import hyprland_parallel_faults as faults
+
+        refs, targets = {"B": "@s1:e3", "D": "@s1:e2"}, {"D": (482.5, 53.4)}
+        self.assertEqual(faults.contender_argv("D", refs, targets), ["mouse-click", "--xy", "482,53"])
+        self.assertEqual(faults.contender_argv("B", refs, targets),
+                         ["type", "@s1:e3", "q", "--timeout-ms", faults.CONTEND_MS])
+
     def test_a_headed_ref_click_must_refuse_as_unproven_before_any_event(self):
         self.assertEqual(oracle.ref_refusal_problems(envelope(False, self.REFUSAL, 1)), [])
         self.assertEqual(len(oracle.ref_refusal_problems(envelope(True, None, 0))), 1)
