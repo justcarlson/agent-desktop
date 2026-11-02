@@ -149,6 +149,9 @@ class AttachedLifecycleTests(unittest.TestCase):
                   cgroup=f"{apps}/app-Hyprland-gnome\\x2dcalculator-4242.scope")
         make_proc(self.proc, 95, 900, comm="gnome-calculato", environ=env,
                   cgroup=f"{apps}/app-gnome\\x2dcalculator@1.service")
+        provider = "org.gnome.Calculator.SearchProvider"
+        make_proc(self.proc, 96, 900, comm="gnome-calculato", environ=env,
+                  cgroup=f"{apps}/app-dbus\\x2d:1.3\\x2d{provider}.slice/dbus-:1.3-{provider}@0.service")
         tier = SimpleNamespace(runtime_dir=self.work, wayland_display="wayland-1")
         adopted = attached_session.adopt_activated(tier, ("gnome-calculator",), 500, self.proc)
         self.assertEqual(adopted, [(90, 900, "gnome-calculato")])
