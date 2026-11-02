@@ -212,10 +212,7 @@ class Schedule:
         for name in "ABD":
             problems += [f"{self.label}: {problem}" for problem in agents.outcome_problems(self.agents[name])]
         events = self.sampler.events()
-        launched = self.setup.launched
-        effects = {name: agents.effect_times(launched[name].log, zoo.BUTTON, zoo.ACTIVATE, self.since)
-                   for name in "AD"}
-        effects["B"] = agents.effect_times(launched["B"].log, zoo.ENTRY, zoo.CHANGED, self.since)
+        effects = self._settled_effects()
         self.spans = [agents.span_of(self.agents[name], events, effects[name]) for name in "ABD"]
         names = agents.holder_names(list(self.agents.values()))
         holds = self.sampler.holds(names)
@@ -230,6 +227,17 @@ class Schedule:
         if any(hold.holder == "C" for hold in holds):
             found.append("C held the interaction lease")
         return problems + [f"{self.label}: {problem}" for problem in found]
+
+    def _effects(self) -> dict[str, tuple[float, ...]]:
+        launched = self.setup.launched
+        effects = {name: agents.effect_times(launched[name].log, zoo.BUTTON, zoo.ACTIVATE, self.since)
+                   for name in "AD"}
+        effects["B"] = agents.effect_times(launched["B"].log, zoo.ENTRY, zoo.CHANGED, self.since)
+        return effects
+
+    def _settled_effects(self) -> dict[str, tuple[float, ...]]:
+        agents.settle(lambda: all(self._effects().values()))
+        return self._effects()
 
     def _typed_problems(self, changed) -> list[str]:
         letter = LETTERS[self.label]
