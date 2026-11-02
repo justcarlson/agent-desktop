@@ -220,3 +220,22 @@ fn an_operation_already_satisfied_plans_no_step() {
         );
     }
 }
+
+#[test]
+fn a_window_on_a_special_workspace_of_another_owner_is_refused() {
+    for workspace in [
+        "special:scratch",
+        "special:special",
+        "special:agent-desktop-minimized-",
+        "special:agent-desktop-minimized-a:b",
+    ] {
+        let hidden = with(|state| state.workspace = workspace.into());
+        for op in [WindowOp::Minimize, WindowOp::Maximize, WindowOp::Restore] {
+            assert_eq!(
+                cause(plan(&op, &hidden, None, LUA)),
+                "foreign_special_workspace",
+                "{op:?} on {workspace}"
+            );
+        }
+    }
+}

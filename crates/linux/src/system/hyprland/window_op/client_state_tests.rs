@@ -1,3 +1,5 @@
+use agent_desktop_core::{DeliverySemantics, ErrorCode};
+
 use super::*;
 
 const REPLY: &str = r#"[
@@ -35,12 +37,18 @@ fn every_client_is_read_with_its_place_and_state() {
 }
 
 #[test]
-fn one_unreadable_client_makes_the_reply_unusable() {
+fn one_unreadable_client_refuses_for_missing_state_evidence() {
     let reply = r#"[{"address": "0x1", "at": [0, 0], "size": [1, 1], "floating": true,
         "workspace": {"name": "1"}}]"#;
 
-    assert_eq!(parse_states(reply.as_bytes()), None);
-    assert_eq!(parse_states(b"unknown request"), None);
+    for body in [reply.as_bytes(), b"unknown request".as_slice()] {
+        let error = parse_states(body).expect_err("unreadable");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        let details = error.details.expect("details");
+        assert_eq!(details["cause"], "window_state_unreadable");
+        assert_eq!(details["physical_delivery_started"], false);
+    }
 }
 
 #[test]
