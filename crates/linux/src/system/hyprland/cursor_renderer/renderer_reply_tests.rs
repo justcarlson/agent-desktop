@@ -5,12 +5,15 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{
     AdapterError, CursorOverlayConfig, CursorOverlayControl, CursorOverlayInstruction,
-    CursorOverlayStyle, Point,
+    CursorOverlayStyle, CursorPhase, Point,
 };
 use serde_json::Value;
 
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
+use crate::system::hyprland::cursor_renderer::holder_file::now_ms;
+use crate::system::hyprland::cursor_renderer::holder_lease::HolderLease;
+use crate::system::hyprland::cursor_renderer::keep_drawn_flag::KEEP_DRAWN_FLAG;
 use crate::system::hyprland::cursor_renderer::registry_fixture::RegistryFixture;
 use crate::system::hyprland::cursor_renderer::renderer_process::RendererProcess;
 use crate::system::hyprland::cursor_renderer::renderer_request::RendererRequest;
@@ -208,4 +211,53 @@ fn a_travel_whose_arrival_never_shows_is_refused_within_the_arrival_timeout() {
     );
     send(&fixture, &disable()).expect("disable");
     renderer.join().expect("thread").expect("clean exit");
+}
+
+fn effect(agent: Option<&str>, x: f64, y: f64) -> RendererRequest {
+    let config = CursorOverlayConfig::enabled(None, 6).expect("config");
+    let instruction = CursorOverlayInstruction::new(Point { x, y }, &config, true)
+        .expect("instr")
+        .with_phase(CursorPhase::Effect);
+    RendererRequest::control(
+        CursorOverlayControl::present(SESSION.into(), instruction)
+            .with_agent_id(agent.map(str::to_owned)),
+    )
+}
+
+fn margins(fake: &FakeLayerCompositor) -> usize {
+    fake.logged()
+        .iter()
+        .filter(|line| line.starts_with("margin "))
+        .count()
+}
+
+fn drawn_under_a_live_holder(keep_drawn: bool) -> bool {
+    let fixture = RegistryFixture::new();
+    let fake = FakeLayerCompositor::start(true);
+    let renderer = serving(&fixture, &fake, Some("agent-a"), |_| true);
+    send(&fixture, &travel(Some("agent-a"), 40.0, 40.0)).expect("the travel arrives");
+    if keep_drawn {
+        std::fs::write(fixture.paths.dir.join(KEEP_DRAWN_FLAG), b"").expect("flag");
+    }
+    let held = HolderLease::take(&fixture.paths.holders, now_ms() + 5_000).expect("lease");
+    let before = margins(&fake);
+    send(&fixture, &effect(Some("agent-a"), 600.0, 500.0)).expect("the effect is answered");
+    send(&fixture, &RendererRequest::Status).expect("status after the effect");
+    let drawn = margins(&fake) > before;
+    drop(held);
+    send(&fixture, &disable()).expect("disable");
+    renderer.join().expect("thread").expect("clean exit");
+    drawn
+}
+
+#[test]
+fn a_present_under_a_live_holder_clears_the_cursor_unless_the_keep_drawn_flag_is_set() {
+    assert!(
+        !drawn_under_a_live_holder(false),
+        "a present under a live holder drew the cursor without the keep-drawn flag"
+    );
+    assert!(
+        drawn_under_a_live_holder(true),
+        "a present under a live holder cleared the cursor despite the keep-drawn flag"
+    );
 }
