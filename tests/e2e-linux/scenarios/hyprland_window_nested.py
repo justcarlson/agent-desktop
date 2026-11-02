@@ -2,8 +2,9 @@
 
 The nested instance holds no part of the user's desktop, so its output can move to a negative
 origin and a fractional scale, and the sizer there can take focus. Each case reads the sizer
-back from that instance's `j/clients` and from the sizer's own log: the log proves the size and
-toplevel state the app was given, `j/clients` the position. The same cases run on a Lua and on
+back from that instance's `j/clients` and from the sizer's own log: the log proves the size the
+app was given, `j/clients` the position and the maximized state. The app's toplevel state is no
+oracle (L46-1). The same cases run on a Lua and on
 a legacy config instance; `lua` names the dialect the instance answers in.
 """
 
@@ -14,8 +15,8 @@ from runner.helper import require
 from scenarios.hyprland_focus_controls import focus_argv, listed_ids
 from scenarios.hyprland_pointer import FRACTIONAL, NEGATIVE_ORIGIN, monitor_of, moved_output
 from scenarios.hyprland_pointer_pad import instance_control, instance_env, instance_query
-from scenarios.hyprland_window_app import (client_of, quiet_problems, reader, settled_count, size_problems, sizer,
-                                           state_problems)
+from scenarios.hyprland_window_app import (client_of, quiet_problems, reader, resized_problems, settled_count,
+                                           size_problems, sizer)
 from scenarios.hyprland_window_checks import (SETTLE_S, float_argv, holds, operated, point, refusal, satisfied,
                                               window_argv)
 
@@ -84,13 +85,6 @@ def placed(sized: Sized, label: str, at: list[int], size: list[int]) -> list[str
     return problems + size_problems(label, sized.log, list(size))
 
 
-def inside(client: dict, monitor: dict) -> bool:
-    (x, y), (width, height) = client["at"], client["size"]
-    right = monitor["x"] + monitor["width"] / monitor["scale"]
-    bottom = monitor["y"] + monitor["height"] / monitor["scale"]
-    return monitor["x"] <= x and x + width <= right + 1 and monitor["y"] <= y and y + height <= bottom + 1
-
-
 def geometry_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
     """Move and resize a floating sizer, at a negative origin and a fractional scale too, then give
     it its first geometry back."""
@@ -117,33 +111,29 @@ def geometry_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
 def _maximized_cases(sized: Sized, label: str, first: dict) -> list[str]:
     problems = sized.operated(f"{label} maximize", sized.argv("maximize"),
                               {"fullscreen": 1, "workspace": first["workspace"]})
-    problems += size_problems(f"{label} maximized", sized.log, sized.read()["size"])
-    problems += state_problems(f"{label} maximized", sized.log, True)
+    problems += resized_problems(f"{label} maximized", sized.log, first["size"], sized.read()["size"])
     problems += sized.satisfied(f"{label} maximize again", sized.argv("maximize"))
     problems += sized.refused(f"{label} move while maximized", sized.argv("move-window", "--x", "40", "--y", "60"),
                               "window_maximized")
     problems += sized.operated(f"{label} restore", sized.argv("restore"),
                                {"fullscreen": 0, "at": first["at"], "size": first["size"],
                                 "workspace": first["workspace"]})
-    problems += size_problems(f"{label} restored", sized.log, first["size"])
-    return problems + state_problems(f"{label} restored", sized.log, False)
+    return problems + size_problems(f"{label} restored", sized.log, first["size"])
 
 
 def _changed_output(sized: Sized, label: str, first: dict) -> list[str]:
     """Maximize, move the output to a negative origin at a fractional scale, then restore: the
-    window keeps its workspace and size and lies inside the moved output."""
+    window keeps its workspace and size and comes back at its old offset from its output's
+    origin, which a floating window keeps when its output moves (L46-3)."""
+    home = sized.monitor()
+    offset = [first["at"][0] - int(home["x"]), first["at"][1] - int(home["y"])]
     problems = sized.operated(f"{label} maximize", sized.argv("maximize"), {"fullscreen": 1})
-    output = sized.monitor()["name"]
-    with moved_output(sized.ctx.tier, sized.instance, sized.lua, output, NEGATIVE_ORIGIN, FRACTIONAL):
+    with moved_output(sized.ctx.tier, sized.instance, sized.lua, home["name"], NEGATIVE_ORIGIN, FRACTIONAL):
         monitor = sized.monitor()
+        at = [int(monitor["x"]) + offset[0], int(monitor["y"]) + offset[1]]
         problems += sized.operated(f"{label} restore on the moved output", sized.argv("restore"),
-                                   {"fullscreen": 0, "size": first["size"], "workspace": first["workspace"]})
-        now = client_of(sized.ctx.tier, sized.instance, sized.address) or {}
-        if not now or not inside(now, monitor):
-            problems.append(f"{label}: the restored window at {now.get('at')} {now.get('size')} "
-                            f"is outside {output} {monitor}")
+                                   {"fullscreen": 0, "at": at, "size": first["size"], "workspace": first["workspace"]})
         problems += size_problems(f"{label} restored on the moved output", sized.log, first["size"])
-        problems += state_problems(f"{label} restored on the moved output", sized.log, False)
     return problems
 
 
@@ -163,7 +153,8 @@ def _legacy_maximize_cases(sized: Sized, label: str) -> list[str]:
 
 def maximize_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
     """Maximize and restore a focused floating sizer, also across an output change. A legacy
-    config instance refuses both and changes nothing."""
+    config instance refuses both and changes nothing. The last maximize follows the output's move
+    back, which leaves Hyprland's own floating geometry stale (L46-3)."""
     with sizer(ctx.tier, instance, f"maximize-{label}") as (_, found, log):
         sized = Sized(ctx, instance, lua, found, log)
         first = sized.floated()
@@ -171,7 +162,8 @@ def maximize_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
             return _legacy_maximize_cases(sized, label)
         sized.focused()
         problems = _maximized_cases(sized, label, first)
-        return problems + _changed_output(sized, label, sized.read())
+        problems += _changed_output(sized, label, sized.read())
+        return problems + _maximized_cases(sized, f"{label} after the output moved back", sized.read())
 
 
 def minimize_cases(ctx, instance: dict, lua: bool, label: str) -> list[str]:
