@@ -3,17 +3,12 @@ use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, Rect,
     actions::capability,
-    adapter::NativeHandle,
-    adapter::hit_test::HitTestResult,
+    adapter::{NativeHandle, hit_test::HitTestResult},
     commands::stale_retry_test_support::StaleRetryCounter,
-    refs::refs_store::RefStore,
-    refs::refs_test_support::HomeGuard,
-    refs::{RefEntry, RefMap},
+    refs::{RefEntry, RefMap, refs_store::RefStore, refs_test_support::HomeGuard},
 };
-use std::sync::{
-    Mutex,
-    atomic::{AtomicU32, Ordering},
-};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 const CORE_RESOLVED: &str = "core-resolved";
 
@@ -121,7 +116,12 @@ impl ObservationOps for HoverCaptureAdapter {
 impl ActionOps for HoverCaptureAdapter {}
 
 impl InputOps for HoverCaptureAdapter {
-    fn ref_hover_refusal(&self, _entry: &RefEntry) -> Option<AdapterError> {
+    fn ref_pointer_refusal(
+        &self,
+        _entry: &RefEntry,
+        _action: &crate::Action,
+        _deadline: crate::Deadline,
+    ) -> Option<AdapterError> {
         self.refuses_ref_hover.then(|| {
             AdapterError::new(crate::ErrorCode::ActionNotSupported, "no ref hover")
                 .with_disposition(crate::DeliverySemantics::not_delivered())
