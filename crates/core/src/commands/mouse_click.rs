@@ -26,7 +26,10 @@ pub fn execute(
     require_pointer_capability(adapter)?;
     crate::validate_mouse_click_count(args.count)?;
     let _cursor = crate::cursor_overlay::hold_cursor(context, crate::Deadline::standard()?);
-    let lease = crate::commands::helpers::acquire_interaction_lease(adapter)?;
+    let lease = crate::ref_action::ref_action_timed_lease::TimedLease::acquire(
+        adapter,
+        crate::Deadline::standard()?,
+    )?;
     let point = Point {
         x: args.x,
         y: args.y,
@@ -44,16 +47,14 @@ pub fn execute(
         true,
         &lease,
     );
-    operation_response(
+    let mut response = operation_response(
         &result?,
         json!({ "x": args.x, "y": args.y, "count": args.count }),
-    )
+    )?;
+    lease.release_into(&mut response);
+    Ok(response)
 }
 
 #[cfg(test)]
 #[path = "mouse_click_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "pointer_lease_metrics_tests.rs"]
-mod lease_metrics_tests;

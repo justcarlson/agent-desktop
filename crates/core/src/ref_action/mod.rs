@@ -14,6 +14,7 @@ pub(crate) mod ref_action_context;
 pub(crate) mod ref_action_poll;
 pub(crate) mod ref_action_poll_state;
 pub(crate) mod ref_action_single;
+pub(crate) mod ref_action_timed_lease;
 pub(crate) mod ref_action_wait;
 pub(crate) mod ref_action_wait_context;
 pub(crate) mod ref_action_wait_evidence;

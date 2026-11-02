@@ -110,6 +110,22 @@ Each of these commands now returns the adapter's own report inside `data`:
 - The Rust `ActionResult` and `OperationReport` readers reject a payload without an explicit `disposition`; a missing disposition no longer reads back as delivered-unverified.
 - The C ABI is unchanged. Status-only functions such as `ad_close_app` and `ad_drag` still cannot expose the disposition, steps or target of a successful call.
 
+## Interaction lease metrics
+
+A command that waits on the desktop interaction lease reports it in
+`data.details.auto_wait` on success. A ref action (`click` and the other ref
+commands) and a coordinate pointer command (`mouse-click`, `mouse-move`,
+`mouse-wheel`, `hover`, `drag`) carry the same two fields:
+
+| Field | Meaning |
+|-------|---------|
+| `lease_contention_count` | Lock attempts that found the lease held by another command before this one acquired it. `0` means it did not queue. |
+| `lease_hold_ms` | Milliseconds from lease acquisition to release. A post-action `--wait-for` runs after the release and is not counted. |
+
+A ref action also reports `read_only_resolve_attempts` and
+`read_only_preflight_attempts` there. The adapter's own `details` fields stay
+beside `auto_wait`.
+
 ## Headed action verification
 
 - Headed ref interactions activate the exact source app/window before final pointer hit testing. Read-only readiness polling must not prevent a background target from reaching that focus phase; final hit testing remains mandatory before delivery.

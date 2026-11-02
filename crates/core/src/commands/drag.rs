@@ -75,7 +75,8 @@ pub fn execute(
             wait_for_point_with_deadline(to_args, deadline, adapter, context)?;
         }
         let (from, to, lease) = retry_leased_point_phase(args.timeout_ms, deadline, || {
-            let lease = adapter.acquire_interaction_lease(deadline)?;
+            let lease =
+                crate::ref_action::ref_action_timed_lease::TimedLease::acquire(adapter, deadline)?;
             let focused = focus_point_under_lease(from_args, &lease, adapter, context)?;
             let from = resolve_point_under_lease(
                 PointResolveAttempt {
@@ -187,7 +188,7 @@ pub fn execute(
     if from.focused {
         response["focused"] = json!(true);
     }
-    drop(lease);
+    lease.release_into(&mut response);
     drop(cursor);
     let wait_entry = match args.wait_for_scope {
         WaitForScope::To => to.source_entry.as_ref().or(from.source_entry.as_ref()),
