@@ -106,6 +106,13 @@ fn a_ref_whose_owner_exited_is_stale_not_an_unknown_app() {
             ErrorCode::StaleRef,
             "{recorded_window_id:?}: {error:?}"
         );
+        let details = error.details.clone().unwrap_or_default();
+        assert_eq!(
+            details["kind"], "resolve_owning_process_exited",
+            "{details}"
+        );
+        assert_eq!(details["retryable"], false, "{details}");
+        assert!(!error.permits_retry_by_default());
         assert_eq!(adapter.observations.load(Ordering::SeqCst), 0);
     }
 }
