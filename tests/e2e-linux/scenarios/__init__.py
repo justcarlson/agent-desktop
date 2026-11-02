@@ -62,6 +62,11 @@ from scenarios import hyprland_pointer
 from scenarios import hyprland_pointer_refs
 from scenarios import hyprland_window_ops
 from scenarios import hyprland_keys
+from scenarios import hyprland_keys_cancel
+from scenarios import hyprland_keys_controls
+from scenarios import hyprland_keys_keymap
+from scenarios import hyprland_keys_refusal
+from scenarios import hyprland_keys_theft
 from scenarios import hyprland_parallel
 from scenarios import hyprland_parallel_cancel
 from scenarios import hyprland_parallel_faults
@@ -96,6 +101,11 @@ __all__ = [
     "hyprland_pointer_refs",
     "hyprland_window_ops",
     "hyprland_keys",
+    "hyprland_keys_cancel",
+    "hyprland_keys_controls",
+    "hyprland_keys_keymap",
+    "hyprland_keys_refusal",
+    "hyprland_keys_theft",
     "hyprland_parallel",
     "hyprland_parallel_cancel",
     "hyprland_parallel_faults",
