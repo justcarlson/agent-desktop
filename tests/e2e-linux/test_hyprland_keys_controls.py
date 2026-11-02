@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import itertools
+import os
 import signal
 import sys
+import tempfile
+import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -179,6 +184,44 @@ class TheftVerdictTests(unittest.TestCase):
         self.assertEqual(theft.theft_outcome(refused(code="ACTION_FAILED", check="window_active", started=True)),
                          "other")
         self.assertEqual(theft.theft_outcome(None), "other")
+
+
+class LiveHelperTests(unittest.TestCase):
+    def test_tab_reads_the_password_state_as_a_property(self):
+        node = types.SimpleNamespace(states=frozenset({controls.FOCUSED}))
+        zoo = mock.Mock()
+        zoo.events.side_effect = itertools.chain([[]], itertools.repeat([{"event": "focus"}]))
+        with mock.patch.object(controls, "zoo_ref", return_value="@s:e1"), \
+                mock.patch.object(controls, "zoo_typed", return_value=[]), \
+                mock.patch.object(controls, "zoo_pressed", return_value=[]), \
+                mock.patch.object(controls, "zoo_node", return_value=node), \
+                mock.patch.object(controls, "zoo_text", side_effect=["", "xy"]):
+            self.assertEqual(controls.tab_moves_focus(types.SimpleNamespace(tier=None), zoo), [])
+
+    def test_the_steal_waits_until_the_product_has_focused_the_target(self):
+        reads = iter(["thief", "thief", "target"])
+        steal = mock.Mock()
+        self.assertTrue(theft.steal_once_active(lambda: next(reads), "target", steal, 2.0))
+        steal.assert_called_once_with()
+
+    def test_no_steal_when_the_target_never_takes_focus(self):
+        steal = mock.Mock()
+        self.assertFalse(theft.steal_once_active(lambda: "thief", "target", steal, 0.05))
+        steal.assert_not_called()
+
+    def test_keys_sent_before_the_steal_make_a_late_steal(self):
+        self.assertTrue(theft.late_steal("stopped_after_keys"))
+        self.assertTrue(theft.late_steal("delivered"))
+        self.assertFalse(theft.late_steal("refused_before_first_key"))
+        self.assertFalse(theft.late_steal("other"))
+
+    def test_app_evidence_names_whether_the_app_lives_its_stderr_and_its_last_records(self):
+        with tempfile.TemporaryDirectory() as runtime:
+            Path(runtime, "key-log-cancel.log").write_text("Gdk-Message: Error 71 (Protocol error)\n")
+            found = cancel.app_evidence(Path(runtime), "cancel", os.getpid(), [{"event": "press", "code": 50}])
+        self.assertIn("alive", found)
+        self.assertIn("Error 71", found)
+        self.assertIn("'code': 50", found)
 
 
 if __name__ == "__main__":
