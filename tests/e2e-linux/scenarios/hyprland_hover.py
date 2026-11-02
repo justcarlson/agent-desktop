@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
+from runner import second_instance
 from runner.helper import require
 from runner.verdict import LegContext
 from scenarios.hyprland_focus_controls import cursor_argv
@@ -106,6 +107,14 @@ def _pad_quiet(backend: str, log: Path):
     return quiet
 
 
+def fixtures_running(owned_apps) -> list[int]:
+    """The pids of the fixtures this leg started that still run as the same process; empty once the
+    leg has released them. A fixture's click count cannot be the oracle's restored read, because the
+    clicks a leg sends stay in the log."""
+    return sorted(app.pid for app in owned_apps
+                  if second_instance._start_of(app.pid, Path("/proc")) == app.start_time)
+
+
 def _cursor_on(tier, instance: dict, aim: tuple[int, int]) -> tuple[float, float] | None:
     at = cursor_at(tier, instance)
     return at if lands_at({"wx": at[0], "wy": at[1]}, aim) else None
@@ -117,13 +126,15 @@ def hover_by_ref_refused(ctx: LegContext) -> None:
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
     ctx.before("hyprland.cursor", cursor_at(tier, instance))
-    problems = []
+    ctx.before("applog.fixture", fixtures_running([]))
+    problems, pad_events = [], {}
     for backend in (XWAYLAND, NATIVE):
         with pointer_pad(tier, instance, f"hover-{backend}", backend) as (owned, _, log):
             button = pad_ref(ctx, env, owned)
             problems += _refused_quietly(ctx, tier, instance, f"{backend} pad", button, _pad_quiet(backend, log))
+            pad_events[backend] = len(events(log))
+    ctx.after("applog.pad", pad_events)
     with receiver_fixture(tier, instance, "gtk4", "popup") as (owned, _, log):
-        ctx.before("applog.fixture", len(fixture_events(log)))
         target = _popup_target(ctx, env, owned)
         problems += _refused_quietly(ctx, tier, instance, "gtk4 popup", target, _fixture_quiet(log))
         ctx.after("applog.fixture", len(fixture_events(log)))
@@ -131,6 +142,7 @@ def hover_by_ref_refused(ctx: LegContext) -> None:
     require(not problems, "; ".join(problems))
     ctx.restored("hyprland.cursor", cursor_at(tier, instance))
     ctx.restored("applog.pad", pads_left(tier))
+    ctx.restored("applog.fixture", fixtures_running([owned]))
 
 
 def hover_coordinates(ctx: LegContext) -> None:
@@ -138,22 +150,23 @@ def hover_coordinates(ctx: LegContext) -> None:
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "hover-xy") as (_, client, _log):
+    with pointer_pad(tier, instance, "hover-xy") as (_, client, log):
         before = instance_query(tier, instance, "cursorpos")
-        ctx.before("hyprland.cursor", before)
+        ctx.before("hyprland.cursor", cursor_at(tier, instance))
         try:
             aim = global_point(client, (0.5, 0.75))
             envelope = ctx.product(["hover", f"--xy={xy(aim)}"], env=env)
             delivered(envelope)
             cursor = raw.poll(lambda: _cursor_on(tier, instance, aim), 3.0) or cursor_at(tier, instance)
             ctx.after("hyprland.cursor", cursor)
+            ctx.after("applog.pad", len(events(log)))
             problems = xy_hover_problems(envelope, cursor, aim)
             require(not problems, "; ".join(problems))
         finally:
             instance_control(tier, instance, cursor_argv(before["x"], before["y"], lua))
             require(raw.poll(lambda: instance_query(tier, instance, "cursorpos") == before, 3.0),
                     f"the nested cursor did not return to {before}")
-            ctx.restored("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
+            ctx.restored("hyprland.cursor", cursor_at(tier, instance))
     ctx.restored("applog.pad", pads_left(tier))
 
 
