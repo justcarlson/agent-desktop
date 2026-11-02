@@ -24,6 +24,11 @@ OPERATIONS = (("move-window", "--x", "40", "--y", "60"), ("resize-window", "--wi
 Read = Callable[[], dict]
 
 
+def point(x: int, y: int) -> list[str]:
+    """`--x` and `--y` in the `=` form, the one a negative value parses in."""
+    return [f"--x={x}", f"--y={y}"]
+
+
 def placement(item: dict | None) -> dict:
     """The fields of a toplevel that a window operation may change."""
     item = item or {}

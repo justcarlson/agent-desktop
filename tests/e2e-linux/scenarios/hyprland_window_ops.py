@@ -25,13 +25,13 @@ from scenarios.hyprland_desktop import boundary_problems, keeps_focus
 from scenarios.hyprland_focus_controls import (active, client, control, cursor, focus_argv, listed_ids, move,
                                                restore_desktop, spare_workspaces, terminal, workspaces_in_use)
 from scenarios.hyprland_pointer import nested
-from scenarios.hyprland_window_checks import (MINIMIZED, SETTLE_S, float_argv, missing, operated, placement,
+from scenarios.hyprland_window_checks import (MINIMIZED, SETTLE_S, float_argv, missing, operated, placement, point,
                                               refusal, satisfied, unchanged, window_argv)
 from scenarios.hyprland_window_legacy import legacy_instance
 from scenarios.hyprland_window_nested import geometry_cases, maximize_cases, minimize_cases
 
 FOREIGN = "special:ad-e2e-foreign"
-NEGATIVE_CORNER = ("-50", "-20")
+NEGATIVE_CORNER = (-50, -20)
 
 
 def uses_lua(tier) -> bool:
@@ -128,14 +128,12 @@ def _geometry(ctx: LegContext, holder: dict, window_id: str, address: str, works
         problems += operated(ctx, "resize", argv("resize-window", "--width", "500", "--height", "400"), read,
                              {"at": [40, 60], "size": [500, 400], "workspace": workspace})
         problems += satisfied(ctx, "move again", argv("move-window", "--x", "40", "--y", "60"), read)
-        problems += operated(ctx, "move to a negative corner", argv("move-window", "--x", NEGATIVE_CORNER[0],
-                                                                    "--y", NEGATIVE_CORNER[1]), read,
-                             {"at": [int(NEGATIVE_CORNER[0]), int(NEGATIVE_CORNER[1])], "size": [500, 400]})
+        problems += operated(ctx, "move to a negative corner", argv("move-window", *point(*NEGATIVE_CORNER)), read,
+                             {"at": list(NEGATIVE_CORNER), "size": [500, 400]})
         problems += operated(ctx, "resize back", argv("resize-window", "--width", str(first["size"][0]),
                                                       "--height", str(first["size"][1])), read,
                              {"size": first["size"]})
-        problems += operated(ctx, "move back", argv("move-window", "--x", str(first["at"][0]),
-                                                    "--y", str(first["at"][1])), read,
+        problems += operated(ctx, "move back", argv("move-window", *point(*first["at"])), read,
                              {"at": first["at"], "size": first["size"], "workspace": workspace})
     problems += sampler.changes + _absent(ctx, holder, read, "geometry")
     return problems + keeps_focus(tier, desktop(tier, main_instance(tier)))
