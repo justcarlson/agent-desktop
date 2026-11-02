@@ -53,3 +53,7 @@ pub fn execute(
 #[cfg(test)]
 #[path = "mouse_click_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "pointer_lease_metrics_tests.rs"]
+mod lease_metrics_tests;
