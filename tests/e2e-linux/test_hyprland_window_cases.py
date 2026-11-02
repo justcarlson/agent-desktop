@@ -190,7 +190,7 @@ class OutputMoveFramesTests(unittest.TestCase):
             events.append("hidden")
 
         with mock.patch.object(nested, "sizer", fake_sizer), mock.patch.object(nested, "Sized", return_value=sized), \
-                mock.patch.object(nested, "moved_output", moved), mock.patch.object(nested, "nested_frames", frames, create=True), \
+                mock.patch.object(nested, "moved_output", moved), mock.patch.object(nested, "nested_frames", frames), \
                 mock.patch.object(nested, "placed", return_value=[]), \
                 mock.patch.object(nested, "size_problems", return_value=[]):
             self.assertEqual(nested.geometry_cases(SimpleNamespace(tier=None), {}, lua, "legacy config"), [])
