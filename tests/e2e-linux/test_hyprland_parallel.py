@@ -614,5 +614,62 @@ class QueuedDeliveryTests(unittest.TestCase):
         self.assertTrue(any("no lease contention count" in item for item in found), found)
 
 
+class PauseBarrierTests(unittest.TestCase):
+    """Pass 3 stops D only once its hide has finished, so the 500 ms hide deadline never spans the pause."""
+
+    BEFORE = ("0x1", "at-translated-set-2-mouse")
+    OPENED = ("0x2", "unknown-device")
+
+    class Stopped(Exception):
+        pass
+
+    def pause(self, reads: list, exited: bool = False) -> list:
+        import signal
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_orders as orders
+
+        log = []
+
+        def devices(_tier):
+            log.append(reads.pop(0) if len(reads) > 1 else reads[0])
+            return log[-1]
+
+        def send(number):
+            log.append(number)
+            if number == signal.SIGSTOP:
+                raise self.Stopped()
+
+        refusal = envelope(False, {"code": "TIMEOUT", "details": {"kind": "cursor_hide_timeout"}}, 1)
+        d = SimpleNamespace(name="D", pid=7, signal=send, envelope=refusal, exit_code=1, finish=lambda: refusal,
+                            process=SimpleNamespace(poll=lambda: 1 if exited else None))
+        setup = SimpleNamespace(ctx=SimpleNamespace(tier=None), session="run-1")
+        schedule = orders.Schedule(setup, None, None, "pass 3")
+        schedule.agents["D"] = d
+        schedule.pointers = {self.BEFORE}
+        with patch.multiple(orders, registry_of=lambda *_args: None, holders_in=lambda _registry: [{"pid": 7}],
+                            shared=lambda _tier: None), \
+                patch.object(orders, "pointer_devices", side_effect=devices, create=True):
+            try:
+                schedule.pause_d()
+            except self.Stopped:
+                pass
+        return log
+
+    def test_d_stops_only_once_its_pointer_shows_the_hide_finished(self):
+        import signal
+
+        log = self.pause([{self.BEFORE}, {self.BEFORE}, {self.BEFORE, self.OPENED}])
+        self.assertEqual(log[-1], signal.SIGSTOP)
+        self.assertGreaterEqual(len(log), 4, log)
+        self.assertEqual(log[-2], {self.BEFORE, self.OPENED})
+
+    def test_d_exiting_before_its_pointer_opens_reports_its_envelope(self):
+        with self.assertRaises(AssertionError) as raised:
+            self.pause([{self.BEFORE}], exited=True)
+        self.assertIn("cursor_hide_timeout", str(raised.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
