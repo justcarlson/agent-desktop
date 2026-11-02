@@ -91,7 +91,7 @@ The report groups outcomes by tier and mode. Only `pass` and `asserted-refusal` 
 | Outcome | Meaning |
 | --- | --- |
 | `pass` | Every before, after and restored read agreed and the owned process set was unchanged. |
-| `asserted-refusal` | The leg's expected result is the product's refusal with a named error code and no effect; it was observed. |
+| `asserted-refusal` | The leg's expected result is the product's refusal with a named error code and no effect; it was observed. The leg line and the summary print it as `refused as required`. |
 | `fail` | An assertion failed, an oracle read was missing or out of order, state drifted and was not restored, or the owned process set changed. |
 | `error` | An unexpected exception, an evidence write failure, a changed staged binary, or a teardown failure. |
 | `blocked` | The leg raised `NotImplementedError`. |
