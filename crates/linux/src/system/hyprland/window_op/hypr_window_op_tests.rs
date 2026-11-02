@@ -1,115 +1,12 @@
-use agent_desktop_core::{
-    DeliverySemantics, ErrorCode, Point, ProcessId, Rect, WindowInfo, WindowOp, WindowState,
-};
+use agent_desktop_core::{DeliverySemantics, ErrorCode, WindowOp};
 use serde_json::json;
 
 use super::*;
-use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
-use crate::system::hyprland::clients::desktop_state::DesktopState;
-use crate::system::hyprland::clients::hypr_client::HyprClient;
-use crate::system::hyprland::clients::monitor_workspaces::MonitorWorkspaces;
-use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
 use crate::system::hyprland::window_op::client_state::ClientState;
-use crate::system::hyprland::window_op::window_world_fake::FakeWindowWorld;
-
-const TARGET: u64 = 0x10;
-const HOLDER: u64 = 0x30;
-const LUA_REPLY: &str = "ok";
-const LEGACY_REPLY: &str = "eval is only supported with the lua config manager";
-
-fn client(address: u64, pid: u32) -> HyprClient {
-    HyprClient {
-        address,
-        pid,
-        title: "foot".into(),
-        class: "foot".into(),
-        geometry: Rect {
-            x: 40.0,
-            y: 60.0,
-            width: 630.0,
-            height: 755.0,
-        },
-        workspace: ClientWorkspace {
-            name: "1".into(),
-            monitor: Some(0),
-        },
-        shown: true,
-    }
-}
-
-fn state(address: u64, at: (i64, i64), size: (i64, i64)) -> ClientState {
-    ClientState {
-        address,
-        at,
-        size,
-        floating: true,
-        fullscreen: 0,
-        workspace: "1".into(),
-    }
-}
-
-fn desktop(active: Option<u64>) -> DesktopState {
-    DesktopState {
-        active,
-        monitors: vec![MonitorWorkspaces {
-            monitor: "Virtual-1".into(),
-            id: Some(0),
-            active: "1".into(),
-            special: None,
-        }],
-        cursor: Some(Point { x: 322.0, y: 413.0 }),
-    }
-}
-
-fn holder() -> ClientState {
-    state(HOLDER, (650, 10), (620, 780))
-}
-
-fn frame(target: ClientState, active: Option<u64>) -> (Vec<ClientState>, DesktopState) {
-    (vec![target, holder()], desktop(active))
-}
-
-fn world(eval_reply: &str, frames: Vec<(Vec<ClientState>, DesktopState)>) -> FakeWindowWorld {
-    FakeWindowWorld {
-        clients: vec![client(TARGET, 7), client(HOLDER, 9)],
-        toplevels: vec![
-            ToplevelView {
-                identifier: "a".into(),
-                address: TARGET,
-            },
-            ToplevelView {
-                identifier: "b".into(),
-                address: HOLDER,
-            },
-        ],
-        frames,
-        eval_reply: eval_reply.into(),
-        reply: "ok".into(),
-        budget: 3,
-        log: Vec::new(),
-    }
-}
-
-fn window() -> WindowInfo {
-    WindowInfo {
-        id: "w-hypr-50-60-a".into(),
-        title: "foot".into(),
-        app: "foot".into(),
-        pid: ProcessId::new(7),
-        process_instance: Some("boot:100".into()),
-        bounds: Some(Rect {
-            x: 40.0,
-            y: 60.0,
-            width: 630.0,
-            height: 755.0,
-        }),
-        state: WindowState::default(),
-    }
-}
-
-fn floating_at(at: (i64, i64)) -> ClientState {
-    state(TARGET, at, (630, 755))
-}
+use crate::system::hyprland::window_op::window_op_fixture::{
+    HOLDER, LEGACY_REPLY, LUA_REPLY, TARGET, desktop, floating_at, frame, holder, state, window,
+    world,
+};
 
 #[test]
 fn a_move_is_sent_by_address_and_proven_by_the_read_back() {
@@ -273,6 +170,53 @@ fn restore_is_proven_by_the_restored_state_scope() {
         "window_restored_state"
     );
     assert_eq!(fake.dispatches().len(), 2);
+}
+
+const MAXIMIZE: &str = "dispatch hl.dsp.window.fullscreen({mode=\"maximized\",action=\"set\",window=\"address:0x10\"})";
+const UNSET: &str = "dispatch hl.dsp.window.fullscreen_state({internal=0,client=0,action=\"set\",window=\"address:0x10\"})";
+
+#[test]
+fn a_maximize_sends_only_the_maximize() {
+    let maximized = ClientState {
+        fullscreen: 1,
+        ..floating_at((40, 60))
+    };
+    let mut fake = world(
+        LUA_REPLY,
+        vec![
+            frame(floating_at((40, 60)), Some(TARGET)),
+            frame(maximized, Some(TARGET)),
+        ],
+    );
+
+    window_op_reported(&mut fake, &window(), &WindowOp::Maximize).expect("maximized");
+
+    assert_eq!(fake.dispatches(), vec![MAXIMIZE]);
+}
+
+#[test]
+fn a_restore_after_the_output_moved_leaves_the_window_where_hyprland_put_it() {
+    let maximized = ClientState {
+        fullscreen: 1,
+        size: (1024, 640),
+        ..floating_at((-1024, -640))
+    };
+    let mut fake = world(
+        LUA_REPLY,
+        vec![
+            frame(maximized, Some(TARGET)),
+            frame(floating_at((40, 60)), Some(TARGET)),
+        ],
+    );
+
+    let report = window_op_reported(&mut fake, &window(), &WindowOp::Restore).expect("restored");
+
+    assert_eq!(
+        report.disposition(),
+        DeliverySemantics::delivered_verified()
+    );
+    assert_eq!(fake.dispatches(), vec![UNSET]);
+    assert_eq!(report.result.details.expect("details")["observed"]["x"], 40);
 }
 
 #[test]
