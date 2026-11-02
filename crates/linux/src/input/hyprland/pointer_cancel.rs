@@ -1,6 +1,6 @@
-//! Cancellation for a Hyprland pointer run. While the run holds the input
-//! slot, SIGTERM, SIGINT and SIGHUP stop it at its next event; it releases
-//! its held buttons before the signal's own action is taken.
+//! Cancellation for a Hyprland pointer or keyboard run. While the run holds
+//! the input slot, SIGTERM, SIGINT and SIGHUP stop it at its next event; it
+//! releases its held buttons or keys before the signal's own action is taken.
 
 use std::sync::Arc;
 
