@@ -275,6 +275,23 @@ def lock_timeout_problems(envelope, kind: str) -> list[str]:
     return problems
 
 
+def ref_refusal_problems(envelope) -> list[str]:
+    """A headed ref click on an XWayland target refuses before any event: ACTION_FAILED with the
+    `receiver_unproven` cause, no physical delivery started and a not-delivered disposition."""
+    if envelope is None:
+        return ["the headed ref click printed no envelope"]
+    if envelope.ok:
+        return [f"the headed ref click succeeded: {envelope.raw[:400]}"]
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    found = (envelope.exit_code, error.get("code"), details.get("kind"), details.get("cause"),
+             details.get("physical_delivery_started"), (error.get("disposition") or {}).get("delivery"))
+    expected = (1, "ACTION_FAILED", "receiver_evidence", "receiver_unproven", False, "not_delivered")
+    if found != expected:
+        return [f"the headed ref click refused as {found}, not {expected}"]
+    return []
+
+
 def partial_retry_problems(envelope) -> list[str]:
     """A cancelled partial delivery may print nothing, but never success or a safe retry."""
     if envelope is None:
