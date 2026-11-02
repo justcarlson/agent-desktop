@@ -2,7 +2,7 @@
 //! resolves any pointer target. Only a bound Hyprland instance opens the
 //! Wayland session to pointer input.
 
-use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, RefEntry};
 use serde_json::json;
 
 use super::hypr_route::bound_route;
@@ -26,6 +26,34 @@ pub(crate) fn capability_refusal(
             Ok(true) => None,
             Ok(false) => Some(pointer_refusal("physical pointer input")),
             Err(error) => Some(error),
+        },
+        _ => None,
+    }
+}
+
+/// The refusal for a hover by ref, answered from the stored entry before
+/// core waits, focuses or resolves anything. A bound Hyprland instance
+/// refuses every hover by ref except one on a tray item: the wait would only
+/// spend the budget, and on a GTK 4 popup under XWayland it ended `TIMEOUT`
+/// before the refusal (probes/linux/FINDINGS.md L45-3).
+pub(crate) fn session_hover_refusal(entry: &RefEntry) -> Option<AdapterError> {
+    hover_refusal(crate::system::tray::owns(entry), backend(), || {
+        bound_route().map(|route| route.is_some())
+    })
+}
+
+/// [`session_hover_refusal`] for a known tray answer, backend and bind
+/// result. Any session that is not bound leaves the answer to the pointer
+/// gate, which already refused it or let X11 through.
+pub(crate) fn hover_refusal(
+    tray: bool,
+    backend: Result<Backend, AdapterError>,
+    bound: impl FnOnce() -> Result<bool, AdapterError>,
+) -> Option<AdapterError> {
+    match backend {
+        Ok(Backend::Wayland) if !tray => match bound() {
+            Ok(true) => Some(hover_ref_refused()),
+            _ => None,
         },
         _ => None,
     }

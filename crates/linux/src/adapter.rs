@@ -1,8 +1,7 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
-    ClipboardContent, ClipboardFormat, Deadline, DragParams, ElementState, HitTestResult, InputOps,
-    InteractionLease, KeyCombo, LiveElement, MouseEvent, NativeHandle, ObservationOps,
-    ObservationRequest, ObservationRoot, ObservedTree, OperationReport, Point, ProcessIdentity,
+    Deadline, ElementState, HitTestResult, InteractionLease, LiveElement, NativeHandle,
+    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity,
     Rect, RefEntry, SnapshotSurface, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
@@ -330,67 +329,6 @@ impl ActionOps for LinuxAdapter {
         lease: &InteractionLease,
     ) -> Result<(), AdapterError> {
         crate::actions::before_pointer(crate::actions::scroll_into_view(self.bus(), handle, lease))
-    }
-}
-impl InputOps for LinuxAdapter {
-    fn physical_pointer_refusal(&self) -> Option<AdapterError> {
-        crate::input::hyprland::pointer_capability::session_pointer_refusal()
-    }
-
-    fn keyboard_needs_window_activation(&self) -> bool {
-        !matches!(
-            crate::input::backend::backend(),
-            Ok(crate::input::backend::Backend::Wayland)
-        )
-    }
-
-    fn mouse_event(
-        &self,
-        event: MouseEvent,
-        lease: &InteractionLease,
-    ) -> Result<OperationReport, AdapterError> {
-        crate::input::deliver::mouse_event(&event, lease)
-    }
-
-    fn drag(
-        &self,
-        params: DragParams,
-        lease: &InteractionLease,
-    ) -> Result<OperationReport, AdapterError> {
-        crate::input::deliver::drag(&params, lease)
-    }
-
-    fn key_event(
-        &self,
-        _combo: &KeyCombo,
-        _down: bool,
-        _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        Err(crate::input::standalone::reject_standalone(
-            "key-down/key-up",
-        ))
-    }
-
-    fn get_clipboard_content(
-        &self,
-        format: ClipboardFormat,
-        deadline: Deadline,
-    ) -> Result<Option<ClipboardContent>, AdapterError> {
-        crate::input::clipboard::set_clear::get_clipboard(format, deadline)
-    }
-
-    fn set_clipboard_content(
-        &self,
-        content: &ClipboardContent,
-        lease: &InteractionLease,
-    ) -> Result<OperationReport, AdapterError> {
-        crate::input::clipboard::set_clear::set_clipboard(content, lease)?;
-        Ok(OperationReport::clipboard_written("clipboard-set", false))
-    }
-
-    fn clear_clipboard(&self, lease: &InteractionLease) -> Result<OperationReport, AdapterError> {
-        crate::input::clipboard::set_clear::clear_clipboard(lease)?;
-        Ok(OperationReport::clipboard_written("clipboard-clear", false))
     }
 }
 

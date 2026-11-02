@@ -1,5 +1,7 @@
 use super::*;
-use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
+use agent_desktop_core::{
+    AppError, CommandContext, ErrorCode, InputOps, KeyCombo, SnapshotSurface, SystemOps,
+};
 
 fn run_without_session_bus(test: &str) -> bool {
     const CHILD: &str = "AD_ADAPTER_NO_BUS_CHILD";
