@@ -39,10 +39,13 @@ def _round(tier, gate, sampler, launched, refs, session: str, index: int):
         gate.give()
         for agent in group:
             agent.finish()
+
+    def landed(name: str) -> tuple[float, ...]:
+        return agents.effect_times(launched[name].log, zoo.BUTTON, zoo.ACTIVATE, since)
+
+    agents.settle(lambda: all(landed(agent.name) for agent in group))
     events = sampler.events()
-    spans = [agents.span_of(agent, events, agents.effect_times(launched[agent.name].log, zoo.BUTTON,
-                                                               zoo.ACTIVATE, since))
-             for agent in group]
+    spans = [agents.span_of(agent, events, landed(agent.name)) for agent in group]
     gate_holds = [hold for hold in sampler.holds(agents.holder_names(group)) if hold.holder == "runner"]
     order = oracle.acquire_order(spans)
     problems = [problem for agent in group for problem in agents.outcome_problems(agent)]
@@ -63,6 +66,11 @@ def wait_summary(spans) -> str:
     p50, p95 = oracle.percentile(waits, 0.5), oracle.percentile(waits, 0.95)
     require(p50 is not None and p95 is not None, "no agent run had an observed lease wait")
     return f"lease wait over {len(waits)} agent runs: p50 {p50:.1f} ms, p95 {p95:.1f} ms"
+
+
+def lag_summary(spans) -> str:
+    lags = {name: f"{lag:.0f} ms" for name, lag in sorted(oracle.effect_lags_ms(spans).items())}
+    return f"longest app effect after its agent released the lease, per agent: {lags or 'none'}"
 
 
 @implementation("parallel.four_agents_serialized_dispatch")
@@ -92,6 +100,7 @@ def four_agents_serialized_dispatch(ctx: LegContext) -> None:
         zoo.common_reads(ctx, "after")
         ctx.restored("applog.strays", _strays(launched, spans))
     ctx.finding(wait_summary(spans))
+    ctx.finding(lag_summary(spans))
     zoo.common_reads(ctx, "restored")
     ctx.restored("hyprland.desktop", zoo.desktop_of(tier))
     require(not problems, "; ".join(problems))
@@ -124,6 +133,7 @@ def four_agents_three_interleavings(ctx: LegContext) -> None:
             zoo.common_reads(ctx, "after")
             ctx.restored("applog.strays", _strays(launched, spans))
         ctx.finding(wait_summary(spans))
+        ctx.finding(lag_summary(spans))
     zoo.common_reads(ctx, "restored")
     ctx.restored("hyprland.desktop", zoo.desktop_of(tier))
     require(not problems, "; ".join(problems))

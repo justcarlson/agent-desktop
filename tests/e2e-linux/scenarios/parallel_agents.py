@@ -36,6 +36,7 @@ RELOCK_S = 60.0
 BARRIER_S = 30.0
 AGENT_TIMEOUT_MS = "30000"
 EXIT_S = 40.0
+EFFECT_S = 5.0
 
 
 def _relock(fd: int, seconds: float) -> None:
@@ -168,6 +169,17 @@ def until(check, label: str, seconds: float = BARRIER_S) -> None:
         if time.monotonic() >= deadline:
             raise AssertionError(f"barrier {label} not observed in {seconds:.0f} s")
         time.sleep(SAMPLE_S)
+
+
+def settle(check, seconds: float = EFFECT_S) -> bool:
+    """Polls `check` until it holds or `seconds` pass. An app's handler may run after its agent has
+    released the lease and exited, so effects are read once they land; a missing one stays missing."""
+    deadline = time.monotonic() + seconds
+    while not check():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(SAMPLE_S)
+    return True
 
 
 def _start_ticks(pid: int) -> int:
