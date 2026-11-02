@@ -15,6 +15,7 @@ use super::pointer_devices::PointerDevices;
 use super::pointer_sink::PointerSink;
 use super::pointer_state::PointerState;
 use super::relative_motion::{confirm_landed, no_cursor_evidence, relative_moves};
+use super::send_failure::SendFailure;
 use super::wheel_axis::WheelAxis;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_read::read_cursor;
@@ -151,7 +152,7 @@ fn now_ms() -> u32 {
 }
 
 impl PointerSink for LivePointerSink {
-    fn motion(&mut self, point: &OutputPoint) -> Result<(), AdapterError> {
+    fn motion(&mut self, point: &OutputPoint) -> Result<(), SendFailure> {
         let handle = self.link.handle();
         let (pointer, made) = self
             .devices
@@ -170,19 +171,23 @@ impl PointerSink for LivePointerSink {
         }
         let from = (self.cursor)().map_err(no_cursor_evidence)?;
         let first = self.current.is_none();
-        for (dx, dy) in relative_moves(&from, point.global, first, beside_dx(point.x)) {
+        let moves = relative_moves(&from, point.global, first, beside_dx(point.x));
+        let dispatched = !moves.is_empty();
+        for (dx, dy) in moves {
             pointer.motion(now_ms(), dx, dy);
             pointer.frame();
         }
         self.current = Some(point.output.clone());
-        self.link
+        let confirmed = self
+            .link
             .roundtrip(&mut self.state)
-            .map_err(|fault| fault.into_error(&self.socket))?;
-        let landed = (self.cursor)().map_err(no_cursor_evidence)?;
-        confirm_landed(&landed, point.global)
+            .map_err(|fault| fault.into_error(&self.socket))
+            .and_then(|()| (self.cursor)().map_err(no_cursor_evidence))
+            .and_then(|landed| confirm_landed(&landed, point.global));
+        confirmed.map_err(|error| SendFailure { error, dispatched })
     }
 
-    fn button(&mut self, code: u32, down: bool) -> Result<(), AdapterError> {
+    fn button(&mut self, code: u32, down: bool) -> Result<(), SendFailure> {
         let output = match down {
             true => self.current.clone(),
             false => self
@@ -209,10 +214,10 @@ impl PointerSink for LivePointerSink {
             (false, _) => self.pressed_on.retain(|(pressed, _)| *pressed != code),
             _ => {}
         }
-        self.flush()
+        self.flush().map_err(SendFailure::after_dispatch)
     }
 
-    fn wheel(&mut self, axis: WheelAxis, discrete: i32) -> Result<(), AdapterError> {
+    fn wheel(&mut self, axis: WheelAxis, discrete: i32) -> Result<(), SendFailure> {
         let pointer = self.current_pointer()?;
         let axis = match axis {
             WheelAxis::Vertical => wl_pointer::Axis::VerticalScroll,
@@ -221,7 +226,7 @@ impl PointerSink for LivePointerSink {
         pointer.axis_source(wl_pointer::AxisSource::Wheel);
         pointer.axis_discrete(now_ms(), axis, WHEEL_STEP * f64::from(discrete), discrete);
         pointer.frame();
-        self.flush()
+        self.flush().map_err(SendFailure::after_dispatch)
     }
 
     fn pause(&mut self, duration: Duration) {

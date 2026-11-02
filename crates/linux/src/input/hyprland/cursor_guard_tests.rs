@@ -47,7 +47,9 @@ fn hider(fail: bool) -> (FakeHider, Rc<Counts>) {
 fn a_failing_hide_sends_no_pointer_event() {
     let (mut hider, counts) = hider(true);
     let mut sink = FakePointerSink::default();
-    let outcome = with_cursors_hidden(&mut hider, deadline(), || sink.button(0x110, true));
+    let outcome = with_cursors_hidden(&mut hider, deadline(), || {
+        sink.button(0x110, true).map_err(|failure| failure.error)
+    });
     let error = outcome
         .err()
         .unwrap_or_else(|| panic!("hide failure must refuse"));
@@ -76,7 +78,9 @@ fn a_failing_hide_sends_no_key_event() {
 fn show_runs_after_a_successful_send() {
     let (mut hider, counts) = hider(false);
     let mut sink = FakePointerSink::default();
-    let outcome = with_cursors_hidden(&mut hider, deadline(), || sink.button(0x110, true));
+    let outcome = with_cursors_hidden(&mut hider, deadline(), || {
+        sink.button(0x110, true).map_err(|failure| failure.error)
+    });
     assert!(outcome.is_ok());
     assert_eq!(sink.events, vec![SinkEvent::Button(0x110, true)]);
     assert_eq!((counts.hides.get(), counts.shows.get()), (1, 1));

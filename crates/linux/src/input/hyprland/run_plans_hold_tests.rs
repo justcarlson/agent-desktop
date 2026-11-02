@@ -7,6 +7,7 @@ use agent_desktop_core::{
 use super::*;
 use crate::input::hyprland::fake_pointer_sink::{FakePointerSink, SinkEvent};
 use crate::input::hyprland::output_point::OutputPoint;
+use crate::input::hyprland::send_failure::SendFailure;
 use crate::input::hyprland::wheel_axis::WheelAxis;
 use crate::input::mouse::drag_plan::plan_drag;
 use crate::system::hyprland::cursor_renderer::hold_registry::{mark_lost, publish, withdraw};
@@ -18,11 +19,11 @@ struct LosesHoldOnPress {
 }
 
 impl PointerSink for LosesHoldOnPress {
-    fn motion(&mut self, point: &OutputPoint) -> Result<(), AdapterError> {
+    fn motion(&mut self, point: &OutputPoint) -> Result<(), SendFailure> {
         self.inner.motion(point)
     }
 
-    fn button(&mut self, code: u32, down: bool) -> Result<(), AdapterError> {
+    fn button(&mut self, code: u32, down: bool) -> Result<(), SendFailure> {
         self.inner.button(code, down)?;
         if down {
             mark_lost(NONCE);
@@ -30,7 +31,7 @@ impl PointerSink for LosesHoldOnPress {
         Ok(())
     }
 
-    fn wheel(&mut self, axis: WheelAxis, discrete: i32) -> Result<(), AdapterError> {
+    fn wheel(&mut self, axis: WheelAxis, discrete: i32) -> Result<(), SendFailure> {
         self.inner.wheel(axis, discrete)
     }
 

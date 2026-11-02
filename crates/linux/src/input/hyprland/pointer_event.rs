@@ -6,6 +6,7 @@ use super::output_map::to_output;
 use super::output_point::OutputPoint;
 use super::pointer_sink::PointerSink;
 use super::run_plans::{off_output, unsupported_step};
+use super::send_failure::SendFailure;
 use super::step_event::{linux_button, wheel_of};
 use super::wheel_axis::WheelAxis;
 use crate::input::step::Step;
@@ -50,7 +51,7 @@ impl PointerEvent {
         u8::from(!matches!(self, Self::Pause(_)))
     }
 
-    pub(crate) fn send(&self, sink: &mut dyn PointerSink) -> Result<(), AdapterError> {
+    pub(crate) fn send(&self, sink: &mut dyn PointerSink) -> Result<(), SendFailure> {
         match self {
             Self::Motion(point) => sink.motion(point),
             Self::Button { code, down } => sink.button(*code, *down),
