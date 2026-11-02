@@ -72,4 +72,9 @@ pub(crate) fn owner_exited_as_stale(error: AdapterError) -> AdapterError {
         return error;
     }
     AdapterError::stale_ref_because("The application the ref was captured from has exited")
+        .with_details(json!({
+            "kind": "resolve_owning_process_exited",
+            "complete": true,
+            "retryable": false,
+        }))
 }
