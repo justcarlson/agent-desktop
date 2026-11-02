@@ -9,8 +9,10 @@ A, B and D start together behind the gate and the gate hands the
 lease to one of them at a time while the others stay stopped. C starts
 inside a holder's turn; where an order needs its frame to wait, C is
 stopped once its hide holder file appears and resumed at the next barrier.
-Every barrier is an observed event: a `/proc/locks` holder, an open lock
-descriptor, a holder file or an exit, never a sleep.
+In pass 3, D is stopped only once its virtual pointer appears, which it opens
+after its hide has finished. Every barrier is an observed event: a
+`/proc/locks` holder, an open lock descriptor, a holder file, a compositor
+device or an exit, never a sleep.
 """
 
 from __future__ import annotations
@@ -115,6 +117,13 @@ def ref_click_refused(setup: Setup, sampler) -> list[str]:
     return problems + (["headed ref click: the refused click reached the Qt zoo"] if landed else [])
 
 
+def pointer_devices(tier) -> set[tuple]:
+    """Every pointer device the compositor lists, virtual ones included, by address and name."""
+    main = main_instance(tier)
+    found = hyprland.query(shared(tier), main["signature"], "devices", pid=main["pid"]).get("mice", [])
+    return {(item.get("address"), item.get("name")) for item in found}
+
+
 def _tip(surface: dict) -> tuple[float, float]:
     return surface["x"] + 1, surface["y"] + 1
 
@@ -130,6 +139,7 @@ class Schedule:
         self.c_tips: list[tuple[float, float]] = []
         self.problems: list[str] = []
         self.spans: list[oracle.Span] = []
+        self.pointers: set[tuple] = set()
         self.since = 0.0
 
     def argv(self, name: str) -> list[str]:
@@ -200,12 +210,18 @@ class Schedule:
             self.problems.append(f"{self.label}: C's PNG shows an agent cursor at {shown}")
 
     def pause_d(self) -> None:
-        """Pass 3: D holds the lease, writes its hide holder and stops before its click; A, B and C
-        act meanwhile."""
+        """Pass 3: D holds the lease, finishes its hide and stops before its click; A, B and C act
+        meanwhile. The hide's 500 ms acknowledgement deadline runs on the wall clock, so D stops only
+        once it opens its virtual pointer, which it does after the hide has finished."""
         d = self.agents["D"]
         registry = registry_of(shared(self.tier), self.setup.session)
         agents.until(lambda: any(item.get("pid") == d.pid for item in holders_in(registry)),
                      "pass 3: D writes its hide holder", HOLDER_S)
+        agents.until(lambda: pointer_devices(self.tier) - self.pointers or d.process.poll() is not None,
+                     "pass 3: D opens its virtual pointer after its hide", HOLDER_S)
+        if d.process.poll() is not None:
+            d.finish()
+            raise AssertionError(f"pass 3: D ended before its hide finished: {agents.outcome_problems(d)}")
         d.signal(signal.SIGSTOP)
         if agents.effect_times(self.setup.launched["D"].log, zoo.BUTTON, zoo.ACTIVATE, self.since):
             raise AssertionError("pass 3: D clicked before the barrier stopped it")
@@ -311,6 +327,7 @@ def order_3(schedule: Schedule) -> None:
 
 
 def pass_3(schedule: Schedule) -> None:
+    schedule.pointers = pointer_devices(schedule.tier)
     schedule.spawn("D")
     schedule.turn("D", during=schedule.pause_d)
     schedule.agents["A"].signal(signal.SIGCONT)
