@@ -14,6 +14,7 @@
 //! `hide` and `show` go to the holder watch.
 
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 
 use agent_desktop_core::{
     AdapterError, CURSOR_MOTION_BUDGET_MS, CursorOverlayControl, CursorPhase, Deadline, ErrorCode,
@@ -21,6 +22,7 @@ use agent_desktop_core::{
 use serde_json::{Value, json};
 
 use super::agent_cursors::{AgentCursors, SOLE_CURSOR};
+use super::arrival_ack_hold::acknowledge_arrival;
 use super::cursor_animation::draw_at;
 use super::cursor_travel::CursorTravel;
 use super::holder_reply::holder_reply;
@@ -80,9 +82,10 @@ pub(crate) fn serve_one(
     }
 }
 
-/// Acknowledges a travel that drew its arrival frame.
-pub(crate) fn arrived(stream: &UnixStream) {
-    write_reply(stream, &ok_reply(json!({})));
+/// Acknowledges a travel that drew its arrival frame, as the arrival-ack
+/// test flag in `registry` holds it when one is set.
+pub(crate) fn arrived(registry: &Path, travel: CursorTravel) {
+    acknowledge_arrival(registry, travel.received(), travel.into_reply());
 }
 
 /// Refuses a travel whose arrival frame no output showed in time, so the

@@ -20,7 +20,7 @@ pub(crate) fn keep_drawn_for_test(registry: &Path) -> bool {
 
 /// Whether a flag with `metadata`, read without following a symlink, is a
 /// regular file that `user` owns.
-fn flag_honored(metadata: &Metadata, user: u32) -> bool {
+pub(crate) fn flag_honored(metadata: &Metadata, user: u32) -> bool {
     metadata.file_type().is_file() && metadata.uid() == user
 }
 
