@@ -52,9 +52,9 @@ class DispatchIntervalTests(unittest.TestCase):
     def test_a_serial_timeline_has_no_problems(self):
         self.assertEqual(oracle.timeline_problems(serial(), GATE, "ABCD"), [])
 
-    def test_the_interval_reaches_the_last_effect_after_release(self):
+    def test_the_interval_is_the_lease_hold(self):
         span = Span("A", enqueue=0.0, acquire=1.0, release=1.2, effects=(1.1, 1.5), contention=0)
-        self.assertEqual(oracle.dispatch_interval(span), (1.0, 1.5))
+        self.assertEqual(oracle.dispatch_interval(span), (1.0, 1.2))
         self.assertIsNone(oracle.dispatch_interval(Span("B", enqueue=0.0, acquire=None, release=None)))
 
     def test_two_overlapping_holds_are_found(self):
@@ -65,10 +65,18 @@ class DispatchIntervalTests(unittest.TestCase):
         self.assertIn("A", found[0])
         self.assertIn("B", found[0])
 
-    def test_an_effect_landing_inside_the_next_hold_is_an_overlap(self):
+    def test_a_toolkit_effect_after_release_is_a_lag_not_an_overlap(self):
         spans = serial()
-        spans[0] = Span("A", enqueue=0.10, acquire=1.00, release=1.20, effects=(1.25,), contention=40)
-        self.assertEqual(len(oracle.overlap_problems(spans)), 1)
+        spans[0] = Span("A", enqueue=0.10, acquire=1.00, release=1.20, effects=(1.45,), contention=40)
+        spans[1] = Span("B", enqueue=0.11, acquire=1.21, release=1.40, effects=(1.30,), contention=60)
+        self.assertEqual(oracle.overlap_problems(spans), [])
+        self.assertEqual(oracle.effect_problems(spans), [])
+        self.assertEqual({name: round(lag) for name, lag in oracle.effect_lags_ms(spans).items()}, {"A": 250})
+
+    def test_an_effect_before_its_own_acquire_still_fails(self):
+        spans = serial()
+        spans[1] = Span("B", enqueue=0.11, acquire=1.21, release=1.40, effects=(1.15,), contention=60)
+        self.assertTrue(any("before its acquire" in item for item in oracle.effect_problems(spans)))
 
     def test_touching_intervals_do_not_overlap(self):
         spans = [Span("A", enqueue=0.0, acquire=1.0, release=2.0, contention=0),
