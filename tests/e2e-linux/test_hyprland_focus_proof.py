@@ -184,12 +184,13 @@ class XWaylandProofTests(unittest.TestCase):
         self.flag = self.runtime / "inactive-frame.withhold"
         self.holder, self.target = {"address": "0xb", "pid": 2}, {"address": "0xa", "pid": 7, "workspace": {"name": "1"}}
         self.state = {"active": self.holder, "text": "", "keys": [], "calls": [], "backend": None,
-                      "cursor": {"x": 640, "y": 400}}
+                      "cursor": {"x": 640, "y": 400}, "click_focus": []}
         self.click_moves = False
 
     def product(self, argv):
         self.state["calls"].append((self.state["backend"], tuple(argv), self.flag.exists()))
         if argv[0] == "click":
+            self.state["click_focus"].append(self.state["active"] is self.target)
             if self.click_moves:
                 self.state["cursor"] = {"x": 957, "y": 413}
             return envelope(False, error=UNPROVEN if self.state["backend"] == self.proof.XWAYLAND else NATIVE_REFUSAL)
@@ -242,6 +243,10 @@ class XWaylandProofTests(unittest.TestCase):
                            if side == backend and argv == ("press", "x", "--window-id", "w1")]
                 clicks = [held for side, argv, held in calls if side == backend and argv[0] == "click"]
                 self.assertEqual((presses, clicks), ([True, False], [True, False]))
+
+    def test_the_agreeing_proof_click_runs_while_the_target_holds_focus(self):
+        self.run_leg()
+        self.assertEqual(self.state["click_focus"], [False, True, False, True])
 
     def test_a_ref_click_that_moved_the_cursor_fails(self):
         self.click_moves = True
