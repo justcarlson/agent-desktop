@@ -423,23 +423,17 @@ fields to `data.details`:
 | `receiver_proof` | Always `false` |
 | `delivered_events` | Events sent: motion, button and wheel |
 
-A ref command (`click`, `double-click`, `triple-click`, `right-click`, `scroll`) is headed,
-so it first activates the target window, revealing a hidden special workspace
-or switching workspace as `focus-window` does. A cover can undo that
-activation: Hyprland moves the cursor into the target, onto a floating or
-pinned cover that then stays active (`activation_refused`), and a layer that
-takes the keyboard, such as slurp's, keeps the target's frame inactive
-(`frame_not_active`). Both are `not_delivered`. Core's `receives_events` check
-then hit-tests the target against the compositor's stack, and a cover it sees
-fails that check with an `occluder` (`role` `layer` with the namespace as
-`name`, or `role` `window`). The command then places the element in its
-window and reads the window's `xwayland` flag. Hyprland cannot prove which
-surface of the app takes the point, so every ref pointer command, `right-click`
-and both ends of `drag --from @ref --to @ref` included, refuses there, before
-any pointer, button, wheel or key event: cause `native_wayland_client` or
-`receiver_unproven`. The stack and layer read that would follow before each
-burst stays in the code, so `point_outside_target`, `layer_cover` and
-`window_cover` are not reached today. Every layer counts as a cover, whatever
+A headed ref command (`click`, `double-click`, `triple-click`, `right-click`,
+`scroll`, and each ref end of `drag`) first reads the `xwayland` flag of the
+element's toplevel window, before any wait, window activation or cursor move.
+Hyprland cannot prove which surface of the app takes the point, so every one
+refuses there, before any pointer, button, wheel or key event: cause
+`native_wayland_client` or `receiver_unproven`. The active window, the
+workspace and the cursor stay as they were. The window activation, core's
+`receives_events` hit test and the stack and layer read that would follow
+stay in the code, so `activation_refused`, `frame_not_active`, `occluder`,
+`point_outside_target`, `layer_cover` and `window_cover` are not reached
+today. Every layer counts as a cover, whatever
 its namespace. A refusal before any event is `ACTION_FAILED`,
 `not_delivered`, with `details.kind: "receiver_evidence"`,
 `details.check: "hyprland_stack"` and `physical_delivery_started: false`:
