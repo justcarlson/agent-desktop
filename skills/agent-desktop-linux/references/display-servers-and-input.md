@@ -292,9 +292,12 @@ compositor's device list.
 - **Characters.** Any Unicode character, Tab and newline included. Other
   control characters, such as `\u0007` or `\r`, are `ACTION_NOT_SUPPORTED`,
   cause `character_outside_layout`, before any key. Use `set-value` instead.
-- **Focus.** The focus gate runs before each key-down, as on other Wayland
-  sessions. If focus moves mid-text, the CLI stops, releases every held key and
-  modifier, and returns `delivery_uncertain` with `delivered_events`. Read the
+- **Focus.** A headed `type` or `press` by ref first activates the target's
+  window through the compositor, as `--headed focus-window` does; a refused
+  activation ends the command before any key. The focus gate then runs before
+  each key-down, as on other Wayland sessions. If focus moves mid-text, the
+  CLI stops, releases every held key and modifier, and returns
+  `delivery_uncertain` with `delivered_events`. Read the
   field before you retry. Global `press` has no target, so it goes to whichever
   window holds keyboard focus.
 - **Lead Shift.** Each delivery starts with the lone Shift tap described above.

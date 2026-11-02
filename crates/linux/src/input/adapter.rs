@@ -24,11 +24,16 @@ impl InputOps for LinuxAdapter {
         )
     }
 
+    /// A bound Hyprland activates through the compositor: the toolkit's own
+    /// activation request after `GrabFocus` is refused on Hyprland 0.57.0
+    /// (L47-1). Other Wayland sessions have no activation route.
     fn keyboard_needs_window_activation(&self) -> bool {
-        !matches!(
-            crate::input::backend::backend(),
-            Ok(crate::input::backend::Backend::Wayland)
-        )
+        match crate::input::backend::backend() {
+            Ok(crate::input::backend::Backend::Wayland) => {
+                !matches!(crate::input::hyprland::hypr_route::bound_route(), Ok(None))
+            }
+            _ => true,
+        }
     }
 
     fn mouse_event(
