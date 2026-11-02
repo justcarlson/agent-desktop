@@ -7,7 +7,9 @@ use serde_json::json;
 
 use super::stop;
 use crate::system::hyprland::cursor_renderer::exe_identity::ExeIdentity;
-use crate::system::hyprland::cursor_renderer::record_read::{RecordRead, read_record};
+use crate::system::hyprland::cursor_renderer::record_read::{
+    RecordRead, read_record, remove_if_generation,
+};
 use crate::system::hyprland::cursor_renderer::registry_fixture::{
     RegistryFixture, finish, is_running, record_for, sleeper, start_time_of, term_ignoring_sleeper,
 };
@@ -50,6 +52,60 @@ fn acknowledging(
         on_disable();
         disabled
     })
+}
+
+/// A renderer stand-in that takes the `disable` connection while it is
+/// already on its way out: it answers nothing, then runs `on_exit`.
+fn exiting_unanswered(
+    paths: &RendererPaths,
+    on_exit: impl FnOnce() + Send + 'static,
+) -> JoinHandle<()> {
+    let listener = UnixListener::bind(&paths.socket).expect("bind");
+    std::thread::spawn(move || {
+        let Ok((stream, _)) = listener.accept() else {
+            return;
+        };
+        on_exit();
+        drop(stream);
+    })
+}
+
+#[test]
+fn a_renderer_that_cleans_up_and_exits_before_answering_disable_is_stopped() {
+    let fixture = RegistryFixture::new();
+    let mut renderer = sleeper();
+    let pid = renderer.id();
+    record_for(pid, None, "own")
+        .write_atomic(&fixture.paths.record)
+        .expect("write");
+    let paths = fixture.paths.clone();
+    let exiting = exiting_unanswered(&fixture.paths, move || {
+        assert!(remove_if_generation(&paths, "own"));
+        let _ = renderer.kill();
+        let _ = renderer.wait();
+    });
+    let outcome = stop(&fixture.paths, ExeIdentity::current(), &quick()).expect("stop");
+    exiting.join().expect("renderer");
+    assert_eq!(outcome, StopOutcome::Stopped);
+    assert_eq!(read_record(&fixture.paths.record), RecordRead::Absent);
+}
+
+#[test]
+fn a_renderer_that_dies_with_its_record_before_answering_disable_is_stale() {
+    let fixture = RegistryFixture::new();
+    let mut renderer = sleeper();
+    let pid = renderer.id();
+    record_for(pid, None, "own")
+        .write_atomic(&fixture.paths.record)
+        .expect("write");
+    let exiting = exiting_unanswered(&fixture.paths, move || {
+        let _ = renderer.kill();
+        let _ = renderer.wait();
+    });
+    let outcome = stop(&fixture.paths, ExeIdentity::current(), &quick()).expect("stop");
+    exiting.join().expect("renderer");
+    assert_eq!(outcome, StopOutcome::Stale);
+    assert_eq!(read_record(&fixture.paths.record), RecordRead::Absent);
 }
 
 #[test]
