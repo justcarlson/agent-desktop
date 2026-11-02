@@ -221,7 +221,7 @@ class RegistryTests(unittest.TestCase):
 
     def test_reused_pointer_legs_reach_hyprland_with_the_pad_log(self):
         for leg_id in REUSED_LEGS:
-            leg = legs.leg_by_id(leg_id)
+            leg = legs.leg_by_id(leg_id, "hyprland")
             self.assertIn("hyprland", leg.tiers, leg_id)
             self.assertIn("applog", leg.oracles, leg_id)
 

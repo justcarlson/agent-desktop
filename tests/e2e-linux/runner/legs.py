@@ -50,14 +50,17 @@ class Leg:
 REGISTRY: tuple[Leg, ...] = (
     Leg('ref_actions.expand', 'A ref expands the Calculator menu and reveals its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.collapse', 'A ref collapses the Calculator menu and hides its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
-    Leg('ref_actions.scroll', 'Ref scroll changes visible Settings rows, then restores', 'Settings', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.scroll', 'Ref scroll changes visible Settings rows, then restores', 'Settings', X11, ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.scroll', 'On an XWayland pointer pad on a nested instance, a headed ref scroll refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy; the pad logs no input, and the cursor and the active window stay where they were', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
     Leg('ref_actions.scroll_headless_refusal', 'Headless ref scroll is refused without changing visible rows', 'Settings', ('x11-openbox', 'hyprland'), ('headless',), ('atspi', 'x11', 'applog'), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('ref_actions.scroll_to', 'Ref scroll-to reveals an offscreen control and restores the viewport', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.focus', 'Ref focus changes the raw FOCUSED state and restores it', 'Qt window', ('x11-openbox',), ('headed',), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.focus_headless_refusal', 'Headless ref focus is refused without changing focus', 'Qt window', ('x11-openbox',), ('headless',), ('atspi', 'x11'), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
-    Leg('ref_actions.double_click', 'Ref double-click selects a document word and restores selection', 'Text Editor', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.double_click', 'Ref double-click selects a document word and restores selection', 'Text Editor', X11, ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.double_click', 'On an XWayland pointer pad on a nested instance, a headed ref double-click refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy; the pad logs no input, and the cursor and the active window stay where they were', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
     Leg('ref_actions.double_click_headless_refusal', 'Headless double-click is refused without selecting text', 'Text Editor', ('x11-openbox', 'hyprland'), ('headless',), ('atspi', 'x11', 'applog'), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
-    Leg('ref_actions.triple_click', 'Ref triple-click selects a document line and restores selection', 'Text Editor', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.triple_click', 'Ref triple-click selects a document line and restores selection', 'Text Editor', X11, ('headed',), ('atspi', 'x11', 'applog'), 'pass', ''),
+    Leg('ref_actions.triple_click', 'On an XWayland pointer pad on a nested instance, a headed ref triple-click refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy; the pad logs no input, and the cursor and the active window stay where they were', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
     Leg('ref_actions.triple_click_headless_refusal', 'Headless triple-click is refused without selecting text', 'Text Editor', ('x11-openbox', 'hyprland'), ('headless',), ('atspi', 'x11', 'applog'), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('ref_actions.right_click', 'Ref right-click opens the raw context menu and restores it', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.hover', 'Ref hover exposes native status text and restores it', 'Qt window', ('x11-openbox', 'x11-mutter'), ('headed',), ('atspi', 'x11'), 'pass', ''),
@@ -276,7 +279,7 @@ REGISTRY += (
 
 REGISTRY += (
     Leg('pointer.global_layout_coordinates', 'On a nested instance whose pad output sits at a negative origin and scale 1.25, mouse-move puts j/cursorpos on the global point, and a click, wheel steps both ways and a drag land in the pad log at the point j/clients and j/monitors predict, as does a move onto the other output and a click back from it', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'pass'),
-    Leg('pointer.ref_receiver_evidence', 'Ref click, double-click, triple-click and scroll reach the pad button on a nested instance; a slurp layer, a floating foot and a pinned foot over the button each refuse with its cover cause and no event, and delivery returns once the cover is gone', 'Pointer pad, slurp and foot on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'pass'),
+    Leg('pointer.ref_receiver_evidence', 'Every headed ref pointer action (click, double-click, triple-click, right-click, scroll and both ends of a ref drag) on an XWayland pad on a nested instance refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy: on the bare pad, under a floating and a pinned foot, and on GTK4 fixtures whose target sits under an in-window overlay or a same-client popup; a click under a slurp layer refuses the same way; the apps log no input, and away from the slurp layer the cursor and the active window stay where they were', 'Pointer pad, slurp, foot and GTK4 fixtures on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
     Leg('pointer.cover_or_missing_evidence_refused', 'A ref click refuses with receiver_evidence and no event for a pad on a hidden special workspace, for a pad under the shell layers of the session instance, and for a pad under a floating or a pinned foot on a nested instance; the pad and the covers stay unchanged', 'Pointer pad, foot and the session shell', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'ACTION_FAILED, kind receiver_evidence, causes target_not_shown, layer_cover and window_cover, physical_delivery_started false, not_delivered; unreadable layers cannot be produced from outside the compositor and are covered by unit tests'),
     Leg('pointer.coordinates_have_no_receiver_proof', 'Coordinate clicks of count 1, 2 and 3, a wheel step and a drag land in the pad log while each envelope reports receiver_proof false and its delivered events; a point on no output refuses with point_off_output and no event', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('applog',), 'pass'),
     Leg('pointer.headless_or_cancelled_input', 'Without headed permission, coordinate click, wheel and drag and ref double-click, triple-click and scroll refuse with POLICY_DENIED before the pointer moves; j/cursorpos and the pad log stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor and pad log unchanged'),
@@ -290,8 +293,8 @@ REGISTRY += (
 REGISTRY += (
     Leg('cursor.hide_ack_suppression_until_show', 'With the cursor drawn over the Calculator button it clicked, grim shows it while screenshot --screen, taken before, under a second live holder and after the outputs power off and on, matches the cursor-free screen at the arrow; a live holder clears the cursor and a click under it draws nothing; the cursor returns once the holder leaves, and no holder file outlives its command', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
     Leg('cursor.travel_failure_proceeds_hide_failure_refuses', 'A stopped renderer leaves a headless click landing, while screenshot --screen refuses with cursor_hide_timeout or cursor_hide_failed and writes no file, and a headed ref click refuses before any hide with ACTION_FAILED, cause native_wayland_client or receiver_unproven; both are not_delivered with safe retry, leave no holder and do not change the display; once it resumes the capture works, and a killed renderer blocks neither', 'Calculator', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'atspi', 'proc'), 'asserted-refusal', 'the headed half asserts the hide refusal of the capture and the pre-hide receiver refusal of the click as its expected outcomes; the headless half and the recovery steps must succeed'),
-    Leg('pointer.ref_receiver_evidence_under_cursor', 'With the session cursor layer drawn over the pad on a nested instance, a headed ref click lands one press in the pad log and the cursor layer comes back afterwards', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'pass'),
-    Leg('pointer.cursor_pass_through', 'With the keep-drawn test flag in the renderer registry, the session cursor layer stays drawn over the pad on a nested instance through a headed ref click, and the pad logs exactly one press', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'pass'),
+    Leg('pointer.ref_receiver_evidence_under_cursor', 'With the session cursor layer drawn over an XWayland pad on a nested instance, a headed ref click refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy, before it hides the layer; the pad logs no press, the layer stays drawn over the pad through and after the refusal, and session end removes the renderer and its layer', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
+    Leg('pointer.cursor_pass_through', 'With the keep-drawn test flag in the renderer registry and the session cursor layer drawn over an XWayland pad on a nested instance, a headed ref click still refuses with ACTION_FAILED, kind receiver_evidence, cause receiver_unproven, physical_delivery_started false and not_delivered, its message and suggestion naming the routes without --headed and with --xy; the pad logs no press, the layer stays drawn over the pad through and after the refusal, and session end removes the renderer and its layer; no pointer event passes through the layer in this leg', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'asserted-refusal', 'D12: on XWayland a headed ref pointer action refuses with receiver_unproven before any pointer or modifier event, and D11 refuses it on native Wayland (pointer.native_wayland_ref_refused); ACTION_FAILED, physical_delivery_started false, not_delivered'),
     Leg('cursor.layout_placement_and_hidden_targets', 'With a headless output added at -1024x-640 and scale 1.25 while the renderer runs, a headless click on Calculator\'s 7 on each output puts one cursor surface in j/layers on that output alone with its tip on the button, grim of that output shows the arrow at the button in physical pixels and its size follows the output\'s scale; the renderer survives the output\'s removal; a click while Calculator\'s workspace is hidden draws no cursor on the output that is shown; j/cursorpos never moves', 'Calculator', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
 )
 
@@ -302,15 +305,35 @@ REGISTRY += (
     Leg('parallel.cancel_waiter_and_holder', 'SIGTERM on an agent queued for the interaction lease, on one that has just taken it and on a paced headed type part way through its text leaves no event from the queued agent, frees the lease, leaves a strict prefix in the entry with no safe retry, and no keyboard lost, changed or added other than the input method\'s own virtual keyboard, and in each case the next queued agent takes the lease and lands its click once; the Qt agent clicks with mouse-click --xy', 'Zoo GTK3, Zoo GTK4 and Zoo Qt', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'atspi', 'proc'), 'pass'),
 )
 
-_BY_ID = {leg.id: leg for leg in REGISTRY}
-if len(_BY_ID) != len(REGISTRY):
-    raise ValueError("duplicate leg id in the registry")
+# A leg id may have one row per tier, when a tier asserts a different outcome from the same
+# scenario (a refusal on hyprland, delivery on X11). Two rows of one id never share a tier.
+_BY_ID: dict[str, tuple[Leg, ...]] = {}
+for _row in REGISTRY:
+    _BY_ID[_row.id] = _BY_ID.get(_row.id, ()) + (_row,)
+for _leg_id, _rows in _BY_ID.items():
+    _row_tiers = [tier for row in _rows for tier in row.tiers]
+    if len(_row_tiers) != len(set(_row_tiers)):
+        raise ValueError(f"leg {_leg_id} has two registry rows for one tier")
 
 _IMPLEMENTATIONS: dict[str, Callable] = {}
 
 
-def leg_by_id(leg_id: str) -> Leg:
+def leg_rows(leg_id: str) -> tuple[Leg, ...]:
+    """Every registry row of a leg id, one per set of tiers."""
     return _BY_ID[leg_id]
+
+
+def leg_by_id(leg_id: str, tier: str | None = None) -> Leg:
+    """The row of a leg id for `tier`. Without a tier the id must have a single row."""
+    rows = _BY_ID[leg_id]
+    if tier is not None:
+        matching = [row for row in rows if tier in row.tiers]
+        if not matching:
+            raise KeyError(f"leg {leg_id} is not registered for {tier}")
+        return matching[0]
+    if len(rows) != 1:
+        raise KeyError(f"leg {leg_id} has one row per tier; name the tier")
+    return rows[0]
 
 
 def implementation(leg_id: str):
