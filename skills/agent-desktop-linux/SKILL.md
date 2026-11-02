@@ -173,10 +173,10 @@ commands reach the same renderer. `cursor-overlay disable`, `session end` and
 
 | Value | Meaning |
 |-------|---------|
-| `stopped` | The renderer exited when asked |
+| `stopped` | The renderer exited when asked, or exited cleanly on its own just before the request reached it |
 | `terminated` | It did not exit when asked; a signal stopped it and its exit is confirmed |
 | `not_running` | No renderer was running for the session |
-| `stale` | The record named a process that is gone; the record was removed |
+| `stale` | The record named a process that died without removing it; the record was removed |
 | `incompatible` | Another agent-desktop build's renderer ignored the request; it is left running |
 
 `session gc` reports one value per removed session, keyed by session id. If
