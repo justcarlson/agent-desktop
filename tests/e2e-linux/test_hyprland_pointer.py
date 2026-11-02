@@ -16,6 +16,7 @@ from runner.product import Envelope
 from scenarios import hyprland_pointer as pointer
 from scenarios import hyprland_pointer_pad as pad
 from scenarios import hyprland_pointer_refs as refs
+from scenarios import hyprland_receiver_fixture as fixture
 
 NEW_LEGS = (
     "pointer.global_layout_coordinates",
@@ -73,7 +74,6 @@ class PadLogTests(unittest.TestCase):
         self.assertEqual(pad.gdk3_presses(1), [1])
         self.assertEqual(pad.gdk3_presses(2), [1, 1, 2])
         self.assertEqual(pad.gdk3_presses(3), [1, 1, 2, 1, 3])
-        self.assertEqual(dict(refs.GESTURES)["triple-click"], [1, 1, 2, 1, 3])
 
     def test_pad_saw_counts_each_event_kind_per_widget(self):
         self.assertEqual(pad.pad_saw(LOG), " (pad saw: motion/area 2, press/area 1, press/button 2, "
@@ -138,13 +138,16 @@ class EnvelopeCheckTests(unittest.TestCase):
         self.assertTrue(pointer.refusal_problems("c", refused("POLICY_DENIED", physical_delivery_started=True)))
         self.assertTrue(pointer.refusal_problems("c", refused("POLICY_DENIED", "delivery_uncertain")))
 
-    def test_receiver_refusal_wants_the_named_cause(self):
-        envelope = refused("ACTION_FAILED", kind="receiver_evidence", cause="layer_cover",
+    def test_receiver_refusal_past_the_activation_and_hit_test_wants_the_unproven_receiver(self):
+        envelope = refused("ACTION_FAILED", kind="receiver_evidence", cause="receiver_unproven",
                            physical_delivery_started=False)
         self.assertEqual(refs.receiver_refusal("c", envelope, "layer_cover"), [])
-        self.assertTrue(refs.receiver_refusal("c", envelope, "window_cover"))
+        self.assertEqual(refs.receiver_refusal("c", envelope, "window_cover"), [])
         self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", kind="receiver_evidence",
-                                                           cause="layer_cover"), "layer_cover"))
+                                                           cause="layer_cover", physical_delivery_started=False),
+                                              "layer_cover"))
+        self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", kind="receiver_evidence",
+                                                           cause="receiver_unproven"), "layer_cover"))
 
 
     def test_receiver_refusal_takes_the_preflight_occluder_for_a_cover(self):
@@ -331,26 +334,105 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class ReceiverEvidenceTests(unittest.TestCase):
-    """The receiver leg scrolls the pad's scroll pane: a push button has no Scroll action."""
+def unproven(**changes) -> Envelope:
+    error = {"code": "ACTION_FAILED",
+             "message": "The target is an XWayland window, and Hyprland cannot prove which of its surfaces takes"
+                        " the pointer; run the ref action without --headed, or aim with --xy",
+             "suggestion": "Run the ref action without --headed, such as click @ref, or aim with coordinates"
+                           " (mouse-click --xy)",
+             "details": {"kind": "receiver_evidence", "check": "hyprland_stack", "cause": "receiver_unproven",
+                         "physical_delivery_started": False},
+             "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+    for key, value in changes.items():
+        if key in ("message", "suggestion", "code", "disposition"):
+            error[key] = value
+        else:
+            error["details"][key] = value
+    return Envelope(ok=False, data=None, error=error, raw=json.dumps({"error": error}), elapsed_ms=1.0,
+                    argv=["agent-desktop"], exit_code=1)
 
-    def test_a_lost_gesture_says_what_the_pad_saw(self):
-        log = Path(tempfile.mkdtemp()) / "pad.events"
-        log.write_text(json.dumps(LOG[0]) + "\n")
-        ctx = mock.Mock()
-        ctx.product.return_value = mock.Mock(ok=True, data={}, raw="", argv=["agent-desktop", "triple-click"])
-        with mock.patch.object(refs, "settled", lambda found_log, _check, *_: refs.events(found_log)), \
-                mock.patch.object(refs, "apart_from_last_click", mock.Mock()):
-            problems = refs.gesture_problems(ctx, {}, log, "@s:button", "triple-click", [1, 1, 2, 1, 3])
-        self.assertEqual(problems, ["triple-click by ref: the pad button logged [], expected [1, 1, 2, 1, 3]"
-                                    " (pad saw: nothing)"])
 
-    def test_it_scrolls_the_pad_scroll_pane_and_clicks_the_button(self):
-        scrolled, clicked = [], []
+class UnprovenReceiverTests(unittest.TestCase):
+    """Every headed ref pointer action on an XWayland window refuses as receiver_unproven before any
+    event, and the refusal names both ways round it."""
+
+    def test_the_refusal_passes_and_each_missing_part_is_a_problem(self):
+        self.assertEqual(refs.unproven_problems("c", unproven()), [])
+        for changed in (dict(cause="native_wayland_client"), dict(kind="hyprland_pointer"),
+                        dict(physical_delivery_started=True), dict(code="ACTION_NOT_SUPPORTED"),
+                        dict(disposition={"delivery": "delivered_unverified", "retry": "unsafe"}),
+                        dict(suggestion="Run the ref action without --headed"),
+                        dict(message="aim with --xy")):
+            self.assertEqual(len(refs.unproven_problems("c", unproven(**changed))), 1, changed)
+        landed = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=1.0, argv=[], exit_code=0)
+        self.assertTrue(refs.unproven_problems("c", landed))
+
+    def refuse(self, logged: list[int], cursors: list[tuple[float, float]], answer=None) -> list[str]:
+        ctx = mock.Mock(tier=mock.Mock())
+        ctx.product.return_value = answer or unproven()
+        counts, points = iter(logged), iter(cursors)
+        seen = {"count": 0}
+
+        def reached():
+            seen["count"] = next(counts, seen["count"])
+            return seen["count"]
+
+        with mock.patch.multiple(refs, cursor_at=mock.Mock(side_effect=lambda *_: next(points)),
+                                 raw=mock.Mock(poll=lambda check, _timeout: check())):
+            return refs.refused_without_input(ctx, {}, {"signature": "n"}, "pad", [["click", "@s:e1"]], reached)
+
+    def test_a_refusal_with_no_input_and_a_still_cursor_passes(self):
+        self.assertEqual(self.refuse([0, 0, 0], [(10.0, 10.0), (10.0, 10.0)]), [])
+
+    def test_input_the_app_logged_is_a_problem(self):
+        self.assertEqual(self.refuse([0, 1, 1], [(10.0, 10.0), (10.0, 10.0)]),
+                         ["pad: headed click: the app logged 1 input events"])
+
+    def test_a_cursor_that_moved_is_a_problem(self):
+        self.assertEqual(self.refuse([0, 0, 0], [(10.0, 10.0), (320.0, 240.0)]),
+                         ["pad: headed click: the cursor moved from (10.0, 10.0) to (320.0, 240.0)"])
+
+    def test_a_native_cause_is_a_problem(self):
+        self.assertEqual(len(self.refuse([0, 0, 0], [(1.0, 1.0)] * 2, unproven(cause="native_wayland_client"))), 1)
+
+    def test_the_pad_takes_every_ref_pointer_action_and_both_ends_of_a_drag(self):
+        actions = refs.pad_actions("@s:button", "@s:pane", {"at": [0, 0], "size": [100, 100]})
+        self.assertEqual([refs.action_label(argv) for argv in actions],
+                         ["click", "double-click", "triple-click", "right-click", "scroll --direction down --amount 2",
+                          "drag --from --to", "drag --from-xy 50,90 --to"])
+        self.assertIn(["drag", "--from", "@s:button", "--to", "@s:pane"], actions)
+
+    def test_the_fixture_takes_every_button_action_and_each_drag_end(self):
+        actions = refs.fixture_actions("@s:target", {"at": [0, 0], "size": [100, 100]})
+        self.assertEqual([argv[0] for argv in actions],
+                         ["click", "double-click", "triple-click", "right-click", "drag", "drag"])
+        self.assertEqual(actions[4], ["drag", "--from", "@s:target", "--to-xy", "90,95"])
+        self.assertEqual(actions[5], ["drag", "--from-xy", "90,95", "--to", "@s:target"])
+
+    def test_the_overlay_and_popup_fixtures_run_on_xwayland(self):
+        opened, labels = [], []
+
+        @refs.contextlib.contextmanager
+        def started(_tier, _instance, toolkit, case):
+            opened.append((toolkit, case))
+            yield mock.Mock(pid=7), {"at": [0, 0], "size": [100, 100]}, Path("/dev/null")
+
+        def refuse(_ctx, _env, _instance, label, argvs, _reached):
+            labels.append((label, [argv[0] for argv in argvs]))
+            return []
+
+        with mock.patch.multiple(refs, receiver_fixture=started, fixture_ref=mock.Mock(return_value="@s:t"),
+                                 refused_without_input=refuse, fixture_events=mock.Mock(return_value=[])):
+            self.assertEqual(refs.fixture_refusals(mock.Mock(tier=mock.Mock()), {}, {"signature": "n"}), [])
+        self.assertEqual(opened, [("gtk4", "overlay"), ("gtk4", "popup")])
+        self.assertEqual([label for label, _ in labels], ["gtk4 overlay fixture", "gtk4 popup fixture"])
+
+    def test_the_receiver_leg_refuses_every_pad_action_then_the_covers_then_the_fixtures(self):
+        order = []
 
         @refs.contextlib.contextmanager
         def opened(*_):
-            yield mock.Mock(pid=1), {}, Path("/dev/null")
+            yield mock.Mock(pid=1), {"at": [0, 0], "size": [100, 100]}, Path("/dev/null")
 
         @refs.contextlib.contextmanager
         def cover(*_):
@@ -359,12 +441,8 @@ class ReceiverEvidenceTests(unittest.TestCase):
         def ref_of(_ctx, _env, _owned, target=pad.PAD_BUTTON):
             return {pad.PAD_BUTTON: "@s:button", pad.PAD_SCROLL: "@s:pane"}[target]
 
-        def gesture(_ctx, _env, _log, button, _verb, _want):
-            clicked.append(button)
-            return []
-
-        def scroll(_ctx, _env, _log, pane):
-            scrolled.append(pane)
+        def refuse(_ctx, _env, _instance, label, argvs, _reached):
+            order.append((label, [argv[0] for argv in argvs]))
             return []
 
         ctx = mock.Mock(tier=mock.Mock(), mode="headed")
@@ -372,11 +450,49 @@ class ReceiverEvidenceTests(unittest.TestCase):
                 refs, nested=mock.Mock(return_value=({"signature": "s"}, True)),
                 instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
                 pointer_pad=opened, pad_ref=ref_of, clients_summary=mock.Mock(return_value=[]),
-                gesture_problems=gesture, scroll_problems=scroll, layer_cover=cover, window_cover=cover,
-                covered_click=mock.Mock(return_value=[]), events=mock.Mock(return_value=[])):
+                refused_without_input=refuse, layer_cover=cover, window_cover=cover,
+                covered_click=mock.Mock(side_effect=lambda *args: order.append(args[4]) or []),
+                fixture_refusals=mock.Mock(side_effect=lambda *_: order.append("fixtures") or []),
+                events=mock.Mock(return_value=[])):
             refs.ref_receiver_evidence(ctx)
-        self.assertEqual(scrolled, ["@s:pane"])
-        self.assertEqual(set(clicked), {"@s:button"})
+        self.assertEqual(order, [("pad", ["click", "double-click", "triple-click", "right-click", "scroll",
+                                          "drag", "drag"]),
+                                 "layer_cover", "window_cover", "window_cover", "fixtures"])
+
+    def test_the_headed_ref_gestures_want_the_refusal(self):
+        for verb, argv in (("double-click", ["double-click", "@s:e1"]),
+                           ("scroll", ["scroll", "@s:e1", "--direction", "down", "--amount", "2"])):
+            refusal = mock.Mock(return_value=[])
+
+            @refs.contextlib.contextmanager
+            def opened(*_):
+                yield mock.Mock(pid=1), {}, Path("/dev/null")
+
+            with mock.patch.multiple(refs, nested=mock.Mock(return_value=({"signature": "s"}, True)),
+                                     instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
+                                     pointer_pad=opened, pad_ref=mock.Mock(return_value="@s:e1"),
+                                     refused_without_input=refusal, events=mock.Mock(return_value=[])):
+                refs.ref_gesture(mock.Mock(tier=mock.Mock(), mode="headed"), verb)
+            self.assertEqual(refusal.call_args.args[4], [argv])
+
+
+class ReceiverFixtureTests(unittest.TestCase):
+    def test_the_fixture_log_keeps_only_its_json_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "fixture.log"
+            log.write_text('(python3:12): Gtk-WARNING **: no theme\n{"ev": "mapped", "pid": 9}\n{"ev": "clicked",'
+                           ' "widget": "Probe Target"}\n{"ev": \n')
+            self.assertEqual([item["ev"] for item in fixture.fixture_events(log)], ["mapped", "clicked"])
+            self.assertEqual(fixture.clicked(fixture.fixture_events(log)), ["Probe Target"])
+            self.assertEqual(fixture._mapped_pid(log), 9)
+
+    def test_the_fixture_toplevel_is_the_window_with_its_title(self):
+        clients = [{"pid": 9, "title": fixture.TITLE, "mapped": True, "address": "0x1"},
+                   {"pid": 9, "title": "", "mapped": True, "address": "0x2"},
+                   {"pid": 8, "title": fixture.TITLE, "mapped": True, "address": "0x3"}]
+        with mock.patch.object(fixture, "instance_query", return_value=clients):
+            self.assertEqual(fixture.fixture_client(None, {}, 9)["address"], "0x1")
+            self.assertIsNone(fixture.fixture_client(None, {}, 7))
 
 
 class CoveredClickTests(unittest.TestCase):
@@ -398,81 +514,17 @@ class CoveredClickTests(unittest.TestCase):
                                                 " (pad saw: motion/area 1, press/button 1)"])
 
 
-class XwaylandScrollTests(unittest.TestCase):
-    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline, so the
-    leg primes it with one notch and then wants every measured notch, one unit each."""
+class WheelNotchTests(unittest.TestCase):
 
     def smooth(self, *dys: float) -> list[dict]:
         return [{"ev": "scroll", "widget": "scroll", "direction": "smooth", "dx": 0.0, "dy": dy, "t": 1.0}
                 for dy in dys]
-
-    def discrete(self, count: int) -> list[dict]:
-        return [{"ev": "scroll", "widget": "scroll", "direction": "down", "t": 1.0}] * count
-
-    def scrolled(self, primed: list[dict], measured: list[dict]) -> tuple[list[list[str]], list[str]]:
-        return self.replayed([primed], [primed + measured])
-
-    def replayed(self, *phases: list[list[dict]]) -> tuple[list[list[str]], list[str]]:
-        """Run the leg against a pad log that grows through each phase's states in turn; `settled`
-        returns the first state its check accepts, or the last when the settle time runs out."""
-        remaining = list(phases)
-
-        def settle(_log, check, *_args):
-            states = remaining.pop(0)
-            return next((state for state in states if check(state)), states[-1])
-
-        ctx = mock.Mock()
-        ctx.product.return_value = mock.Mock(ok=True)
-        with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), delivered=mock.Mock(),
-                                 settled=mock.Mock(side_effect=settle)):
-            problems = refs.scroll_problems(ctx, {}, Path("/dev/null"), "@s:pane")
-        return [call.args[0] for call in ctx.product.call_args_list], problems
 
     def test_wheel_notches_name_a_smooth_event_off_one_notch_by_its_deltas(self):
         found = self.smooth(1.0, -1.0, 2.0, 0.0) + [{"ev": "scroll", "widget": "scroll", "direction": "smooth",
                                                      "dx": 1.0, "dy": 0.0, "t": 1.0}]
         self.assertEqual(pad.wheel_notches(found, "scroll"),
                          ["down", "up", "smooth dx=0.0 dy=2.0", "smooth dx=0.0 dy=0.0", "right"])
-
-    def test_it_primes_one_notch_then_measures_three(self):
-        argvs, problems = self.scrolled(self.smooth(1.0), self.smooth(1.0, 1.0, 1.0))
-        self.assertEqual(argvs, [["scroll", "@s:pane", "--direction", "down", "--amount", "1"],
-                                 ["scroll", "@s:pane", "--direction", "down", "--amount", "3"]])
-        self.assertEqual(problems, [])
-
-    def test_a_priming_notch_that_logs_nothing_is_the_baseline(self):
-        self.assertEqual(self.scrolled([], self.smooth(1.0, 1.0, 1.0))[1], [])
-
-    def test_three_discrete_notches_pass(self):
-        self.assertEqual(self.scrolled([], self.discrete(3))[1], [])
-
-    def test_a_missing_later_notch_fails(self):
-        self.assertEqual(self.scrolled([], self.smooth(1.0, 1.0))[1],
-                         ["scroll by ref: the pad scroll pane logged ['down', 'down'],"
-                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
-
-    def test_two_discrete_notches_fail(self):
-        self.assertEqual(self.scrolled([], self.discrete(2))[1],
-                         ["scroll by ref: the pad scroll pane logged ['down', 'down'],"
-                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
-
-    def test_a_partial_merge_fails(self):
-        self.assertEqual(self.scrolled([], self.smooth(1.0, 2.0))[1],
-                         ["scroll by ref: the pad scroll pane logged ['down', 'smooth dx=0.0 dy=2.0'],"
-                          " expected ['down', 'down', 'down'] (pad saw: scroll/scroll 2)"])
-
-    def test_a_priming_notch_that_logs_two_events_fails(self):
-        self.assertEqual(self.scrolled(self.smooth(1.0, 1.0), self.smooth(1.0, 1.0, 1.0))[1],
-                         ["scroll by ref: the priming notch logged 2 wheel events, expected 0 or 1"
-                          " (pad saw: scroll/scroll 2)"])
-
-    def test_a_delayed_second_priming_event_fails_and_never_counts_as_a_measured_notch(self):
-        early, late = self.smooth(1.0, 1.0)
-        primed = [[early], [early, late]]
-        measured = [[early, late] + self.smooth(1.0, 1.0)]
-        self.assertEqual(self.replayed(primed, measured)[1],
-                         ["scroll by ref: the priming notch logged 2 wheel events, expected 0 or 1"
-                          " (pad saw: scroll/scroll 2)"])
 
 
 class MovedOutputTests(unittest.TestCase):
@@ -547,7 +599,7 @@ class PadLegBackendTests(unittest.TestCase):
         @refs.contextlib.contextmanager
         def opened(_tier, _instance, _label, backend=pad.NATIVE):
             backends.append(backend)
-            yield mock.Mock(pid=1), {}, Path("/dev/null")
+            yield mock.Mock(pid=1), {"at": [0, 0], "size": [100, 100]}, Path("/dev/null")
 
         @refs.contextlib.contextmanager
         def cover(*_):
@@ -557,8 +609,8 @@ class PadLegBackendTests(unittest.TestCase):
         base = dict(nested=mock.Mock(return_value=({"signature": "s"}, True)),
                     instance_env=mock.Mock(return_value={}), pads_left=mock.Mock(return_value=[]),
                     pointer_pad=opened, pad_ref=mock.Mock(return_value="@s:e1"),
-                    clients_summary=mock.Mock(return_value=[]), gesture_problems=mock.Mock(return_value=[]),
-                    scroll_problems=mock.Mock(return_value=[]), layer_cover=cover, window_cover=cover,
+                    clients_summary=mock.Mock(return_value=[]), refused_without_input=mock.Mock(return_value=[]),
+                    fixture_refusals=mock.Mock(return_value=[]), layer_cover=cover, window_cover=cover,
                     covered_click=mock.Mock(return_value=[]), events=mock.Mock(return_value=[]),
                     settled=mock.Mock(return_value=[]))
         base.update(patches)

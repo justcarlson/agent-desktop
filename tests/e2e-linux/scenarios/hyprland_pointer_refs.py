@@ -3,8 +3,11 @@
 Positive ref input goes to the nested second instance, where no shell layer covers the pad.
 Covers the leg places are its own: a slurp selection layer, and a foot terminal it floats or
 pins over the pad. The session instance is used only for refusals that send no event.
-Ref pointer legs run the pad on XWayland: a native Wayland pad refuses every headed ref pointer
-action (probes/linux/FINDINGS.md L42-4, L42-5), which `pointer.native_wayland_ref_refused` checks.
+Every headed ref pointer action refuses before any event. On a native Wayland pad the cause is
+`native_wayland_client` (probes/linux/FINDINGS.md L42-4, L42-5), which
+`pointer.native_wayland_ref_refused` checks. On an XWayland pad, and on the L42/L45 fixtures whose
+target sits under an in-window overlay or a same-client popup, it is `receiver_unproven` (L45-2), which
+the other legs check.
 """
 
 from __future__ import annotations
@@ -25,52 +28,107 @@ from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, res
 from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
                                         click_problems, wheel_problems)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, NATIVE, PAD_BUTTON, PAD_SCROLL, XWAYLAND,
-                                            apart_from_last_click, covering_layers, events, gdk3_presses,
+                                            covering_layers, cursor_at, events, find_ref,
                                             global_point, instance_control,
                                             instance_env, instance_query, pad_client, pad_ref, pad_saw,
-                                            pads_left, pointer_pad, presses,
-                                            settled, since, wheel_notches)
+                                            pads_left, pointer_pad, settled, since, xy)
+from scenarios.hyprland_receiver_fixture import TARGET, TITLE, clicked, fixture_events, receiver_fixture
 from scenarios.hyprland_window_ops import float_argv
 
 SLURP_NAMESPACE = "selection"
 BUTTON_AIM_Y = 60
-GESTURES = (("click", gdk3_presses(1)), ("double-click", gdk3_presses(2)), ("triple-click", gdk3_presses(3)))
 OCCLUDER_ROLES = {"layer_cover": "layer", "window_cover": "window"}
-SCROLL_NOTCHES = 3
 DELIVERED_EVENTS = {"press", "release", "scroll"}
 ACTIVATION_CAUSES = {"layer_cover": "frame_not_active", "window_cover": "activation_refused"}
 COVER_SHAPE = ("address", "at", "size", "floating", "pinned", "mapped", "hidden")
+UNPROVEN = "receiver_unproven"
+FALLBACKS = ("without --headed", "--xy")
+FIXTURE_CASES = (("gtk4", "overlay"), ("gtk4", "popup"))
+INPUT_SETTLE_S = 0.5
 
 
-def gesture_problems(ctx, env, log: Path, button: str, verb: str, want: list[int]) -> list[str]:
-    apart_from_last_click(log)
-    start = len(events(log))
-    delivered(ctx.product([verb, button], env=env))
-    seen = since(settled(log, lambda all_: presses(since(all_, start), "button") == want), start)
-    found = presses(seen, "button")
-    return [] if found == want else [f"{verb} by ref: the pad button logged {found}, expected {want}{pad_saw(seen)}"]
+def unproven_problems(label: str, envelope) -> list[str]:
+    """A headed ref pointer action on an XWayland window refuses before any event, because the stack
+    names the window, not the X11 surface inside it that takes the point. The message and the
+    suggestion both name the two ways round it: the action without `--headed`, and `--xy`."""
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    problems = []
+    if envelope.ok or error.get("code") != "ACTION_FAILED":
+        problems.append(f"{label}: answered {envelope.raw[:300]}")
+    if details.get("kind") != "receiver_evidence" or details.get("cause") != UNPROVEN:
+        problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {UNPROVEN}")
+    if details.get("physical_delivery_started") is not False:
+        problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"{label}: not reported not_delivered")
+    for field in ("message", "suggestion"):
+        text = error.get(field) or ""
+        missing = [fallback for fallback in FALLBACKS if fallback not in text]
+        if missing and not envelope.ok:
+            problems.append(f"{label}: the {field} does not name {missing}: {text[:200]!r}")
+    return problems
 
 
-def scroll_problems(ctx, env, log: Path, pane: str) -> list[str]:
-    """GDK3 on X11 takes the first wheel notch after the pointer enters as its scroll baseline, so one
-    priming notch by ref sets it and may log nothing. Priming is watched for the whole settle time, so a
-    late priming event fails here and never counts as a measured notch. Every measured notch must then
-    log as one unit."""
-    start = len(events(log))
-    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", "1"], env=env))
-    primed = settled(log, lambda _all: False)
-    seen = since(primed, start)
-    if len(wheel_notches(seen, "scroll")) > 1:
-        return [f"scroll by ref: the priming notch logged {len(wheel_notches(seen, 'scroll'))} wheel events,"
-                f" expected 0 or 1{pad_saw(seen)}"]
-    start = len(primed)
-    delivered(ctx.product(["scroll", pane, "--direction", "down", "--amount", str(SCROLL_NOTCHES)], env=env))
-    want = ["down"] * SCROLL_NOTCHES
-    seen = since(settled(log, lambda all_: len(wheel_notches(since(all_, start), "scroll")) >= SCROLL_NOTCHES),
-                 start)
-    found = wheel_notches(seen, "scroll")
-    return [] if found == want else [f"scroll by ref: the pad scroll pane logged {found}, expected {want}"
-                                     f"{pad_saw(seen)}"]
+def action_label(argv: list[str]) -> str:
+    return " ".join(part for part in argv if not part.startswith("@"))
+
+
+def refused_without_input(ctx, env, instance: dict, label: str, argvs: list[list[str]], reached) -> list[str]:
+    """Each headed ref action refuses as receiver_unproven, the app logs no input, and the compositor's
+    cursor stays where it was. `reached()` counts the input the app has logged."""
+    problems = []
+    for argv in argvs:
+        name = f"{label}: headed {action_label(argv)}"
+        logged, before = reached(), cursor_at(ctx.tier, instance)
+        problems += unproven_problems(name, ctx.product(argv, env=env))
+        if raw.poll(lambda: reached() != logged, INPUT_SETTLE_S):
+            problems.append(f"{name}: the app logged {reached() - logged} input events")
+        after = cursor_at(ctx.tier, instance)
+        if after != before:
+            problems.append(f"{name}: the cursor moved from {before} to {after}")
+    return problems
+
+
+def pad_actions(button: str, pane: str, client: dict) -> list[list[str]]:
+    """Every headed ref pointer action on the pad, both ends of a ref drag included."""
+    return [["click", button], ["double-click", button], ["triple-click", button], ["right-click", button],
+            ["scroll", pane, "--direction", "down", "--amount", "2"],
+            ["drag", "--from", button, "--to", pane],
+            ["drag", "--from-xy", xy(global_point(client, (0.5, 0.9))), "--to", button]]
+
+
+def fixture_actions(target: str, client: dict) -> list[list[str]]:
+    """Every headed ref pointer action a push button takes; it has no Scroll action."""
+    corner = xy(global_point(client, (0.9, 0.95)))
+    return [["click", target], ["double-click", target], ["triple-click", target], ["right-click", target],
+            ["drag", "--from", target, "--to-xy", corner], ["drag", "--from-xy", corner, "--to", target]]
+
+
+def fixture_ref(ctx, env: dict[str, str], pid: int) -> str:
+    """The qualified ref of the fixture's "Probe Target", in its main window."""
+    envelope = ctx.product(["list-windows"], env=env, headed=False)
+    require(envelope.ok and isinstance(envelope.data, list), f"list-windows failed: {envelope.raw[:400]}")
+    windows = [item.get("id") for item in envelope.data if item.get("pid") == pid and item.get("title") == TITLE]
+    require(len(windows) == 1, f"the fixture window is listed {len(windows)} times")
+    return find_ref(ctx, env, windows[0], *TARGET)
+
+
+def pad_input(log: Path) -> int:
+    return len(delivered_input(events(log)))
+
+
+def fixture_refusals(ctx, env, instance: dict) -> list[str]:
+    """The overlay and popup fixtures: the app's own click log must stay empty."""
+    problems = []
+    for toolkit, case in FIXTURE_CASES:
+        with receiver_fixture(ctx.tier, instance, toolkit, case) as (owned, client, log):
+            target = fixture_ref(ctx, env, owned.pid)
+            problems += refused_without_input(ctx, env, instance, f"{toolkit} {case} fixture",
+                                              fixture_actions(target, client),
+                                              lambda: len(clicked(fixture_events(log))))
+            ctx.finding(f"{toolkit} {case} fixture log: {[item.get('ev') for item in fixture_events(log)]}")
+    return problems
 
 
 def preflight_occluder(error: dict) -> dict:
@@ -84,7 +142,8 @@ def preflight_occluder(error: dict) -> dict:
 def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
     """A cover is refused before any pointer event, by whichever check meets it first: the activation
     the cover undoes (Hyprland moves the cursor onto a window cover, which then stays active, and slurp's
-    layer keeps the keyboard), core's hit test, or the receiver proof. Every refusal is not_delivered."""
+    layer keeps the keyboard), core's hit test, or the XWayland receiver refusal. Every refusal is
+    not_delivered."""
     error = envelope.error or {}
     details = error.get("details") or {}
     problems = []
@@ -97,8 +156,9 @@ def receiver_refusal(label: str, envelope, cause: str) -> list[str]:
     elif details.get("activation_sent") is True:
         if details.get("cause") != ACTIVATION_CAUSES.get(cause):
             problems.append(f"{label}: activation refused with {details.get('cause')}, expected {cause}")
-    elif details.get("kind") != "receiver_evidence" or details.get("cause") != cause:
-        problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {cause}")
+    elif details.get("kind") != "receiver_evidence" or details.get("cause") != UNPROVEN:
+        problems.append(f"{label}: refused with {details.get('kind')}/{details.get('cause')}, expected {cause}"
+                        f" or {UNPROVEN}")
     if not occluder and details.get("physical_delivery_started") is not False:
         problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
     if (error.get("disposition") or {}).get("delivery") != "not_delivered":
@@ -205,28 +265,31 @@ def clients_summary(tier, instance: dict) -> list[tuple]:
 
 @implementation("pointer.ref_receiver_evidence")
 def ref_receiver_evidence(ctx: LegContext) -> None:
+    """Every headed ref pointer action on an XWayland window refuses as receiver_unproven before any
+    event: on the bare pad, under a slurp layer and a floating or pinned foot, and on the fixtures whose
+    target sits under an in-window overlay or a same-client popup. The app logs no input, and on the
+    bare pad and the fixtures the cursor stays put. A cover may meet the click first, through the
+    activation it undoes or core's hit test; those refusals are not_delivered too."""
     tier = ctx.tier
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
     ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "receiver", XWAYLAND) as (owned, _, log):
-        button = pad_ref(ctx, env, owned)
+    with pointer_pad(tier, instance, "receiver", XWAYLAND) as (owned, client, log):
+        button, pane = pad_ref(ctx, env, owned), pad_ref(ctx, env, owned, PAD_SCROLL)
         ctx.before("hyprland.clients", clients_summary(tier, instance))
-        problems = [problem for verb, want in GESTURES
-                    for problem in gesture_problems(ctx, env, log, button, verb, want)]
-        problems += scroll_problems(ctx, env, log, pad_ref(ctx, env, owned, PAD_SCROLL))
+        problems = refused_without_input(ctx, env, instance, "pad", pad_actions(button, pane, client),
+                                         lambda: pad_input(log))
         with layer_cover(tier, instance):
             problems += covered_click(ctx, env, log, button, "layer_cover", "slurp layer cover")
-        problems += gesture_problems(ctx, env, log, button, "click", [1])
         for pinned in (False, True):
             label = "pinned cover" if pinned else "floating cover"
             with window_cover(tier, instance, lua, owned.pid, pinned):
                 problems += covered_click(ctx, env, log, button, "window_cover", label)
-            problems += gesture_problems(ctx, env, log, button, "click", [1])
         ctx.after("hyprland.clients", clients_summary(tier, instance))
         ctx.after("applog.pad", len(events(log)))
-        require(not problems, "; ".join(problems))
         ctx.restored("hyprland.clients", clients_summary(tier, instance))
+    problems += fixture_refusals(ctx, env, instance)
+    require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
 
 
@@ -281,7 +344,8 @@ def cover_or_missing_evidence_refused(ctx: LegContext) -> None:
 
 
 def ref_gesture(ctx: LegContext, verb: str) -> None:
-    """The Hyprland side of the shared double-click, triple-click and scroll legs."""
+    """The Hyprland side of the shared double-click, triple-click and scroll legs. Headless, the
+    product refuses the physical gesture; headed, the XWayland pad refuses it as receiver_unproven."""
     tier = ctx.tier
     instance, _ = nested(tier)
     env = instance_env(tier, instance)
@@ -293,10 +357,8 @@ def ref_gesture(ctx: LegContext, verb: str) -> None:
             problems = refusal_problems(verb, ctx.product(argv, env=env))
             if settled(log, lambda found: bool(found), 0.5):
                 problems.append(f"the refused {verb} reached the pad")
-        elif verb == "scroll":
-            problems = scroll_problems(ctx, env, log, button)
         else:
-            problems = gesture_problems(ctx, env, log, button, verb, dict(GESTURES)[verb])
+            problems = refused_without_input(ctx, env, instance, "pad", [argv], lambda: pad_input(log))
         ctx.after("applog.pad", len(events(log)))
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
