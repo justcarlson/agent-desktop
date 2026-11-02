@@ -37,6 +37,7 @@ def unsupported(error):
     return ((error.get("code") == "ACTION_NOT_SUPPORTED" and
              (details.get("kind") in ("selection_index_unproven", "native_popup_requires_input") or
               details.get("semantic_verb") == "absent")) or
+            (error.get("code") == "AMBIGUOUS_TARGET" and details.get("kind") == "identity_not_unique") or
             (error.get("code") == "POLICY_DENIED" and
              (details.get("kind") == "pointer_required" or
               any(check.get("check") == "supported_action" and check.get("status") == "fail"
