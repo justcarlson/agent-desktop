@@ -7,7 +7,11 @@ compositor's active window, the toplevel's activated state, a workspace in
 view and the frame's ACTIVE state. Each leg reads those witnesses itself,
 `j/activewindow` from the compositor and ACTIVE from the raw accessibility
 tree, and reads delivery from the app's own log, never from the command's
-`ok`. Focus, cursor and workspaces go back to the bystander.
+`ok`. A key refused at the proof reports `not_delivered`, because no key
+started, and names the activation it sent and any cursor it moved. A headed
+click on a native Wayland window refuses before any activation, so the click
+half of the proof runs on the same app under XWayland. Focus, cursor and
+workspaces go back to the bystander.
 """
 
 from __future__ import annotations
@@ -27,13 +31,15 @@ from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
 from scenarios.hyprland_desktop import boundary_problems, keeps_focus
 from scenarios.hyprland_focus_controls import active, cursor, move, restore_desktop, shown
 from scenarios.hyprland_keys_common import entry_ref, entry_text, give_focus, key_log, presses, records, toplevel
+from scenarios.hyprland_pointer_pad import XWAYLAND, backend_problem, x_display
 
 APP_SCRIPT = Path(__file__).resolve().parents[1] / "apps" / "inactive_frame_log.py"
 APP_CLASS = "ad-inactive-frame"
 APP_NAMES = ("inactive frame", APP_CLASS)
 HIDDEN = "special:ad-e2e-focus-hidden"
 SETTLE_S = 10.0
-DEADLINE_MS = 1500
+NATIVE = "wayland"
+DEADLINE_MS = 5000
 DEADLINE_SLACK_MS = 1000
 UNFOCUSED = ("STALE_REF",)
 UNFOCUSED_CAUSE = "exact_window_focus_unconfirmed"
@@ -74,8 +80,36 @@ def activation_report_problems(label: str, envelope, cause: str) -> list[str]:
         problems.append(f"{label}: activation_sent is {details.get('activation_sent')!r}, not true")
     if details.get("physical_delivery_started") is not False:
         problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
-    if (error.get("disposition") or {}).get("delivery") != "delivered_unverified":
-        problems.append(f"{label}: disposition {error.get('disposition')} hides the activation it sent")
+    if "the activation was sent" not in (error.get("message") or ""):
+        problems.append(f"{label}: the message {error.get('message')!r} does not say the activation was sent")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"{label}: disposition {error.get('disposition')} claims the input may have landed")
+    return problems
+
+
+def side_effect_problems(label: str, envelope, before: dict, after: dict) -> list[str]:
+    """A cursor the activation moved shows in the report's side effects."""
+    if (before.get("x"), before.get("y")) == (after.get("x"), after.get("y")):
+        return []
+    effects = (((envelope.error or {}).get("details") or {}).get("side_effects")) or []
+    if any(item.get("kind") == "cursor_moved" for item in effects):
+        return []
+    return [f"{label}: the cursor moved from {before} to {after} and the report names no cursor_moved"]
+
+
+def unactivated_problems(label: str, envelope, cause: str) -> list[str]:
+    """A click refused before the focus proof names its cause and sends neither activation nor input."""
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    problems = []
+    if envelope.ok or error.get("code") != "ACTION_FAILED" or details.get("cause") != cause:
+        problems.append(f"{label}: expected ACTION_FAILED with cause {cause}, got {envelope.raw[:400]}")
+    if details.get("activation_sent"):
+        problems.append(f"{label}: an activation was sent before the refusal")
+    if details.get("physical_delivery_started") is not False:
+        problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"{label}: disposition {error.get('disposition')}")
     return problems
 
 
@@ -103,32 +137,48 @@ def _witnesses(tier, app, target: dict, label: str) -> list[str]:
     return agreement_problems(label, target, active(tier), _in_view(tier, workspace), frame_active(tier, app))
 
 
-def _owner(tier):
-    found = [app for app in apps._owners(tier, names=APP_NAMES) if len(app.windows) == 1]
+def _owner(tier, names: tuple[str, ...]):
+    found = [app for app in apps._owners(tier, names=names) if len(app.windows) == 1]
     return found[0] if len(found) == 1 else None
 
 
 @contextlib.contextmanager
-def inactive_frame(tier, flag: Path):
-    """The inactive frame app, registered to the run. Yields the app and its log path."""
-    require(not apps._owners(tier, names=APP_NAMES), "an inactive frame app from an earlier leg still runs")
+def spawned(tier, argv: list[str], names: tuple[str, ...], executable: str, extra: dict[str, str],
+            toplevels: tuple[str, int] | None = None):
+    """A one-window Python app run by a private interpreter named `executable`, registered to the run."""
+    require(not apps._owners(tier, names=names), f"{executable} from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
+    env.update(extra)
     python = shutil.which("python3", path=env.get("PATH"))
     require(python, "no python3 on the session PATH")
-    interpreter = private_interpreter(tier.runtime_dir, Path(python).resolve(), APP_CLASS)
-    log = tier.runtime_dir / "inactive-frame.jsonl"
-    log.write_text("")
-    attached_session.spawn(tier, [str(interpreter), str(APP_SCRIPT), str(log), str(flag)], env,
-                           tier.runtime_dir / "inactive-frame.log", toplevels=(APP_CLASS, 1))
+    interpreter = private_interpreter(tier.runtime_dir, Path(python).resolve(), executable)
+    attached_session.spawn(tier, [str(interpreter), *argv], env, tier.runtime_dir / f"{executable}.log",
+                           toplevels=toplevels)
     with raw.bounded_until(time.monotonic() + SETTLE_S):
-        owner = raw.poll(lambda: _owner(tier), SETTLE_S)
-    require(owner, "the inactive frame app never registered its window")
+        owner = raw.poll(lambda: _owner(tier, names), SETTLE_S)
+    require(owner, f"{executable} never registered its window")
     owned = _register(tier, owner)
     try:
-        yield owned, log
+        yield owned
     finally:
         _release(tier, owned)
+
+
+@contextlib.contextmanager
+def inactive_frame(tier, flag: Path, backend: str = NATIVE):
+    """The inactive frame app on native Wayland or on XWayland. Yields the app and its log path."""
+    extra = {}
+    if backend == XWAYLAND:
+        display = raw.poll(lambda: x_display(main_instance(tier)), SETTLE_S)
+        require(display, "no XWayland display serves the attached compositor")
+        extra["DISPLAY"] = display
+    log = tier.runtime_dir / f"inactive-frame-{backend}.jsonl"
+    log.write_text("")
+    toplevels = (APP_CLASS, 1) if backend == NATIVE else None
+    with spawned(tier, [str(APP_SCRIPT), str(log), str(flag), backend], APP_NAMES, APP_CLASS, extra,
+                 toplevels) as owned:
+        yield owned, log
 
 
 @contextlib.contextmanager
@@ -197,15 +247,15 @@ def headless_existing_focus_or_refusal(ctx: LegContext) -> None:
         require(not problems, "; ".join(problems))
 
 
-def _withheld_press(ctx: LegContext, app, log, target: dict, timeout_ms: int | None) -> list[str]:
-    """A headed press on a window whose frame never reports ACTIVE sends the activation and no key."""
-    tier = ctx.tier
-    label = "headed press" + (f" --timeout-ms {timeout_ms}" if timeout_ms else "")
-    argv = ["press", "x", "--window-id", app.windows[0]] + (["--timeout-ms", str(timeout_ms)] if timeout_ms else [])
-    envelope = ctx.product(argv)
+def _withheld_press(ctx: LegContext, app, log, target: dict) -> list[str]:
+    """A headed press on a window whose frame never reports ACTIVE sends the activation and no key,
+    and answers within the press deadline."""
+    tier, label = ctx.tier, "headed press"
+    before = cursor(tier)
+    envelope = ctx.product(["press", "x", "--window-id", app.windows[0]])
     problems = activation_report_problems(label, envelope, "frame_not_active")
-    if timeout_ms:
-        problems += deadline_problems(label, envelope, timeout_ms)
+    problems += deadline_problems(label, envelope, DEADLINE_MS)
+    problems += side_effect_problems(label, envelope, before, cursor(tier))
     if active(tier).get("address") != target["address"]:
         problems.append(f"{label}: j/activewindow names {active(tier).get('address')}, so no activation shows")
     if frame_active(tier, app):
@@ -219,26 +269,30 @@ def _buttons(log) -> list[dict]:
     return [item for item in records(log) if item.get("event") == "button"]
 
 
-@implementation("focus.contradictory_or_missing_proof_refused")
-def contradictory_or_missing_proof_refused(ctx: LegContext) -> None:
-    tier = ctx.tier
-    flag = tier.runtime_dir / "inactive-frame.withhold"
-    flag.unlink(missing_ok=True)
-    with _bystander_desktop(ctx) as (read, holder, point), inactive_frame(tier, flag) as (app, log):
+def _native_click(ctx: LegContext, app, log, ref: str, label: str) -> list[str]:
+    """A headed ref click on the native Wayland window refuses before any activation and logs no button."""
+    holder = active(ctx.tier).get("address")
+    problems = unactivated_problems(label, ctx.product(["click", ref]), "native_wayland_client")
+    if active(ctx.tier).get("address") != holder:
+        problems.append(f"{label}: j/activewindow moved from {holder} to {active(ctx.tier).get('address')}")
+    if _buttons(log):
+        problems.append(f"{label}: the app logged buttons {_buttons(log)}")
+    return problems
+
+
+def _native_keys(ctx: LegContext, flag: Path, desk) -> list[str]:
+    """Withheld ACTIVE refuses the key; agreeing witnesses let the same key through."""
+    tier, (read, holder, point) = ctx.tier, desk
+    with inactive_frame(tier, flag) as (app, log):
         target = toplevel(tier, app)
         move(tier, target["address"], read()["workspace"])
         restore_desktop(tier, holder, point)
         ref = entry_ref(ctx, app)
         flag.touch()
         try:
-            problems = _withheld_press(ctx, app, log, target, None)
+            problems = _withheld_press(ctx, app, log, target)
             restore_desktop(tier, holder, point)
-            problems += _withheld_press(ctx, app, log, target, DEADLINE_MS)
-            restore_desktop(tier, holder, point)
-            click = ctx.product(["click", ref])
-            problems += activation_report_problems("headed ref click", click, "frame_not_active")
-            if _buttons(log):
-                problems.append(f"headed ref click: the app logged buttons {_buttons(log)}")
+            problems += _native_click(ctx, app, log, ref, "headed ref click")
         finally:
             flag.unlink(missing_ok=True)
         restore_desktop(tier, holder, point)
@@ -248,9 +302,47 @@ def contradictory_or_missing_proof_refused(ctx: LegContext) -> None:
         if not raw.poll(lambda: entry_text(tier, app) == "x", 4.0):
             problems.append(f"with agreeing proof the entry reads {entry_text(tier, app)!r}, not 'x'")
         problems += _witnesses(tier, app, target, "agreeing proof")
+        restore_desktop(tier, holder, point)
+        problems += _native_click(ctx, app, log, ref, "headed ref click with agreeing proof")
+    return problems
+
+
+def _xwayland_clicks(ctx: LegContext, flag: Path, desk) -> list[str]:
+    """Withheld ACTIVE refuses the click after the activation; agreeing witnesses let it through."""
+    tier, (read, holder, point) = ctx.tier, desk
+    with inactive_frame(tier, flag, XWAYLAND) as (app, log):
+        target = toplevel(tier, app)
+        problems = [f"xwayland: {problem}" for problem in [backend_problem(target, XWAYLAND)] if problem]
+        move(tier, target["address"], read()["workspace"])
+        restore_desktop(tier, holder, point)
+        ref = entry_ref(ctx, app)
+        flag.touch()
+        try:
+            label, before = "xwayland headed ref click", cursor(tier)
+            click = ctx.product(["click", ref])
+            problems += activation_report_problems(label, click, "frame_not_active")
+            problems += side_effect_problems(label, click, before, cursor(tier))
+            if frame_active(tier, app):
+                problems.append(f"{label}: the raw frame reports ACTIVE, so the witnesses agree")
+            if _buttons(log):
+                problems.append(f"{label}: the app logged buttons {_buttons(log)}")
+        finally:
+            flag.unlink(missing_ok=True)
+        restore_desktop(tier, holder, point)
         clicked = ctx.product(["click", ref])
-        problems += boundary_problems("headed ref click with agreeing proof", clicked, ("ACTION_FAILED",),
-                                      physical=True, cause="native_wayland_client")
-        if _buttons(log):
-            problems.append(f"headed ref click with agreeing proof: the app logged buttons {_buttons(log)}")
+        if not clicked.ok:
+            problems.append(f"xwayland headed ref click with agreeing proof: {clicked.raw[:400]}")
+        if not raw.poll(lambda: _buttons(log), 4.0):
+            problems.append("xwayland headed ref click with agreeing proof: the app logged no button")
+        problems += _witnesses(tier, app, target, "xwayland agreeing proof")
+    return problems
+
+
+@implementation("focus.contradictory_or_missing_proof_refused")
+def contradictory_or_missing_proof_refused(ctx: LegContext) -> None:
+    flag = ctx.tier.runtime_dir / "inactive-frame.withhold"
+    flag.unlink(missing_ok=True)
+    with _bystander_desktop(ctx) as desk:
+        problems = _native_keys(ctx, flag, desk)
+        problems += _xwayland_clicks(ctx, flag, desk)
         require(not problems, "; ".join(problems))
