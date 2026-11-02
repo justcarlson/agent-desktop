@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import contextlib
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -55,6 +58,13 @@ class FocusProofRegistryTests(unittest.TestCase):
                 self.assertTrue({"hyprland", "atspi", "applog"} <= set(leg.oracles))
                 if disposition == "asserted-refusal":
                     self.assertTrue(leg.reason)
+
+    def test_the_proof_row_names_the_xwayland_receiver_refusal_and_the_xwayland_press(self):
+        leg = legs.leg_by_id("focus.contradictory_or_missing_proof_refused")
+        self.assertIn("receiver_unproven", leg.requirement)
+        self.assertIn("receiver_unproven", leg.reason)
+        self.assertIn("press on its XWayland window", leg.requirement)
+        self.assertNotIn("logs a button", leg.requirement)
 
     def test_the_reused_rows_add_hyprland_and_keep_their_x11_tiers_and_modes(self):
         for leg_id, modes in REUSED.items():
@@ -148,6 +158,86 @@ class ContradictoryProofTests(unittest.TestCase):
         self.assertIn("os.path.exists(flag)", script)
         self.assertIn('os.environ["GDK_BACKEND"] = sys.argv[3]', script)
         self.assertIn(self.proof.APP_CLASS, self.proof.APP_NAMES)
+
+
+UNPROVEN = {"code": "ACTION_FAILED",
+            "message": "The target is an XWayland window, and Hyprland cannot prove which of its surfaces takes the pointer",
+            "details": {"kind": "receiver_evidence", "check": "hyprland_stack", "cause": "receiver_unproven",
+                        "physical_delivery_started": False},
+            "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+
+
+class XWaylandProofTests(unittest.TestCase):
+    """The XWayland half of the proof leg, driven against a product that answers as the bound Hyprland
+    route does: every headed ref click refuses as receiver_unproven before any activation, and press
+    --window-id runs the focus proof."""
+
+    def setUp(self):
+        from scenarios import hyprland_focus_proof
+
+        self.proof = hyprland_focus_proof
+        self.runtime = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.runtime, True)
+        self.flag = self.runtime / "inactive-frame.withhold"
+        self.holder, self.target = {"address": "0xb", "pid": 2}, {"address": "0xa", "pid": 7, "workspace": {"name": "1"}}
+        self.state = {"active": self.holder, "text": "", "keys": [], "calls": []}
+
+    def product(self, argv):
+        self.state["calls"].append((tuple(argv), self.flag.exists()))
+        if argv[0] == "click":
+            return envelope(False, error=UNPROVEN)
+        self.state["active"] = self.target
+        if self.flag.exists():
+            return envelope(False, error=unverified().error, elapsed_ms=4758.0)
+        self.state["text"] += argv[1]
+        self.state["keys"].append({"event": "press", "key": argv[1]})
+        return envelope(True, data={"disposition": {"delivery": "delivered_unverified"}})
+
+    def run_leg(self):
+        proof, app = self.proof, SimpleNamespace(windows=["w1"], name="inactive frame")
+
+        @contextlib.contextmanager
+        def frame(tier, flag, backend=proof.NATIVE):
+            self.assertEqual(backend, proof.XWAYLAND)
+            yield app, self.runtime / "log.jsonl"
+
+        @contextlib.contextmanager
+        def desk(ctx):
+            yield (lambda: {"workspace": "1"}), self.holder, {"x": 640, "y": 400}
+
+        def restore(*_):
+            self.state["active"] = self.holder
+
+        agreeing = lambda tier, app: self.state["active"] is self.target and not self.flag.exists()
+        ctx = SimpleNamespace(tier=SimpleNamespace(runtime_dir=self.runtime), product=self.product)
+        patches = {"_bystander_desktop": desk, "_native_keys": lambda *a: [], "inactive_frame": frame,
+                   "toplevel": lambda tier, app: self.target, "backend_problem": lambda *a: None,
+                   "move": lambda *a: None, "restore_desktop": restore, "entry_ref": lambda ctx, app: "@s1:e1",
+                   "cursor": lambda tier: {"x": 640, "y": 400}, "active": lambda tier: self.state["active"],
+                   "frame_active": agreeing, "_witnesses": lambda *a: [],
+                   "entry_text": lambda tier, app: self.state["text"], "presses": lambda log: self.state["keys"],
+                   "records": lambda log: list(self.state["keys"])}
+        with contextlib.ExitStack() as stack:
+            for name, value in patches.items():
+                stack.enter_context(mock.patch.object(proof, name, value))
+            stack.enter_context(mock.patch.object(proof.raw, "poll", lambda probe, timeout: probe()))
+            proof.contradictory_or_missing_proof_refused(ctx)
+
+    def test_the_leg_passes_when_every_xwayland_ref_click_refuses_as_receiver_unproven(self):
+        self.run_leg()
+
+    def test_the_leg_tests_the_xwayland_proof_with_press_window_id_withheld_and_agreeing(self):
+        self.run_leg()
+        presses = [withheld for argv, withheld in self.state["calls"] if argv == ("press", "x", "--window-id", "w1")]
+        clicks = [withheld for argv, withheld in self.state["calls"] if argv[0] == "click"]
+        self.assertEqual((presses, clicks), ([True, False], [True, False]))
+
+    def test_a_receiver_refusal_that_activated_moved_or_clicked_fails(self):
+        refused = envelope(False, error=UNPROVEN)
+        self.assertEqual(self.proof.unactivated_problems("c", refused, "receiver_unproven"), [])
+        for case in (unverified(cause="receiver_unproven"), unverified(), envelope(True, data={})):
+            with self.subTest(case=case.error):
+                self.assertNotEqual(self.proof.unactivated_problems("c", case, "receiver_unproven"), [])
 
 
 class StoppedCloseTests(unittest.TestCase):
