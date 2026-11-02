@@ -178,3 +178,17 @@ fn only_a_floating_maximize_or_a_recorded_restore_reads_the_origins() {
     assert!(!needs_origins(&WindowOp::Restore, &unrecorded));
     assert!(!needs_origins(&WindowOp::Restore, &floating));
 }
+
+#[test]
+fn a_restore_of_a_floating_window_that_kept_one_record_reads_the_origins() {
+    let kept = window((40, 60), (630, 755), &[RECORD]);
+    let tiled = ClientState {
+        floating: false,
+        ..kept.clone()
+    };
+    let unreadable = window((40, 60), (630, 755), &["agent-desktop-restore:x"]);
+
+    assert!(needs_origins(&WindowOp::Restore, &kept));
+    assert!(!needs_origins(&WindowOp::Restore, &tiled));
+    assert!(!needs_origins(&WindowOp::Restore, &unreadable));
+}
