@@ -4,6 +4,7 @@
 //! the compositor instead. Every answer is `None` when no Hyprland is bound,
 //! and for shell elements, which keep their own path.
 
+use agent_desktop_core::tree::state::{HIDDEN, OFFSCREEN, has_state};
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, HitTestResult, LiveElement, NativeHandle, Point, Rect,
     RefEntry,
@@ -68,10 +69,28 @@ pub(crate) fn bound_bounds(
 }
 
 /// `live` with the bound instance's answer for its bounds: the rectangle the
-/// compositor places, or none when it cannot place the element.
+/// compositor places, or none when it cannot place the element. A toolkit
+/// rectangle on a popup surface or an unbound toplevel is no pointer
+/// position, but a laid-out node the toolkit does not hide or report
+/// offscreen is still shown, so a semantic action keeps that evidence while
+/// every pointer path still finds no bounds.
 pub(crate) fn with_bound_bounds(mut live: LiveElement, placed: Option<Rect>) -> LiveElement {
+    if placed.is_none() && laid_out_and_shown(&live) {
+        live.state.offscreen = Some(false);
+    }
     live.bounds = placed;
     live
+}
+
+fn laid_out_and_shown(live: &LiveElement) -> bool {
+    let state = &live.state;
+    state.offscreen.is_none()
+        && state.hidden != Some(true)
+        && !has_state(&state.states, HIDDEN)
+        && !has_state(&state.states, OFFSCREEN)
+        && live
+            .bounds
+            .is_some_and(|toolkit| toolkit.width > 0.0 && toolkit.height > 0.0)
 }
 
 /// Whether `point` reaches the element, read from the compositor's stack
