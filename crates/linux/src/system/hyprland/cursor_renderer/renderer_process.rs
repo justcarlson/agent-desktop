@@ -234,12 +234,16 @@ impl RendererProcess {
             return Flow::Continue;
         }
         if watch.is_suppressed() {
-            step_unseen(&mut self.cursors).iter().for_each(arrived);
+            step_unseen(&mut self.cursors)
+                .into_iter()
+                .for_each(|travel| arrived(&self.paths.dir, travel));
             return Flow::Continue;
         }
         match step_travels(&mut self.client, &mut self.cursors) {
-            Ok(streams) => {
-                streams.iter().for_each(arrived);
+            Ok(travels) => {
+                travels
+                    .into_iter()
+                    .for_each(|travel| arrived(&self.paths.dir, travel));
                 Flow::Continue
             }
             Err(_) => {
