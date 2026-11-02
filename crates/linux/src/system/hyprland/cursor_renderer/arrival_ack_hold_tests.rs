@@ -15,7 +15,7 @@ use super::{
     parse_hold,
 };
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
-use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
+use crate::system::hyprland::cursor_renderer::fake_layer_compositor_test_support::FakeLayerCompositor;
 use crate::system::hyprland::cursor_renderer::registry_fixture::RegistryFixture;
 use crate::system::hyprland::cursor_renderer::renderer_process::RendererProcess;
 use crate::system::hyprland::cursor_renderer::renderer_request::RendererRequest;
