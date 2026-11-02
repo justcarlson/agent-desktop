@@ -527,5 +527,92 @@ class HeadedClickTests(unittest.TestCase):
         self.assertEqual(len(oracle.ref_refusal_problems(envelope(False, self.REFUSAL, 2))), 1)
 
 
+class QueuedDeliveryTests(unittest.TestCase):
+    """The lock timeout leg's queued deliveries meet the serialized leg's timing and contention checks."""
+
+    CONTENDED = {"details": {"auto_wait": {"lease_contention_count": 4, "lease_hold_ms": 30}}}
+
+    def sampler(self, pid_of, base: float):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            events=lambda: {pid_of(): {"enqueue": base + 1.0, "acquire": base + 50.0, "release": base + 50.2}},
+            holds=lambda _names: [Hold("runner", base, base + 50.0)],
+            watch=lambda *_args: None, state=lambda: (frozenset(), frozenset({pid_of()})))
+
+    def waiter_problems(self, lag_s: float, data: dict | None) -> list[str]:
+        import time
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_faults as faults
+
+        base = time.monotonic()
+        waiter = SimpleNamespace(name="A", pid=4242, exit_code=0, envelope=envelope(True, None, 0, data),
+                                 kill=lambda: None, finish=lambda: waiter.envelope)
+        with patch.object(faults.agents, "spawn", return_value=waiter), \
+                patch.object(faults.agents, "queued"), patch.object(faults.agents, "turn"), \
+                patch.object(faults, "inherited_problems", return_value=[]), \
+                patch.object(faults, "_contender_problems", return_value=[]), \
+                patch.object(faults, "effects", return_value=(base + 50.2 + lag_s,)):
+            return faults.lease_phase_problems(None, None, self.sampler(lambda: 4242, base), {}, {"A": "@s1:e1"},
+                                               {}, "run-1", {})
+
+    def test_a_timely_contended_waiter_click_passes(self):
+        self.assertEqual(self.waiter_problems(0.1, self.CONTENDED), [])
+
+    def test_a_waiter_click_past_the_lag_bound_fails(self):
+        found = self.waiter_problems(2.0, self.CONTENDED)
+        self.assertTrue(any("past the 1000 ms bound" in item for item in found), found)
+
+    def test_a_waiter_envelope_with_no_contention_count_fails(self):
+        found = self.waiter_problems(0.1, {"details": {}})
+        self.assertTrue(any("no lease contention count" in item for item in found), found)
+
+    def holder_problems(self, lag_s: float, data: dict) -> list[str]:
+        import json
+        import subprocess
+        import time
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_faults as faults
+
+        timeout = {"version": "2.5", "ok": False, "command": "execute_by_ref",
+                   "error": {"code": "TIMEOUT", "details": {"kind": "interaction_process_lock_timeout",
+                                                           "contention_count": 3},
+                             "disposition": {"delivery": "not_delivered", "retry": "safe"}}}
+        delivered = {"version": "2.5", "ok": True, "command": "execute_by_ref", "data": data}
+        lines = [json.dumps({"thread": "contender", "code": 1, "envelope": json.dumps(timeout)}),
+                 json.dumps({"thread": "holder", "code": 0, "envelope": json.dumps(delivered)})]
+        script = f"import sys; sys.stdin.readline(); print({lines[0]!r}, flush=True); print({lines[1]!r})"
+        started, popen, base = [], subprocess.Popen, time.monotonic()
+
+        def child(*_args, **kwargs):
+            started.append(popen([sys.executable, "-I", "-c", script], **kwargs))
+            return started[-1]
+
+        given = []
+        gate = SimpleNamespace(give=lambda: given.append(True), take=lambda: None)
+        landed = lambda *_args: (base + 50.2 + lag_s,) if given else ()
+        with patch.object(faults, "ffi_library", return_value=Path("/private/lib.so")), \
+                patch.object(faults.agents, "agent_env", return_value={}), \
+                patch.object(faults.subprocess, "Popen", side_effect=child), \
+                patch.object(faults, "effects", side_effect=landed):
+            return faults.same_process_problems(SimpleNamespace(env={}), gate,
+                                                self.sampler(lambda: started[0].pid, base), {}, "@s1:e1", {})
+
+    def test_a_timely_contended_c_abi_holder_click_passes(self):
+        self.assertEqual(self.holder_problems(0.1, self.CONTENDED), [])
+
+    def test_a_c_abi_holder_click_past_the_lag_bound_fails(self):
+        found = self.holder_problems(2.0, self.CONTENDED)
+        self.assertTrue(any("past the 1000 ms bound" in item for item in found), found)
+
+    def test_a_c_abi_holder_envelope_with_no_contention_count_fails(self):
+        found = self.holder_problems(0.1, {"details": {}})
+        self.assertTrue(any("no lease contention count" in item for item in found), found)
+
+
 if __name__ == "__main__":
     unittest.main()
