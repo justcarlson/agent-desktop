@@ -142,11 +142,15 @@ class OperationVerdictTests(unittest.TestCase):
 
 
 class TwinBoundaryTests(unittest.TestCase):
-    def test_a_bound_twin_on_a_special_workspace_is_refused_for_its_workspace_name(self):
+    def test_a_bound_twin_on_another_owners_special_workspace_is_refused_as_foreign(self):
         twins = SimpleNamespace(windows=["w-a", "w-b"])
-        ctx = FakeContext(refused("workspace_name_unsupported"))
+        ctx = FakeContext(refused("foreign_special_workspace"))
         self.assertEqual(identity._bound(ctx, twins), [])
         self.assertEqual([argv[0] for argv in ctx.argv], ["minimize", "minimize"])
+
+    def test_a_bound_twin_refused_for_its_workspace_name_fails(self):
+        twins = SimpleNamespace(windows=["w-a"])
+        self.assertNotEqual(identity._bound(FakeContext(refused("workspace_name_unsupported")), twins), [])
 
     def test_a_bound_twin_that_reaches_the_old_wayland_boundary_fails(self):
         twins = SimpleNamespace(windows=["w-a"])
