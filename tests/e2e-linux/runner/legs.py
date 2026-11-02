@@ -128,7 +128,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('zero_bounds.files_container_raw_only', 'A zero-axis Files container gets no ref and is covered as raw geometry', 'Files', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('zero_bounds.settings_container_raw_only', 'A zero-axis Settings container gets no ref and is covered as raw geometry', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('zero_bounds.hidden_menu_items_not_visible', 'Hidden menu bar items read as not visible', 'Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
-    Leg('duplicates.two_processes_distinct_window_ids', 'Two Calculator processes have distinct window ids that each snapshot', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
+    Leg('duplicates.two_processes_distinct_window_ids', 'Two Calculator processes have distinct window ids that each snapshot', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'hyprland'), 'pass', ''),
     Leg('duplicates.main_menu_nodes_separate', 'Main Menu resolves its menubutton and switch as separate nodes', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('toolkit_qt.refs_and_completeness', 'The first snapshot of the Qt window is complete with refs', 'Qt window', ('x11-openbox', 'x11-mutter'), ('headless',), ('applog',), 'pass', ''),
     Leg('toolkit_qt.headless_click_logged_once', 'A headless click logs exactly one activation', 'Qt window', ('x11-openbox',), ('headless',), ('applog',), 'pass', ''),
@@ -171,9 +171,9 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('menus.wait_menu_already_open', 'A menu predicate reads the already-open state at once', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('menus.preferences_find_ref', 'A menu find ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', ('x11-mutter',), HEADLESS, ('atspi', 'x11'), 'pass'),
     Leg('menus.hidden_bar_timeout_message', 'A hidden menu bar times out with the landed message', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
-    Leg('identity.restart_old_id_window_not_found', 'After a restart the old window id answers WINDOW_NOT_FOUND', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
-    Leg('identity.restart_new_id_resolves', 'After a restart the new window id resolves', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
-    Leg('identity.id_survives_unrelated_launch', 'A window id survives the launch of an unrelated app', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
+    Leg('identity.restart_old_id_window_not_found', 'After a restart the old window id answers WINDOW_NOT_FOUND', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'proc'), 'pass', ''),
+    Leg('identity.restart_new_id_resolves', 'After a restart the new window id resolves', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'proc'), 'pass', ''),
+    Leg('identity.id_survives_unrelated_launch', 'A window id survives the launch of an unrelated app', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('surfaces.batch_seed_opener_about', 'A pre-action batch baseline observes About appearing without a title filter', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('surfaces.baseline_after_opener_fails', 'A baseline taken after About opens times out inside a successful batch envelope', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('launch.launch_calculator_attributed', 'launch starts Calculator and the registry diff attributes it', 'Calculator, Text Editor, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('proc', 'atspi'), 'pass', ''),
@@ -246,7 +246,7 @@ REGISTRY += tuple(
     Leg(f"ref_contract.zoo_{toolkit}{suffix}",
         (f"Every snapshot ref of the {label} zoo lands or is marked and refused"
          if not suffix else f"The {label} zoo exposes and operates its window surfaces"),
-        f"Zoo {label}", ALL_TIERS, HEADLESS, ("atspi", "applog"), "pass")
+        f"Zoo {label}", ALL_TIERS + HYPRLAND_ONLY, HEADLESS, ("atspi", "applog"), "pass")
     for toolkit, label in (("gtk3", "GTK3"), ("gtk4", "GTK4"), ("qt", "Qt"))
     for suffix in ("", "_windows")
 )
