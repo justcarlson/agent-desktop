@@ -13,15 +13,18 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import apps
+from runner import apps, attached_session
 from runner.helper import require
 from runner.product import LEASE_FD_ENV
+from runner.readiness import wait_ready
 from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
+from scenarios.hyprland_close import _register, _release
 from scenarios.hyprland_common import bystander, desktop, main_instance
 from scenarios.hyprland_cursor import ended
 from scenarios.hyprland_cursor_agents import started_multi
@@ -31,6 +34,7 @@ from scenarios.hyprland_keys_common import keyboards, toplevel
 BUTTON, ENTRY = "zoo-button", "zoo-entry"
 ACTIVATE, CHANGED = "activate", "changed"
 ZOOS = {"A": "Zoo GTK3", "B": "Zoo GTK4", "C": "Zoo GTK3", "D": "Zoo Qt"}
+LAUNCH_S, RESPONSIVE_S = 20.0, 3.0
 
 
 @dataclass
@@ -43,10 +47,53 @@ class Zoo:
         return agents.app_events(self.log, widget, event)
 
 
+def _zoo_command(app: str, env: dict[str, str]) -> list[str]:
+    script = Path(apps.__file__).resolve().parents[1] / "apps" / f"{apps.ZOOS[app]}.py"
+    if app == "Zoo Qt":
+        env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", QT_QPA_PLATFORM="xcb")
+        return [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), str(script)]
+    env["GTK_USE_PORTAL"] = "0"
+    return ["python3", str(script)]
+
+
+def _new_owner(tier, names, before: set) -> apps.OwnedApp | None:
+    try:
+        found = [item for item in apps._owners(tier, names=names)
+                 if item.windows and (item.pid, item.start_time) not in before]
+    except TimeoutError:
+        return None
+    require(len(found) <= 1, f"one launch gave several owners: {found}")
+    return found[0] if found else None
+
+
+def _tail(path: Path) -> str:
+    return path.read_text(errors="replace")[-600:] if path.exists() else "no output"
+
+
 def _launch(tier, agent: str) -> Zoo:
+    """The agent's zoo, started through the compositor with its own output file and registered to the run."""
+    app = ZOOS[agent]
+    names = apps.ALIASES[app]
     log = tier.runtime_dir / f"parallel-{agent.lower()}.jsonl"
+    out = tier.runtime_dir / f"parallel-{agent.lower()}.out"
     log.unlink(missing_ok=True)
-    return Zoo(agent, apps.launch(tier, ZOOS[agent], (str(log),)), log)
+    out.unlink(missing_ok=True)
+    with raw.bounded_until(time.monotonic() + LAUNCH_S):
+        before = {(item.pid, item.start_time) for item in apps._owners(tier, names=names)}
+    env = dict(tier.env)
+    env.pop("AT_SPI_BUS_ADDRESS", None)
+    attached_session.spawn(tier, [*_zoo_command(app, env), str(log)], env, out)
+    deadline = time.monotonic() + LAUNCH_S
+    with raw.bounded_until(deadline + RESPONSIVE_S):
+        owner = raw.poll(lambda: _new_owner(tier, names, before), LAUNCH_S)
+    require(owner, f"{app} for agent {agent} registered no window in {LAUNCH_S:.0f} s; output: {_tail(out)}")
+    owned = _register(tier, owner)
+    try:
+        wait_ready(tier, owned)
+    except Exception:
+        _release(tier, owned)
+        raise
+    return Zoo(agent, owned, log)
 
 
 @contextlib.contextmanager
@@ -59,7 +106,7 @@ def zoos(tier, names: str):
         yield launched
     finally:
         for zoo in launched.values():
-            apps.stop(zoo.app)
+            _release(tier, zoo.app)
 
 
 def lease_state() -> str:
