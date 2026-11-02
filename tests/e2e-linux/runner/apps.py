@@ -27,6 +27,11 @@ COMMANDS = {
     "Calculator": "gnome-calculator", "Files": "nautilus", "Terminal": "gnome-terminal",
     "Text Editor": "gnome-text-editor", "Settings": "gnome-control-center",
 }
+BUS_NAMES = {
+    "gnome-calculator": "org.gnome.Calculator", "nautilus": "org.gnome.Nautilus",
+    "gnome-terminal": "org.gnome.Terminal", "gnome-text-editor": "org.gnome.TextEditor",
+    "gnome-control-center": "org.gnome.Settings",
+}
 ALIASES = {
     "Calculator": ("calculator",), "Files": ("nautilus", "files"),
     "Terminal": ("terminal",), "Text Editor": ("text-editor", "text editor"),
@@ -156,7 +161,8 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
 
     def locate():
         if child is None:
-            attached_session.adopt_activated(tier, (Path(command[0]).name, *names), since)
+            bus = BUS_NAMES.get(Path(command[0]).name)
+            attached_session.adopt_activated(tier, (Path(command[0]).name, *names), (bus,) if bus else (), since)
         candidates = [item for item in _owners(tier, names=names) if item.windows and
                       set(item.windows) - before.get((item.pid, item.start_time), set())]
         if len(candidates) > 1:
