@@ -86,8 +86,18 @@ wayland_drift=(
 # recovery block, as skills/agent-desktop-linux/references/troubleshooting.md
 # documents, while the leg expects refresh_snapshot_then_retry_original.
 # Measured on stable 4.0.6 and edge 2026.10.27.467.
+#
+# The GTK4 and Qt zoo legs fail the same table rows on hyprland with upstream
+# main's binary and with this branch's, and the same rows fail on the wayland
+# tier. GTK4: zoo-entry and zoo-password click refused, the menubutton's
+# snapshot --surface menu ELEMENT_NOT_FOUND, the tab list, tabs, list and rows
+# select refused, and zoo-offscreen refused while its raw state changed. Qt:
+# the Alpha combo box click and expand refused, Alpha, Bravo and Charlie
+# select refused. Measured on stable 4.0.6 and edge 2026.10.31.471.
 hyprland_drift=(
   observation.stale_ref_after_ui_change
+  ref_contract.zoo_gtk4
+  ref_contract.zoo_qt
 )
 
 # x11-mutter cannot start on the Arch image, so test/all does not run it:
