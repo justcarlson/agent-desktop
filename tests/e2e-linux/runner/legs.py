@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from typing import Callable
 
 from runner.legs_hyprland import BOTH_MODES, HEADED, HEADLESS, HYPRLAND_ONLY
+from runner.legs_hyprland import FIRST_ROWS as HYPRLAND_FIRST_ROWS
 from runner.legs_hyprland import ROWS as HYPRLAND_ROWS
 
 TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland", "hyprland")
@@ -203,6 +204,11 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('batch_contract.entry_failure_and_stop_on_error', 'A failed batch entry reports its own STALE_REF and later entries still run; --stop-on-error halts with stopped.reason and the failing index; the display shows exactly the entries that ran', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi',), 'asserted-refusal', 'the failing entry answers STALE_REF inside an ok batch envelope; stopped.reason stop_on_error at index 1; display 78 without the flag and 7 with it'),
 )
 
+REGISTRY += tuple(Leg(*row) for row in HYPRLAND_FIRST_ROWS)
+REGISTRY += (
+    Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
+)
+
 RESTORED_MUTTER_EVENTS = (
     'gaps.event_window-opened_scoped_success.mutter_owner',
     'gaps.event_window-opened_scoped_quiet.mutter_owner',
@@ -225,10 +231,6 @@ REGISTRY += tuple(
         f"Zoo {label}", ALL_TIERS + HYPRLAND_ONLY, HEADLESS, ("atspi", "applog"), "pass")
     for toolkit, label in (("gtk3", "GTK3"), ("gtk4", "GTK4"), ("qt", "Qt"))
     for suffix in ("", "_windows")
-)
-
-REGISTRY += (
-    Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
 )
 
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_ROWS)
