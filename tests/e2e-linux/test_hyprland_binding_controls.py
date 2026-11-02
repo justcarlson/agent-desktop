@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import importlib
 import sys
 import unittest
@@ -273,26 +274,72 @@ class EffectsLegTests(unittest.TestCase):
             return windows({"id": "w-hypr-20-500-1", "pid": 30, "accessible": False})
         return windows({"id": "w-hypr-10-500-1", "pid": 7, "accessible": False})
 
-    def test_a_passing_run_reads_each_oracle_before_after_and_restored_despite_volatile_client_fields(self):
+    ZOO = {"address": "0xz", "pid": 40, "mapped": True, "hidden": False, "at": [0, 0], "size": [600, 400],
+           "workspace": {"name": "31"}, "floating": False, "fullscreen": 0}
+
+    def run_leg(self, operated=None):
         from runner import verdict
         effects = module("hyprland_binding_effects")
-        self.reads = 0
+        self.reads, self.second_focus = 0, "sentinel"
         ctx = verdict.LegContext(tier(), "headless", legs.leg_by_id(self.LEG), member_reader=lambda _tier: frozenset())
-        ctx.product = lambda argv, env=None, headed=False: self.answer(argv, env)
+        ctx.product = lambda argv, env=None, headed=False: self.answer_and_note(argv, env)
         nested = dict(NESTED, sentinel=[30, 900])
-        with mock.patch.object(effects, "main_instance", return_value=MAIN), \
-                mock.patch.object(effects.second_instance, "ensure_sized", return_value=nested), \
-                mock.patch.object(effects.second_instance, "stop") as stop, \
-                mock.patch.object(effects, "_clients", side_effect=lambda _tier, instance: self.clients(instance)), \
-                mock.patch.object(effects, "desktop", return_value={"focus": "x"}), \
-                mock.patch.object(effects, "bystander", return_value={"pid": 7, "address": "0xa"}), \
-                mock.patch.object(effects, "_start", return_value=500), \
-                mock.patch.object(effects, "operated", return_value=[]), \
-                mock.patch.object(effects, "unchanged", return_value=[]):
+        zoo = SimpleNamespace(pid=40, windows=["w-zoo"])
+        launched = contextlib.contextmanager(lambda _ctx, _name, _args=(): iter([zoo]))
+        reads = lambda _tier, instance: {"focus": self.second_focus if instance is nested else "x"}
+        self.operated = mock.Mock(side_effect=operated or (lambda *a, **kw: []))
+        patches = {"main_instance": mock.Mock(return_value=MAIN), "_clients": lambda _tier, instance: self.clients(instance),
+                   "desktop": reads, "bystander": mock.Mock(return_value={"pid": 7, "address": "0xa"}),
+                   "_start": mock.Mock(return_value=500), "operated": self.operated,
+                   "unchanged": mock.Mock(return_value=[]), "managed": launched,
+                   "clients_of": lambda _tier, pid: [self.ZOO] if pid == 40 else [],
+                   "client": lambda _tier, address: self.ZOO, "move": mock.Mock(),
+                   "spare_workspaces": mock.Mock(return_value=["31"]), "workspaces_in_use": mock.Mock(return_value=set()),
+                   "restore_desktop": mock.Mock(), "cursor": mock.Mock(return_value={"x": 1, "y": 1})}
+        with contextlib.ExitStack() as stack:
+            for name, value in patches.items():
+                stack.enter_context(mock.patch.object(effects, name, value, create=True))
+            stack.enter_context(mock.patch.object(effects.second_instance, "ensure_sized", return_value=nested))
+            stop = stack.enter_context(mock.patch.object(effects.second_instance, "stop"))
             effects.hyprland_effects_stay_on_bound_instance(ctx)
-        self.assertEqual(verdict.evaluate(ctx), [])
-        self.assertEqual(list(ctx.reads["hyprland.second_clients"]), ["before", "after", "restored"])
         stop.assert_called_once()
+        return ctx
+
+    def answer_and_note(self, argv, env) -> Envelope:
+        if argv[0] == "minimize" and env["HYPRLAND_INSTANCE_SIGNATURE"] == "live" and self.foreign_moves_second:
+            self.second_focus = "moved"
+        return self.answer(argv, env)
+
+    foreign_moves_second = False
+
+    def test_a_passing_run_reads_each_oracle_before_after_and_restored_despite_volatile_client_fields(self):
+        from runner import verdict
+        ctx = self.run_leg()
+        self.assertEqual(verdict.evaluate(ctx), [])
+        for channel in ("hyprland.second_clients", "hyprland.second_desktop"):
+            with self.subTest(channel=channel):
+                self.assertEqual(list(ctx.reads[channel]), ["before", "after", "restored"])
+
+    def test_the_session_pair_minimizes_and_restores_its_own_window(self):
+        self.run_leg()
+        through_session = [(call.args[1], call.args[2], call.kwargs["env"]["HYPRLAND_INSTANCE_SIGNATURE"])
+                           for call in self.operated.call_args_list if "session pair" in call.args[1]]
+        self.assertEqual(through_session, [
+            ("minimize through the session pair", ["minimize", "--window-id", "w-zoo"], "live"),
+            ("restore through the session pair", ["restore", "--window-id", "w-zoo"], "live")])
+
+    def test_a_session_pair_call_that_changes_the_second_desktop_fails(self):
+        self.foreign_moves_second = True
+        with self.assertRaisesRegex(AssertionError, "second desktop changed"):
+            self.run_leg()
+
+    def test_a_session_pair_effect_on_the_second_desktop_fails(self):
+        def moved(ctx, label, argv, read, expected, *, env=None):
+            if env["HYPRLAND_INSTANCE_SIGNATURE"] == "live":
+                self.second_focus = "moved"
+            return []
+        with self.assertRaisesRegex(AssertionError, "second desktop changed"):
+            self.run_leg(operated=moved)
 
 
 class ClientsStateTests(unittest.TestCase):
