@@ -48,4 +48,23 @@ done
 check "a drift leg the tier does not register is refused" \
   "$(legs_except hyprland no.such_leg >/dev/null 2>&1 || echo ok)"
 
+# The prebuilt directory must hold the FFI library beside the CLI, and every
+# tier gets its path. The stub shadows bash, so no tier starts.
+bin=$home/bin/agent-desktop out=$home
+eval "$(sed -n '/^ffi=/p; /^require_prebuilt() {/,/^}/p; /^run_tier() {/,/^}/p' "$here/all")"
+mkdir -p "$home/bin"
+for name in agent-desktop agent-desktop-linux-clipboard-owner; do
+  printf '#!/bin/sh\n' >"$home/bin/$name" && chmod +x "$home/bin/$name"
+done
+err=$(require_prebuilt 2>&1) status=$?
+check "refuses a prebuilt directory without the FFI library" \
+  "$([[ $status != 0 && $err == *libagent_desktop_ffi.so* ]] && echo ok)"
+: >"$home/bin/libagent_desktop_ffi.so"
+check "accepts the CLI, its helper and the FFI library" "$(require_prebuilt 2>/dev/null && echo ok)"
+step() { :; }
+bash() { echo "${AGENT_DESKTOP_E2E_FFI_LIB:-}"; }
+check "every tier gets the FFI library beside the CLI" \
+  "$([[ $(run_tier hyprland) == "$home/bin/libagent_desktop_ffi.so" ]] && echo ok)"
+unset -f bash
+
 exit "$failed"
