@@ -389,7 +389,9 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `InterceptedBy` with its rectangle, evidence it cannot read answers unknown,
   and a read that runs out of time is `TIMEOUT`.
 - **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
-  `hover_unsupported`, and sends nothing. Use `hover --xy`.
+  `hover_unsupported`, and sends nothing. It refuses before any wait, focus or
+  element lookup, so a popup over the target cannot turn it into `TIMEOUT`.
+  Use `hover --xy`.
 - **`drag` by ref** checks each ref endpoint as a ref click does, before it
   starts, so `drag --from @ref --to @ref` refuses before any event with the
   same causes. `drag --from-xy` and `--to-xy` stay coordinate commands.
