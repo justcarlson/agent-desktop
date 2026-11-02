@@ -111,6 +111,29 @@ class PlainDiscoverTests(unittest.TestCase):
         ])
         self.assertTrue(all(GATE_ENVS[0] in reason for reason in live.values()), live)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "the harness runs on Linux")
+    def test_the_child_run_reports_import_errors_and_failures(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            fake = Path(scratch) / "suite"
+            fake.mkdir()
+            for package in ("runner", "oracle"):
+                (fake / package).symlink_to(ROOT / package, target_is_directory=True)
+            (fake / "test_broken.py").write_text("import agent_desktop_missing_module\n")
+            (fake / "test_failing.py").write_text(
+                "import unittest\n\n\nclass Failing(unittest.TestCase):\n"
+                "    def test_fails(self):\n        self.fail('planted')\n")
+            record = Path(scratch) / "launches.json"
+            report_path = Path(scratch) / "report.json"
+            env = {key: value for key, value in os.environ.items() if key not in GATE_ENVS}
+            env.update({INNER_ENV: "1", "AGENT_DESKTOP_SESSION_BASE": str(Path(scratch) / "sessions")})
+            subprocess.run(
+                [sys.executable, "-I", "-c", DRIVER, str(fake), str(REPO), str(record), str(report_path)],
+                env=env, cwd=scratch, capture_output=True, text=True, timeout=120, check=True)
+            report = json.loads(report_path.read_text())
+        self.assertEqual([test for test, _ in report["errors"]], ["unittest.loader._FailedTest.test_broken"])
+        self.assertIn("agent_desktop_missing_module", report["errors"][0][1])
+        self.assertEqual([test for test, _ in report["failures"]], ["test_failing.Failing.test_fails"])
+
 
 if __name__ == "__main__":
     unittest.main()
