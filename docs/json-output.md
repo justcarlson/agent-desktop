@@ -124,6 +124,21 @@ Version 2.6 changes which refs resolve on Windows and Linux, and on macOS for an
 - On macOS, a snapshot of a background app that lists no window (a menu-bar app, the Dock, Control Center), and `--surface dock` or `--surface menu-bar-extras`, now succeed and read the app through its process. Earlier they failed `WINDOW_NOT_FOUND`. `data.window` is omitted from such a snapshot and `data.app` names the process; check for the field before reading `data.window.id`.
 
 A snapshot that needed one complete read of its window to prove its refs, and could not get it, says so with `"identity_unproven": true` in `data`. `complete` still describes the presented tree. On Windows and Linux, and on macOS for an element with no address, every ref of that snapshot fails `AMBIGUOUS_TARGET` with `details.kind: "identity_not_unique"`; retake the snapshot with a larger `--timeout-ms`. The field is omitted otherwise.
+## Interaction lease metrics
+
+A command that waits on the desktop interaction lease reports it in
+`data.details.auto_wait` on success. A ref action (`click` and the other ref
+commands) and a coordinate pointer command (`mouse-click`, `mouse-move`,
+`mouse-wheel`, `hover`, `drag`) carry the same two fields:
+
+| Field | Meaning |
+|-------|---------|
+| `lease_contention_count` | Lock attempts that found the lease held by another command before this one acquired it. `0` means it did not queue. |
+| `lease_hold_ms` | Milliseconds from lease acquisition to release. A post-action `--wait-for` runs after the release and is not counted. |
+
+A ref action also reports `read_only_resolve_attempts` and
+`read_only_preflight_attempts` there. The adapter's own `details` fields stay
+beside `auto_wait`.
 
 On macOS, application-owned `menu` and `menubar` snapshots omit `data.window`. `data.app` identifies the owner, including for a `--root` drill into a ref from one of these surfaces. Window-owned snapshots retain `data.window`. When `--window-id` is supplied for an application-owned surface, it selects the owning app while the observed surface remains application-owned.
 

@@ -25,7 +25,10 @@ pub fn execute(
         ));
     }
     let _cursor = crate::cursor_overlay::hold_cursor(context, crate::Deadline::standard()?);
-    let lease = crate::commands::helpers::acquire_interaction_lease(adapter)?;
+    let lease = crate::ref_action::ref_action_timed_lease::TimedLease::acquire(
+        adapter,
+        crate::Deadline::standard()?,
+    )?;
     let point = Point {
         x: args.x,
         y: args.y,
@@ -46,7 +49,9 @@ pub fn execute(
         false,
         &lease,
     );
-    operation_response(&result?, json!({ "dy": args.dy, "dx": args.dx }))
+    let mut response = operation_response(&result?, json!({ "dy": args.dy, "dx": args.dx }))?;
+    lease.release_into(&mut response);
+    Ok(response)
 }
 
 #[cfg(test)]
