@@ -49,6 +49,7 @@ from scenarios import hyprland_close
 from scenarios import hyprland_close_dialog
 from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
+from scenarios import hyprland_focus_proof
 from scenarios import hyprland_identity
 from scenarios import hyprland_identity_title
 from scenarios import hyprland_window_ops
