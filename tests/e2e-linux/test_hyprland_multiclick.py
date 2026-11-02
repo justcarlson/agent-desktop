@@ -16,8 +16,10 @@ def clicked(*widgets: str) -> list[dict]:
     return [{"ev": "mapped", "pid": 7, "t": 1.0}] + [{"ev": "clicked", "widget": w, "t": 2.0} for w in widgets]
 
 
-def report(count: int, receiver_proof=False, delivered_events: int | None = None) -> Envelope:
-    data = {"x": 300, "y": 200, "count": count, "disposition": {"delivery": "delivered_unverified"},
+def report(count: int, receiver_proof=False, delivered_events: int | None = None,
+           delivery: str | None = "delivered_unverified") -> Envelope:
+    disposition = {} if delivery is None else {"delivery": delivery}
+    data = {"x": 300, "y": 200, "count": count, "disposition": disposition,
             "details": {"receiver_proof": receiver_proof,
                         "delivered_events": 2 * count if delivered_events is None else delivered_events}}
     return Envelope(ok=True, data=data, error=None, raw=json.dumps({"data": data}), elapsed_ms=90.0,
@@ -56,6 +58,13 @@ class FixtureClickTests(unittest.TestCase):
     def test_a_report_without_delivered_events_fails(self):
         self.assertTrue(multiclick.fixture_click_problems("gtk4", report(2, delivered_events=0),
                                                           clicked(TARGET, TARGET), 2))
+
+    def test_a_report_with_another_delivery_fails(self):
+        for delivery in ("delivered_verified", "not_delivered", None):
+            with self.subTest(delivery=delivery):
+                problems = multiclick.fixture_click_problems("gtk4", report(2, delivery=delivery),
+                                                             clicked(TARGET, TARGET), 2)
+                self.assertTrue(any("delivered_unverified" in problem for problem in problems), problems)
 
     def test_a_refused_click_fails(self):
         self.assertTrue(multiclick.fixture_click_problems("gtk4", refused(), clicked(), 2))
