@@ -117,7 +117,7 @@ def tab_moves_focus(ctx: LegContext, zoo: Zoo) -> list[str]:
     problems = zoo_typed(ctx, zoo, zoo_ref(ctx, zoo, ENTRY), ENTRY, "xy", before + "xy")
     focus_events = len(zoo.events(PASSWORD, "focus"))
     problems += zoo_pressed(ctx, zoo, "tab")
-    focused = raw.poll(lambda: FOCUSED in zoo_node(tier, zoo, PASSWORD).states(), 3.0)
+    focused = raw.poll(lambda: FOCUSED in zoo_node(tier, zoo, PASSWORD).states, 3.0)
     raw.poll(lambda: len(zoo.events(PASSWORD, "focus")) > focus_events, 2.0)
     return problems + tab_problems(zoo_text(tier, zoo, ENTRY), before + "xy", focused_password=bool(focused),
                                    password_focus_events=len(zoo.events(PASSWORD, "focus")) - focus_events)
