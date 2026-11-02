@@ -36,6 +36,7 @@ BUTTON, ENTRY = "zoo-button", "zoo-entry"
 ACTIVATE, CHANGED = "activate", "changed"
 ZOOS = {"A": "Zoo GTK3", "B": "Zoo GTK4", "C": "Zoo GTK3", "D": "Zoo Qt"}
 LAUNCH_S, RESPONSIVE_S, FOCUS_S = 20.0, 3.0, 3.0
+IME_KEYBOARDS = ("hl-virtual-keyboard-fcitx5",)
 
 
 @dataclass
@@ -207,3 +208,20 @@ def note_layers(ctx: LegContext, problems: list[str]) -> None:
 def entry_text(tier, zoo: Zoo) -> str | None:
     found = [item.text() for item in raw.app_root(tier, zoo.app.owner_names[0]).find(name=ENTRY)]
     return found[0] if len(found) == 1 else None
+
+
+def left_keyboard_problems(before: list[tuple], after: list[tuple]) -> list[str]:
+    """Keyboard state a cancelled agent could leave: a lost keyboard, a changed layout on one that was
+    there, or a new keyboard that no input method owns.
+
+    `main` follows the device used last, and fcitx5 adds its own virtual
+    keyboard once it starts (S6b V-1 lists it on a stock desktop), so neither
+    is input an agent left behind.
+    """
+    was = {item[0]: item[2:] for item in before}
+    now = {item[0]: item[2:] for item in after}
+    problems = [f"the keyboard {name} is gone" for name in was if name not in now]
+    problems += [f"the keyboard {name} changed from {was[name]} to {now[name]}"
+                 for name in was if name in now and now[name] != was[name]]
+    problems += [f"a new keyboard {name} stayed" for name in now if name not in was and name not in IME_KEYBOARDS]
+    return problems
