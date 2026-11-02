@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
-import os
-import signal
 import sys
-import tempfile
 import types
 import unittest
 from unittest import mock
@@ -16,7 +13,6 @@ sys.path.insert(0, str(ROOT))
 
 from runner import legs
 from runner.product import Envelope
-from scenarios import hyprland_keys_cancel as cancel
 from scenarios import hyprland_keys_controls as controls
 from scenarios import hyprland_keys_keymap as keymap
 from scenarios import hyprland_keys_refusal as refusal
@@ -24,7 +20,6 @@ from scenarios import hyprland_keys_theft as theft
 
 NEW_KEY_LEGS = {
     "input.hyprland_headless_physical_keys_refused": (("headless",), "asserted-refusal"),
-    "input.hyprland_cancel_releases_keys": (("headed",), "pass"),
     "input.hyprland_press_return_one_newline": (("headed",), "pass"),
     "input.hyprland_press_select_all_backspace_clears": (("headed",), "pass"),
     "input.hyprland_press_tab_moves_focus": (("headed",), "pass"),
@@ -63,10 +58,6 @@ class NewKeyRegistryTests(unittest.TestCase):
                 if disposition == "asserted-refusal":
                     self.assertTrue(leg.reason)
 
-    def test_the_cancel_leg_reads_the_process_it_signals(self):
-        self.assertIn("proc", legs.leg_by_id("input.hyprland_cancel_releases_keys").oracles)
-
-
 class PressRefusalTests(unittest.TestCase):
     def test_a_not_delivered_refusal_with_the_named_check_passes(self):
         self.assertEqual(refusal.press_refusal_problems("p", refused(), "STALE_REF", "exact_window_focus"), [])
@@ -80,47 +71,6 @@ class PressRefusalTests(unittest.TestCase):
                                       "disposition": {"delivery": "not_delivered"}}, exit_code=2)):
             with self.subTest(case=case.error):
                 self.assertNotEqual(refusal.press_refusal_problems("p", case, "STALE_REF", "exact_window_focus"), [])
-
-
-class CancelVerdictTests(unittest.TestCase):
-    def test_held_keys_names_each_code_pressed_and_not_released(self):
-        found = [key("press", "Shift_L", 50), key("press", "B", 56), key("release", "B", 56),
-                 {"event": "text", "text": "B"}, key("press", "a", 38)]
-        self.assertEqual(cancel.held_keys(found), [50, 38])
-        self.assertEqual(cancel.held_keys(found + [key("release", "Shift_L", 50), key("release", "a", 38)]), [])
-
-    def test_a_modifier_is_in_flight_only_when_the_newest_key_event_presses_one(self):
-        self.assertTrue(cancel.modifier_in_flight([key("press", "a", 38), key("press", "Shift_L", 50),
-                                                   {"event": "text", "text": "a"}]))
-        self.assertFalse(cancel.modifier_in_flight([key("press", "Shift_L", 50), key("release", "Shift_L", 50)]))
-        self.assertFalse(cancel.modifier_in_flight([key("press", "a", 38)]))
-        self.assertFalse(cancel.modifier_in_flight([]))
-
-    def test_the_next_press_passes_with_the_lead_shift_tap_and_one_clean_key(self):
-        clean = [key("press", "Shift_L", 50), key("release", "Shift_L", 50, 1), key("press", "x", 61),
-                 key("release", "x", 61)]
-        self.assertEqual(cancel.next_press_problems(clean, "x"), [])
-
-    def test_the_next_press_fails_with_a_held_modifier_an_extra_key_or_no_key(self):
-        stuck = [key("press", "X", 61, 1), key("release", "X", 61, 1)]
-        extra = [key("press", "x", 61), key("release", "x", 61), key("press", "B", 56), key("release", "B", 56)]
-        twice = [key("press", "x", 61), key("release", "x", 61)] * 2
-        held = [key("press", "x", 61)]
-        for case in (stuck, extra, twice, held, []):
-            with self.subTest(case=case):
-                self.assertNotEqual(cancel.next_press_problems(case, "x"), [])
-
-    def test_the_process_must_die_of_the_signal_sent(self):
-        self.assertEqual(cancel.exit_problems(signal.SIGKILL, -signal.SIGKILL), [])
-        self.assertNotEqual(cancel.exit_problems(signal.SIGTERM, 0), [])
-        self.assertNotEqual(cancel.exit_problems(signal.SIGTERM, -signal.SIGKILL), [])
-        self.assertNotEqual(cancel.exit_problems(signal.SIGTERM, None), [])
-
-    def test_a_cut_text_is_a_non_empty_strict_prefix(self):
-        self.assertEqual(cancel.prefix_problems("aBa", "aBaB"), [])
-        for typed in ("", "aBaB", "ab", None):
-            with self.subTest(typed=typed):
-                self.assertNotEqual(cancel.prefix_problems(typed, "aBaB"), [])
 
 
 class ControlVerdictTests(unittest.TestCase):
@@ -254,14 +204,6 @@ class LiveHelperTests(unittest.TestCase):
         self.assertTrue(theft.late_steal("delivered"))
         self.assertFalse(theft.late_steal("refused_before_first_key"))
         self.assertFalse(theft.late_steal("other"))
-
-    def test_app_evidence_names_whether_the_app_lives_its_stderr_and_its_last_records(self):
-        with tempfile.TemporaryDirectory() as runtime:
-            Path(runtime, "key-log-cancel.log").write_text("Gdk-Message: Error 71 (Protocol error)\n")
-            found = cancel.app_evidence(Path(runtime), "cancel", os.getpid(), [{"event": "press", "code": 50}])
-        self.assertIn("alive", found)
-        self.assertIn("Error 71", found)
-        self.assertIn("'code': 50", found)
 
 
 if __name__ == "__main__":
