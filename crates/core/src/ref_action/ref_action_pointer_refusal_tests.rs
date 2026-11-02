@@ -55,6 +55,7 @@ impl ObservationOps for RefusingAdapter {
     ) -> Result<Option<crate::Rect>, AdapterError> {
         Ok(Some(bounds()))
     }
+    crate::adapter::saved_ref_scope!("button", Some("Run"));
 }
 
 impl ActionOps for RefusingAdapter {
@@ -110,7 +111,7 @@ fn bounds() -> crate::Rect {
 fn entry() -> RefEntry {
     serde_json::from_value(json!({
         "pid": 1, "process_instance": "test-instance", "role": "button", "name": "Run",
-        "source_window_id": "w-test", "source_surface": "window", "path": [0],
+        "source_window_id": "w-1", "source_surface": "window", "path": [0], "unique_at_capture": true,
         "bounds": bounds(), "bounds_hash": bounds().bounds_hash(), "available_actions": ["Click"], "states": []
     }))
     .unwrap()
