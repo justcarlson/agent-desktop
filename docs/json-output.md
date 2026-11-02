@@ -502,7 +502,7 @@ Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 | Cause | Code | Meaning |
 |-------|------|---------|
 | `point_off_output` | `INVALID_ARGS` | The point lies on no output |
-| `hover_unsupported` | `ACTION_NOT_SUPPORTED` | `hover` by ref has no receiver evidence |
+| `hover_unsupported` | `ACTION_NOT_SUPPORTED` | `hover` by ref has no receiver evidence. It refuses before any wait, focus or element lookup |
 | `modifiers_unsupported` | `ACTION_NOT_SUPPORTED` | Held modifiers were asked for |
 | `unsupported_step` | `ACTION_NOT_SUPPORTED` | The plan holds a button or key the virtual pointer does not send |
 
