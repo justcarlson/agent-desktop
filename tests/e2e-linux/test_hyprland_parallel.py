@@ -457,5 +457,50 @@ class LeftKeyboardTests(unittest.TestCase):
         self.assertEqual(len(self.problems([self.PHYSICAL, self.POWER], [self.PHYSICAL])), 1)
 
 
+class HeadedClickTests(unittest.TestCase):
+    REFUSAL = {"code": "ACTION_FAILED",
+               "details": {"kind": "receiver_evidence", "check": "hyprland_stack", "cause": "receiver_unproven",
+                           "physical_delivery_started": False},
+               "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+
+    def test_d_clicks_the_centre_of_its_target_by_coordinates(self):
+        from scenarios import parallel_agents as agents
+
+        self.assertEqual(agents.xy_click_argv((482.5, 53.4)), ["mouse-click", "--xy", "482,53"])
+        self.assertEqual(agents.xy_click_argv((640.6, 300.5)), ["mouse-click", "--xy", "641,300"])
+
+    def test_the_orders_give_d_a_coordinate_click_and_a_a_ref_click(self):
+        from types import SimpleNamespace
+
+        from scenarios import hyprland_parallel_orders as orders
+
+        setup = SimpleNamespace(ctx=SimpleNamespace(tier=None), refs={"A": "@s1:e1", "D": "@s1:e2"},
+                                targets={"A": (10.0, 20.0), "D": (482.5, 53.4)})
+        schedule = orders.Schedule(setup, None, None, "order 1")
+        self.assertEqual(schedule.argv("D"), ["mouse-click", "--xy", "482,53"])
+        self.assertEqual(schedule.argv("A")[:2], ["click", "@s1:e1"])
+
+    def test_the_cancel_stages_give_d_a_coordinate_click(self):
+        from scenarios import hyprland_parallel_cancel as cancel
+
+        refs, targets = {"A": "@s1:e1", "B": "@s1:e3", "D": "@s1:e2"}, {"D": (482.5, 53.4)}
+        self.assertEqual(cancel.argv_of("D", refs, targets), ["mouse-click", "--xy", "482,53"])
+        self.assertEqual(cancel.argv_of("A", refs, targets)[:2], ["click", "@s1:e1"])
+
+    def test_a_headed_ref_click_must_refuse_as_unproven_before_any_event(self):
+        self.assertEqual(oracle.ref_refusal_problems(envelope(False, self.REFUSAL, 1)), [])
+        self.assertEqual(len(oracle.ref_refusal_problems(envelope(True, None, 0))), 1)
+        self.assertEqual(len(oracle.ref_refusal_problems(None)), 1)
+        for key, value in (("cause", "layer_cover"), ("physical_delivery_started", True),
+                           ("kind", "lock_timeout")):
+            changed = {**self.REFUSAL, "details": {**self.REFUSAL["details"], key: value}}
+            self.assertEqual(len(oracle.ref_refusal_problems(envelope(False, changed, 1))), 1, key)
+        delivered = {**self.REFUSAL, "disposition": {"delivery": "delivered_unverified", "retry": "unsafe"}}
+        self.assertEqual(len(oracle.ref_refusal_problems(envelope(False, delivered, 1))), 1)
+        timeout = {**self.REFUSAL, "code": "TIMEOUT"}
+        self.assertEqual(len(oracle.ref_refusal_problems(envelope(False, timeout, 1))), 1)
+        self.assertEqual(len(oracle.ref_refusal_problems(envelope(False, self.REFUSAL, 2))), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
