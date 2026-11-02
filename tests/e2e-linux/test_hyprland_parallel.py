@@ -204,6 +204,14 @@ class LockSampleTests(unittest.TestCase):
         self.assertEqual(oracle.lease_events(samples)[10]["holds"], 2)
 
 
+    def test_hold_intervals_name_every_holder_and_keep_open_holds(self):
+        samples = [(0.0, {1}, set()), (0.5, set(), {10}), (0.6, {10}, {10}), (0.9, {7}, set())]
+        found = oracle.hold_intervals(samples, {1: "runner", 10: "A"})
+        self.assertEqual(found[:2], [Hold("runner", 0.0, 0.5), Hold("A", 0.6, 0.9)])
+        self.assertEqual(found[2].holder, "pid 7")
+        self.assertEqual(found[2].end, float("inf"))
+
+
 class RefusalTests(unittest.TestCase):
     def test_a_lock_timeout_is_timeout_exit_one_with_the_kind(self):
         error = {"code": "TIMEOUT", "details": {"kind": "lock_timeout", "path": "interaction.lock",
