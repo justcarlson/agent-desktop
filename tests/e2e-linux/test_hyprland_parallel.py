@@ -671,5 +671,42 @@ class PauseBarrierTests(unittest.TestCase):
         self.assertIn("cursor_hide_timeout", str(raised.exception))
 
 
+class KeyboardVerdictTests(unittest.TestCase):
+    """The final keyboard verdict applies the same allowed changes as the cancelled-agent check."""
+
+    PHYSICAL = LeftKeyboardTests.PHYSICAL
+    POWER = LeftKeyboardTests.POWER
+    IME = LeftKeyboardTests.IME
+
+    def verdict(self, reads: list[list[tuple]]) -> list[str]:
+        from unittest.mock import patch
+
+        from runner import verdict
+        from scenarios import parallel_zoo as zoo
+
+        ctx = verdict.LegContext(None, "headed", member_reader=lambda _tier: frozenset())
+        with patch.object(zoo, "keyboards", side_effect=reads), patch.object(zoo, "lease_state",
+                                                                               return_value="released"):
+            for stage in ("before", "after", "restored"):
+                zoo.common_reads(ctx, stage)
+        return [item for item in verdict.evaluate(ctx) if "keyboards" in item]
+
+    def test_the_input_method_keyboard_arriving_and_taking_main_passes(self):
+        moved = [(*self.PHYSICAL[:1], False, *self.PHYSICAL[2:]), self.IME, self.POWER]
+        self.assertEqual(self.verdict([[self.PHYSICAL, self.POWER], moved, moved]), [])
+
+    def test_a_lost_keyboard_still_fails(self):
+        self.assertEqual(len(self.verdict([[self.PHYSICAL, self.POWER], [self.PHYSICAL], [self.PHYSICAL]])), 1)
+
+    def test_a_changed_layout_still_fails(self):
+        switched = [(*self.PHYSICAL[:4], 1), self.POWER]
+        self.assertEqual(len(self.verdict([[self.PHYSICAL, self.POWER], switched, switched])), 1)
+
+    def test_a_new_keyboard_no_input_method_owns_still_fails(self):
+        left = ("hl-virtual-keyboard-agent-desktop", False, "us", "English (US)", 0)
+        after = [self.PHYSICAL, left, self.POWER]
+        self.assertEqual(len(self.verdict([[self.PHYSICAL, self.POWER], after, after])), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
