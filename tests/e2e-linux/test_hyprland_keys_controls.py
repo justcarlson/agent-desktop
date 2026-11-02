@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import itertools
 import os
 import signal
@@ -186,6 +187,24 @@ class KeymapVerdictTests(unittest.TestCase):
             focused.return_value.__enter__.return_value = ("app", "log", "@s1:e1")
             keymap.resync_input_method(types.SimpleNamespace(finding=lambda text: None))
         self.assertEqual(calls, [(keymap.SYNC_KEY, keymap.SYNC_KEY)])
+
+    def test_the_resync_records_no_oracle_read_on_the_leg(self):
+        reads = []
+        leg = types.SimpleNamespace(tier="tier", finding=lambda text: None, product=lambda *args, **kw: None,
+                                    before=lambda *args: reads.append(args), after=lambda *args: reads.append(args),
+                                    restored=lambda *args: reads.append(args))
+
+        @contextlib.contextmanager
+        def focused(ctx, label):
+            ctx.before("hyprland.desktop", {})
+            yield "app", "log", "@s1:e1"
+            ctx.after("hyprland.desktop", {})
+            ctx.restored("hyprland.desktop", {})
+
+        with mock.patch.object(keymap, "_focused_key_log", focused), \
+                mock.patch.object(keymap, "_typed", return_value=[]):
+            keymap.resync_input_method(leg)
+        self.assertEqual(reads, [])
 
 
 class TheftVerdictTests(unittest.TestCase):
