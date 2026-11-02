@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import stat
@@ -36,10 +37,11 @@ def shell_refusal(delivery: str = "not_delivered", retry: str = "safe") -> Envel
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
 
 
-def native_refusal(retry: str = "safe", started: bool = False) -> Envelope:
-    error = {"code": "ACTION_FAILED", "details": {"kind": "receiver_evidence", "cause": "native_wayland_client",
+def native_refusal(retry: str = "safe", started: bool = False, cause: str = "native_wayland_client",
+                   delivery: str = "not_delivered") -> Envelope:
+    error = {"code": "ACTION_FAILED", "details": {"kind": "receiver_evidence", "cause": cause,
                                                   "physical_delivery_started": started},
-             "disposition": {"delivery": "not_delivered", "retry": retry}}
+             "disposition": {"delivery": delivery, "retry": retry}}
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=1)
 
 
@@ -224,9 +226,34 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertEqual(problems, [])
         self.assertEqual(len(found), 1)
         self.assertIn("native Wayland", found[0])
+        self.assertIn("before the hide", found[0])
+        self.assertNotIn("passed its hide", found[0])
         self.assertEqual(len(dead_click(native_refusal(retry="unsafe"), "7")[0]), 1)
         self.assertEqual(len(dead_click(native_refusal(), "77")[0]), 1)
         self.assertEqual(len(dead_click(native_refusal(started=True), "7")[0]), 1)
+
+    def test_a_dead_click_receiver_unproven_refusal_passes_only_undelivered_and_unchanged(self):
+        problems, found = dead_click(native_refusal(cause="receiver_unproven"), "7")
+        self.assertEqual(problems, [])
+        self.assertIn("before the hide", found[0])
+        self.assertEqual(len(dead_click(native_refusal(cause="receiver_unproven"), "77")[0]), 1)
+
+    def test_the_headed_click_under_a_stopped_renderer_refuses_before_any_hide(self):
+        self.assertEqual(hide.pre_hide_refusal_problems("x", native_refusal()), [])
+        self.assertEqual(hide.pre_hide_refusal_problems("x", native_refusal(cause="receiver_unproven")), [])
+        self.assertNotEqual(hide.pre_hide_refusal_problems("x", refused("cursor_hide_timeout")), [])
+        self.assertNotEqual(hide.pre_hide_refusal_problems("x", refused("cursor_hide_failed")), [])
+        self.assertNotEqual(hide.pre_hide_refusal_problems("x", native_refusal(cause="occluded")), [])
+        self.assertEqual(len(hide.pre_hide_refusal_problems("x", native_refusal(started=True))), 1)
+        self.assertEqual(len(hide.pre_hide_refusal_problems("x", native_refusal(retry="unsafe"))), 1)
+        self.assertEqual(len(hide.pre_hide_refusal_problems("x", native_refusal(delivery="uncertain"))), 1)
+        accepted = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0)
+        self.assertNotEqual(hide.pre_hide_refusal_problems("x", accepted), [])
+
+    def test_the_stopped_renderer_leg_checks_its_headed_click_as_a_pre_hide_refusal(self):
+        source = inspect.getsource(hide.travel_failure_proceeds_hide_failure_refuses)
+        self.assertIn('pre_hide_refusal_problems("headed click under a stopped renderer", clicked)', source)
+        self.assertNotIn('hide_refusal_problems("headed click', source.replace("pre_hide_refusal_problems", ""))
 
     def test_the_pad_legs_under_the_cursor_drive_an_xwayland_pad(self):
         source = (Path(hide.__file__)).read_text()
