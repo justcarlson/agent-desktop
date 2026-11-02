@@ -345,30 +345,19 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   or a popup of the same app over the target. Such clicks reported success
   while another widget got them, on native Wayland and XWayland apps alike.
   So `--headed` `click`, `double-click`, `triple-click`, `right-click`,
-  `scroll` and `drag` by ref refuse before any window activation, cursor
-  move, or pointer, button, wheel or key event, so an unfocused target stays
-  unfocused: `ACTION_FAILED`, kind `receiver_evidence`, `not_delivered`,
+  `scroll` and `drag` by ref refuse before any wait, window activation, cursor
+  move, or pointer, button, wheel or key event. An unfocused target stays
+  unfocused and a hidden workspace stays hidden. The refusal reads only the
+  ref and `hyprctl clients`, so it comes even when the element no longer
+  resolves: `ACTION_FAILED`, kind `receiver_evidence`, `not_delivered`,
   `physical_delivery_started: false`. The cause is `native_wayland_client`
-  for a window that `hyprctl clients` reports with `xwayland: false`, and
-  `receiver_unproven` for one with `xwayland: true`. A client list that does
-  not report the flag refuses with cause `evidence_missing`,
-  `evidence: "client_xwayland"`. Run `click @ref` without `--headed` to use
-  the accessibility action, or aim with coordinates (`mouse-click --xy`,
-  `mouse-wheel --x --y`, `drag --from-xy --to-xy`), which report
-  `receiver_proof: false`, and read the effect from the app.
-  A headed ref action first activates the window, as `focus-window` does, so a
-  window on a hidden special workspace or another workspace is revealed before
-  any check. A cover can undo the activation: Hyprland moves the cursor into
-  the window, onto a floating or pinned cover that then stays active
-  (`activation_refused`), and a layer that takes the keyboard, such as slurp's,
-  keeps the window's frame inactive (`frame_not_active`). Both refusals are
-  `ACTION_FAILED`, `not_delivered`, with `activation_sent: true`. A cover the pre-action hit test sees then fails core's
-  `receives_events` check: `ACTION_FAILED`, `not_delivered`, reason
-  `occluded by layer` or `occluded by window`, with the layer namespace in
-  `occluder.name`. Anything that check passes or cannot read meets the
-  refusal above. An element inside a popup surface refuses first with cause
-  `popup_surface`. A read that runs out of time is `TIMEOUT`, cause
-  `evidence_timed_out`.
+  when every window of the ref's process has `xwayland: false`, and
+  `receiver_unproven` for anything else: an XWayland window, a mix of both,
+  no window, or a client list that cannot be read. Run `click @ref` without
+  `--headed` to use the accessibility action, or aim with coordinates
+  (`mouse-click --xy`, `mouse-wheel --x --y`, `drag --from-xy --to-xy`), which
+  report `receiver_proof: false`, and read the effect from the app. Tray and
+  shell refs keep their own paths.
 - **Every layer counts.** The tool trusts no layer namespace. Its own cursor
   layers pass only after their renderer confirmed this command's hide; any
   other `agent-desktop-cursor` layer refuses the command before any event. A
