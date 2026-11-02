@@ -19,17 +19,17 @@ const XWAYLAND_EVIDENCE: &str = "client_xwayland";
 
 /// Refuses a ref pointer action whose target window is not an XWayland
 /// client, read from the bound instance's `j/clients`.
-pub(crate) fn refuse_native_receiver(
+pub(crate) fn refuse_unproven_receiver(
     binding: &HyprlandBinding,
     address: u64,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    check_native_read(bound_request(binding, "j/clients", deadline), address)
+    check_unproven_read(bound_request(binding, "j/clients", deadline), address)
 }
 
 /// The same check over the `j/clients` read itself. A failed read refuses as
 /// missing evidence, or as timed out evidence when it ran out of time.
-pub(crate) fn check_native_read(
+pub(crate) fn check_unproven_read(
     read: Result<Vec<u8>, AdapterError>,
     address: u64,
 ) -> Result<(), AdapterError> {
@@ -41,12 +41,12 @@ pub(crate) fn check_native_read(
         }
         .to_error()
     })?;
-    check_native_receiver(&clients, address)
+    check_unproven_receiver(&clients, address)
 }
 
 /// The same check over a `j/clients` reply. A reply that does not name the
 /// target with an `xwayland` flag refuses as missing evidence.
-pub(crate) fn check_native_receiver(clients: &[u8], address: u64) -> Result<(), AdapterError> {
+pub(crate) fn check_unproven_receiver(clients: &[u8], address: u64) -> Result<(), AdapterError> {
     match xwayland_flag(clients, address) {
         Some(true) => Ok(()),
         Some(false) => Err(native_refusal()),

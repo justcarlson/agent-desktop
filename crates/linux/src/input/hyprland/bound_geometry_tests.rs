@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, ErrorCode, NativeHandle};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, NativeHandle};
 
 use super::*;
 
@@ -34,4 +34,32 @@ fn no_bound_hyprland_leaves_bounds_and_hits_to_the_toolkit_path() {
             .unwrap()
             .is_none()
     );
+}
+
+struct CountingHider {
+    hides: u32,
+}
+
+impl CursorHider for CountingHider {
+    fn hide(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+        self.hides += 1;
+        Ok(())
+    }
+
+    fn show(&mut self) {}
+}
+
+#[test]
+fn a_drag_endpoint_on_an_xwayland_target_with_a_stack_proof_is_refused_before_any_event() {
+    use crate::input::hyprland::ref_pointer::tests::{
+        assert_unproven, placed, proven_xwayland_stack,
+    };
+
+    let fake = proven_xwayland_stack("xwayland-drag");
+    let mut hider = CountingHider { hides: 0 };
+    let deadline = Deadline::detached_after(3_000).unwrap();
+    let error = prove_placed_point(&fake.binding, &placed(), &mut hider, deadline)
+        .expect_err("a stack proof is not receiver proof on XWayland");
+    assert_unproven(&error);
+    assert_eq!(hider.hides, 0, "the refusal comes before the cursors hide");
 }
