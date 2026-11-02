@@ -166,6 +166,27 @@ class KeymapVerdictTests(unittest.TestCase):
         self.assertNotEqual(keymap.placement_problems(found, {"h": 43, "e": 40}), [])
         self.assertNotEqual(keymap.placement_problems(found, {"h": 44, "e": 40, "d": 41}), [])
 
+    def test_an_input_method_keyboard_still_on_the_old_keymap_reads_as_settled(self):
+        us = ("us", "", "compose:caps", "English (US)")
+        dvorak = ("us", "dvorak", "ctrl:nocaps", "English (Dvorak)")
+        lagging = {"keyboards": [("kbd", *us), ("hl-virtual-keyboard-fcitx5", *us)]}
+        synced = {"kb_variant": "dvorak", "keyboards": [("kbd", *dvorak), ("hl-virtual-keyboard-fcitx5", *dvorak)]}
+        behind = {"kb_variant": "dvorak", "keyboards": [("kbd", *dvorak), ("hl-virtual-keyboard-fcitx5", *us)]}
+        self.assertEqual(keymap.ime_settled(behind, lagging), synced)
+        self.assertEqual(keymap.ime_settled(synced, lagging), synced)
+        stray = {"keyboards": [("kbd", *dvorak), ("hl-virtual-keyboard-fcitx5", "us", "", "", "English (US)")]}
+        self.assertEqual(keymap.ime_settled(stray, lagging), stray)
+        other = {"keyboards": [("kbd", *dvorak), ("other-virtual", *us)]}
+        self.assertEqual(keymap.ime_settled(other, {"keyboards": [("kbd", *us), ("other-virtual", *us)]}), other)
+
+    def test_the_leg_types_a_key_after_the_restore_so_the_input_method_resyncs(self):
+        calls = []
+        with mock.patch.object(keymap, "_focused_key_log") as focused, \
+                mock.patch.object(keymap, "_typed", side_effect=lambda *args: calls.append(args[3:]) or []):
+            focused.return_value.__enter__.return_value = ("app", "log", "@s1:e1")
+            keymap.resync_input_method(types.SimpleNamespace(finding=lambda text: None))
+        self.assertEqual(calls, [(keymap.SYNC_KEY, keymap.SYNC_KEY)])
+
 
 class TheftVerdictTests(unittest.TestCase):
     def test_a_not_delivered_focus_refusal_is_a_stop_before_the_first_key(self):
