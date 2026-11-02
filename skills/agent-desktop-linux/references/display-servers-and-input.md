@@ -310,31 +310,22 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `drag --from-xy`, `hover --xy`) prove nothing about the receiver. The report
   says `details.receiver_proof: false` and counts `details.delivered_events`.
   Read the effect from the app afterwards.
-- **Native Wayland windows refuse ref pointer commands.** Hyprland sees only
-  which window takes a point. A native Wayland app then routes the point to its
-  own surfaces, and neither Hyprland nor the accessibility tree shows an
-  in-window overlay or a popup of the same app over the target. Such a click
-  reported success while another widget got it. So `--headed` `click`,
-  `double-click`, `triple-click`, `right-click`, `scroll` and `drag` by ref on
-  a window that `hyprctl clients` reports with `xwayland: false` refuse before
-  any pointer event: `ACTION_FAILED`, kind `receiver_evidence`, cause
-  `native_wayland_client`, `not_delivered`. The window is activated first, as
-  below. Run `click @ref` without `--headed` to use the accessibility action,
-  or aim with `mouse-click --xy`, which reports `receiver_proof: false`, and
-  read the effect from the app. A client list that does not report the flag
-  refuses with cause `evidence_missing`, `evidence: "client_xwayland"`.
-- **Ref commands** (`click`, `double-click`, `triple-click`, `scroll`) on an
-  XWayland window aim at the element inside its window and prove the receiver
-  from the compositor before each burst. The window must be mapped and shown, and the point must be
-  inside it. No `top` or `overlay` layer and no floating, pinned or fullscreen
-  window that takes the pointer before the target may cover the point.
-  Hyprland gives the pointer first to pinned windows, then to floating windows
-  allowed over fullscreen, then to the fullscreen window, then to other
-  floating windows, then to tiled ones; within a group the later window in
-  `hyprctl clients` wins. A fullscreen window takes every point on its
-  workspace. When `hyprctl clients` reports neither `allowedOverFullscreen`
-  nor the older `overFullscreen` and that decides the order, the cause is `evidence_missing` with
-  `evidence: "over_fullscreen"`.
+- **Ref pointer commands refuse on every window.** Hyprland sees only which
+  window takes a point. The app then routes the point to its own surfaces,
+  and neither Hyprland nor the accessibility tree shows an in-window overlay
+  or a popup of the same app over the target. Such clicks reported success
+  while another widget got them, on native Wayland and XWayland apps alike.
+  So `--headed` `click`, `double-click`, `triple-click`, `right-click`,
+  `scroll` and `drag` by ref refuse before any pointer, button, wheel or key
+  event: `ACTION_FAILED`, kind `receiver_evidence`, `not_delivered`,
+  `physical_delivery_started: false`. The cause is `native_wayland_client`
+  for a window that `hyprctl clients` reports with `xwayland: false`, and
+  `receiver_unproven` for one with `xwayland: true`. A client list that does
+  not report the flag refuses with cause `evidence_missing`,
+  `evidence: "client_xwayland"`. Run `click @ref` without `--headed` to use
+  the accessibility action, or aim with coordinates (`mouse-click --xy`,
+  `mouse-wheel --x --y`, `drag --from-xy --to-xy`), which report
+  `receiver_proof: false`, and read the effect from the app.
   A headed ref action first activates the window, as `focus-window` does, so a
   window on a hidden special workspace or another workspace is revealed before
   any check. A cover can undo the activation: Hyprland moves the cursor into
@@ -345,10 +336,8 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   `receives_events` check: `ACTION_FAILED`, `not_delivered`, reason
   `occluded by layer` or `occluded by window`, with the layer namespace in
   `occluder.name`. Anything that check passes or cannot read meets the
-  receiver proof before each burst, which refuses before any event with
-  `ACTION_FAILED`, kind `receiver_evidence`, and one of the causes
-  `evidence_missing`, `target_not_shown`, `point_outside_target`,
-  `popup_surface`, `layer_cover`, `window_cover` or `native_wayland_client`. A read that runs out of time is `TIMEOUT`, cause
+  refusal above. An element inside a popup surface refuses first with cause
+  `popup_surface`. A read that runs out of time is `TIMEOUT`, cause
   `evidence_timed_out`.
 - **Every layer counts.** The tool trusts no layer namespace, its own cursor
   namespace included. A shell bar or dock that covers the whole output, as the
@@ -366,11 +355,9 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   and a read that runs out of time is `TIMEOUT`.
 - **By ref, `hover` refuses.** `hover @ref` is `ACTION_NOT_SUPPORTED`, cause
   `hover_unsupported`, and sends nothing. Use `hover --xy`.
-- **`drag` by ref** proves both endpoints as a ref click does, before it starts,
-  and refuses a native Wayland endpoint the same way.
-  Each must be shown, inside its window and uncovered, or the drag refuses
-  before any event with the same causes. The move itself carries no further
-  proof. `drag --from-xy` and `--to-xy` stay coordinate commands.
+- **`drag` by ref** checks each ref endpoint as a ref click does, before it
+  starts, so `drag --from @ref --to @ref` refuses before any event with the
+  same causes. `drag --from-xy` and `--to-xy` stay coordinate commands.
 - **Modifiers** are not held: `--modifiers` is `ACTION_NOT_SUPPORTED`, cause
   `modifiers_unsupported`, `not_delivered`.
 - **Focus gate.** The active window is read before every button press and

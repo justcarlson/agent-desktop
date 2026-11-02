@@ -450,7 +450,7 @@ fields to `data.details`:
 | `receiver_proof` | Always `false` |
 | `delivered_events` | Events sent: motion, button and wheel |
 
-A ref command (`click`, `double-click`, `triple-click`, `scroll`) is headed,
+A ref command (`click`, `double-click`, `triple-click`, `right-click`, `scroll`) is headed,
 so it first activates the target window, revealing a hidden special workspace
 or switching workspace as `focus-window` does. A cover can undo that
 activation: Hyprland moves the cursor into the target, onto a floating or
@@ -459,9 +459,15 @@ takes the keyboard, such as slurp's, keeps the target's frame inactive
 (`frame_not_active`). Both are `not_delivered`. Core's `receives_events` check
 then hit-tests the target against the compositor's stack, and a cover it sees
 fails that check with an `occluder` (`role` `layer` with the namespace as
-`name`, or `role` `window`). The command then reads the
-compositor's window stack and layers again before each burst. Every layer counts as a
-cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
+`name`, or `role` `window`). The command then places the element in its
+window and reads the window's `xwayland` flag. Hyprland cannot prove which
+surface of the app takes the point, so every ref pointer command, `right-click`
+and both ends of `drag --from @ref --to @ref` included, refuses there, before
+any pointer, button, wheel or key event: cause `native_wayland_client` or
+`receiver_unproven`. The stack and layer read that would follow before each
+burst stays in the code, so `point_outside_target`, `layer_cover` and
+`window_cover` are not reached today. Every layer counts as a cover, whatever
+its namespace. A refusal before any event is `ACTION_FAILED`,
 `not_delivered`, with `details.kind: "receiver_evidence"`,
 `details.check: "hyprland_stack"` and `physical_delivery_started: false`:
 
@@ -475,6 +481,7 @@ cover, whatever its namespace. A refusal before any event is `ACTION_FAILED`,
 | `layer_cover` | A `top` or `overlay` layer holds the point | `layer_namespace`, `layer_level` |
 | `window_cover` | A floating, pinned or fullscreen window takes the point before the target | `cover_address` |
 | `native_wayland_client` | The target window is a native Wayland client (`xwayland: false`). Hyprland cannot prove which of the app's own surfaces takes the point, so every headed ref click, scroll and drag refuses. Use `click @ref` without `--headed`, or `mouse-click --xy` | |
+| `receiver_unproven` | The target window is an XWayland client (`xwayland: true`). The stack names the window, not the X11 surface inside it that takes the point, so every headed ref click, scroll and drag refuses. Use `click @ref` without `--headed`, or aim with `--xy` | |
 
 Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 `not_delivered`:
@@ -486,8 +493,8 @@ Other refusals before any event carry `details.kind: "hyprland_pointer"` and
 | `modifiers_unsupported` | `ACTION_NOT_SUPPORTED` | Held modifiers were asked for |
 | `unsupported_step` | `ACTION_NOT_SUPPORTED` | The plan holds a button or key the virtual pointer does not send |
 
-`drag` by ref proves both endpoints the same way before it starts, with the
-same refusals. The move itself carries no further proof.
+`drag` by ref checks both endpoints the same way before it starts, with the
+same refusals.
 
 The active window is read before every button press and wheel step. A change
 stops delivery with `ACTION_FAILED`, `details.kind: "focus_gate"`,

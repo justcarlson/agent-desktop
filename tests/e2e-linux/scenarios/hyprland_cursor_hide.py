@@ -32,8 +32,10 @@ from scenarios.hyprland_focus_controls import active, focus_argv, lua_call, quer
 from scenarios.wayland_outputs import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
                                             pad_ref, pads_left, pointer_pad, presses, settled, since)
+from scenarios.hyprland_pointer_refs import unproven_problems
 
 SHOW_SETTLE_S = 3.0
+REFUSAL_SETTLE_S = 0.5
 ARROW_FILL = (0x42, 0x99, 0xFF)
 FILL_DELTA = 16
 FILL_MIN = 8
@@ -476,7 +478,9 @@ def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, o
 
 
 def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
-    """A headed ref click on the pad while the session cursor layer covers it lands exactly once."""
+    """A headed ref click on the XWayland pad while the session cursor layer covers it refuses as
+    receiver_unproven before it hides the layer, and the pad logs no press. The refusal leaves the
+    layer drawn, kept or not."""
     tier, runtime = ctx.tier, shared(ctx.tier)
     instance, _ = nested(tier)
     env = instance_env(tier, instance)
@@ -499,16 +503,14 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
             with keep_drawn(registry) if kept else contextlib.nullcontext():
                 clicked = ctx.product(["click", button], env=bound, headed=True)
                 drawn_during = over()
-            found = since(settled(log, lambda found: presses(found, "button") != [] and len(found) > start), start)
-            problems = []
-            if not clicked.ok:
-                problems.append(f"the click under the cursor refused: {clicked.raw[:400]}")
-            if presses(found, "button") != [1]:
-                problems.append(f"the pad logged {presses(found, 'button')} under the cursor, not one press")
-            if kept and not drawn_during:
-                problems.append("the kept cursor layer was gone right after the click")
+            found = since(settled(log, lambda found: presses(found, "button") != [], REFUSAL_SETTLE_S), start)
+            problems = unproven_problems("the click under the cursor", clicked)
+            if presses(found, "button"):
+                problems.append(f"the pad logged {presses(found, 'button')} under the cursor, expected none")
+            if not drawn_during:
+                problems.append("the cursor layer was gone right after the refused click")
             if not raw.poll(over, SHOW_SETTLE_S):
-                problems.append("the cursor layer did not come back after the click")
+                problems.append("the cursor layer was not over the pad after the refused click")
             ctx.after("hyprland.layers", layers_of(runtime, instance))
             ctx.after("applog.pad", len(events(log)))
         finally:
@@ -520,11 +522,11 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
 
 @implementation("pointer.ref_receiver_evidence_under_cursor")
 def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
-    """The headed click hides the session cursor, accepts its acknowledged layer as its own and lands once."""
+    """The headed click under the session cursor refuses as receiver_unproven and sends nothing."""
     _click_under_cursor(ctx, "under-cursor", kept=False)
 
 
 @implementation("pointer.cursor_pass_through")
 def cursor_pass_through(ctx: LegContext) -> None:
-    """With the renderer's test flag keeping the cursor drawn through the hide, the click still lands once."""
+    """With the renderer's test flag keeping the cursor drawn, the headed click still refuses and sends nothing."""
     _click_under_cursor(ctx, "pass-through", kept=True)

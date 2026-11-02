@@ -1,11 +1,15 @@
-//! Whether a ref pointer action on the bound Hyprland instance may aim at a
-//! client. The compositor's stack proves only which toplevel takes a point.
-//! A native Wayland client then routes the point inside its own surfaces,
-//! and neither the stack nor the accessibility descent shows what takes it
-//! there: an in-window overlay or a same-client popup took ref clicks while
-//! both reported the target (probes/linux/FINDINGS.md L42-4, L42-5). So a
-//! native Wayland target refuses before any event. An XWayland target keeps
-//! the stack proof, which these rows did not measure.
+//! Whether a ref pointer action on the bound Hyprland instance has proof of
+//! which surface takes its point. The compositor's stack proves only which
+//! toplevel takes a point; the client then routes the point inside its own
+//! surfaces, and the stack does not show where it goes. On a native Wayland
+//! client an in-window overlay or a same-client popup took ref clicks while
+//! the stack and the accessibility descent both reported the target
+//! (probes/linux/FINDINGS.md L42-4, L42-5). On an XWayland client the same
+//! covers took 12 of 12 overlay clicks and every GTK popup click while the
+//! stack proof passed (L45-2). No other receiver proof exists, so every
+//! target refuses before any pointer or modifier event: a native Wayland
+//! target with cause `native_wayland_client`, an XWayland target with
+//! cause `receiver_unproven`.
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::{Value, json};
@@ -17,8 +21,8 @@ use crate::system::hyprland::receiver::receiver_refusal::ReceiverRefusal;
 
 const XWAYLAND_EVIDENCE: &str = "client_xwayland";
 
-/// Refuses a ref pointer action whose target window is not an XWayland
-/// client, read from the bound instance's `j/clients`.
+/// Refuses a ref pointer action on the target window, named native Wayland
+/// or XWayland by the bound instance's `j/clients`.
 pub(crate) fn refuse_unproven_receiver(
     binding: &HyprlandBinding,
     address: u64,
@@ -48,7 +52,7 @@ pub(crate) fn check_unproven_read(
 /// target with an `xwayland` flag refuses as missing evidence.
 pub(crate) fn check_unproven_receiver(clients: &[u8], address: u64) -> Result<(), AdapterError> {
     match xwayland_flag(clients, address) {
-        Some(true) => Ok(()),
+        Some(true) => Err(unproven_refusal()),
         Some(false) => Err(native_refusal()),
         None => Err(ReceiverRefusal::EvidenceMissing {
             check: XWAYLAND_EVIDENCE,
@@ -83,6 +87,23 @@ fn native_refusal() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
     .with_suggestion(
         "Run the ref action without --headed to use its accessibility action, or aim with mouse-click --xy, which reports receiver_proof: false, and read the effect from the app",
+    )
+}
+
+fn unproven_refusal() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The target is an XWayland window, and Hyprland cannot prove which of its surfaces takes the pointer; run the ref action without --headed, or aim with --xy",
+    )
+    .with_details(json!({
+        "kind": "receiver_evidence",
+        "check": "hyprland_stack",
+        "cause": "receiver_unproven",
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+    .with_suggestion(
+        "Run the ref action without --headed, such as click @ref, to use its accessibility action, or aim with coordinates (mouse-click --xy, mouse-wheel --x --y, drag --from-xy --to-xy), which report receiver_proof: false, and read the effect from the app",
     )
 }
 
