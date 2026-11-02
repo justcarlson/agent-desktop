@@ -330,6 +330,7 @@ LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'pointer.hover_by_ref_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'hover_by_ref_headless_refused'),
     'pointer.ref_drag_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_refused'),
     'pointer.ref_drag_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_headless_refused'),
+    'pointer.coordinate_click_through_cursor': ('scenarios.hyprland_pointer_pass_through', 'coordinate_click_through_cursor'),
 }
 
 
