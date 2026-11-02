@@ -15,12 +15,18 @@ pub trait InputOps: Send + Sync {
         None
     }
 
-    /// The reason a hover aimed by ref can never reach its element in this
-    /// session, if it cannot. Hover asks with the stored entry before any
-    /// wait, focus or resolution, so a hover the adapter always refuses
-    /// answers at once instead of spending its wait budget first.
-    fn ref_hover_refusal(&self, entry: &RefEntry) -> Option<AdapterError> {
-        let _ = entry;
+    /// The reason a pointer gesture aimed by ref can never reach its element
+    /// in this session, if it cannot. Core asks with the stored entry and the
+    /// gesture (hover, a headed click or scroll, or a drag endpoint) before
+    /// any wait, window activation or cursor move, so a gesture the adapter
+    /// always refuses answers at once and leaves focus and cursor alone.
+    fn ref_pointer_refusal(
+        &self,
+        entry: &RefEntry,
+        action: &crate::Action,
+        deadline: Deadline,
+    ) -> Option<AdapterError> {
+        let _ = (entry, action, deadline);
         None
     }
 

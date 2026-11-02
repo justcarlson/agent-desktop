@@ -2,7 +2,10 @@ use super::*;
 
 struct EndpointProofAdapter {
     refused_pid: Option<u32>,
+    early_refused_pid: Option<u32>,
     proved_pids: Mutex<Vec<u32>>,
+    asked_pids: Mutex<Vec<u32>>,
+    focused: Mutex<usize>,
     captured: Mutex<Option<DragParams>>,
 }
 
@@ -10,8 +13,18 @@ impl EndpointProofAdapter {
     fn refusing(refused_pid: Option<u32>) -> Self {
         Self {
             refused_pid,
+            early_refused_pid: None,
             proved_pids: Mutex::new(Vec::new()),
+            asked_pids: Mutex::new(Vec::new()),
+            focused: Mutex::new(0),
             captured: Mutex::new(None),
+        }
+    }
+
+    fn refusing_early(early_refused_pid: u32) -> Self {
+        Self {
+            early_refused_pid: Some(early_refused_pid),
+            ..Self::refusing(None)
         }
     }
 }
@@ -69,6 +82,22 @@ impl ObservationOps for EndpointProofAdapter {
 impl ActionOps for EndpointProofAdapter {}
 
 impl InputOps for EndpointProofAdapter {
+    fn ref_pointer_refusal(
+        &self,
+        entry: &RefEntry,
+        action: &crate::Action,
+        _deadline: crate::Deadline,
+    ) -> Option<AdapterError> {
+        assert!(matches!(action, crate::Action::Drag(_)));
+        let pid = entry.process.pid.get();
+        self.asked_pids.lock().unwrap().push(pid);
+        (self.early_refused_pid == Some(pid)).then(|| {
+            AdapterError::new(crate::ErrorCode::ActionFailed, "the receiver is unproven")
+                .with_details(serde_json::json!({ "cause": "receiver_unproven" }))
+                .with_disposition(DeliverySemantics::not_delivered())
+        })
+    }
+
     fn drag(
         &self,
         params: DragParams,
@@ -95,6 +124,7 @@ impl SystemOps for EndpointProofAdapter {
         _window: &crate::WindowInfo,
         _lease: &crate::InteractionLease,
     ) -> Result<(), AdapterError> {
+        *self.focused.lock().unwrap() += 1;
         Ok(())
     }
 }
@@ -152,5 +182,40 @@ fn a_coordinate_drag_asks_for_no_receiver_proof() {
     .expect("a coordinate drag has no ref to prove");
 
     assert!(adapter.proved_pids.lock().unwrap().is_empty());
+    assert!(adapter.asked_pids.lock().unwrap().is_empty());
+    assert!(adapter.captured.lock().unwrap().is_some());
+}
+
+#[test]
+fn a_ref_drag_endpoint_the_adapter_refuses_never_activates_resolves_or_sends() {
+    for refused_pid in [1, 2] {
+        let _guard = HomeGuard::new();
+        let adapter = EndpointProofAdapter::refusing_early(refused_pid);
+
+        let error = drag_by_ref(&adapter).expect_err("the endpoint receiver is unproven");
+
+        assert_eq!(error.code(), "ACTION_FAILED");
+        let AppError::Adapter(error) = error else {
+            panic!("an adapter refusal")
+        };
+        assert_eq!(error.details.unwrap()["cause"], "receiver_unproven");
+        assert_eq!(
+            serde_json::to_value(error.disposition).unwrap()["delivery"],
+            "not_delivered"
+        );
+        assert_eq!(*adapter.focused.lock().unwrap(), 0);
+        assert!(adapter.proved_pids.lock().unwrap().is_empty());
+        assert!(adapter.captured.lock().unwrap().is_none());
+    }
+}
+
+#[test]
+fn a_ref_drag_asks_for_both_endpoint_refusals_before_it_moves() {
+    let _guard = HomeGuard::new();
+    let adapter = EndpointProofAdapter::refusing(None);
+
+    drag_by_ref(&adapter).expect("neither endpoint is refused");
+
+    assert_eq!(*adapter.asked_pids.lock().unwrap(), vec![1, 2]);
     assert!(adapter.captured.lock().unwrap().is_some());
 }
