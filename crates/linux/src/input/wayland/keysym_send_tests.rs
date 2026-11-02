@@ -329,3 +329,47 @@ fn success_drains_and_refusal_is_private() {
     let empty = send_chunks(&[], &mut || Ok(()), live()).expect("empty input is a no-op");
     assert_eq!(empty.delivered_events, 0);
 }
+
+fn refused_after(
+    log: &std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+    label: &str,
+) -> Result<(), AdapterError> {
+    if log.borrow().iter().any(|event| event == label) {
+        Err(AdapterError::new(
+            ErrorCode::ActionFailed,
+            "A signal stopped the keyboard delivery",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_stop_after_sent_keys_drains_before_the_teardown() {
+    let keys = [tap(KEY_A), tap(0x62)].concat();
+    let mut session = FakeSession::new();
+    session.resumed = true;
+    let log = session.log();
+    let mut gate = || refused_after(&log, "up:61");
+    let started = std::time::Instant::now();
+    run_chunks(&mut session, &[&keys], &mut gate, live()).expect_err("the gate stops it");
+    assert!(
+        started.elapsed() >= DRAIN,
+        "the teardown followed the last key at once"
+    );
+    assert_eq!(session.events().last().map(String::as_str), Some("stop"));
+}
+
+#[test]
+fn a_stop_before_any_key_tears_down_at_once() {
+    let keys = tap(KEY_A);
+    let mut session = FakeSession::new();
+    session.resumed = true;
+    let log = session.log();
+    let mut gate = || refused_after(&log, "start");
+    log.borrow_mut().push("start".into());
+    let started = std::time::Instant::now();
+    run_chunks(&mut session, &[&keys], &mut gate, live()).expect_err("the gate stops it");
+    assert!(started.elapsed() < DRAIN);
+    assert_eq!(session.events().last().map(String::as_str), Some("stop"));
+}
