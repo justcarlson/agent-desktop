@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass, replace
 from typing import Callable
 
@@ -259,6 +260,7 @@ REGISTRY += (
     Leg('lifecycle.hyprland_floating_move_resize', 'On a foot terminal alone on a spare workspace, move-window on the tiled window refuses with tiled_window and leaves j/clients unchanged; once it floats, move-window and resize-window are delivered_verified and j/clients shows it at 40,60 and 500x400; a repeated move is not_delivered; the bystander toplevel, focus, cursor and workspaces stay as they were', 'foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'proc'), 'pass'),
     Leg('lifecycle.hyprland_minimize_restore', 'minimize moves a foot terminal to special:agent-desktop-minimized-<workspace> without showing it, a repeated minimize is not_delivered, a move while minimized refuses with window_minimized, and restore puts it back on its workspace at its size, each read from j/clients, while the bystander toplevel, focus, cursor and workspaces stay as they were', 'foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'proc'), 'pass'),
     Leg('lifecycle.hyprland_maximize_restore', 'maximize on a floating foot terminal refuses with maximize_takes_focus while the bystander holds focus; once the terminal holds focus, maximize sets j/clients fullscreen 1 without moving focus, a resize refuses with window_maximized, and restore gives fullscreen 0 at its floating geometry; a legacy config refuses with legacy_config_focused_only', 'foot and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'proc'), 'pass'),
+    Leg('lifecycle.hyprland_window_operation_refusals', 'On the window sizer parked tiled on a spare workspace, in either mode, move and resize refuse with tiled_window, maximize while the bystander holds focus with maximize_takes_focus, minimize, maximize and restore of the window while another tool hides it with foreign_special_workspace, and maximize or move while it is minimized with window_minimized; every operation on a closed window id gives WINDOW_NOT_FOUND; j/clients, the sizer process and its log stay unchanged, focus, cursor and workspaces stay with the bystander throughout, and a floating move then works in the same mode', 'Window Sizer and bystander', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'proc'), 'asserted-refusal', 'ACTION_NOT_SUPPORTED, causes tiled_window, maximize_takes_focus, foreign_special_workspace and window_minimized, and WINDOW_NOT_FOUND for a closed window id; each exits 1 with not_delivered and physical_delivery_started false'),
     Leg('input.hyprland_type_text_virtual_keyboard', 'A headed type into a focused GTK3 entry delivers the text with mixed case, punctuation and digits through a virtual keyboard: the step is VirtualKeyboard.type_text, the entry reads the text through AT-SPI, the app logs each letter and digit press in order, a second type appends, and j/devices lists the same keyboards and layout state before and after', 'Key Log and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'applog'), 'pass'),
     Leg('input.hyprland_press_chord_virtual_keyboard', 'Scoped press --window-id on the focused window sends chords through a virtual keyboard: ctrl+a then x replaces abc with x, shift+a appends A with Shift in the state the app logs, each step is VirtualKeyboard.press_key, and j/devices keeps the same keyboards', 'Key Log and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'applog'), 'pass'),
     Leg('input.hyprland_type_non_us_layout', 'With kb_layout us,ru and the Russian layout active on the main keyboard, a headed type of Cyrillic text reads back exactly through AT-SPI, the app logs every Cyrillic press in layout group 1, typing leaves j/devices as it was, and the original kb_layout and layout state come back', 'Key Log and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'applog'), 'pass'),
@@ -280,6 +282,9 @@ REGISTRY += (
     Leg('pointer.headless_or_cancelled_input', 'Without headed permission, coordinate click, wheel and drag and ref double-click, triple-click and scroll refuse with POLICY_DENIED before the pointer moves; j/cursorpos and the pad log stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor and pad log unchanged'),
     Leg('pointer.native_wayland_ref_refused', 'On a native Wayland pad on a nested instance, j/clients shows xwayland false, and a headed ref click, double-click, triple-click and scroll each refuse with ACTION_FAILED, cause native_wayland_client, physical_delivery_started false and not_delivered, while the pad logs no event', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'ACTION_FAILED, cause native_wayland_client, physical_delivery_started false, not_delivered; the pad log is unchanged'),
     Leg('pointer.cancel_or_disconnect_releases_buttons', 'SIGTERM during a drag stops later events and releases the held button in the pad log, and the next drag works; a nested compositor killed during a drag gives delivery_uncertain with unsafe retry, its partial counts and buttons_released false', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('applog', 'proc'), 'pass'),
+    Leg('pointer.hover_by_ref_refused', 'Hover by ref refuses at once with hover_unsupported, not_delivered and no physical delivery for an XWayland and a native pad and for a GTK4 XWayland window whose popup covers the target; j/cursorpos and the logs stay unchanged', 'Pointer pad and GTK4 popup on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'ACTION_NOT_SUPPORTED, cause hover_unsupported, within 2000 ms'),
+    Leg('pointer.hover_coordinates', 'hover --xy delivers: j/cursorpos reads the point', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'pass'),
+    Leg('pointer.coordinate_multi_click_xwayland', 'mouse-click --xy --count 2|3 lands that many clicks on the target of the gtk3, gtk4 and qt6 XWayland receiver fixtures as delivered_unverified without receiver proof; headed double-click and triple-click by ref refuse as receiver_unproven with no click logged', 'Receiver fixtures on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'pass'),
 )
 
 REGISTRY += (
@@ -328,3 +333,22 @@ def _ref_contract(ctx):
 for _leg in REGISTRY:
     if _leg.id.startswith("ref_contract."):
         implementation(_leg.id)(_ref_contract)
+
+
+LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
+    'lifecycle.hyprland_window_operation_refusals': ('scenarios.hyprland_window_refusals', 'window_operation_refusals'),
+    'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),
+    'pointer.hover_coordinates': ('scenarios.hyprland_hover', 'hover_coordinates'),
+    'pointer.coordinate_multi_click_xwayland': ('scenarios.hyprland_multiclick', 'coordinate_multi_click_xwayland'),
+}
+
+
+def _lazy(module: str, name: str) -> Callable:
+    def run(ctx):
+        return getattr(importlib.import_module(module), name)(ctx)
+
+    return run
+
+
+for _leg_id, (_module, _name) in LAZY_IMPLEMENTATIONS.items():
+    implementation(_leg_id)(_lazy(_module, _name))
