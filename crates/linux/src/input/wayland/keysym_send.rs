@@ -62,7 +62,12 @@ fn recover(session: &mut dyn KeySession, held: &[u32]) {
         return;
     };
     for keysym in held.iter().rev() {
-        let _ = session.keysym(*keysym, false, deadline);
+        let released = session.keysym(*keysym, false, deadline);
+        tracing::debug!(
+            keysym,
+            ok = released.is_ok(),
+            "released a held keysym after a stop"
+        );
     }
 }
 
@@ -164,7 +169,10 @@ pub(crate) fn run_chunks(
     let outcome = drive(session, chunks, gate, deadline);
     match &outcome {
         Ok(delivered) if *delivered > 0 => sleep(deadline.remaining().min(DRAIN)),
-        Err(error) if error.disposition == DeliverySemantics::uncertain() => sleep(DRAIN),
+        Err(error) if error.disposition == DeliverySemantics::uncertain() => {
+            tracing::debug!(cause = %error.message, "draining a stopped keyboard delivery");
+            sleep(DRAIN);
+        }
         _ => {}
     }
     let kept = outcome.is_ok() && session.retain();

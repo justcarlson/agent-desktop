@@ -78,6 +78,7 @@ dependencies = [
  "rustix",
  "serde_json",
  "thiserror",
+ "tracing",
  "wayland-backend",
  "wayland-client",
  "wayland-protocols",
