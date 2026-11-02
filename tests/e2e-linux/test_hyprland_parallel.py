@@ -708,5 +708,112 @@ class KeyboardVerdictTests(unittest.TestCase):
         self.assertEqual(len(self.verdict([[self.PHYSICAL, self.POWER], after, after])), 1)
 
 
+class CancelStageOracleTests(unittest.TestCase):
+    """The cancel leg's next agents report their wait, and its cancelled agents' effects stay in their holds."""
+
+    CONTENDED = {"details": {"auto_wait": {"lease_contention_count": 4, "lease_hold_ms": 30}}}
+
+    def setUp(self):
+        import time
+
+        self.base = time.monotonic()
+
+    def agent(self, name: str, pid: int, data: dict | None = None, cancelled: bool = False):
+        import signal
+        from types import SimpleNamespace
+
+        reply = None if cancelled else envelope(True, None, 0, data)
+        return SimpleNamespace(name=name, pid=pid, exit_code=-signal.SIGTERM if cancelled else 0, envelope=reply,
+                               finish=lambda: reply, kill=lambda: None, signal=lambda _number: None,
+                               process=SimpleNamespace(poll=lambda: None))
+
+    def sampler(self, pids: list[int]):
+        from types import SimpleNamespace
+
+        base = self.base
+        events = {pid: {"enqueue": base + 1.0, "acquire": base + 50.0 + index, "release": base + 50.2 + index}
+                  for index, pid in enumerate(pids)}
+        return SimpleNamespace(events=lambda: events, holds=lambda _names: [Hold("runner", base, base + 50.0)])
+
+    def next_problems(self, data: dict | None) -> list[str]:
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_cancel as cancel
+
+        after = self.agent("D", 8, data)
+        with patch.object(cancel.agents, "turn"), patch.object(cancel, "effects", return_value=(self.base + 50.1,)):
+            return cancel._next_proceeds(None, self.sampler([8]), {}, after, self.base, {})
+
+    def test_a_contended_next_agent_passes(self):
+        self.assertEqual(self.next_problems(self.CONTENDED), [])
+
+    def test_a_next_agent_with_no_contention_count_fails(self):
+        found = self.next_problems({"details": {}})
+        self.assertTrue(any("no lease contention count" in item for item in found), found)
+
+    def test_a_next_agent_that_reports_no_wait_behind_the_gate_fails(self):
+        found = self.next_problems({"details": {"auto_wait": {"lease_contention_count": 0}}})
+        self.assertTrue(any("reports lease contention 0" in item for item in found), found)
+
+    def acquired_problems(self, landed: tuple[float, ...]) -> list[str]:
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_cancel as cancel
+
+        holder, after = self.agent("D", 7, cancelled=True), self.agent("A", 8, self.CONTENDED)
+        allowed = {}
+        with patch.object(cancel.agents, "spawn", side_effect=[holder, after]), \
+                patch.object(cancel.agents, "queued"), \
+                patch.object(cancel.agents, "turn", side_effect=lambda *args, during=None: during()), \
+                patch.object(cancel, "_next_proceeds", return_value=[]), \
+                patch.object(cancel, "effects", return_value=landed):
+            found = cancel.acquired_stage(None, None, self.sampler([7, 8]), {}, {"A": "@s1:e1"}, {"D": (1.0, 1.0)},
+                                          "run-1", allowed)
+        self.assertEqual(allowed.get("D"), list(landed))
+        return found
+
+    def test_a_cancelled_holder_click_inside_its_hold_passes(self):
+        self.assertEqual(self.acquired_problems((self.base + 50.1,)), [])
+
+    def test_a_cancelled_holder_click_past_the_lag_bound_fails(self):
+        found = self.acquired_problems((self.base + 52.2,))
+        self.assertTrue(any("past the 1000 ms bound" in item for item in found), found)
+
+    def test_a_cancelled_holder_click_before_its_hold_fails(self):
+        found = self.acquired_problems((self.base + 20.0,))
+        self.assertTrue(any("before its acquire" in item for item in found), found)
+
+    def partial_problems(self, landed: tuple[float, ...]) -> list[str]:
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_cancel as cancel
+
+        typist, after = self.agent("B", 7, cancelled=True), self.agent("A", 8, self.CONTENDED)
+        ctx = SimpleNamespace(tier=None, finding=lambda _text: None)
+        allowed = {}
+        with patch.object(cancel.agents, "spawn", side_effect=[typist, after]), \
+                patch.object(cancel.agents, "queued"), patch.object(cancel.agents, "turn"), \
+                patch.object(cancel, "keyboards", return_value=[]), \
+                patch.object(cancel.zoo, "focus_entry"), patch.object(cancel.zoo, "entry_text", return_value="abc"), \
+                patch.object(cancel, "_next_proceeds", return_value=[]), \
+                patch.object(cancel, "effects", return_value=landed):
+            refs = {"A": "@s1:e1", "B": "@s1:e3"}
+            found = cancel.partial_stage(ctx, None, self.sampler([7, 8]), {"B": "entry"}, refs, "run-1", allowed)
+        self.assertEqual(allowed.get("B"), list(landed))
+        return found
+
+    def test_a_cancelled_typists_changes_inside_its_hold_pass(self):
+        self.assertEqual(self.partial_problems((self.base + 50.05, self.base + 50.1)), [])
+
+    def test_a_cancelled_typists_change_past_the_lag_bound_fails(self):
+        found = self.partial_problems((self.base + 50.1, self.base + 52.2))
+        self.assertTrue(any("past the 1000 ms bound" in item for item in found), found)
+
+    def test_a_cancelled_typists_change_before_its_hold_fails(self):
+        found = self.partial_problems((self.base + 20.0, self.base + 50.1))
+        self.assertTrue(any("before its acquire" in item for item in found), found)
+
+
 if __name__ == "__main__":
     unittest.main()
