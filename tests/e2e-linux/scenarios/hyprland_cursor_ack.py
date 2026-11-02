@@ -182,17 +182,22 @@ def _held_click(ctx: LegContext, hold: str, judge) -> None:
             owner = record_of(runtime, session)
             require(raw.poll(lambda: display(tree) != before, SETTLE_S), "the first click had no effect")
             registry, shown = registry_of(runtime, session), display(tree)
+            ctx.before("proc.arrival_ack_trace", read_trace(registry / ACK_TRACE))
             three, _ = button(ctx, app, session, "3")
             with held_ack(registry, hold) as trace_path:
                 with DisplayTimeline(lambda: display(tree), shown) as timeline:
                     clicked = agent_click(ctx, session, three, AGENT)
                 trace = read_trace(trace_path)
             ctx.after("proc.arrival_ack_trace", trace)
-            ctx.after("atspi.display_transitions", transitions(timeline.reads, shown))
+            ctx.after("hyprland.layers", surfaces_of(runtime, main))
             require(clicked.ok, f"the held click failed: {clicked.raw[:400]}")
-            problems += judge(trace, timeline.reads, shown)
-            ctx.finding(f"{hold}: {len(trace)} held acknowledgement(s); click took {clicked.elapsed_ms:.0f} ms")
+            held_problems = judge(trace, timeline.reads, shown)
+            problems += held_problems
+            proven = "proved" if not held_problems else "not proved"
+            label = f"{hold}: {proven}, click ok in {clicked.elapsed_ms:.0f} ms"
+            ctx.finding(_held_finding(label, trace, timeline.reads, shown))
             problems += _recovery_problems(ctx, app, session, tree, registry)
+            ctx.restored("proc.arrival_ack_trace", read_trace(registry / ACK_TRACE))
             ctx.after("atspi.display", display(tree))
         finally:
             ended(ctx, session)
@@ -201,6 +206,15 @@ def _held_click(ctx: LegContext, hold: str, judge) -> None:
         ctx.restored("atspi.display", undone(tree, before))
     require(not problems, "; ".join(problems))
     ctx.restored("hyprland.layers", surfaces_of(runtime, main))
+
+
+def _held_finding(label: str, trace: list[dict], reads: list[tuple[int, str]], before: str) -> str:
+    """What the held click showed, for the run log."""
+    unchanged = last_unchanged_start(reads, before)
+    first = min((line["received_ns"] for line in trace), default=None)
+    held_ms = None if unchanged is None or first is None else round((unchanged - first) / NS_PER_MS, 1)
+    return (f"{label}; {len(trace)} held acknowledgement(s); the app still showed {before!r} in a read "
+            f"started {held_ms} ms after the first travel was received, then {transitions(reads, before)}")
 
 
 def _recovery_problems(ctx: LegContext, app, session: str, tree, registry: Path) -> list[str]:
