@@ -18,7 +18,8 @@ const STOP_SUGGESTION: &str = "Run 'snapshot' to read the real state before retr
 /// event first checks that the run was not cancelled and that the agent
 /// cursors are still hidden. A stop after the first event releases every held button, confirms every
 /// release already sent, and returns an uncertain error with the count of
-/// events sent. A run is delivered only once the compositor has read every
+/// events sent. An event that failed after the sink dispatched it counts as
+/// sent, and its press as held. A run is delivered only once the compositor has read every
 /// event.
 pub(crate) fn run_plans(
     sink: &mut dyn PointerSink,
@@ -54,10 +55,16 @@ pub(crate) fn run_plans(
                 if event.gated() {
                     step_gate()?;
                 }
-                event.send(sink)?;
-                sent = sent.saturating_add(u32::from(event.counts()));
-                event.track(&mut held);
-                unconfirmed |= event.releases();
+                let outcome = event.send(sink);
+                if outcome
+                    .as_ref()
+                    .map_or_else(|failure| failure.dispatched, |()| true)
+                {
+                    sent = sent.saturating_add(u32::from(event.counts()));
+                    event.track(&mut held);
+                    unconfirmed |= event.releases();
+                }
+                outcome.map_err(|failure| failure.error)?;
             }
         }
         sink.finish()
