@@ -41,6 +41,7 @@ def _next_proceeds(gate, sampler, launched, agent: agents.Agent, since: float, a
     agents.turn(gate, sampler, agent, [agent])
     agent.finish()
     problems = agents.outcome_problems(agent)
+    agents.settle(lambda: effects(launched, agent.name, since))
     landed = effects(launched, agent.name, since)
     allowed.setdefault(agent.name, []).extend(landed)
     if len(landed) != 1:
