@@ -324,6 +324,20 @@ class FailureReportTests(unittest.TestCase):
         self.assertIn("not_delivered", problems[0])
         self.assertNotIn("samples", problems[0])
 
+    def test_the_layer_stack_lists_each_surface_by_level(self):
+        from unittest.mock import patch
+
+        from scenarios import parallel_zoo as zoo
+
+        layers = {"Virtual-1": {"levels": {"3": [{"namespace": "agent-desktop-cursor", "pid": 41, "x": 0, "y": 0,
+                                                  "w": 1280, "h": 800}],
+                                           "2": [{"namespace": "waybar", "pid": 9, "x": 0, "y": 0, "w": 1280,
+                                                  "h": 26}]}}}
+        with patch.object(zoo, "query", return_value=layers):
+            found = zoo.layer_stack(None)
+        self.assertEqual(found, [("Virtual-1", "2", "waybar", 9, (0, 0, 1280, 26)),
+                                 ("Virtual-1", "3", "agent-desktop-cursor", 41, (0, 0, 1280, 800))])
+
 
 class RendererRecordTests(unittest.TestCase):
     def setup_of(self, records):

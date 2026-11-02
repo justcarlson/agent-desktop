@@ -21,7 +21,7 @@ from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
 from scenarios import parallel_oracle as oracle
 from scenarios import parallel_zoo as zoo
-from scenarios.hyprland_keys_common import give_focus, keyboards, toplevel
+from scenarios.hyprland_keys_common import keyboards
 from scenarios.hyprland_parallel_faults import agent_argv, effects, session_refs, strays
 
 PACED = "abcdefghijklmnopqrst"
@@ -90,7 +90,7 @@ def partial_stage(ctx: LegContext, gate, sampler, launched, refs, session: str, 
     """A paced `type` cancelled mid-text leaves a strict prefix, no held key and no safe retry."""
     tier = ctx.tier
     before = keyboards(tier)
-    give_focus(tier, toplevel(tier, launched["B"].app)["address"])
+    zoo.focus_entry(tier, launched["B"])
     since = time.monotonic()
     argv = [*agent_argv("B", refs["B"], text=PACED), "--interval-ms", PACED_MS]
     typist = agents.spawn(tier, sampler, "B", argv, session=session, headed=True)
@@ -141,6 +141,7 @@ def cancel_waiter_and_holder(ctx: LegContext) -> None:
                     problems += partial_stage(ctx, gate, sampler, launched, refs, session, allowed)
                 finally:
                     gate.close()
+            zoo.note_layers(ctx, problems)
             ctx.finding(final_state(launched))
             found = strays(launched, allowed)
             ctx.after("applog.strays", found)
