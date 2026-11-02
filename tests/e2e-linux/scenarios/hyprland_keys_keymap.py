@@ -6,6 +6,11 @@ presses Tab in the zoo. The configured options and every keyboard's layout,
 variant, options and keymap name must read back as they were set, the app
 must see each letter on the key the Dvorak variant puts it on, Tab must move
 focus, and the original keymap must come back.
+
+fcitx5's input-method keyboard copies the compositor keymap only after it
+handles a key, so while the variant is set it may still read the keymap it
+had before. After the restore the leg types one key so it copies the
+original keymap again, and only then reads the keyboards back strictly.
 """
 
 from __future__ import annotations
@@ -21,17 +26,40 @@ from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_keys import _focused_key_log, _typed
 from scenarios.hyprland_keys_common import keyboards, presses
 from scenarios.hyprland_keys_controls import focused_zoo, tab_moves_focus
+from scenarios.parallel_zoo import IME_KEYBOARDS
 
 OPTIONS = ("kb_layout", "kb_variant", "kb_options")
 VARIANT = {"kb_layout": "us", "kb_variant": "dvorak", "kb_options": "ctrl:nocaps"}
 TYPED = "Hello, dvorak"
 DVORAK_CODES = {"h": 44, "e": 40}
 SETTLE_S = 3.0
+SYNC_KEY = "x"
 
 
 def readback_problems(expected: dict, found: dict) -> list[str]:
     return [f"{field} reads {found.get(field)!r}, not {expected.get(field)!r}"
             for field in sorted(set(expected) | set(found)) if found.get(field) != expected.get(field)]
+
+
+def ime_settled(read: dict, lagging: dict) -> dict:
+    """`read` with each input-method keyboard that still reads as it did in `lagging` shown as the
+    first other keyboard reads, since the input method copies a new keymap only after its next key."""
+    old = {item[0]: item for item in lagging.get("keyboards", [])}
+    found = read.get("keyboards", [])
+    others = [item for item in found if item[0] not in IME_KEYBOARDS]
+    if not others:
+        return read
+    settled = [(item[0], *others[0][1:]) if item[0] in IME_KEYBOARDS and old.get(item[0]) == item else item
+               for item in found]
+    return {**read, "keyboards": settled}
+
+
+def resync_input_method(ctx: LegContext) -> None:
+    """Types one key into a fresh key log so the input-method keyboard copies the compositor keymap."""
+    with _focused_key_log(ctx, "keymap-sync") as (app, _log, ref):
+        problems = _typed(ctx, app, ref, SYNC_KEY, SYNC_KEY)
+    if problems:
+        ctx.finding(f"the resync key after the restore: {'; '.join(problems)}")
 
 
 def placement_problems(found: list[dict], codes: dict[str, int]) -> list[str]:
@@ -107,11 +135,14 @@ def keymap_variant_options_preserved(ctx: LegContext) -> None:
         with _focused_key_log(ctx, "keymap") as (app, log, ref):
             problems += _typed(ctx, app, ref, TYPED, TYPED)
             problems += placement_problems(presses(log), DVORAK_CODES)
-            problems += [f"after typing: {item}" for item in readback_problems(during, keymap_read(tier))]
+            problems += [f"after typing: {item}" for item in
+                         readback_problems(ime_settled(during, original), ime_settled(keymap_read(tier), original))]
         with focused_zoo(ctx, record=False) as zoo:
             problems += tab_moves_focus(ctx, zoo)
-            problems += [f"after Tab: {item}" for item in readback_problems(during, keymap_read(tier))]
+            problems += [f"after Tab: {item}" for item in
+                         readback_problems(ime_settled(during, original), ime_settled(keymap_read(tier), original))]
         ctx.after("hyprland.keymap", keymap_read(tier))
+    resync_input_method(ctx)
     if not raw.poll(lambda: keymap_read(tier) == original and keyboards(tier) == before, SETTLE_S):
         problems.append(f"the keymap did not come back: {readback_problems(original, keymap_read(tier))}")
     ctx.restored("hyprland.keymap", keymap_read(tier))
