@@ -1,6 +1,6 @@
 use crate::{
     AdapterError, ClipboardContent, ClipboardFormat, Deadline, DragParams, InteractionLease,
-    KeyCombo, MouseEvent, OperationReport,
+    KeyCombo, MouseEvent, OperationReport, RefEntry,
 };
 
 /// `get_clipboard`/`set_clipboard` were removed pre-1.0 in favor of
@@ -12,6 +12,15 @@ pub trait InputOps: Send + Sync {
     /// actionability work, so a session without pointer input answers at once
     /// instead of spending its wait budget on a gesture it can never send.
     fn physical_pointer_refusal(&self) -> Option<AdapterError> {
+        None
+    }
+
+    /// The reason a hover aimed by ref can never reach its element in this
+    /// session, if it cannot. Hover asks with the stored entry before any
+    /// wait, focus or resolution, so a hover the adapter always refuses
+    /// answers at once instead of spending its wait budget first.
+    fn ref_hover_refusal(&self, entry: &RefEntry) -> Option<AdapterError> {
+        let _ = entry;
         None
     }
 
