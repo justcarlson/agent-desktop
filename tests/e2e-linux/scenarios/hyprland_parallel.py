@@ -21,7 +21,8 @@ from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
 from scenarios import parallel_oracle as oracle
 from scenarios import parallel_zoo as zoo
-from scenarios.hyprland_parallel_orders import ORDERS, Schedule, prepared, refused_without_agent
+from scenarios.hyprland_parallel_orders import (ORDERS, Schedule, prepared, ref_click_refused,
+                                                 refused_without_agent)
 
 ROUNDS = 6
 
@@ -119,6 +120,7 @@ def four_agents_three_interleavings(ctx: LegContext) -> None:
             ctx.before("applog.strays", [])
             problems += refused_without_agent(ctx, setup)
             with agents.released_lease(), agents.LockSampler() as sampler:
+                problems += ref_click_refused(setup, sampler)
                 gate = agents.Gate()
                 try:
                     for label, run in ORDERS:

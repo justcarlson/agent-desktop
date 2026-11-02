@@ -1,8 +1,11 @@
 """The three orders and the headed click overlap pass of the four-agent leg.
 
 A is a headless click on a GTK3 zoo, B a headed `type` into a GTK4 zoo, C
-a `screenshot --screen` that takes no lease, and D a headed ref click on a
-Qt zoo. A, B and D start together behind the gate and the gate hands the
+a `screenshot --screen` that takes no lease, and D a headed `mouse-click
+--xy` at the centre of a Qt zoo button. On Hyprland a headed ref click
+refuses before any event, so D clicks by coordinates and the Qt zoo's log is
+the evidence; a companion check asserts that D's headed ref click refuses.
+A, B and D start together behind the gate and the gate hands the
 lease to one of them at a time while the others stay stopped. C starts
 inside a holder's turn; where an order needs its frame to wait, C is
 stopped once its hide holder file appears and resumed at the next barrier.
@@ -98,6 +101,20 @@ def refused_without_agent(ctx: LegContext, setup: Setup) -> list[str]:
     return problems
 
 
+def ref_click_refused(setup: Setup, sampler) -> list[str]:
+    """The headed ref click companion: D's headed `click @ref` refuses as unproven and the Qt zoo
+    logs nothing."""
+    since = time.monotonic()
+    argv = ["click", setup.refs["D"], "--timeout-ms", agents.AGENT_TIMEOUT_MS]
+    agent = agents.spawn(setup.ctx.tier, sampler, "D", argv, session=setup.session, headed=True)
+    with agents.reaped([agent]):
+        agent.finish()
+    log = setup.launched["D"].log
+    landed = agents.settle(lambda: bool(agents.effect_times(log, zoo.BUTTON, zoo.ACTIVATE, since)), 1.0)
+    problems = [f"headed ref click: {item}" for item in oracle.ref_refusal_problems(agent.envelope)]
+    return problems + (["headed ref click: the refused click reached the Qt zoo"] if landed else [])
+
+
 def _tip(surface: dict) -> tuple[float, float]:
     return surface["x"] + 1, surface["y"] + 1
 
@@ -119,6 +136,8 @@ class Schedule:
         ref, timeout = self.setup.refs[name], ["--timeout-ms", agents.AGENT_TIMEOUT_MS]
         if name == "B":
             return ["type", ref, LETTERS[self.label], *timeout]
+        if name == "D":
+            return agents.xy_click_argv(self.setup.targets["D"])
         return ["click", ref, *timeout]
 
     def spawn(self, names: str) -> None:
@@ -181,14 +200,15 @@ class Schedule:
             self.problems.append(f"{self.label}: C's PNG shows an agent cursor at {shown}")
 
     def pause_d(self) -> None:
-        """Pass 3: D holds the lease and stops before its receiver check; A, B and C act meanwhile."""
+        """Pass 3: D holds the lease, writes its hide holder and stops before its click; A, B and C
+        act meanwhile."""
         d = self.agents["D"]
+        registry = registry_of(shared(self.tier), self.setup.session)
+        agents.until(lambda: any(item.get("pid") == d.pid for item in holders_in(registry)),
+                     "pass 3: D writes its hide holder", HOLDER_S)
         d.signal(signal.SIGSTOP)
         if agents.effect_times(self.setup.launched["D"].log, zoo.BUTTON, zoo.ACTIVATE, self.since):
             raise AssertionError("pass 3: D clicked before the barrier stopped it")
-        registry = registry_of(shared(self.tier), self.setup.session)
-        if not any(item.get("pid") == d.pid for item in holders_in(registry)):
-            self.problems.append("pass 3: D holds the lease with no hide holder")
         self.spawn("A")
         image = grim(self.tier, self.setup.monitor["name"])
         if arrow_shown(image, self._box(image, self.setup.targets["A"])):
