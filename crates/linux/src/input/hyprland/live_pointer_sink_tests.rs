@@ -135,22 +135,26 @@ fn the_first_motion_passes_beside_the_aim_inside_the_output() {
 fn a_motion_that_misses_the_aim_refuses_before_any_button_or_wheel() {
     let compositor = compositor();
     let mut sink = opened_sink(&compositor, reads(&[(0.0, 0.0), (6.0, 1.0)]));
-    let error = sink
+    let failure = sink
         .motion(&point_at(120, 120))
         .expect_err("a cursor Hyprland moved elsewhere than the aim must refuse");
-    assert_eq!(refusal_cause(&error), Some("cursor_missed_aim"));
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(refusal_cause(&failure.error), Some("cursor_missed_aim"));
+    assert!(failure.dispatched, "the motions were sent before the miss");
 }
 
 #[test]
 fn a_motion_with_no_cursor_evidence_refuses() {
-    for replies in [&[][..], &[(0.0, 0.0)][..]] {
+    for (replies, dispatched) in [(&[][..], false), (&[(0.0, 0.0)][..], true)] {
         let compositor = compositor();
         let mut sink = opened_sink(&compositor, reads(replies));
-        let error = sink
+        let failure = sink
             .motion(&point_at(120, 120))
             .expect_err("a motion whose start or landing is unread must refuse");
-        assert_eq!(refusal_cause(&error), Some("cursor_unread"));
-        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(refusal_cause(&failure.error), Some("cursor_unread"));
+        assert_eq!(
+            failure.error.disposition,
+            DeliverySemantics::not_delivered()
+        );
+        assert_eq!(failure.dispatched, dispatched);
     }
 }
