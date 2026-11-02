@@ -27,7 +27,7 @@ def batch(entry: dict, elapsed_ms: float = 1000.0) -> Envelope:
 
 
 def timed_out(kind: str = "capture_frame") -> dict:
-    return {"ok": False, "error": {"code": "TIMEOUT", "disposition": NOT_DELIVERED, "details": {"kind": kind}}}
+    return {"ok": False, "error": {"code": "TIMEOUT", "disposition": {"delivery": NOT_DELIVERED, "retry": "safe"}, "details": {"kind": kind}}}
 
 
 def screen(ok: bool = True, elapsed_ms: float = 260.0) -> Envelope:
