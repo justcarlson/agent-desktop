@@ -5,6 +5,11 @@
 //! the pidfd confirms exit, and removes only the generation it noted. A
 //! pidfd that cannot be opened for a reason other than `ESRCH` leaves the
 //! renderer's state unknown, so the record stays and the exit is unconfirmed.
+//! `disable` and `session end` save the session before they stop the
+//! renderer, so its once-a-second liveness check can see the change, remove
+//! its own record and exit before it answers `disable`. A renderer gone with
+//! its record removed exited that clean way and counts as stopped; one gone
+//! with its record still there died without cleaning up and counts as stale.
 
 use std::time::{Duration, Instant};
 
@@ -44,7 +49,7 @@ pub(crate) fn stop(
     let disabled = send_disable(paths, &record, timings);
     let _lock = start_lock(paths)?;
     let generation = record.owner.generation.clone();
-    let outcome = settle(&record, caller, disabled, timings);
+    let outcome = settle(paths, &record, caller, disabled, timings);
     if outcome.is_confirmed_gone() {
         remove_if_generation(paths, &generation);
     }
@@ -52,6 +57,7 @@ pub(crate) fn stop(
 }
 
 fn settle(
+    paths: &RendererPaths,
     record: &RendererRecord,
     caller: Option<ExeIdentity>,
     disabled: bool,
@@ -59,11 +65,11 @@ fn settle(
 ) -> StopOutcome {
     let pidfd = match RendererPidfd::open(record.owner.pid) {
         Ok(pidfd) => pidfd,
-        Err(Errno::SRCH) => return gone(disabled),
+        Err(Errno::SRCH) => return gone(paths, disabled),
         Err(_) => return StopOutcome::ExitUnconfirmed,
     };
     if !is_alive_as_recorded(record) {
-        return gone(disabled);
+        return gone(paths, disabled);
     }
     if pidfd.wait_for_exit(timings.after_disable) {
         return StopOutcome::Stopped;
@@ -87,8 +93,8 @@ fn settle(
     StopOutcome::ExitUnconfirmed
 }
 
-fn gone(disabled: bool) -> StopOutcome {
-    if disabled {
+fn gone(paths: &RendererPaths, disabled: bool) -> StopOutcome {
+    if disabled || matches!(read_record(&paths.record), RecordRead::Absent) {
         StopOutcome::Stopped
     } else {
         StopOutcome::Stale

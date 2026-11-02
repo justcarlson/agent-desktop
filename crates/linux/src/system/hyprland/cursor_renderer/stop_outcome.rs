@@ -3,7 +3,8 @@
 pub(crate) enum StopOutcome {
     /// No record: nothing was running for the session.
     NotRunning,
-    /// The renderer exited after `disable`.
+    /// The renderer exited after `disable`, or exited on its own and
+    /// removed its record before it answered.
     Stopped,
     /// The renderer exited after a signal, confirmed through its pidfd.
     Terminated,
@@ -13,8 +14,8 @@ pub(crate) enum StopOutcome {
     /// A live renderer of another build did not exit after `disable`; it
     /// was not signalled.
     Incompatible,
-    /// The record named a process that is gone or a reused pid; nothing was
-    /// signalled.
+    /// The record named a process that died without removing it, or a
+    /// reused pid; nothing was signalled.
     Stale,
 }
 
