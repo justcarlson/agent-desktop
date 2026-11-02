@@ -6,8 +6,11 @@ paced `type` once its app has logged some of the text. A cancelled waiter
 sends nothing; a cancelled holder lets go of the lease and leaves no key
 held; a partial delivery never reports success or a safe retry. In every
 stage the next queued agent then takes the lease and lands its effect once.
-Each app's log and accessible text, `/proc/locks` and the compositor's
-keyboards are the evidence.
+D is a headed `mouse-click --xy` at the centre of the Qt zoo button, because
+a headed ref click refuses on Hyprland. Each app's log and accessible text,
+`/proc/locks` and the compositor's keyboards are the evidence: a cancelled
+agent leaves no keyboard lost, changed or added, other than the input
+method's own virtual keyboard.
 """
 
 from __future__ import annotations
@@ -21,12 +24,20 @@ from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
 from scenarios import parallel_oracle as oracle
 from scenarios import parallel_zoo as zoo
+from scenarios.hyprland_cursor import live_button
 from scenarios.hyprland_keys_common import keyboards
 from scenarios.hyprland_parallel_faults import agent_argv, effects, session_refs, strays
 
 PACED = "abcdefghijklmnopqrst"
 PACED_MS = "150"
 PARTIAL_AT = 3
+
+
+def argv_of(name: str, refs: dict, targets: dict) -> list[str]:
+    """D clicks by coordinates at its target's centre; A and B act on their refs."""
+    if name == "D":
+        return agents.xy_click_argv(targets["D"])
+    return agent_argv(name, refs[name])
 
 
 def _cancelled(agent: agents.Agent) -> list[str]:
@@ -50,11 +61,11 @@ def _next_proceeds(gate, sampler, launched, agent: agents.Agent, since: float, a
     return problems + oracle.early_effect_problems([span]) + oracle.lag_problems([span])
 
 
-def queued_stage(tier, gate, sampler, launched, refs, session: str, allowed) -> list[str]:
+def queued_stage(tier, gate, sampler, launched, refs, targets, session: str, allowed) -> list[str]:
     """A waiter cancelled behind the gate never takes the lease and never reaches its app."""
     since = time.monotonic()
-    waiter = agents.spawn(tier, sampler, "A", agent_argv("A", refs["A"]), session=session)
-    after = agents.spawn(tier, sampler, "D", agent_argv("D", refs["D"]), session=session, headed=True)
+    waiter = agents.spawn(tier, sampler, "A", argv_of("A", refs, targets), session=session)
+    after = agents.spawn(tier, sampler, "D", argv_of("D", refs, targets), session=session, headed=True)
     with agents.reaped([waiter, after]):
         agents.queued(sampler, [waiter, after], "the waiter and the next agent queue")
         problems = [f"queued: {item}" for item in _cancelled(waiter)]
@@ -66,11 +77,11 @@ def queued_stage(tier, gate, sampler, launched, refs, session: str, allowed) -> 
     return problems
 
 
-def acquired_stage(tier, gate, sampler, launched, refs, session: str, allowed) -> list[str]:
+def acquired_stage(tier, gate, sampler, launched, refs, targets, session: str, allowed) -> list[str]:
     """A holder cancelled as it takes the lease lets go of it, and the next agent proceeds."""
     since = time.monotonic()
-    holder = agents.spawn(tier, sampler, "D", agent_argv("D", refs["D"]), session=session, headed=True)
-    after = agents.spawn(tier, sampler, "A", agent_argv("A", refs["A"]), session=session)
+    holder = agents.spawn(tier, sampler, "D", argv_of("D", refs, targets), session=session, headed=True)
+    after = agents.spawn(tier, sampler, "A", argv_of("A", refs, targets), session=session)
     with agents.reaped([holder, after]):
         agents.queued(sampler, [holder, after], "the holder and the next agent queue")
         problems = []
@@ -131,13 +142,14 @@ def cancel_waiter_and_holder(ctx: LegContext) -> None:
     with zoo.zoos(tier, "ABD") as launched, zoo.multi_session(ctx) as session:
         with zoo.shown_desktop(ctx, launched, "ABD") as (holder, point):
             refs = session_refs(ctx, launched, session)
+            targets = {"D": live_button(ctx, launched["D"].app, session, zoo.BUTTON)[1]}
             ctx.before("applog.strays", [])
             with agents.released_lease(), agents.LockSampler() as sampler:
                 gate = agents.Gate()
                 try:
                     gate.take()
-                    problems += queued_stage(tier, gate, sampler, launched, refs, session, allowed)
-                    problems += acquired_stage(tier, gate, sampler, launched, refs, session, allowed)
+                    problems += queued_stage(tier, gate, sampler, launched, refs, targets, session, allowed)
+                    problems += acquired_stage(tier, gate, sampler, launched, refs, targets, session, allowed)
                     problems += partial_stage(ctx, gate, sampler, launched, refs, session, allowed)
                 finally:
                     gate.close()

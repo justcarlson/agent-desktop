@@ -327,6 +327,13 @@ def holder_names(agents: list[Agent]) -> dict[int, str]:
     return {os.getpid(): "runner", **{agent.pid: agent.name for agent in agents}}
 
 
+def xy_click_argv(point: tuple[float, float]) -> list[str]:
+    """A headed click at a target's centre by coordinates. On Hyprland a headed ref click refuses
+    before any event, because the compositor cannot prove which surface takes the pointer;
+    `mouse-click --xy` reports `receiver_proof: false`, and the app's log is the evidence."""
+    return ["mouse-click", "--xy", f"{round(point[0])},{round(point[1])}"]
+
+
 def zoo_ref(ctx, session: str, app, name: str, env: dict[str, str]) -> str:
     """The one qualified ref named `name` in the zoo window, found in the session."""
     found = ctx.product(["--session", session, "find", "--exact", "--limit", "0", "--name", name],
