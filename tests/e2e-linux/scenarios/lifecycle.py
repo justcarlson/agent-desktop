@@ -70,6 +70,9 @@ def _restore_geometry(ctx, window, before):
 
 @implementation("lifecycle.close_app_undelivered_report")
 def close_app_undelivered_report(ctx: LegContext) -> None:
+    if ctx.tier.name == "hyprland":
+        from scenarios import hyprland_close_stopped
+        return hyprland_close_stopped.close_app_undelivered_report(ctx)
     app = apps.launch(ctx.tier, "Calculator")
     pid = app.pid
     os.kill(pid, 19)
