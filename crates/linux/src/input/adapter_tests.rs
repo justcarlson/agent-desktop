@@ -1,34 +1,48 @@
-use agent_desktop_core::{Action, ActionRequest, AdapterError, Direction, RefEntry};
+use agent_desktop_core::{Action, ActionRequest, AdapterError, Direction, InputOps, RefEntry};
 
 use crate::adapter::LinuxAdapter;
 
 const BOUND_CHILD: &str = "AD_INPUT_ADAPTER_BOUND_CHILD";
 
 fn run_on_bound_hyprland(test: &str) -> bool {
+    run_on_wayland(test, true)
+}
+
+fn run_on_wayland(test: &str, bound: bool) -> bool {
     if std::env::var_os(BOUND_CHILD).is_some() {
         return false;
     }
-    let dir = std::env::temp_dir().join(format!("ad-ref-refusal-{}", std::process::id()));
+    let tag = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        test.hash(&mut hasher);
+        hasher.finish()
+    };
+    let dir = std::env::temp_dir().join(format!("ad-ref-refusal-{}-{tag:x}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("a socket directory");
     let socket = dir.join("wayland-refusal");
     let _ = std::fs::remove_file(&socket);
     let listener = std::os::unix::net::UnixListener::bind(&socket).expect("a listening socket");
-    let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+    let mut command = std::process::Command::new(std::env::current_exe().expect("test binary"));
+    command
         .args([
             "--exact",
             &format!("input::adapter::tests::{test}"),
             "--nocapture",
         ])
         .env(BOUND_CHILD, "1")
-        .env(crate::input::hyprland::hypr_route::TEST_ROUTE_VARIABLE, "1")
         .env("WAYLAND_DISPLAY", &socket)
         .env("XDG_RUNTIME_DIR", &dir)
         .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent")
         .env_remove("AT_SPI_BUS_ADDRESS")
         .env_remove("DISPLAY")
-        .env_remove("HYPRLAND_INSTANCE_SIGNATURE")
-        .output()
-        .expect("isolated test starts");
+        .env_remove("HYPRLAND_INSTANCE_SIGNATURE");
+    if bound {
+        command.env(crate::input::hyprland::hypr_route::TEST_ROUTE_VARIABLE, "1");
+    } else {
+        command.env_remove(crate::input::hyprland::hypr_route::TEST_ROUTE_VARIABLE);
+    }
+    let output = command.output().expect("isolated test starts");
     drop(listener);
     let _ = std::fs::remove_dir_all(&dir);
     assert!(output.status.success(), "{output:?}");
@@ -95,4 +109,26 @@ fn a_bound_hyprland_refuses_a_ref_it_cannot_resolve_before_any_lease_or_activati
             );
         }
     }
+}
+
+#[test]
+fn a_bound_hyprland_activates_the_window_before_a_headed_key_by_ref() {
+    if run_on_bound_hyprland("a_bound_hyprland_activates_the_window_before_a_headed_key_by_ref") {
+        return;
+    }
+    assert!(
+        LinuxAdapter::new().keyboard_needs_window_activation(),
+        "a GTK GrabFocus present is an activation request the compositor may refuse (L47-1)"
+    );
+}
+
+#[test]
+fn an_unbound_wayland_session_leaves_activation_to_the_focus_gate() {
+    if run_on_wayland(
+        "an_unbound_wayland_session_leaves_activation_to_the_focus_gate",
+        false,
+    ) {
+        return;
+    }
+    assert!(!LinuxAdapter::new().keyboard_needs_window_activation());
 }
