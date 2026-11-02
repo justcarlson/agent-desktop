@@ -314,3 +314,22 @@ def _lazy(module: str, name: str) -> Callable:
 
 for _leg_id, (_module, _name) in LAZY_IMPLEMENTATIONS.items():
     implementation(_leg_id)(_lazy(_module, _name))
+
+
+LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
+    'lifecycle.hyprland_window_operation_refusals': ('scenarios.hyprland_window_refusals', 'window_operation_refusals'),
+    'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),
+    'pointer.hover_coordinates': ('scenarios.hyprland_hover', 'hover_coordinates'),
+    'pointer.coordinate_multi_click_xwayland': ('scenarios.hyprland_multiclick', 'coordinate_multi_click_xwayland'),
+}
+
+
+def _lazy(module: str, name: str) -> Callable:
+    def run(ctx):
+        return getattr(importlib.import_module(module), name)(ctx)
+
+    return run
+
+
+for _leg_id, (_module, _name) in LAZY_IMPLEMENTATIONS.items():
+    implementation(_leg_id)(_lazy(_module, _name))
