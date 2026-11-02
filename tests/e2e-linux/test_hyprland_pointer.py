@@ -138,39 +138,6 @@ class EnvelopeCheckTests(unittest.TestCase):
         self.assertTrue(pointer.refusal_problems("c", refused("POLICY_DENIED", physical_delivery_started=True)))
         self.assertTrue(pointer.refusal_problems("c", refused("POLICY_DENIED", "delivery_uncertain")))
 
-    def test_receiver_refusal_past_the_activation_and_hit_test_wants_the_unproven_receiver(self):
-        envelope = refused("ACTION_FAILED", kind="receiver_evidence", cause="receiver_unproven",
-                           physical_delivery_started=False)
-        self.assertEqual(refs.receiver_refusal("c", envelope, "layer_cover"), [])
-        self.assertEqual(refs.receiver_refusal("c", envelope, "window_cover"), [])
-        self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", kind="receiver_evidence",
-                                                           cause="layer_cover", physical_delivery_started=False),
-                                              "layer_cover"))
-        self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", kind="receiver_evidence",
-                                                           cause="receiver_unproven"), "layer_cover"))
-
-
-    def test_receiver_refusal_takes_the_preflight_occluder_for_a_cover(self):
-        layer = occluded("layer", "omarchy-bar")
-        window = occluded("window", None)
-        self.assertEqual(refs.receiver_refusal("c", layer, "layer_cover"), [])
-        self.assertEqual(refs.receiver_refusal("c", window, "window_cover"), [])
-        self.assertTrue(refs.receiver_refusal("c", layer, "window_cover"))
-        self.assertTrue(refs.receiver_refusal("c", window, "target_not_shown"))
-
-    def test_receiver_refusal_takes_the_activation_the_cover_undoes(self):
-        def activation(cause: str, delivery: str = "not_delivered") -> Envelope:
-            return refused("ACTION_FAILED", delivery, cause=cause, activation_sent=True,
-                           physical_delivery_started=False)
-        self.assertEqual(refs.receiver_refusal("c", activation("frame_not_active"), "layer_cover"), [])
-        self.assertEqual(refs.receiver_refusal("c", activation("activation_refused"), "window_cover"), [])
-        self.assertTrue(refs.receiver_refusal("c", activation("activation_refused"), "layer_cover"))
-        self.assertTrue(refs.receiver_refusal("c", activation("frame_not_active"), "window_cover"))
-        self.assertTrue(refs.receiver_refusal("c", activation("activation_refused", "delivered_unverified"),
-                                              "window_cover"))
-        self.assertTrue(refs.receiver_refusal("c", refused("ACTION_FAILED", cause="activation_refused",
-                                                           physical_delivery_started=False), "window_cover"))
-
 
 def occluded(role: str, name: str | None) -> Envelope:
     occluder = {"role": role, "bounds": {"x": 0.0, "y": 0.0, "width": 1280.0, "height": 800.0}}
@@ -198,8 +165,8 @@ class CoverStateTests(unittest.TestCase):
 
 
 class SessionRefusalTests(unittest.TestCase):
-    """A headed ref click activates the pad and so reveals its hidden special workspace, as
-    `focus-window` does; the stock shell layers over the output then refuse it."""
+    """A headed ref click on the pad on a hidden special workspace refuses before any activation,
+    so the special workspace stays hidden."""
 
     def run_refusals(self, revealed: str):
         clicks, controls = [], []
@@ -222,14 +189,14 @@ class SessionRefusalTests(unittest.TestCase):
             problems = refs._session_refusals(ctx, mock.Mock(pid=1), client, Path("/dev/null"))
         return clicks, controls, problems
 
-    def test_the_click_reveals_the_pad_and_the_shell_layer_refuses_it(self):
-        clicks, controls, problems = self.run_refusals("special:ad")
+    def test_the_refused_click_leaves_the_special_workspace_hidden(self):
+        clicks, controls, problems = self.run_refusals("")
         self.assertEqual(clicks, ["layer_cover"])
         self.assertEqual(controls, [])
         self.assertEqual(problems, [])
 
-    def test_a_click_that_leaves_the_special_workspace_hidden_is_a_problem(self):
-        _, _, problems = self.run_refusals("")
+    def test_a_click_that_reveals_the_special_workspace_is_a_problem(self):
+        _, _, problems = self.run_refusals("special:ad")
         self.assertEqual(len(problems), 1)
 
 
@@ -368,10 +335,10 @@ class UnprovenReceiverTests(unittest.TestCase):
         self.assertTrue(refs.unproven_problems("c", landed))
 
     def refuse(self, logged: list[int], cursors: list[tuple[float, float]], answer=None, earlier=None,
-               ctx=None) -> list[str]:
+               ctx=None, active=("0xf", "0xf")) -> list[str]:
         ctx = ctx or mock.Mock(tier=mock.Mock())
         ctx.product.return_value = answer or unproven()
-        counts, points = iter(logged), iter(cursors)
+        counts, points, actives = iter(logged), iter(cursors), iter(active)
         seen = {"count": 0}
 
         def reached():
@@ -379,6 +346,7 @@ class UnprovenReceiverTests(unittest.TestCase):
             return seen["count"]
 
         with mock.patch.multiple(refs, cursor_at=mock.Mock(side_effect=lambda *_: next(points)),
+                                 active_address=mock.Mock(side_effect=lambda *_: next(actives)),
                                  raw=mock.Mock(poll=lambda check, _timeout: check())):
             return refs.refused_without_input(ctx, {}, {"signature": "n"}, "pad", [["click", "@s:e1"]], reached,
                                               earlier)
@@ -393,6 +361,14 @@ class UnprovenReceiverTests(unittest.TestCase):
     def test_a_cursor_that_moved_is_a_problem(self):
         self.assertEqual(self.refuse([0, 0, 0], [(10.0, 10.0), (320.0, 240.0)]),
                          ["pad: headed click: the cursor moved from (10.0, 10.0) to (320.0, 240.0)"])
+
+    def test_an_activated_target_is_a_problem(self):
+        self.assertEqual(self.refuse([0, 0, 0], [(10.0, 10.0)] * 2, active=("0xc0", "0xpad")),
+                         ["pad: headed click: the active window changed from 0xc0 to 0xpad"])
+
+    def test_an_activation_refusal_is_a_problem(self):
+        activation = unproven(cause="activation_refused", kind=None, activation_sent=True)
+        self.assertTrue(self.refuse([0, 0, 0], [(10.0, 10.0)] * 2, activation))
 
     def test_a_native_cause_is_a_problem(self):
         self.assertEqual(len(self.refuse([0, 0, 0], [(1.0, 1.0)] * 2, unproven(cause="native_wayland_client"))), 1)
@@ -491,11 +467,11 @@ class UnprovenReceiverTests(unittest.TestCase):
                 refused_without_input=refuse, layer_cover=cover, window_cover=cover,
                 covered_click=mock.Mock(side_effect=lambda *args: order.append(args[4]) or []),
                 fixture_refusals=mock.Mock(side_effect=lambda *_: order.append("fixtures") or []),
-                events=mock.Mock(return_value=[])):
+                active_address=mock.Mock(return_value="0xcover"), events=mock.Mock(return_value=[])):
             refs.ref_receiver_evidence(ctx)
-        self.assertEqual(order, [("pad", ["click", "double-click", "triple-click", "right-click", "scroll",
-                                          "drag", "drag"]),
-                                 "layer_cover", "window_cover", "window_cover", "fixtures"])
+        gestures = ["click", "double-click", "triple-click", "right-click", "scroll", "drag", "drag"]
+        self.assertEqual(order, [("pad", gestures), "layer_cover", ("floating cover", gestures),
+                                 ("pinned cover", gestures), "fixtures"])
 
     def test_the_headed_ref_gestures_want_the_refusal(self):
         for verb, argv in (("double-click", ["double-click", "@s:e1"]),
@@ -539,7 +515,7 @@ class CoveredClickTests(unittest.TestCase):
 
     def covered(self, logged: list[dict]) -> list[str]:
         ctx = mock.Mock()
-        with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), receiver_refusal=mock.Mock(return_value=[]),
+        with mock.patch.multiple(refs, events=mock.Mock(return_value=[]), unproven_problems=mock.Mock(return_value=[]),
                                  settled=mock.Mock(return_value=logged)):
             return refs.covered_click(ctx, {}, Path("/dev/null"), "@s:button", "layer_cover", "shell layer")
 
@@ -650,7 +626,7 @@ class PadLegBackendTests(unittest.TestCase):
                     clients_summary=mock.Mock(return_value=[]), refused_without_input=mock.Mock(return_value=[]),
                     fixture_refusals=mock.Mock(return_value=[]), layer_cover=cover, window_cover=cover,
                     covered_click=mock.Mock(return_value=[]), events=mock.Mock(return_value=[]),
-                    settled=mock.Mock(return_value=[]))
+                    settled=mock.Mock(return_value=[]), active_address=mock.Mock(return_value="0xcover"))
         base.update(patches)
         with mock.patch.multiple(refs, **base):
             leg(ctx)
