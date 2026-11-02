@@ -1,0 +1,128 @@
+"""The four-app setup the four-agent legs share on the attached `hyprland` tier.
+
+Agent A clicks a GTK3 zoo, B types into a GTK4 zoo, D clicks a Qt zoo and,
+in the headless leg, a second GTK3 zoo stands in for C. Each app logs its
+effects with monotonic times to its own file. A headed setup moves the
+three dispatching apps onto the shown workspace and gives the bystander
+focus; every setup closes its special workspaces, gives focus and the
+cursor back to the bystander and stops its apps on the way out.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import fcntl
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from oracle import atspi_raw as raw
+from runner import apps
+from runner.helper import require
+from runner.product import LEASE_FD_ENV
+from runner.verdict import LegContext
+from scenarios import parallel_agents as agents
+from scenarios.hyprland_common import bystander, desktop, main_instance
+from scenarios.hyprland_cursor import ended
+from scenarios.hyprland_cursor_agents import started_multi
+from scenarios.hyprland_focus_controls import cursor, move, restore_desktop
+from scenarios.hyprland_keys_common import keyboards, toplevel
+
+BUTTON, ENTRY = "zoo-button", "zoo-entry"
+ACTIVATE, CHANGED = "activate", "changed"
+ZOOS = {"A": "Zoo GTK3", "B": "Zoo GTK4", "C": "Zoo GTK3", "D": "Zoo Qt"}
+
+
+@dataclass
+class Zoo:
+    agent: str
+    app: apps.OwnedApp
+    log: Path
+
+    def events(self, widget: str, event: str) -> list[dict]:
+        return agents.app_events(self.log, widget, event)
+
+
+def _launch(tier, agent: str) -> Zoo:
+    log = tier.runtime_dir / f"parallel-{agent.lower()}.jsonl"
+    log.unlink(missing_ok=True)
+    return Zoo(agent, apps.launch(tier, ZOOS[agent], (str(log),)), log)
+
+
+@contextlib.contextmanager
+def zoos(tier, names: str):
+    """One zoo per agent letter in `names`, stopped on the way out."""
+    launched: dict[str, Zoo] = {}
+    try:
+        for name in names:
+            launched[name] = _launch(tier, name)
+        yield launched
+    finally:
+        for zoo in launched.values():
+            apps.stop(zoo.app)
+
+
+def lease_state() -> str:
+    """Whether the runner's own lease descriptor holds the per-user interaction lease."""
+    raw_fd = os.environ.get(LEASE_FD_ENV)
+    if raw_fd is None:
+        return "released"
+    probe = os.open(agents.LOCK_PATH, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return "held"
+    else:
+        fcntl.flock(probe, fcntl.LOCK_UN)
+        return "free"
+    finally:
+        os.close(probe)
+
+
+def desktop_of(tier) -> dict:
+    return desktop(tier, main_instance(tier))
+
+
+def stray_events(zoo: Zoo, allowed: dict[str, list[float]]) -> list[str]:
+    """Logged effects that no recorded command accounts for."""
+    found = []
+    for item in agents.app_events(zoo.log, BUTTON, ACTIVATE) + agents.app_events(zoo.log, ENTRY, CHANGED):
+        if item["at"] not in allowed.get(zoo.agent, []):
+            found.append(f"{zoo.agent}: unaccounted {item['widget']} {item['event']} at {item['at']:.4f}")
+    return found
+
+
+@contextlib.contextmanager
+def multi_session(ctx: LegContext):
+    """A `--cursor --multi-agent` session, ended on the way out."""
+    session = started_multi(ctx)
+    try:
+        yield session
+    finally:
+        closing = ended(ctx, session)
+        require(closing.ok, f"the session did not end: {closing.raw[:400]}")
+
+
+@contextlib.contextmanager
+def shown_desktop(ctx: LegContext, launched: dict[str, Zoo], names: str):
+    """The apps in `names` on the shown workspace, with the bystander focused before and after."""
+    tier = ctx.tier
+    holder, point = bystander(tier), cursor(tier)
+    shown = desktop_of(tier)["workspace"]
+    try:
+        for name in names:
+            move(tier, toplevel(tier, launched[name].app)["address"], shown)
+        restore_desktop(tier, holder, point)
+        yield holder, point
+    finally:
+        restore_desktop(tier, holder, point)
+
+
+def common_reads(ctx: LegContext, stage: str) -> None:
+    getattr(ctx, stage)("proc.lease", lease_state())
+    getattr(ctx, stage)("hyprland.keyboards", keyboards(ctx.tier))
+
+
+def entry_text(tier, zoo: Zoo) -> str | None:
+    found = [item.text() for item in raw.app_root(tier, zoo.app.owner_names[0]).find(name=ENTRY)]
+    return found[0] if len(found) == 1 else None
