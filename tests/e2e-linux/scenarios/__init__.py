@@ -42,6 +42,8 @@ from scenarios import gaps_decisions
 from scenarios import error_contract
 from scenarios import batch_contract
 from scenarios import hyprland_binding
+from scenarios import hyprland_binding_effects
+from scenarios import hyprland_binding_refusals
 from scenarios import hyprland_cancel
 from scenarios import hyprland_capture
 from scenarios import hyprland_capture_inview
@@ -58,6 +60,7 @@ from scenarios import hyprland_desktop
 from scenarios import hyprland_focus
 from scenarios import hyprland_focus_proof
 from scenarios import hyprland_identity
+from scenarios import hyprland_identity_title
 from scenarios import hyprland_pointer
 from scenarios import hyprland_pointer_refs
 from scenarios import hyprland_window_ops
@@ -81,6 +84,8 @@ __all__ = [
     "events",
     "headed_actions",
     "hyprland_binding",
+    "hyprland_binding_effects",
+    "hyprland_binding_refusals",
     "hyprland_cancel",
     "hyprland_capture",
     "hyprland_capture_inview",
@@ -97,6 +102,7 @@ __all__ = [
     "hyprland_focus",
     "hyprland_focus_proof",
     "hyprland_identity",
+    "hyprland_identity_title",
     "hyprland_pointer",
     "hyprland_pointer_refs",
     "hyprland_window_ops",
