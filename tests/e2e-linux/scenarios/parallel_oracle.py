@@ -4,8 +4,12 @@ A span is one agent process: when it opened the interaction lock (enqueue),
 when /proc/locks first showed it holding the lock (acquire) and no longer
 holding it (release), the monotonic times its app logged an effect, and the
 lease contention count its envelope reported. A hold is any lease holder,
-an agent or the runner's gate. Dispatch intervals run from acquire to the
-later of release and the last effect, and must never overlap. The negative
+an agent or the runner's gate. A dispatch interval is the agent's lease hold,
+from acquire to release, and holds must never overlap. An app's own handler
+may run after its agent releases: a GTK4 button emits `clicked` at the end
+of its activate timeout and a Qt button through `animateClick`, so such an
+effect must still land once and after its own agent's acquire, and its lag
+past release is measured, not counted as an overlap. The negative
 controls run the same oracle over mutated copies, so an oracle that stops
 detecting an overlap or an unreported wait fails the leg.
 """
@@ -41,7 +45,18 @@ class Hold:
 def dispatch_interval(span: Span) -> tuple[float, float] | None:
     if span.acquire is None or span.release is None:
         return None
-    return span.acquire, max((span.release, *span.effects))
+    return span.acquire, span.release
+
+
+def effect_lags_ms(spans: list[Span]) -> dict[str, float]:
+    """Per agent, the longest time its app's effect landed after the agent released the lease."""
+    lags: dict[str, float] = {}
+    for span in spans:
+        late = [effect - span.release for effect in span.effects
+                if span.release is not None and effect > span.release]
+        if late:
+            lags[span.agent] = max(lags.get(span.agent, 0.0), max(late) * 1000.0)
+    return lags
 
 
 def overlap_problems(spans: list[Span]) -> list[str]:

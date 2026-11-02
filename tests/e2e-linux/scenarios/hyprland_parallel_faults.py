@@ -122,6 +122,7 @@ def lease_phase_problems(tier, gate, sampler, launched, refs, session: str, allo
         agents.turn(gate, sampler, waiter, [waiter])
         waiter.finish()
     problems += agents.outcome_problems(waiter)
+    agents.settle(lambda: effects(launched, "A", since))
     delivered = effects(launched, "A", since)
     allowed.setdefault("A", []).extend(delivered)
     if len(delivered) != 1:
@@ -173,6 +174,7 @@ def same_process_problems(tier, gate, sampler, launched, ref: str, allowed) -> l
         gate.take()
         if not _ffi_envelope(second).ok:
             problems.append(f"the C ABI holder did not deliver after release: {second}")
+        agents.settle(lambda: effects(launched, "A", since))
         delivered = effects(launched, "A", since)
         allowed.setdefault("A", []).extend(delivered)
         if len(delivered) != 1:
