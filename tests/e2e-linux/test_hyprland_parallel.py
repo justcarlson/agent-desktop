@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import sys
 import unittest
 from pathlib import Path
@@ -107,6 +108,46 @@ class EffectTests(unittest.TestCase):
         self.assertEqual(len(oracle.effect_problems([late], expected=0)), 1)
 
 
+
+class AppLogTests(unittest.TestCase):
+    def test_an_effect_before_its_own_hold_fails_for_every_agent_including_a_typist(self):
+        self.assertEqual(oracle.early_effect_problems(serial()), [])
+        spans = serial()
+        spans[1] = Span("B", enqueue=0.11, acquire=1.21, release=1.40, effects=(1.30, 1.15), contention=60)
+        found = oracle.early_effect_problems(spans)
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0].startswith("B: an effect at 1.1500"), found)
+
+    def test_an_effect_at_its_own_acquire_is_inside_the_hold(self):
+        spans = [Span("A", enqueue=0.1, acquire=1.0, release=1.2, effects=(1.0,), contention=0)]
+        self.assertEqual(oracle.early_effect_problems(spans), [])
+
+    def test_a_lag_within_the_bound_passes_and_one_past_it_fails(self):
+        bound = oracle.LAG_BOUND_MS / 1000.0
+        within = [Span("B", enqueue=0.1, acquire=1.0, release=1.2, effects=(1.2 + bound - 0.001,), contention=0)]
+        past = [Span("B", enqueue=0.1, acquire=1.0, release=1.2, effects=(1.2 + bound + 0.001,), contention=0)]
+        self.assertEqual(oracle.lag_problems(within), [])
+        found = oracle.lag_problems(past)
+        self.assertEqual(len(found), 1)
+        self.assertIn(f"past the {oracle.LAG_BOUND_MS:.0f} ms bound", found[0])
+        self.assertTrue(any("bound" in problem for problem in oracle.timeline_problems(past, [], "B")))
+
+    def test_each_app_logs_its_effects_in_its_agents_hold_order(self):
+        rounds = [Span("A", enqueue=0.1, acquire=1.0, release=1.2, effects=(1.1,), contention=0),
+                  Span("A", enqueue=2.0, acquire=2.1, release=2.3, effects=(2.2,), contention=0),
+                  Span("B", enqueue=0.1, acquire=1.3, release=1.5, effects=(1.6,), contention=1)]
+        self.assertEqual(oracle.effect_order_problems(rounds), [])
+        swapped = [rounds[0], dataclasses.replace(rounds[1], effects=(1.05,)), rounds[2]]
+        found = oracle.effect_order_problems(swapped)
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0].startswith("A:"), found)
+
+    def test_an_effect_that_lands_after_the_next_hold_of_its_agent_is_out_of_order(self):
+        rounds = [Span("D", enqueue=0.1, acquire=1.0, release=1.2, effects=(2.15,), contention=0),
+                  Span("D", enqueue=2.0, acquire=2.1, release=2.3, effects=(2.2,), contention=0)]
+        self.assertEqual(len(oracle.effect_order_problems(rounds)), 1)
+
+
 class QueueingTests(unittest.TestCase):
     def test_a_wait_behind_another_holder_must_be_reported(self):
         spans = serial()
@@ -165,6 +206,21 @@ class NegativeControlTests(unittest.TestCase):
         hidden = oracle.with_unreported_wait(serial())
         problems = oracle.timeline_problems(hidden, GATE, "ABCD")
         self.assertTrue(any("contention" in problem for problem in problems), problems)
+
+    def test_an_effect_inside_another_agents_hold_fails_the_oracle(self):
+        moved = oracle.with_effect_in_foreign_hold(serial())
+        self.assertEqual(moved[1].effects, (1.10,))
+        problems = oracle.timeline_problems(moved, GATE, "ABCD")
+        self.assertTrue(any(problem.startswith("B: an effect at 1.1000") for problem in problems), problems)
+
+    def test_a_blind_effect_check_fails_the_controls(self):
+        original = oracle.early_effect_problems
+        try:
+            oracle.early_effect_problems = lambda spans: []
+            found = oracle.control_problems(serial(), GATE, "ABCD")
+        finally:
+            oracle.early_effect_problems = original
+        self.assertEqual(found, ["an effect inside another agent's hold passed the oracle"])
 
     def test_the_controls_pass_only_when_the_oracle_catches_both(self):
         self.assertEqual(oracle.control_problems(serial(), GATE, "ABCD"), [])
