@@ -45,15 +45,25 @@ class Setup:
     targets: dict
     monitor: dict
     index: int
-    renderer: dict
+    renderer: dict | None = None
     positives: list = field(default_factory=list)
+
+    def note_renderer(self) -> list[str]:
+        """The session renderer starts at its first headed present; the first record seen is the one
+        every later read must match."""
+        now = record_of(shared(self.ctx.tier), self.session)
+        if self.renderer is None:
+            self.renderer = now
+            return []
+        if not now or now.get("pid") != self.renderer.get("pid"):
+            return [f"the session renderer changed from {self.renderer} to {now}"]
+        return []
 
     def final_problems(self) -> list[str]:
         problems = [] if self.positives else ["no C capture ran while grim showed a drawn agent cursor"]
-        now = record_of(shared(self.ctx.tier), self.session)
-        if not now or now.get("pid") != self.renderer.get("pid"):
-            problems.append(f"the session renderer changed from {self.renderer} to {now}")
-        return problems
+        if self.renderer is None:
+            return problems + [f"no headed agent started a renderer for the session {self.session}"]
+        return problems + self.note_renderer()
 
 
 def prepared(ctx: LegContext, launched: dict, session: str, holder: dict, point: dict) -> Setup:
@@ -67,9 +77,7 @@ def prepared(ctx: LegContext, launched: dict, session: str, holder: dict, point:
     listed = ctx.product(["list-displays"], headed=False)
     ids = [item.get("id") for item in listed.data or []] if listed.ok else []
     require(monitor["name"] in ids, f"list-displays does not list {monitor['name']}: {listed.raw[:400]}")
-    renderer = record_of(shared(tier), session)
-    require(renderer, f"the session {session} has no renderer record")
-    return Setup(ctx, launched, session, holder, point, refs, targets, monitor, ids.index(monitor["name"]), renderer)
+    return Setup(ctx, launched, session, holder, point, refs, targets, monitor, ids.index(monitor["name"]))
 
 
 def raw_monitors(tier, main: dict) -> list[dict]:
@@ -124,6 +132,8 @@ class Schedule:
     def turn(self, name: str, during=None) -> None:
         agent = self.agents[name]
         before = zoo.desktop_of(self.tier) if name == "A" else None
+        if name == "B":
+            zoo.focus_entry(self.tier, self.setup.launched["B"])
         agents.turn(self.gate, self.sampler, agent, list(self.agents.values()), during)
         if before is not None and zoo.desktop_of(self.tier) != before:
             self.problems.append(f"{self.label}: A changed the desktop: {before} to {zoo.desktop_of(self.tier)}")
@@ -208,7 +218,7 @@ class Schedule:
         return self.verdict()
 
     def verdict(self) -> list[str]:
-        problems = list(self.problems)
+        problems = list(self.problems) + [f"{self.label}: {item}" for item in self.setup.note_renderer()]
         for name in "ABD":
             problems += [f"{self.label}: {problem}" for problem in agents.outcome_problems(self.agents[name])]
         events = self.sampler.events()

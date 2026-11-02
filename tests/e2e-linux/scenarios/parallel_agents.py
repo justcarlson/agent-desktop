@@ -342,5 +342,17 @@ def outcome_problems(agent: Agent) -> list[str]:
     if envelope is None:
         return [f"{agent.name}: exited {agent.exit_code} with no envelope"]
     if not envelope.ok or agent.exit_code != 0:
-        return [f"{agent.name}: exited {agent.exit_code}: {envelope.raw[:400]}"]
+        return [f"{agent.name}: exited {agent.exit_code}: {failure_summary(envelope)}"]
     return []
+
+
+def failure_summary(envelope: Envelope) -> str:
+    """The error without its suggestion or passing checks, so a refusal keeps the check and occluder it names."""
+    if not envelope.error:
+        return envelope.raw[:400]
+    error = {key: value for key, value in envelope.error.items() if key != "suggestion"}
+    details = error.get("details")
+    if isinstance(details, dict) and isinstance(details.get("checks"), list):
+        failed = [check for check in details["checks"] if not isinstance(check, dict) or check.get("status") != "pass"]
+        error["details"] = {**details, "checks": failed}
+    return json.dumps(error, sort_keys=True)[:1200]

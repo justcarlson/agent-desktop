@@ -25,17 +25,17 @@ from runner.readiness import wait_ready
 from runner.verdict import LegContext
 from scenarios import parallel_agents as agents
 from scenarios.hyprland_close import _register, _release
-from scenarios.hyprland_common import bystander, desktop, main_instance
-from scenarios.hyprland_cursor import ended
+from scenarios.hyprland_common import bystander, desktop, main_instance, shared
+from scenarios.hyprland_cursor import ended, records
 from scenarios.hyprland_cursor_agents import started_multi
-from scenarios.hyprland_focus_controls import cursor, move, restore_desktop
-from scenarios.hyprland_keys_common import keyboards, toplevel
+from scenarios.hyprland_focus_controls import cursor, move, query, restore_desktop
+from scenarios.hyprland_keys_common import give_focus, keyboards, toplevel
 from scenarios.hyprland_pointer_pad import x_display
 
 BUTTON, ENTRY = "zoo-button", "zoo-entry"
 ACTIVATE, CHANGED = "activate", "changed"
 ZOOS = {"A": "Zoo GTK3", "B": "Zoo GTK4", "C": "Zoo GTK3", "D": "Zoo Qt"}
-LAUNCH_S, RESPONSIVE_S = 20.0, 3.0
+LAUNCH_S, RESPONSIVE_S, FOCUS_S = 20.0, 3.0, 3.0
 
 
 @dataclass
@@ -175,6 +175,33 @@ def shown_desktop(ctx: LegContext, launched: dict[str, Zoo], names: str):
 def common_reads(ctx: LegContext, stage: str) -> None:
     getattr(ctx, stage)("proc.lease", lease_state())
     getattr(ctx, stage)("hyprland.keyboards", keyboards(ctx.tier))
+
+
+def focus_entry(tier, zoo: Zoo) -> None:
+    """Gives the GTK4 zoo's window focus and its entry the toolkit focus. GTK4 answers
+    `Component.GrabFocus` with NotSupported (FINDINGS L4-16, L7-8), so a headed `type` can only
+    prove focus on an entry that already holds it."""
+    give_focus(tier, toplevel(tier, zoo.app)["address"])
+    request, consumed = Path(str(zoo.log) + ".focus-entry"), Path(str(zoo.log) + ".focus-entry-consumed")
+    consumed.unlink(missing_ok=True)
+    request.touch()
+    require(raw.poll(consumed.exists, FOCUS_S), f"the GTK4 zoo did not take the entry focus in {FOCUS_S} s")
+
+
+def layer_stack(tier) -> list[tuple]:
+    """Every layer surface the compositor maps: monitor, level, namespace, pid and rectangle."""
+    return [(monitor, level, item.get("namespace"), item.get("pid"),
+             (item.get("x"), item.get("y"), item.get("w"), item.get("h")))
+            for monitor, info in query(tier, "layers").items()
+            for level, items in sorted((info.get("levels") or {}).items()) for item in items]
+
+
+def note_layers(ctx: LegContext, problems: list[str]) -> None:
+    """Records the layer stack and the renderer records while the session lives, when an agent was
+    refused as occluded, so the report names what covered the target."""
+    if any("receives_events" in item for item in problems):
+        ctx.finding(f"layers after the occluded refusal: {layer_stack(ctx.tier)}; "
+                    f"renderer records: {records(shared(ctx.tier))}")
 
 
 def entry_text(tier, zoo: Zoo) -> str | None:

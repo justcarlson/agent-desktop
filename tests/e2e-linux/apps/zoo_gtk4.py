@@ -198,6 +198,10 @@ def main(argv):
 
     def control():
         nonlocal resetting
+        focus_request = Path(str(log) + ".focus-entry")
+        if focus_request.exists():
+            window.set_focus(entry)
+            focus_request.rename(Path(str(log) + ".focus-entry-consumed"))
         reset = Path(str(log) + ".reset")
         if reset.exists() and not resetting:
             resetting = True

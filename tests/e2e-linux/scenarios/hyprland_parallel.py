@@ -127,6 +127,7 @@ def four_agents_three_interleavings(ctx: LegContext) -> None:
                 finally:
                     gate.close()
             problems += setup.final_problems()
+            zoo.note_layers(ctx, problems)
             ctx.after("applog.strays", _strays(launched, spans))
             problems += _strays(launched, spans)
             ctx.after("hyprland.desktop", zoo.desktop_of(tier))
