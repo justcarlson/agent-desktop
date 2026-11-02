@@ -3,6 +3,7 @@ from runner import apps
 from runner.helper import (command, managed, ref, require, root, snapshot)
 from runner.legs import implementation
 from runner.verdict import LegContext
+from scenarios import hyprland_duplicates
 
 
 def focus_exact(ctx, app):
@@ -20,6 +21,9 @@ def focus_exact(ctx, app):
 
 @implementation("duplicates.two_processes_distinct_window_ids")
 def two_processes_distinct_window_ids(ctx: LegContext) -> None:
+    if getattr(ctx.tier, "name", None) == "hyprland":
+        hyprland_duplicates.two_processes_distinct_window_ids(ctx)
+        return
     with managed(ctx, "Calculator") as first:
         with managed(ctx, "Calculator") as second:
             owners = apps.owners_named(ctx.tier, "Calculator")
