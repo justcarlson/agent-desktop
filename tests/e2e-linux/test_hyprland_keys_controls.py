@@ -206,5 +206,99 @@ class LiveHelperTests(unittest.TestCase):
         self.assertFalse(theft.late_steal("other"))
 
 
+class TheftActivationTests(unittest.TestCase):
+    """Stable Hyprland honors a GTK window's own activation request. The product's GrabFocus on the
+    entry sends one after the leg's steal, so the zoo took focus back and the type was delivered."""
+
+    def compositor(self, lua: bool, answer: str = "ok"):
+        state = {"on": True, "argv": []}
+
+        def control(runtime, signature, argv):
+            state["argv"].append(argv)
+            if answer == "ok":
+                state["on"] = "true" in argv[-1]
+            return answer
+
+        def query(runtime, signature, name, pid=None):
+            self.assertEqual(name, "getoption misc:focus_on_activate")
+            return {"option": "misc:focus_on_activate", "bool": state["on"], "set": True}
+
+        patches = contextlib.ExitStack()
+        patches.enter_context(mock.patch.object(theft, "main_instance", return_value={"signature": "s", "pid": 1}))
+        patches.enter_context(mock.patch.object(theft, "shared", return_value=Path("/run")))
+        patches.enter_context(mock.patch.object(theft.hyprland, "uses_lua", return_value=lua))
+        patches.enter_context(mock.patch.object(theft.hyprland, "control", side_effect=control))
+        patches.enter_context(mock.patch.object(theft.hyprland, "query", side_effect=query))
+        return patches, state
+
+    def leg(self):
+        reads = []
+        record = lambda stage: lambda name, value: reads.append((stage, name, value))
+        ctx = types.SimpleNamespace(tier="tier", before=record("before"), after=record("after"),
+                                    restored=record("restored"))
+        return ctx, reads
+
+    def test_toolkit_activation_is_off_inside_the_block_and_set_back_after(self):
+        for lua, off, on in ((True, ["eval", "hl.config({ misc = { focus_on_activate = false } })"],
+                              ["eval", "hl.config({ misc = { focus_on_activate = true } })"]),
+                             (False, ["keyword", "misc:focus_on_activate", "false"],
+                              ["keyword", "misc:focus_on_activate", "true"])):
+            with self.subTest(lua=lua):
+                patches, state = self.compositor(lua)
+                ctx, reads = self.leg()
+                with patches:
+                    with theft.toolkit_activation_ignored(ctx):
+                        inside = state["on"]
+                self.assertFalse(inside)
+                self.assertEqual(state["argv"], [off, on])
+                self.assertEqual(reads, [("before", "hyprland.focus_on_activate", True),
+                                         ("after", "hyprland.focus_on_activate", False),
+                                         ("restored", "hyprland.focus_on_activate", True)])
+
+    def test_a_refused_option_change_fails_before_any_attempt(self):
+        patches, state = self.compositor(True, answer="error: no such option")
+        ctx, _ = self.leg()
+        with patches, self.assertRaises(AssertionError):
+            with theft.toolkit_activation_ignored(ctx):
+                self.fail("the block ran while the compositor still honored toolkit activation")
+
+    def test_every_attempt_runs_while_toolkit_activation_is_ignored(self):
+        events = []
+
+        @contextlib.contextmanager
+        def ignored(ctx):
+            events.append("off")
+            yield
+            events.append("on")
+
+        @contextlib.contextmanager
+        def zoo(ctx):
+            yield types.SimpleNamespace(app="zoo")
+
+        @contextlib.contextmanager
+        def log(tier, label):
+            yield "thief-app", "log"
+
+        def attempt(*args):
+            events.append("attempt")
+            return refused(code="ACTION_FAILED", check="target_focus"), True, True, "{}"
+
+        ctx = types.SimpleNamespace(tier="tier", before=lambda *a: None, after=lambda *a: None,
+                                    restored=lambda *a: None, finding=lambda text: None)
+        with mock.patch.object(theft, "toolkit_activation_ignored", ignored, create=True), \
+                mock.patch.object(theft, "focused_zoo", zoo), mock.patch.object(theft, "key_log", log), \
+                mock.patch.object(theft, "keyboards", return_value=[]), \
+                mock.patch.object(theft, "desktop", return_value={"workspace": "1"}), \
+                mock.patch.object(theft, "main_instance", return_value={}), \
+                mock.patch.object(theft, "toplevel", side_effect=lambda tier, app: {"address": app}), \
+                mock.patch.object(theft, "move"), mock.patch.object(theft, "zoo_ref", return_value="@s:e1"), \
+                mock.patch.object(theft, "_steal_argv", return_value=[]), \
+                mock.patch.object(theft, "presses", return_value=[]), \
+                mock.patch.object(theft, "zoo_text", return_value=""), \
+                mock.patch.object(theft, "_attempt", side_effect=attempt):
+            theft.focus_theft_before_first_key(ctx)
+        self.assertEqual(events, ["off", "attempt", "on"])
+
+
 if __name__ == "__main__":
     unittest.main()
