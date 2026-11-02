@@ -21,6 +21,7 @@ pub(crate) mod pointer_state;
 pub(crate) mod ref_pointer;
 pub(crate) mod relative_motion;
 pub(crate) mod run_plans;
+pub(crate) mod send_failure;
 pub(crate) mod show_on_drop;
 pub(crate) mod step_event;
 pub(crate) mod wheel_axis;
