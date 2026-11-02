@@ -309,10 +309,10 @@ earlier request of the same operation was applied. A request whose read-back
 does not hold within 1 s is `ACTION_FAILED`, `delivered_unverified`, cause
 `readback_mismatch` with `details.requested` and `details.observed`, or
 `readback_unavailable`.
-A `restore` that cleared a maximize but can no longer find the window's
-output is `ACTION_FAILED`, `delivered_unverified`, cause
-`window_state_unreadable`, with `physical_delivery_started: true`; the window
-stays where Hyprland put it.
+A `restore` that brought a minimized window back to an output whose place it
+did not read before it started is `ACTION_FAILED`, `delivered_unverified`,
+cause `window_state_unreadable`, with `physical_delivery_started: true`; the
+window stays where Hyprland put it.
 
 `close-app` on a bound Hyprland sends `zwlr_foreign_toplevel_handle_v1.close`
 to each toplevel of the process, after it checks that the process instance
