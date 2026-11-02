@@ -133,3 +133,47 @@ fn watcher_startup_failure_preserves_handlers_and_allows_retry() {
         0
     );
 }
+
+#[test]
+fn a_signalled_call_returns_only_after_the_signal_action_ran() {
+    const CHILD: &str = "AD_SIGNAL_ORDER_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        const FILTER: &str = "input::x11::signal_release::tests::a_signalled_call_returns_only_after_the_signal_action_ran";
+        let started = Instant::now();
+        let output = std::process::Command::new(std::env::current_exe().expect("the test binary"))
+            .args(["--exact", FILTER, "--nocapture"])
+            .env(CHILD, "1")
+            .output()
+            .expect("the child runs");
+        let elapsed = started.elapsed();
+        assert_eq!(
+            std::os::unix::process::ExitStatusExt::signal(&output.status),
+            Some(libc::SIGTERM),
+            "the call returned before SIGTERM's own action: {output:?}"
+        );
+        assert!(
+            elapsed < Duration::from_millis(1_500),
+            "the signal waited out the release wait: {elapsed:?}"
+        );
+        return;
+    }
+    unsafe { libc::signal(libc::SIGTERM, libc::SIG_DFL) };
+    super::enable();
+    let slot = Arc::new(WorkerSlot::default());
+    let progress = Arc::new(Progress::default());
+    let worker_claim = slot.claim(deadline(1_000)).expect("the worker's claim");
+    let armed = super::arm(Arc::clone(&progress), Arc::clone(&slot));
+    assert!(armed.installed());
+    unsafe { libc::kill(libc::getpid(), libc::SIGTERM) };
+    let started = Instant::now();
+    while !progress.is_cancelled() && started.elapsed() < Duration::from_secs(5) {
+        thread::sleep(Duration::from_millis(1));
+    }
+    assert!(progress.is_cancelled(), "the watcher never took the signal");
+    let _worker = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(100));
+        drop(worker_claim);
+    });
+    drop(armed);
+    std::process::exit(1);
+}
