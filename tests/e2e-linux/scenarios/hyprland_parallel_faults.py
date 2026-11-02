@@ -156,7 +156,9 @@ def same_process_problems(tier, gate, sampler, launched, ref: str, allowed) -> l
         sampler.watch(child.pid, "ffi")
         agents.until(lambda: child.pid in sampler.state()[1] or child.poll() is not None,
                      "the C ABI holder thread queues")
-        require(child.poll() is None, f"the C ABI child exited {child.returncode}: {child.stderr.read()[:400]}")
+        if child.poll() is not None:
+            _, stderr = child.communicate(timeout=agents.EXIT_S)
+            raise AssertionError(f"the C ABI child exited {child.returncode}: {stderr[:400]}")
         child.stdin.write("\n")
         child.stdin.flush()
         first = _ffi_line(child)
