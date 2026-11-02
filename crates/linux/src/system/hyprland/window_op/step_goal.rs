@@ -19,6 +19,8 @@ pub(crate) enum StepGoal {
     },
     Workspace(String),
     Fullscreen(i64),
+    Tagged(String),
+    Untagged(String),
 }
 
 impl StepGoal {
@@ -29,6 +31,8 @@ impl StepGoal {
             Self::Resized { wanted, from } => near(*wanted, state.size) || !near(*from, state.size),
             Self::Workspace(name) => state.workspace == *name,
             Self::Fullscreen(mode) => state.fullscreen == *mode,
+            Self::Tagged(tag) => state.marks.tags.contains(tag),
+            Self::Untagged(tag) => !state.marks.tags.contains(tag),
         }
     }
 
@@ -39,6 +43,8 @@ impl StepGoal {
             Self::Resized { wanted, .. } => json!({ "width": wanted.0, "height": wanted.1 }),
             Self::Workspace(name) => json!({ "workspace": name }),
             Self::Fullscreen(mode) => json!({ "fullscreen": mode }),
+            Self::Tagged(tag) => json!({ "tagged": tag }),
+            Self::Untagged(tag) => json!({ "untagged": tag }),
         }
     }
 }

@@ -1,6 +1,7 @@
 use agent_desktop_core::{DeliverySemantics, ErrorCode, WindowOp};
 
 use super::*;
+use crate::system::hyprland::window_op::client_marks::ClientMarks;
 use crate::system::hyprland::window_op::step_goal::StepGoal;
 
 const TARGET: u64 = 0x10;
@@ -16,6 +17,7 @@ fn floating() -> ClientState {
         floating: true,
         fullscreen: 0,
         workspace: "1".into(),
+        marks: ClientMarks::default(),
     }
 }
 

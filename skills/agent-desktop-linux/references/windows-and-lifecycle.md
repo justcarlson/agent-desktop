@@ -402,6 +402,15 @@ and `details.observed`. A window already as asked is `not_delivered` with
   because Hyprland clears the user's focus when it maximizes another window.
   Otherwise it is `ACTION_NOT_SUPPORTED`, cause `maximize_takes_focus`: focus
   the window first.
+- Before it maximizes a floating window, `maximize` records the window's
+  offset from its output's top-left corner and its size in the window tag
+  `agent-desktop-restore:<x>,<y>,<width>,<height>`. `restore` puts the window
+  back at that offset from where the output is now, at that size, and removes
+  the tag. Hyprland alone would return it to its old absolute place, which is
+  off the output once the output moved. A floating window whose output the
+  compositor does not name is `ACTION_NOT_SUPPORTED`, cause
+  `window_state_unreadable`. A tiled window gets no record; its layout places
+  it.
 - A minimized window is not moved, resized or maximized (cause
   `window_minimized`); a maximized or fullscreen window is not moved or resized
   (cause `window_maximized`), and a fullscreen one is not maximized (cause
