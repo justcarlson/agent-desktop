@@ -118,7 +118,7 @@ fn a_bound_hyprland_activates_the_window_before_a_headed_key_by_ref() {
     }
     assert!(
         LinuxAdapter::new().keyboard_needs_window_activation(),
-        "a GTK GrabFocus present is an activation request the compositor may refuse (L47-1)"
+        "a GTK GrabFocus present is an activation request the compositor may refuse (L48-1)"
     );
 }
 
