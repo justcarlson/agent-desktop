@@ -58,7 +58,13 @@ def _next_proceeds(gate, sampler, launched, agent: agents.Agent, since: float, a
     if len(landed) != 1:
         problems.append(f"the next agent {agent.name} landed {len(landed)} effects, not 1")
     span = agents.span_of(agent, sampler.events(), landed)
-    return problems + oracle.early_effect_problems([span]) + oracle.lag_problems([span])
+    gate_holds = [hold for hold in sampler.holds(agents.holder_names([agent])) if hold.holder == "runner"]
+    problems += oracle.queueing_problems([span], oracle.holds_of([span], gate_holds))
+    return problems + _effect_problems(span)
+
+
+def _effect_problems(span: oracle.Span) -> list[str]:
+    return oracle.early_effect_problems([span]) + oracle.lag_problems([span])
 
 
 def queued_stage(tier, gate, sampler, launched, refs, targets, session: str, allowed) -> list[str]:
@@ -92,6 +98,7 @@ def acquired_stage(tier, gate, sampler, launched, refs, targets, session: str, a
         agents.turn(gate, sampler, holder, [holder, after], during=cancel)
         problems += [f"acquired: {item}" for item in _next_proceeds(gate, sampler, launched, after, since, allowed)]
     landed = effects(launched, "D", since)
+    problems += [f"acquired: {item}" for item in _effect_problems(agents.span_of(holder, sampler.events(), landed))]
     allowed.setdefault("D", []).extend(landed)
     if len(landed) > 1:
         problems.append(f"acquired: the cancelled holder landed {len(landed)} clicks")
@@ -119,7 +126,9 @@ def partial_stage(ctx: LegContext, gate, sampler, launched, refs, session: str, 
         agents.turn(gate, sampler, typist, [typist, after], during=cancel)
         problems += [f"partial: {item}" for item in oracle.partial_retry_problems(typist.envelope)]
         problems += [f"partial: {item}" for item in _next_proceeds(gate, sampler, launched, after, since, allowed)]
-    allowed.setdefault("B", []).extend(effects(launched, "B", since))
+    landed = effects(launched, "B", since)
+    problems += [f"partial: {item}" for item in _effect_problems(agents.span_of(typist, sampler.events(), landed))]
+    allowed.setdefault("B", []).extend(landed)
     typed = zoo.entry_text(tier, launched["B"]) or ""
     if not typed or typed == PACED or not PACED.startswith(typed):
         problems.append(f"partial: the entry reads {typed!r}, not a strict prefix of the text")
