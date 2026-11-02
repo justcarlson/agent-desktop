@@ -1,15 +1,15 @@
-//! The renderer process: it records itself, connects to the bound
-//! compositor, shows the first control's cursor at its initial point before
-//! it serves the first request, listens on its socket, and serves requests
-//! until it is disabled, its session ends or turns the cursor off, its
-//! compositor goes, or the compositor closes a surface. While a cursor
-//! travels it polls without waiting and advances every travel each frame.
-//! A live hide holder clears every cursor: travels then go on unseen, and
-//! each idle tick rereads the holders to clear or draw again. When an
-//! output comes, goes, moves or rescales, every cursor is drawn again where
-//! it is.
-//! On the way out it answers every travel still in flight, and removes the
-//! socket and record only while the record still names its own generation.
+//! The renderer process: it records itself, asks the bound compositor not
+//! to animate cursor layers, connects to it, shows the first control's
+//! cursor at its initial point before it serves the first request, listens
+//! on its socket, and serves requests until it is disabled, its session
+//! ends or turns the cursor off, its compositor goes, or the compositor
+//! closes a surface. While a cursor travels it polls without waiting and
+//! advances every travel each frame. A live hide holder clears every
+//! cursor: travels then go on unseen, and each idle tick rereads the
+//! holders to clear or draw again. When an output comes, goes, moves or
+//! rescales, every cursor is drawn again where it is. On the way out it
+//! answers every travel still in flight, and removes the socket and record
+//! only while the record still names its own generation.
 
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
@@ -25,6 +25,7 @@ use super::holder_reply::refresh_holders;
 use super::holder_view::any_live;
 use super::holder_watch::HolderWatch;
 use super::initial_pose::initial_point;
+use super::layer_animation::suppress_layer_animation;
 use super::layer_client::LayerClient;
 use super::record_read::{RecordRead, read_record, remove_if_generation};
 use super::renderer_owner::RendererOwner;
@@ -87,6 +88,7 @@ impl RendererProcess {
         };
         paths.ensure_dirs()?;
         record.write_atomic(&paths.record)?;
+        suppress_layer_animation(&target.binding);
         let opened = Self::open(stream, &paths, &target.binding.wayland_socket);
         let (client, listener) = match opened {
             Ok(opened) => opened,
