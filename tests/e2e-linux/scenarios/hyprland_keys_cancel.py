@@ -12,17 +12,16 @@ from __future__ import annotations
 
 import contextlib
 import signal
-import subprocess
 import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import product
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_keys import _focused_key_log
 from scenarios.hyprland_keys_common import HELD_MODIFIERS, entry_text, keyboards, records
+from scenarios.hyprland_keys_process import finished, running_product
 
 CANCELLED = "aB" * 200
 TYPE_TIMEOUT_MS = "30000"
@@ -31,23 +30,6 @@ IN_FLIGHT_S = 10.0
 SETTLE_S = 4.0
 SHIFTS = ("Shift_L", "Shift_R")
 LABEL = "cancel"
-
-
-def running_product(tier, argv: list[str], headed: bool = True) -> subprocess.Popen:
-    """The product as a child of this leg, with the run's environment and lease."""
-    full = [product._binary_path(), *(["--headed"] if headed else []), *argv]
-    env = product._result_env(tier)
-    return subprocess.Popen(full, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                            pass_fds=product._load_bounded_process()._interaction_lease_fds(env))
-
-
-def finished(running: subprocess.Popen, timeout_s: float) -> tuple[int | None, str]:
-    try:
-        out, _ = running.communicate(timeout=timeout_s)
-    except subprocess.TimeoutExpired:
-        running.kill()
-        out, _ = running.communicate(timeout=5)
-    return running.returncode, out or ""
 
 
 def key_events(found: list[dict]) -> list[dict]:
