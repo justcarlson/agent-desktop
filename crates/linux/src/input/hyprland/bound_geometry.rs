@@ -16,7 +16,7 @@ use crate::system::hyprland::cursor_context::CursorContext;
 use crate::system::hyprland::cursor_hider::CursorHider;
 use crate::system::hyprland::placement::placed_target::PlacedTarget;
 use crate::system::hyprland::placement::placement_read::{
-    place_target, placed_bounds, popup_refusal,
+    frame_client, place_target, placed_bounds, popup_refusal,
 };
 use crate::system::hyprland::receiver::receiver_hit::read_hit;
 use crate::system::hyprland::receiver::receiver_read::prove_receiver;
@@ -107,6 +107,26 @@ pub(crate) fn prove_bound_point(
     let placed = place_target(&binding, bus, element, Some(point), deadline)?;
     let mut hider = crate::system::hyprland::cursor_hider(&CursorContext { binding: &binding });
     prove_placed_point(&binding, &placed, hider.as_mut(), deadline)
+}
+
+/// The receiver gate's refusal for a ref pointer gesture, read before core
+/// activates the element's window or moves the cursor, so an unfocused
+/// target stays unfocused. `None` when no Hyprland is bound, for shell
+/// elements, and when the element or its frame cannot be resolved, which
+/// leaves the answer to the gate at delivery.
+pub(crate) fn ref_receiver_refusal(
+    resolve: impl FnOnce() -> Result<NativeHandle, AdapterError>,
+    bus: &SharedBus,
+    deadline: Deadline,
+) -> Option<AdapterError> {
+    bound_route().ok().flatten()?;
+    let handle = resolve().ok()?;
+    let (binding, element) = bound_target(&handle).ok().flatten()?;
+    let frame = element.frame()?;
+    match frame_client(&binding, bus, frame, element.is_menu_target(), deadline) {
+        Ok(client) => refuse_unproven_receiver(&binding, client.address, deadline).err(),
+        Err(error) => Some(error),
+    }
 }
 
 /// [`prove_bound_point`] for a placed endpoint and the hider that hides the
