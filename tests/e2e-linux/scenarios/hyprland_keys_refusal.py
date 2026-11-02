@@ -6,7 +6,10 @@ window id or by app name, must refuse with the documented code and check,
 `not_delivered`, before any key: the app logs no key, the entry stays empty,
 and focus, cursor and workspaces stay with the bystander. Headless `type`
 then writes the entry through `EditableText` with no key event and no focus
-change, the negative control the plan row asks for.
+change, the negative control the plan row asks for. Last, a headless `type`
+into the opaque mode's field, an entry role with no `EditableText`, can only
+be physical keys, so it must refuse with `POLICY_DENIED`, `not_delivered`,
+with no key logged and the desktop unchanged.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from scenarios.hyprland_keys_common import entry_ref, entry_text, key_log, keybo
 SEMANTIC = "semantic"
 WINDOW_REFUSAL = ("STALE_REF", "exact_window_focus")
 APP_REFUSAL = ("ACTION_FAILED", "window_active")
+POLICY_REFUSAL = "POLICY_DENIED"
 
 
 def press_refusal_problems(label: str, envelope, code: str, check: str) -> list[str]:
@@ -37,6 +41,34 @@ def press_refusal_problems(label: str, envelope, code: str, check: str) -> list[
     if details.get("physical_delivery_started") not in (None, False):
         problems.append(f"{label} started physical delivery")
     return problems
+
+
+def policy_refusal_problems(label: str, envelope) -> list[str]:
+    error = envelope.error or {}
+    problems = []
+    if envelope.ok or envelope.exit_code != 1 or error.get("code") != POLICY_REFUSAL:
+        problems.append(f"{label} answered exit {envelope.exit_code}: {envelope.raw[:300]}")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"{label} is not not_delivered: {error.get('disposition')}")
+    if (error.get("details") or {}).get("physical_delivery_started") not in (None, False):
+        problems.append(f"{label} started physical delivery")
+    return problems
+
+
+def _opaque_type(ctx: LegContext, holder, point, shown) -> list[str]:
+    tier = ctx.tier
+    with key_log(tier, "refusal-opaque", opaque=True) as (app, log):
+        move(tier, toplevel(tier, app)["address"], shown)
+        restore_desktop(tier, holder, point)
+        ref = entry_ref(ctx, app)
+        seen = desktop(tier, main_instance(tier))
+        problems = policy_refusal_problems("headless type (no EditableText)", ctx.product(["type", ref, SEMANTIC]))
+        if presses(log):
+            problems.append(f"the refused physical type reached the app: {presses(log)}")
+        now = desktop(tier, main_instance(tier))
+        if now != seen:
+            problems.append(f"the refused physical type changed the desktop: {seen} to {now}")
+        return problems
 
 
 def _refusals(ctx: LegContext, app, where: str) -> list[str]:
@@ -95,7 +127,8 @@ def headless_physical_keys_refused(ctx: LegContext) -> None:
             if keyboards(tier) != before:
                 problems.append(f"the keyboards changed: {before} to {keyboards(tier)}")
             ctx.restored("applog.presses", len(presses(log)))
-            require(not problems, "; ".join(problems))
+        problems += _opaque_type(ctx, holder, point, shown)
+        require(not problems, "; ".join(problems))
     finally:
         restore_desktop(tier, holder, point)
     ctx.restored("hyprland.desktop", read())
