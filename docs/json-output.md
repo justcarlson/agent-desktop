@@ -424,15 +424,19 @@ fields to `data.details`:
 | `delivered_events` | Events sent: motion, button and wheel |
 
 A headed ref command (`click`, `double-click`, `triple-click`, `right-click`,
-`scroll`, and each ref end of `drag`) first reads the `xwayland` flag of the
-element's toplevel window, before any wait, window activation or cursor move.
-Hyprland cannot prove which surface of the app takes the point, so every one
-refuses there, before any pointer, button, wheel or key event: cause
-`native_wayland_client` or `receiver_unproven`. The active window, the
-workspace and the cursor stay as they were. The window activation, core's
-`receives_events` hit test and the stack and layer read that would follow
-stay in the code, so `activation_refused`, `frame_not_active`, `occluder`,
-`point_outside_target`, `layer_cover` and `window_cover` are not reached
+`scroll`, and each ref end of `drag`) first reads the `xwayland` flags of the
+ref's process in `j/clients`, before any wait, element resolution, window
+activation or cursor move. Hyprland cannot prove which surface of the app
+takes the point, so every one refuses there, before any pointer, button,
+wheel or key event, even when the element no longer resolves. The cause is
+`native_wayland_client` when every window of the process is native, and
+`receiver_unproven` otherwise, including a client list that cannot be read.
+The active window, the workspace and the cursor stay as they were. The window
+activation, core's `receives_events` hit test, the placement and the stack
+and layer read that would follow stay in the code, so `activation_refused`,
+`frame_not_active`, `occluder`, `target_not_shown`, `popup_surface`,
+`point_outside_target`, `layer_cover` and `window_cover` are not reached by a
+ref command
 today. Every layer counts as a cover, whatever
 its namespace. A refusal before any event is `ACTION_FAILED`,
 `not_delivered`, with `details.kind: "receiver_evidence"`,
