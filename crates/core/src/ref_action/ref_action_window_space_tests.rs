@@ -41,6 +41,7 @@ fn entry(actions: &[String]) -> RefEntry {
         bounds_space: Some(BoundsSpace::Window),
     };
     entry.capabilities.available_actions = actions.to_vec();
+    entry.source.source_window_id = Some("w-1".into());
     entry
 }
 
@@ -81,6 +82,7 @@ impl ObservationOps for PlacedPane {
     ) -> Result<Option<crate::Rect>, AdapterError> {
         Ok(Some(global_rect()))
     }
+    crate::adapter::saved_ref_scope!("scrollarea", None);
 }
 
 impl ActionOps for PlacedPane {

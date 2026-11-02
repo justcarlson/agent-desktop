@@ -32,10 +32,10 @@ impl EndpointProofAdapter {
 impl ObservationOps for EndpointProofAdapter {
     fn resolve_element_strict(
         &self,
-        _entry: &RefEntry,
+        entry: &RefEntry,
         _deadline: crate::Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        Ok(NativeHandle::null())
+        Ok(NativeHandle::new(entry.process.pid.get()))
     }
 
     fn get_element_bounds(
@@ -62,11 +62,13 @@ impl ObservationOps for EndpointProofAdapter {
 
     fn confirm_drag_receiver(
         &self,
-        entry: &RefEntry,
+        handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
     ) -> Result<(), AdapterError> {
-        let pid = entry.process.pid.get();
+        let pid = *handle
+            .downcast_ref::<u32>()
+            .ok_or_else(|| AdapterError::internal("the endpoint handle names no process"))?;
         self.proved_pids.lock().unwrap().push(pid);
         if self.refused_pid == Some(pid) {
             return Err(AdapterError::new(
@@ -77,6 +79,7 @@ impl ObservationOps for EndpointProofAdapter {
         }
         Ok(())
     }
+    crate::adapter::saved_ref_scope!("button", Some("Item"));
 }
 
 impl ActionOps for EndpointProofAdapter {}
