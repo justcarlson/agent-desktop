@@ -38,13 +38,16 @@ LEGS = {"pointer.coordinate_multi_click_xwayland": "coordinate_multi_click_xwayl
 
 
 def fixture_click_problems(label: str, envelope, found: list[dict], count: int) -> list[str]:
-    """`mouse-click --count <count>` reports `count` clicks without receiver proof, and the fixture
-    logs exactly `count` clicks, all on the target."""
+    """`mouse-click --count <count>` reports `count` clicks as delivered_unverified without receiver
+    proof, and the fixture logs exactly `count` clicks, all on the target."""
     name = f"{label} mouse-click --count {count}"
     if not envelope.ok:
         return [f"{name}: answered {envelope.raw[:300]}"]
     data = envelope.data or {}
     problems = no_receiver_proof(name, data)
+    delivery = (data.get("disposition") or {}).get("delivery")
+    if delivery != "delivered_unverified":
+        problems.append(f"{name}: the report says delivery {delivery!r}, not delivered_unverified")
     if data.get("count") != count:
         problems.append(f"{name}: the report says count {data.get('count')!r}")
     logged = clicked(found)
