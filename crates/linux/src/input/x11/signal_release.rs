@@ -1,9 +1,9 @@
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::raw::c_int;
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
 
@@ -12,12 +12,16 @@ use super::worker_slot::WorkerSlot;
 
 const SIGNALS: [c_int; 3] = [libc::SIGTERM, libc::SIGINT, libc::SIGHUP];
 const RELEASE_WAIT: Duration = Duration::from_millis(2_000);
+const RAISE_WAIT: Duration = Duration::from_millis(3_000);
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static PIPE_WRITE: AtomicI32 = AtomicI32::new(-1);
 static WATCHER: Mutex<Option<OwnedFd>> = Mutex::new(None);
 static CURRENT: Mutex<Option<Target>> = Mutex::new(None);
 static PREVIOUS: Mutex<Vec<(c_int, libc::sigaction)>> = Mutex::new(Vec::new());
+static PENDING: AtomicU32 = AtomicU32::new(0);
+static RAISE_LOCK: Mutex<()> = Mutex::new(());
+static RAISED: Condvar = Condvar::new();
 
 #[derive(Clone)]
 struct Target {
@@ -27,8 +31,10 @@ struct Target {
 
 /// While held and enabled, SIGTERM, SIGINT and SIGHUP stop the running input
 /// call and wait for its worker to release what it holds before the signal's
-/// own action is taken. A process that never calls `enable` is never touched:
-/// a library host owns its signal handlers.
+/// own action is taken. Dropping it after a signal was taken waits, for a
+/// bounded time, until that action has run, so the call never returns to its
+/// caller first. A process that never calls `enable` is never touched: a
+/// library host owns its signal handlers.
 pub(crate) struct Armed {
     installed: bool,
 }
@@ -70,6 +76,7 @@ impl Drop for Armed {
         if self.installed {
             *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = None;
             restore();
+            await_raise(RAISE_WAIT);
         }
     }
 }
@@ -87,12 +94,36 @@ pub(super) fn release_before(
     then();
 }
 
+fn await_raise(wait: Duration) {
+    let started = Instant::now();
+    let mut guard = RAISE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    while PENDING.load(Ordering::SeqCst) > 0 {
+        let Some(left) = wait.checked_sub(started.elapsed()) else {
+            return;
+        };
+        guard = RAISED
+            .wait_timeout(guard, left)
+            .unwrap_or_else(PoisonError::into_inner)
+            .0;
+    }
+}
+
+fn mark_raised() {
+    let _ = PENDING.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+        count.checked_sub(1)
+    });
+    let _guard = RAISE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    RAISED.notify_all();
+}
+
 extern "C" fn on_signal(signal: c_int) {
     let fd = PIPE_WRITE.load(Ordering::Relaxed);
     if fd >= 0 {
         let byte = signal as u8;
-        unsafe {
-            libc::write(fd, std::ptr::from_ref(&byte).cast(), 1);
+        PENDING.fetch_add(1, Ordering::SeqCst);
+        let written = unsafe { libc::write(fd, std::ptr::from_ref(&byte).cast(), 1) };
+        if written != 1 {
+            PENDING.fetch_sub(1, Ordering::SeqCst);
         }
     }
 }
@@ -138,6 +169,7 @@ fn watch(read_end: OwnedFd) {
         unsafe {
             libc::raise(c_int::from(byte));
         }
+        mark_raised();
     }
 }
 
