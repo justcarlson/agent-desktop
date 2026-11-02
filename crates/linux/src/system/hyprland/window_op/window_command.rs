@@ -78,6 +78,16 @@ pub(crate) fn unset_fullscreen_command(address: u64) -> String {
     )
 }
 
+/// Sets `tag` on a window, or removes it. Only the Lua dialect has the
+/// dispatcher; `j/clients` lists the tag as given (L46-2).
+pub(crate) fn tag_command(address: u64, tag: &str, set: bool) -> String {
+    let sign = if set { '+' } else { '-' };
+    format!(
+        "dispatch hl.dsp.window.tag({{tag=\"{sign}{tag}\",window=\"{}\"}})",
+        selector(address)
+    )
+}
+
 /// A workspace by the name `j/clients` reports: a special or numbered
 /// workspace as it is, any other by `name:`.
 fn workspace_selector(name: &str) -> String {

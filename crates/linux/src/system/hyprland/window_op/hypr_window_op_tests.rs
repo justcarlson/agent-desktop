@@ -3,6 +3,7 @@ use serde_json::json;
 
 use super::*;
 use crate::system::hyprland::window_op::client_state::ClientState;
+use crate::system::hyprland::window_op::output_origin::OutputOrigin;
 use crate::system::hyprland::window_op::window_op_fixture::{
     HOLDER, LEGACY_REPLY, LUA_REPLY, TARGET, desktop, floating_at, frame, holder, state, window,
     world,
@@ -175,39 +176,72 @@ fn restore_is_proven_by_the_restored_state_scope() {
 const MAXIMIZE: &str = "dispatch hl.dsp.window.fullscreen({mode=\"maximized\",action=\"set\",window=\"address:0x10\"})";
 const UNSET: &str = "dispatch hl.dsp.window.fullscreen_state({internal=0,client=0,action=\"set\",window=\"address:0x10\"})";
 
-#[test]
-fn a_maximize_sends_only_the_maximize() {
-    let maximized = ClientState {
-        fullscreen: 1,
-        ..floating_at((40, 60))
-    };
-    let mut fake = world(
-        LUA_REPLY,
-        vec![
-            frame(floating_at((40, 60)), Some(TARGET)),
-            frame(maximized, Some(TARGET)),
-        ],
-    );
+const RECORD: &str = "agent-desktop-restore:40,60,630,755";
+const TAG: &str = "dispatch hl.dsp.window.tag({tag=\"+agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
+const UNTAG: &str = "dispatch hl.dsp.window.tag({tag=\"-agent-desktop-restore:40,60,630,755\",window=\"address:0x10\"})";
 
-    window_op_reported(&mut fake, &window(), &WindowOp::Maximize).expect("maximized");
-
-    assert_eq!(fake.dispatches(), vec![MAXIMIZE]);
+fn tagged(state: ClientState) -> ClientState {
+    let mut state = state;
+    state.marks.tags = vec![RECORD.into()];
+    state
 }
 
 #[test]
-fn a_restore_after_the_output_moved_leaves_the_window_where_hyprland_put_it() {
+fn a_maximize_records_the_offset_from_the_monitor_before_it_maximizes() {
+    let maximized = ClientState {
+        fullscreen: 1,
+        ..tagged(floating_at((40, 60)))
+    };
+    let mut fake = world(
+        LUA_REPLY,
+        vec![
+            frame(floating_at((40, 60)), Some(TARGET)),
+            frame(tagged(floating_at((40, 60))), Some(TARGET)),
+            frame(maximized, Some(TARGET)),
+        ],
+    );
+
+    let report = window_op_reported(&mut fake, &window(), &WindowOp::Maximize).expect("maximized");
+
+    assert_eq!(
+        report.disposition(),
+        DeliverySemantics::delivered_verified()
+    );
+    assert_eq!(fake.dispatches(), vec![TAG, MAXIMIZE]);
+}
+
+#[test]
+fn a_maximize_whose_monitors_are_unreadable_sends_nothing() {
+    let mut fake = world(LUA_REPLY, vec![frame(floating_at((40, 60)), Some(TARGET))]);
+    fake.origins = None;
+
+    let error =
+        window_op_reported(&mut fake, &window(), &WindowOp::Maximize).expect_err("unreadable");
+
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert!(fake.dispatches().is_empty());
+}
+
+#[test]
+fn a_restore_after_the_output_moved_puts_the_window_at_its_old_offset_from_it() {
     let maximized = ClientState {
         fullscreen: 1,
         size: (1024, 640),
-        ..floating_at((-1024, -640))
+        ..tagged(floating_at((-1024, -640)))
     };
     let mut fake = world(
         LUA_REPLY,
         vec![
             frame(maximized, Some(TARGET)),
-            frame(floating_at((40, 60)), Some(TARGET)),
+            frame(tagged(floating_at((40, 60))), Some(TARGET)),
+            frame(tagged(floating_at((-984, -580))), Some(TARGET)),
+            frame(floating_at((-984, -580)), Some(TARGET)),
         ],
     );
+    fake.origins = Some(vec![OutputOrigin {
+        id: 0,
+        at: (-1024, -640),
+    }]);
 
     let report = window_op_reported(&mut fake, &window(), &WindowOp::Restore).expect("restored");
 
@@ -215,8 +249,48 @@ fn a_restore_after_the_output_moved_leaves_the_window_where_hyprland_put_it() {
         report.disposition(),
         DeliverySemantics::delivered_verified()
     );
-    assert_eq!(fake.dispatches(), vec![UNSET]);
-    assert_eq!(report.result.details.expect("details")["observed"]["x"], 40);
+    assert_eq!(
+        fake.dispatches(),
+        vec![
+            UNSET,
+            "dispatch hl.dsp.window.move({x=-984,y=-580,window=\"address:0x10\"})",
+            UNTAG,
+        ]
+    );
+    let observed = &report.result.details.expect("details")["observed"];
+    assert_eq!(
+        (observed["x"].clone(), observed["y"].clone()),
+        (json!(-984), json!(-580))
+    );
+}
+
+#[test]
+fn a_placement_that_never_holds_after_the_restore_is_delivered_unverified() {
+    let maximized = ClientState {
+        fullscreen: 1,
+        ..tagged(floating_at((-1024, -640)))
+    };
+    let mut fake = world(
+        LUA_REPLY,
+        vec![
+            frame(maximized, Some(TARGET)),
+            frame(tagged(floating_at((40, 60))), Some(TARGET)),
+        ],
+    );
+    fake.origins = Some(vec![OutputOrigin {
+        id: 0,
+        at: (-1024, -640),
+    }]);
+
+    let error =
+        window_op_reported(&mut fake, &window(), &WindowOp::Restore).expect_err("unverified");
+
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(
+        error.details.expect("details")["requested"],
+        json!([{"x": -984, "y": -580}, {"width": 630, "height": 755}])
+    );
+    assert_eq!(fake.dispatches().len(), 2);
 }
 
 #[test]

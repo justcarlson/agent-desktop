@@ -5,6 +5,8 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 
 use super::client_state::{ClientState, parse_states};
+use super::output_origin::{OutputOrigin, parse_origins};
+use super::window_op_refusal::refused;
 use super::window_world::WindowWorld;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::clients::client_read::{read_cursor, read_desktop};
@@ -16,6 +18,7 @@ use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
 use crate::system::window::compositor_listing;
 
 const CLIENTS_COMMAND: &str = "j/clients";
+const MONITORS_COMMAND: &str = "j/monitors";
 const DISPATCH_PREFIX: &str = "dispatch ";
 /// How long the compositor gets to show a dispatch in `j/clients`. The
 /// probes read every effect within 0.6 s.
@@ -49,6 +52,17 @@ impl WindowWorld for LiveWindowWorld {
     fn states(&mut self) -> Result<Vec<ClientState>, AdapterError> {
         let body = bound_request(&self.binding, CLIENTS_COMMAND, self.deadline)?;
         parse_states(&body)
+    }
+
+    fn origins(&mut self) -> Result<Vec<OutputOrigin>, AdapterError> {
+        let body = bound_request(&self.binding, MONITORS_COMMAND, self.deadline)?;
+        parse_origins(&body).ok_or_else(|| {
+            refused(
+                "window_state_unreadable",
+                "The compositor's monitor list does not give every monitor's id and place",
+                "Run a Hyprland release whose 'hyprctl monitors -j' reports those fields",
+            )
+        })
     }
 
     fn desktop(&mut self) -> Result<DesktopState, AdapterError> {

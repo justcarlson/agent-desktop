@@ -6,10 +6,14 @@
 //! only, maximize never takes the user's focus, and minimize parks the
 //! window on a special workspace that names the workspace it came from.
 
+pub(crate) mod client_marks;
 pub(crate) mod client_state;
 pub(crate) mod config_dialect;
 pub(crate) mod hypr_window_op;
 pub(crate) mod live_window_world;
+pub(crate) mod output_origin;
+pub(crate) mod restore_geometry;
+pub(crate) mod restore_record;
 pub(crate) mod step_goal;
 pub(crate) mod window_command;
 pub(crate) mod window_op_entry;

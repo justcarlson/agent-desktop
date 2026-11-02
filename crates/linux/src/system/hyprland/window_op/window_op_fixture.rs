@@ -3,7 +3,9 @@
 
 use agent_desktop_core::{Point, ProcessId, Rect, WindowInfo, WindowState};
 
+use super::client_marks::ClientMarks;
 use super::client_state::ClientState;
+use super::output_origin::OutputOrigin;
 use super::window_world_fake::FakeWindowWorld;
 use crate::system::hyprland::clients::client_workspace::ClientWorkspace;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
@@ -44,6 +46,10 @@ pub(crate) fn state(address: u64, at: (i64, i64), size: (i64, i64)) -> ClientSta
         floating: true,
         fullscreen: 0,
         workspace: "1".into(),
+        marks: ClientMarks {
+            monitor: Some(0),
+            tags: Vec::new(),
+        },
     }
 }
 
@@ -73,17 +79,20 @@ pub(crate) fn world(
     frames: Vec<(Vec<ClientState>, DesktopState)>,
 ) -> FakeWindowWorld {
     FakeWindowWorld {
-        clients: vec![client(TARGET, 7), client(HOLDER, 9)],
-        toplevels: vec![
-            ToplevelView {
-                identifier: "a".into(),
-                address: TARGET,
-            },
-            ToplevelView {
-                identifier: "b".into(),
-                address: HOLDER,
-            },
-        ],
+        inventory: (
+            vec![client(TARGET, 7), client(HOLDER, 9)],
+            vec![
+                ToplevelView {
+                    identifier: "a".into(),
+                    address: TARGET,
+                },
+                ToplevelView {
+                    identifier: "b".into(),
+                    address: HOLDER,
+                },
+            ],
+        ),
+        origins: Some(vec![OutputOrigin { id: 0, at: (0, 0) }]),
         frames,
         eval_reply: eval_reply.into(),
         reply: "ok".into(),
