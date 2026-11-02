@@ -69,11 +69,12 @@ def moved_output(tier, instance: dict, lua: bool, name: str, origin: tuple[int, 
                    and abs(float(item["scale"]) - at_scale) < 0.01
                    for item in instance_query(tier, instance, "monitors"))
 
-    hyprland.control(shared(tier), instance["signature"],
-                     monitor_command(lua, name, f"{origin[0]}x{origin[1]}", scale))
+    command = monitor_command(lua, name, f"{origin[0]}x{origin[1]}", scale)
+    reply = hyprland.control(shared(tier), instance["signature"], command)
     try:
         require(raw.poll(lambda: placed(origin, scale), 5.0),
-                f"{name} never took {origin} at {scale:g}; outputs {outputs_seen(tier, instance)}")
+                f"{name} never took {origin} at {scale:g}; the {'Lua' if lua else 'legacy'} config replied "
+                f"{reply!r} to {' '.join(command)}; outputs {outputs_seen(tier, instance)}")
         yield
     finally:
         back = (before["x"], before["y"])
