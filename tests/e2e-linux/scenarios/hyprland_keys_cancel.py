@@ -87,6 +87,11 @@ def app_evidence(runtime_dir: Path, label: str, pid: int, found: list[dict]) -> 
     return f"the key log app (pid {pid}) is {alive}; stderr: {stderr!r}; last records: {found[-12:]}"
 
 
+def product_log(runtime_dir: Path, sent: int) -> Path:
+    """Where the signalled product writes its debug records, one file per signal."""
+    return runtime_dir / f"product-{LABEL}-{signal.Signals(sent).name}.log"
+
+
 def _settled_text(tier, app) -> str | None:
     last = [entry_text(tier, app)]
 
@@ -112,7 +117,8 @@ def _in_flight(log) -> bool:
 def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
     tier = ctx.tier
     base, start = entry_text(tier, app) or "", len(records(log))
-    running = running_product(tier, ["type", ref, CANCELLED, "--timeout-ms", TYPE_TIMEOUT_MS])
+    running = running_product(tier, ["type", ref, CANCELLED, "--timeout-ms", TYPE_TIMEOUT_MS],
+                              debug_log=product_log(tier.runtime_dir, sent))
     started = raw.poll(lambda: len([item for item in records(log)[start:] if item.get("event") == "press"])
                        >= STARTED_PRESSES, 10.0)
     flying = bool(started) and _in_flight(log)
