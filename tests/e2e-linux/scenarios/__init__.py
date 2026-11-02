@@ -53,6 +53,7 @@ from scenarios import hyprland_focus_proof
 from scenarios import hyprland_identity
 from scenarios import hyprland_identity_title
 from scenarios import hyprland_window_ops
+from scenarios import hyprland_focus_reports
 from scenarios import wayland_outputs
 
 __all__ = [
