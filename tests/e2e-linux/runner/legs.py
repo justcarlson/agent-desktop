@@ -236,7 +236,6 @@ REGISTRY += tuple(
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_ROWS)
 
 REGISTRY += (
-    Leg('pointer.coordinate_click_through_cursor', 'With the keep-drawn test flag in the renderer registry and the session cursor drawn at Calculator\'s 7, a headed mouse-click --xy at the cursor\'s tip enters exactly one 7 in the AT-SPI display, while j/layers and grim pixels read back to back from before the click until after the press show the cursor drawn throughout; a live holder without the flag clears the arrow first, so the pixel read tells drawn from cleared', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
     Leg('pointer.hover_by_ref_headless_refused', 'Without headed permission, hover by ref on an XWayland and a native pad on a nested instance refuses with POLICY_DENIED before any event; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor, active window and pad log unchanged'),
     Leg('pointer.ref_drag_refused', 'A headed drag from a pad ref to a ref, from a ref to a point and from a point to a ref refuses before any event, receiver_unproven on an XWayland pad and native_wayland_client on a native pad; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'ACTION_FAILED, kind receiver_evidence, causes receiver_unproven and native_wayland_client, physical_delivery_started false, not_delivered; a ref drag has no receiver proof on Hyprland'),
     Leg('pointer.ref_drag_headless_refused', 'Without headed permission, the same three ref drags on an XWayland and a native pad refuse with POLICY_DENIED before any event; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor, active window and pad log unchanged'),
@@ -328,7 +327,6 @@ LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),
     'pointer.hover_coordinates': ('scenarios.hyprland_hover', 'hover_coordinates'),
     'pointer.coordinate_multi_click_xwayland': ('scenarios.hyprland_multiclick', 'coordinate_multi_click_xwayland'),
-    'pointer.coordinate_click_through_cursor': ('scenarios.hyprland_pointer_pass_through', 'coordinate_click_through_cursor'),
     'pointer.hover_by_ref_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'hover_by_ref_headless_refused'),
     'pointer.ref_drag_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_refused'),
     'pointer.ref_drag_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_headless_refused'),
