@@ -61,6 +61,27 @@ pub(crate) fn check_unproven_receiver(clients: &[u8], address: u64) -> Result<()
     }
 }
 
+/// The refusal for a ref pointer gesture read from a `j/clients` reply and
+/// the saved entry's process, with no element resolved: native Wayland when
+/// every toplevel of the process is native, else `receiver_unproven`, which
+/// also answers a missing reply or a process with no toplevel.
+pub(crate) fn entry_receiver_refusal(clients: Option<&[u8]>, pid: u32) -> AdapterError {
+    match clients.and_then(|clients| process_xwayland_flag(clients, pid)) {
+        Some(false) => native_refusal(),
+        _ => unproven_refusal(),
+    }
+}
+
+fn process_xwayland_flag(clients: &[u8], pid: u32) -> Option<bool> {
+    let clients: Vec<Value> = serde_json::from_slice(clients).ok()?;
+    let mut flags = clients
+        .iter()
+        .filter(|client| client.get("pid").and_then(Value::as_u64) == Some(u64::from(pid)))
+        .map(|client| client.get("xwayland").and_then(Value::as_bool));
+    let first = flags.next()??;
+    flags.all(|flag| flag == Some(first)).then_some(first)
+}
+
 fn xwayland_flag(clients: &[u8], address: u64) -> Option<bool> {
     let clients: Vec<Value> = serde_json::from_slice(clients).ok()?;
     let client = clients.iter().find(|client| {
