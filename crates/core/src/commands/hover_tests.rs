@@ -160,9 +160,18 @@ impl SystemOps for HoverCaptureAdapter {
 }
 
 fn ref_snapshot(pid: u32) -> String {
+    save_entry(ref_entry(pid))
+}
+
+fn save_entry(entry: RefEntry) -> String {
     let store = RefStore::new().unwrap();
     let mut refmap = RefMap::new();
-    refmap.allocate(RefEntry {
+    refmap.allocate(entry);
+    store.save_new_snapshot(&refmap).unwrap()
+}
+
+fn ref_entry(pid: u32) -> RefEntry {
+    RefEntry {
         process: crate::RefProcess {
             pid: crate::ProcessId::new(pid),
             process_instance: Some("test-instance".into()),
@@ -198,8 +207,7 @@ fn ref_snapshot(pid: u32) -> String {
             path_is_absolute: false,
             path: smallvec::SmallVec::new(),
         },
-    });
-    store.save_new_snapshot(&refmap).unwrap()
+    }
 }
 
 fn ref_args(snapshot_id: String) -> HoverArgs {

@@ -222,3 +222,38 @@ fn a_ref_drag_asks_for_both_endpoint_refusals_before_it_moves() {
     assert_eq!(*adapter.asked_pids.lock().unwrap(), vec![1, 2]);
     assert!(adapter.captured.lock().unwrap().is_some());
 }
+
+#[test]
+fn a_ref_drag_endpoint_that_cannot_be_re_identified_still_meets_the_refusal_first() {
+    let not_unique = |entry: &mut RefEntry| entry.identity.unique_at_capture = false;
+    let window_gone = |entry: &mut RefEntry| entry.source.source_window_id = Some("w-gone".into());
+    for break_identity in [not_unique, window_gone] {
+        for refused_pid in [1, 2] {
+            let _guard = HomeGuard::new();
+            let store = RefStore::new().unwrap();
+            let mut refmap = RefMap::new();
+            for pid in [1, 2] {
+                let mut entry = super::ref_entry(pid);
+                break_identity(&mut entry);
+                refmap.allocate(entry);
+            }
+            let snapshot_id = store.save_new_snapshot(&refmap).unwrap();
+            let adapter = EndpointProofAdapter::refusing_early(refused_pid);
+
+            let error = execute(
+                cross_app_args(snapshot_id),
+                &adapter,
+                &CommandContext::default().with_headed(true),
+            )
+            .expect_err("the endpoint receiver is unproven");
+
+            let AppError::Adapter(error) = error else {
+                panic!("an adapter refusal")
+            };
+            assert_eq!(error.details.unwrap()["cause"], "receiver_unproven");
+            assert_eq!(*adapter.focused.lock().unwrap(), 0);
+            assert!(adapter.proved_pids.lock().unwrap().is_empty());
+            assert!(adapter.captured.lock().unwrap().is_none());
+        }
+    }
+}
