@@ -233,6 +233,8 @@ class Schedule:
                  + oracle.control_problems(self.spans, gate_holds, order))
         found += [f"A or D: {problem}" for problem in oracle.effect_problems(
             [span for span in self.spans if span.agent in "AD"])]
+        found += oracle.early_effect_problems([span for span in self.spans if span.agent == "B"])
+        found += oracle.lag_problems(self.spans)
         found += self._typed_problems(effects["B"])
         if any(hold.holder == "C" for hold in holds):
             found.append("C held the interaction lease")
