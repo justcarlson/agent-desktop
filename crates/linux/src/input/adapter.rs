@@ -83,3 +83,7 @@ impl InputOps for LinuxAdapter {
         Ok(OperationReport::clipboard_written("clipboard-clear", false))
     }
 }
+
+#[cfg(test)]
+#[path = "adapter_tests.rs"]
+mod tests;
