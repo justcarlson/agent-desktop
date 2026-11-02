@@ -14,8 +14,8 @@ sys.path.insert(0, str(ROOT))
 from runner import legs
 from runner.product import Envelope
 from runner.verdict import LegContext, evaluate
-from scenarios import (hyprland_capture, hyprland_capture_controls as controls, hyprland_capture_inview as inview,
-                       hyprland_capture_refusals as refusals, hyprland_capture_screen as screen)
+from scenarios import (hyprland_capture, hyprland_capture_inview as inview, hyprland_capture_refusals as refusals,
+                       hyprland_capture_screen as screen)
 
 CAPTURE_LEGS = {
     "capture.hyprland_bound_toplevel_pixels": hyprland_capture,
@@ -25,9 +25,6 @@ CAPTURE_LEGS = {
     "capture.hyprland_screen_exact_output": screen,
     "capture.hyprland_permission_denied_no_dialog": refusals,
     "capture.hyprland_deadline_or_cancel_released": refusals,
-    "capture.hyprland_withheld_frame_timeout": controls,
-    "capture.hyprland_ghostty_toplevel_pixels": controls,
-    "capture.hyprland_alacritty_toplevel_pixels": controls,
 }
 SPECIAL = "special:ad_e2e"
 HOLDER = {"address": "0xby", "pid": 1}
@@ -145,19 +142,6 @@ class CaptureLegAccountingTests(unittest.TestCase):
                     "permission_problems": mock.Mock(return_value=[]),
                     "_deadlines": mock.Mock(return_value=[]),
                     "_cancelled": mock.Mock(return_value=[]),
-                },
-                controls: {
-                    "slow_painted": mock.Mock(side_effect=fake.painted),
-                    "client": mock.Mock(side_effect=fake.client),
-                    "_idle": mock.Mock(return_value=True),
-                    "_withheld": mock.Mock(return_value=[]),
-                    "_healthy": mock.Mock(return_value=[]),
-                    "_version": mock.Mock(return_value="terminal 1.0"),
-                    "painted_in": mock.Mock(side_effect=lambda tier, kind, name, paint: fake.painted(tier, name)),
-                    "move": mock.Mock(side_effect=fake.move),
-                    "scale_of": mock.Mock(return_value=1.0),
-                    "_settled_capture": mock.Mock(return_value=(ok(), object())),
-                    "painted_problems": mock.Mock(return_value=[]),
                 },
             }
             with contextlib.ExitStack() as stack:

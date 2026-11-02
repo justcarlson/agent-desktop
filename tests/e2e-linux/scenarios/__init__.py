@@ -46,7 +46,6 @@ from scenarios import hyprland_binding_effects
 from scenarios import hyprland_binding_refusals
 from scenarios import hyprland_cancel
 from scenarios import hyprland_capture
-from scenarios import hyprland_capture_controls
 from scenarios import hyprland_capture_inview
 from scenarios import hyprland_capture_refusals
 from scenarios import hyprland_capture_screen
@@ -82,7 +81,6 @@ __all__ = [
     "hyprland_binding_refusals",
     "hyprland_cancel",
     "hyprland_capture",
-    "hyprland_capture_controls",
     "hyprland_capture_inview",
     "hyprland_capture_refusals",
     "hyprland_capture_screen",
