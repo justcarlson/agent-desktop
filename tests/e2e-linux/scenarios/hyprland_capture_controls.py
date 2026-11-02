@@ -85,6 +85,12 @@ def withheld_problems(envelope, wrote: bool, ticks: list[tuple[int, int]], mark_
 
 
 def _idle(log) -> bool:
+    """Whether the painter has drawn nothing for a full draw and a second.
+
+    A draw blocks the painter's main loop, so its accessibility tree cannot
+    answer then, and a window listed during a draw gets a compositor-only id
+    that a later listing replaces. Every listing and request waits for this.
+    """
     ticks = written(log)
     return bool(ticks) and monotonic_ns() - ticks[-1][1] >= IDLE_NS
 
@@ -139,6 +145,7 @@ def withheld_frame_timeout(ctx: LegContext) -> None:
     ctx.before("hyprland.desktop", read())
     try:
         with slow_painted(tier, "ad-e2e-cap-withheld", WITHHELD_DRAW_MS) as (owned, found, log):
+            require(raw.poll(lambda: _idle(log), IDLE_WAIT_S), "the slow painter never went idle after it mapped")
             window_id = ids_by_pid(ctx.product(["list-windows"]), [found["pid"]])[found["pid"]]
             running = lambda: client(tier, found["address"]).get("pid") == owned.pid
             ctx.before("applog.painter_running", running())

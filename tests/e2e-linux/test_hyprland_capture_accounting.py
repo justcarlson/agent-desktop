@@ -149,6 +149,7 @@ class CaptureLegAccountingTests(unittest.TestCase):
                 controls: {
                     "slow_painted": mock.Mock(side_effect=fake.painted),
                     "client": mock.Mock(side_effect=fake.client),
+                    "_idle": mock.Mock(return_value=True),
                     "_withheld": mock.Mock(return_value=[]),
                     "_healthy": mock.Mock(return_value=[]),
                     "_version": mock.Mock(return_value="terminal 1.0"),
