@@ -4,11 +4,13 @@
 use agent_desktop_core::AdapterError;
 use serde_json::Value;
 
+use super::client_marks::ClientMarks;
 use super::window_op_refusal::refused;
 use crate::system::hyprland::clients::client_parse::parse_address;
 
 /// One client's place and state. `fullscreen` is Hyprland's internal mode:
-/// 0 none, 1 maximized, 2 fullscreen.
+/// 0 none, 1 maximized, 2 fullscreen. `marks` are optional evidence that
+/// only a maximize and restore read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ClientState {
     pub(crate) address: u64,
@@ -17,6 +19,7 @@ pub(crate) struct ClientState {
     pub(crate) floating: bool,
     pub(crate) fullscreen: i64,
     pub(crate) workspace: String,
+    pub(crate) marks: ClientMarks,
 }
 
 impl ClientState {
@@ -57,7 +60,24 @@ fn state_of(client: &Value) -> Option<ClientState> {
         floating: client.get("floating")?.as_bool()?,
         fullscreen: client.get("fullscreen")?.as_i64()?,
         workspace: client.get("workspace")?.get("name")?.as_str()?.to_owned(),
+        marks: marks_of(client),
     })
+}
+
+fn marks_of(client: &Value) -> ClientMarks {
+    ClientMarks {
+        monitor: client.get("monitor").and_then(Value::as_i64),
+        tags: client
+            .get("tags")
+            .and_then(Value::as_array)
+            .map(|tags| {
+                tags.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+    }
 }
 
 fn pair(value: &Value) -> Option<(i64, i64)> {

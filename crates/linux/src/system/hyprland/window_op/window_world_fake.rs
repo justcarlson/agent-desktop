@@ -2,6 +2,7 @@ use agent_desktop_core::AdapterError;
 
 use super::client_state::ClientState;
 use super::config_dialect::DIALECT_PROBE;
+use super::output_origin::OutputOrigin;
 use super::window_world::WindowWorld;
 use crate::system::hyprland::clients::desktop_state::DesktopState;
 use crate::system::hyprland::clients::hypr_client::HyprClient;
@@ -10,10 +11,11 @@ use crate::system::hyprland::toplevel::toplevel_view::ToplevelView;
 /// A compositor that shows `frames[n]` once `n` dispatch requests were sent,
 /// holding at the last frame. It answers the dialect probe with
 /// `eval_reply` and every dispatch with `reply`; `budget` is how many
-/// read-back waits it allows.
+/// read-back waits it allows. `origins` is `None` when the monitors cannot
+/// be read.
 pub(crate) struct FakeWindowWorld {
-    pub(crate) clients: Vec<HyprClient>,
-    pub(crate) toplevels: Vec<ToplevelView>,
+    pub(crate) inventory: (Vec<HyprClient>, Vec<ToplevelView>),
+    pub(crate) origins: Option<Vec<OutputOrigin>>,
     pub(crate) frames: Vec<(Vec<ClientState>, DesktopState)>,
     pub(crate) eval_reply: String,
     pub(crate) reply: String,
@@ -38,11 +40,18 @@ impl FakeWindowWorld {
 
 impl WindowWorld for FakeWindowWorld {
     fn inventory(&mut self) -> Result<(Vec<HyprClient>, Vec<ToplevelView>), AdapterError> {
-        Ok((self.clients.clone(), self.toplevels.clone()))
+        Ok(self.inventory.clone())
     }
 
     fn states(&mut self) -> Result<Vec<ClientState>, AdapterError> {
         Ok(self.frame().0.clone())
+    }
+
+    fn origins(&mut self) -> Result<Vec<OutputOrigin>, AdapterError> {
+        self.log.push("j/monitors".into());
+        self.origins
+            .clone()
+            .ok_or_else(|| AdapterError::internal("monitors unreadable"))
     }
 
     fn desktop(&mut self) -> Result<DesktopState, AdapterError> {
