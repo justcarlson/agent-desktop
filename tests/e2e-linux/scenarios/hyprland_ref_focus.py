@@ -8,18 +8,35 @@ The raw FOCUSED states of the entry and the button show the move, and
 refuses with POLICY_DENIED and nothing changes: once while the Qt window waits
 on its hidden special workspace, which stays hidden, and once while it holds
 focus. Focus, cursor and workspaces go back to the bystander.
+
+The Qt window runs on native Wayland: the attached session gives apps no X
+display, so the X11 tiers' xcb launch never maps here.
 """
 
 from __future__ import annotations
 
-from runner.helper import changed, managed, one, ref, require, root
+from pathlib import Path
+
+from runner.helper import changed, one, ref, require, root
 from scenarios.headed_actions import assert_ok
 from scenarios.hyprland_common import Sampler, desktop, main_instance
 from scenarios.hyprland_focus_controls import active, move, restore_desktop, shown
-from scenarios.hyprland_focus_proof import _bystander_desktop, frame_active
+from scenarios.hyprland_focus_proof import _bystander_desktop, frame_active, spawned
 from scenarios.hyprland_keys_common import give_focus, toplevel
 from scenarios.ref_effects import policy_refusal
 from scenarios.ref_focus import grab
+
+
+QT_SCRIPT = Path(__file__).resolve().parents[1] / "apps" / "qt_window.py"
+QT_NAMES = ("qt_window.py",)
+QT_ENV = {"QT_QPA_PLATFORM": "wayland", "QT_ACCESSIBILITY": "1", "QT_LINUX_ACCESSIBILITY_ALWAYS_ON": "1"}
+
+
+def qt_window(tier):
+    """The Qt toolkit window on native Wayland, registered to the run."""
+    log = tier.runtime_dir / "qt-window.log"
+    log.unlink(missing_ok=True)
+    return spawned(tier, [str(QT_SCRIPT), str(log)], QT_NAMES, "ad-qt-focus", QT_ENV)
 
 
 def _hidden_refusal(ctx, target: str, read_focus, workspace: str) -> list[str]:
@@ -35,7 +52,7 @@ def _hidden_refusal(ctx, target: str, read_focus, workspace: str) -> list[str]:
 
 def focus(ctx) -> None:
     tier = ctx.tier
-    with _bystander_desktop(ctx) as (read, holder, point), managed(ctx, "Qt") as app:
+    with _bystander_desktop(ctx) as (read, holder, point), qt_window(tier) as app:
         tree = root(ctx, app)
         target = ref(ctx, app, name="Text entry", role="textfield")
         field = one(tree, name="Text entry")
