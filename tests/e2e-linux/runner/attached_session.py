@@ -35,6 +35,7 @@ PASSED = ("HOME", "PATH", "LANG", "XDG_CURRENT_DESKTOP", "XDG_CONFIG_HOME", "XDG
 NOTIFIER = "org.freedesktop.Notifications"
 SAFE_PATH = re.compile(r"[A-Za-z0-9_./-]+")
 WAYLAND_SOCKET = re.compile(r"wayland-\d+")
+ACTIVATION_UNIT = re.compile(r"/dbus-:\d+\.\d+-[A-Za-z0-9_.-]+@\d+\.service$", re.M)
 
 
 def required_env(source: dict[str, str]) -> dict[str, str]:
@@ -286,9 +287,16 @@ def boot_ticks() -> int:
     return int(time.clock_gettime(time.CLOCK_BOOTTIME) * os.sysconf("SC_CLK_TCK"))
 
 
+def bus_activated(pid: int, proc_root: Path = Path("/proc")) -> bool:
+    """Whether dbus-broker started it, in its per-activation unit; a direct launch runs in a scope."""
+    with contextlib.suppress(OSError):
+        return ACTIVATION_UNIT.search((proc_root / str(pid) / "cgroup").read_text()) is not None
+    return False
+
+
 def adopt_activated(tier: Tier, commands: tuple[str, ...], since: int,
                     proc_root: Path = Path("/proc")) -> list[tuple[int, int, str]]:
-    """Record bus-activated generations of a launched app that started outside the slice."""
+    """Record generations of a launched app that the session bus started after the launch."""
     record = attached.load(tier.runtime_dir)
     names = {command[:15] for command in commands}
     adopted = []
@@ -300,6 +308,7 @@ def adopt_activated(tier: Tier, commands: tuple[str, ...], since: int,
         if (start >= since and comm in names
                 and env.get("XDG_RUNTIME_DIR") == record["shared_runtime"]
                 and env.get("WAYLAND_DISPLAY") == tier.wayland_display
+                and bus_activated(int(directory.name), proc_root)
                 and not attached.is_member(record, int(directory.name), start, proc_root)):
             attached.adopt(tier.runtime_dir, int(directory.name), start, comm)
             adopted.append((int(directory.name), start, comm))

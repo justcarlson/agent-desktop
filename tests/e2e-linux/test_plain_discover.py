@@ -3,7 +3,8 @@
 The guard runs the whole discovered suite again in a child interpreter, with
 neither the opt-in nor the skip variable set, and every tier launcher replaced
 by a recorder that refuses. A real launch reaches a recorder, so nothing
-starts even when a gate is broken."""
+starts even when a gate is broken. A child error or failure fails the guard,
+because a test that stops early never reaches its launcher."""
 from __future__ import annotations
 
 import json
@@ -80,7 +81,10 @@ suite = unittest.TestLoader().discover(str(root), pattern="test_*.py")
 result = unittest.TestResult()
 suite.run(result)
 skipped = [[test.id(), reason] for test, reason in result.skipped]
-report.write_text(json.dumps({"launches": launches, "skipped": skipped, "ran": result.testsRun}))
+errors = [[test.id(), trace] for test, trace in result.errors]
+failures = [[test.id(), trace] for test, trace in result.failures]
+report.write_text(json.dumps({"launches": launches, "skipped": skipped, "ran": result.testsRun,
+                              "errors": errors, "failures": failures}))
 """
 
 
@@ -102,6 +106,9 @@ class PlainDiscoverTests(unittest.TestCase):
             self.assertEqual(launches, [])
             report = json.loads(report_path.read_text())
         self.assertEqual(report["launches"], [])
+        for kind in ("errors", "failures"):
+            self.assertEqual([test for test, _ in report[kind]], [],
+                             "\n".join(trace for _, trace in report[kind])[-4000:])
         self.assertGreater(report["ran"], 100)
         live = {test: reason for test, reason in report["skipped"] if ".LiveTierTests." in test}
         self.assertEqual(sorted(test.rsplit(".", 1)[1] for test in live), [
