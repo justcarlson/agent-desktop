@@ -70,6 +70,28 @@ class ListenerAnchorTests(unittest.TestCase):
                 self.assertIs(app, owned)
         self.assertEqual(events, ["registered", f"anchor {OWNER}", "leg", "released", "anchor closed"])
 
+    def test_an_anchor_that_cannot_register_still_stops_the_app(self):
+        events: list[str] = []
+        owned = SimpleNamespace(owner_names=[OWNER], pid=7, start_time=1, windows=["0x1"], name="Key Log")
+
+        def refuse(*_args):
+            raise RuntimeError("registry gone")
+
+        with tempfile.TemporaryDirectory() as runtime, \
+                mock.patch.object(common.apps, "_owners", return_value=[]), \
+                mock.patch.object(common.shutil, "which", return_value="/usr/bin/python3"), \
+                mock.patch.object(common, "private_interpreter", return_value=Path("/py")), \
+                mock.patch.object(common.attached_session, "spawn"), \
+                mock.patch.object(common.raw, "poll", return_value=owned), \
+                mock.patch.object(common.raw, "connect", return_value=FakeConnection(events)), \
+                mock.patch.object(common.raw, "call", side_effect=refuse), \
+                mock.patch.object(common, "_register", side_effect=lambda _t, o: o), \
+                mock.patch.object(common, "_release", side_effect=lambda *_: events.append("released")):
+            with self.assertRaisesRegex(RuntimeError, "registry gone"):
+                with common.key_log(fake_tier(Path(runtime)), "anchor"):
+                    events.append("leg")
+        self.assertEqual(events, ["anchor closed", "released"])
+
 
 if __name__ == "__main__":
     unittest.main()

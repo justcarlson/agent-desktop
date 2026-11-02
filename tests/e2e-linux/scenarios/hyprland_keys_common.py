@@ -4,6 +4,15 @@ The app is one GTK3 entry that logs every key event it receives, with its
 keysym, modifier state and layout group. `j/devices` names every keyboard the
 compositor has, so a virtual keyboard left behind, or a layout left switched,
 shows in it.
+
+While the app runs, the harness keeps one AT-SPI listener registered for it.
+Each product process registers as a listener, and the app's ATK bridge drops
+GTK's key event listener when its last listener's bus name goes away. A
+product killed while its keys still arrive made that drop run inside GTK's
+own walk of its key listeners, a reentrant D-Bus call, and GTK then read the
+freed list node (SIGSEGV in gtk_main_do_event, gtkaccessibilityutil.c:154,
+gtk3 3.24.52 with at-spi2-core 2.62). The harness listener keeps the bridge
+from ever having no listener during a leg.
 """
 
 from __future__ import annotations
@@ -29,6 +38,9 @@ KEY_LOG_NAMES = ("key log", KEY_LOG_CLASS)
 OPAQUE = "opaque"
 OPAQUE_NAME = "opaque key log field"
 SETTLE_S = 10.0
+REGISTRY = "org.a11y.atspi.Registry"
+REGISTRY_PATH = "/org/a11y/atspi/registry"
+LISTENED_EVENT = "object:"
 TEXT_ROLE = 61
 SHIFT, CONTROL, ALT, SUPER = 1, 4, 8, 64
 HELD_MODIFIERS = SHIFT | CONTROL | ALT | SUPER
@@ -37,6 +49,18 @@ HELD_MODIFIERS = SHIFT | CONTROL | ALT | SUPER
 def _owner(tier):
     found = [app for app in apps._owners(tier, names=KEY_LOG_NAMES) if len(app.windows) == 1]
     return found[0] if len(found) == 1 else None
+
+
+@contextlib.contextmanager
+def listener_anchor(tier, owner_name: str):
+    """One AT-SPI client that listens to `owner_name` until the block ends."""
+    connection = raw.connect(tier.a11y_bus_address)
+    try:
+        raw.call(connection, REGISTRY, REGISTRY_PATH, REGISTRY, "RegisterEvent", "(sass)",
+                 (LISTENED_EVENT, [], owner_name))
+        yield connection
+    finally:
+        connection.close_sync(None)
 
 
 def key_log_argv(interpreter: Path, log: Path, opaque: bool) -> list[str]:
@@ -63,10 +87,12 @@ def key_log(tier, label: str, opaque: bool = False):
         owner = raw.poll(lambda: _owner(tier), SETTLE_S)
     require(owner, "the key log app never registered its window")
     owned = _register(tier, owner)
-    try:
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(listener_anchor(tier, owned.owner_names[0]))
+        finally:
+            stack.callback(_release, tier, owned)
         yield owned, log
-    finally:
-        _release(tier, owned)
 
 
 def records(log: Path) -> list[dict]:
