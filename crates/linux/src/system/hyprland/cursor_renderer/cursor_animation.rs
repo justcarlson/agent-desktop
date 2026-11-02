@@ -10,8 +10,6 @@
 //! hidden or occluded state, because a hidden target parks the cursor and
 //! commits no arrival frame.
 
-use std::os::unix::net::UnixStream;
-
 use agent_desktop_core::{AdapterError, Deadline, Point};
 
 use super::agent_cursor::AgentCursor;
@@ -22,14 +20,14 @@ use super::renderer_reply::arrival_unconfirmed;
 
 const FRAME_WAIT_MS: u64 = 50;
 
-/// Advances every travel one frame and returns the connections of the
-/// travels whose arrival frame has shown; travels whose arrival frame is
+/// Advances every travel one frame and returns the travels whose arrival
+/// frame has shown; travels whose arrival frame is
 /// overdue are refused here. On an error every travel stays in flight, so
 /// the caller can answer each one.
 pub(crate) fn step_travels(
     client: &mut LayerClient,
     cursors: &mut AgentCursors,
-) -> Result<Vec<UnixStream>, AdapterError> {
+) -> Result<Vec<CursorTravel>, AdapterError> {
     let deadline = Deadline::detached_after(FRAME_WAIT_MS)?;
     let mut oldest: Option<u32> = None;
     for (key, cursor) in cursors.iter_mut() {
@@ -60,7 +58,7 @@ pub(crate) fn step_travels(
             continue;
         };
         if client.shown(frames) {
-            arrived.extend(cursor.travel.take().map(CursorTravel::into_reply));
+            arrived.extend(cursor.travel.take());
         } else if cursor
             .travel
             .as_ref()

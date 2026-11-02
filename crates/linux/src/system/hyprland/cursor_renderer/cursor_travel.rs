@@ -89,6 +89,11 @@ impl CursorTravel {
             .is_some_and(|(_, deadline)| deadline.is_expired())
     }
 
+    /// When the renderer received this travel.
+    pub(crate) fn received(&self) -> Instant {
+        self.started
+    }
+
     /// The connection that waits for this travel's acknowledgement.
     pub(crate) fn into_reply(self) -> UnixStream {
         self.reply
