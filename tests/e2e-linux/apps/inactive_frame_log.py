@@ -1,6 +1,7 @@
 """A GTK3 window that can keep its frame from reporting ACTIVE while the compositor focuses it.
 
-argv[1] is the log path and argv[2] the flag path. While the flag file exists,
+argv[1] is the log path and argv[2] the flag path; an optional argv[3] picks
+the GDK backend, `wayland` by default or `x11` for XWayland. While the flag file exists,
 the window's focus-in handler stops the signal before GTK's own handler, so
 GTK never marks the window active and its accessible frame never gains ACTIVE,
 though the compositor made it the active window. Without the flag the window
@@ -13,7 +14,7 @@ import os
 import sys
 
 os.environ["GTK_USE_PORTAL"] = "0"
-os.environ["GDK_BACKEND"] = "wayland"
+os.environ["GDK_BACKEND"] = sys.argv[3] if len(sys.argv) > 3 else "wayland"
 import gi
 
 gi.require_version("Gdk", "3.0")
