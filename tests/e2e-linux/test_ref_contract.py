@@ -68,6 +68,14 @@ class RefContractTests(unittest.TestCase):
             self.assertEqual(row_verdict("refuse", succeeded=False, refused=unsupported(error), log_effect=False,
                                          raw_effect=False, log_unchanged=log, raw_unchanged=raw), "fail")
 
+    def test_a_ref_not_unique_at_capture_is_a_safe_refusal(self):
+        error = {"code": "AMBIGUOUS_TARGET", "details": {"kind": "identity_not_unique", "role": "group"},
+                 "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+        self.assertTrue(unsupported(error))
+        self.assertFalse(unsupported(dict(error, details={"kind": "live_twins"})))
+        self.assertFalse(unsupported(dict(error, code="STALE_REF")))
+        self.assertFalse(unsupported(dict(error, disposition={"delivery": "delivery_uncertain"})))
+
     def test_advertised_action_refusal_cannot_rewrite_the_snapshot_promise(self):
         node = {"name": "Alpha", "role": "combobox", "available_actions": ["Expand"]}
         error = {"code": "ACTION_NOT_SUPPORTED", "details": {"kind": "native_popup_requires_input"},
