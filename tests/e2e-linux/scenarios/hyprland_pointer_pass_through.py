@@ -9,10 +9,15 @@ The pad's own event log counts the presses. `j/layers` and `grim` pixels at the 
 back from before the click until after the press, show the cursor stayed drawn. A live holder
 without the flag must clear the arrow first, so the pixel read can tell drawn from cleared. The
 command's own `ok` is never the evidence.
+
+The compositor's own pointer stays hidden (`cursor:invisible`) while the leg reads pixels. On
+Hyprland 0.56 `grim` draws that pointer into the capture, and the headed click moves it onto the
+arrow tip, where it covers the arrow's fill.
 """
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 from typing import NamedTuple
@@ -31,6 +36,12 @@ from scenarios.hyprland_pointer_pad import (XWAYLAND, apart_from_last_click, cov
 QUIET_S = 1.0
 READ_INTERVAL_S = 0.01
 ORACLES = ("layers", "pixels")
+
+
+class Aim(NamedTuple):
+    button: str
+    point: tuple[float, float]
+    registry: object
 
 
 class Sample(NamedTuple):
@@ -101,6 +112,37 @@ class DrawnWatch:
         return False
 
 
+def _invisible(found: dict) -> bool:
+    value = next((found[key] for key in ("bool", "int", "str") if key in found), None)
+    return value is True or value == 1 or str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _set_invisible(runtime, signature: str, hidden: bool) -> None:
+    word = "true" if hidden else "false"
+    argv = (["eval", f"hl.config({{ cursor = {{ invisible = {word} }} }})"]
+            if hyprland.uses_lua(runtime, signature) else ["keyword", "cursor:invisible", word])
+    output = hyprland.control(runtime, signature, argv)
+    require(output == "ok", f"the compositor refused cursor:invisible {word}: {output}")
+
+
+@contextlib.contextmanager
+def system_pointer_hidden(ctx: LegContext, main: dict):
+    """The compositor's own pointer hidden for the block, then set back as it was."""
+    runtime, signature = shared(ctx.tier), main["signature"]
+    read = lambda: _invisible(hyprland.query(runtime, signature, "getoption cursor:invisible", pid=main["pid"]))
+    original = read()
+    ctx.before("hyprland.cursor_invisible", original)
+    _set_invisible(runtime, signature, True)
+    try:
+        hidden = read()
+        ctx.after("hyprland.cursor_invisible", hidden)
+        require(hidden, "cursor:invisible did not take, so grim may draw the system pointer over the arrow")
+        yield
+    finally:
+        _set_invisible(runtime, signature, original)
+        ctx.restored("hyprland.cursor_invisible", read())
+
+
 def _button_point(ctx: LegContext, env: dict, button: str) -> tuple[float, float]:
     read = ctx.product(["get", button, "--property", "bounds"], env=env, headed=False)
     bounds = (read.data or {}).get("value") if read.ok and isinstance(read.data, dict) else None
@@ -108,11 +150,9 @@ def _button_point(ctx: LegContext, env: dict, button: str) -> tuple[float, float
     return int(bounds["x"] + bounds["width"] / 2), int(bounds["y"] + bounds["height"] / 2)
 
 
-def _click_through(ctx: LegContext, env: dict, owned, log, session: str) -> list[str]:
+def _click_while_hidden(ctx: LegContext, env: dict, log, aim: Aim) -> list[str]:
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
-    registry = registry_of(runtime, session)
-    button = pad_ref(ctx, env, owned)
-    point = _button_point(ctx, env, button)
+    button, point, registry = aim
     screen = Screen(ctx, main, point)
     placed = ctx.product(["click", button], env=env, headed=False)
     require(placed.ok, f"the click that places the cursor failed: {placed.raw[:400]}")
@@ -139,6 +179,16 @@ def _click_through(ctx: LegContext, env: dict, owned, log, session: str) -> list
     problems += drawn_problems(watch.samples, (began, finished))
     if _grab_until(screen, True) is None or not covered():
         problems.append("the cursor was not drawn over the button after the click")
+    return problems
+
+
+def _click_through(ctx: LegContext, env: dict, owned, log, session: str) -> list[str]:
+    runtime, main = shared(ctx.tier), main_instance(ctx.tier)
+    registry = registry_of(runtime, session)
+    button = pad_ref(ctx, env, owned)
+    point = _button_point(ctx, env, button)
+    with system_pointer_hidden(ctx, main):
+        problems = _click_while_hidden(ctx, env, log, Aim(button, point, registry))
     ctx.after("proc.holders", len(holders_in(registry)))
     ctx.restored("proc.holders", len(holders_in(registry)))
     return problems
