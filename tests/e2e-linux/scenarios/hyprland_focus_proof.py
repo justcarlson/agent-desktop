@@ -311,8 +311,8 @@ def _proof(ctx: LegContext, flag: Path, desk, backend: str, cause: str) -> list[
         if not raw.poll(lambda: entry_text(tier, app) == "x", 4.0):
             problems.append(f"{side} with agreeing proof the entry reads {entry_text(tier, app)!r}, not 'x'")
         problems += _witnesses(tier, app, target, f"{side} agreeing proof")
-        restore_desktop(tier, holder, point)
         problems += _refused_click(ctx, app, log, ref, f"{side} headed ref click with agreeing proof", cause)
+        restore_desktop(tier, holder, point)
     return problems
 
 
