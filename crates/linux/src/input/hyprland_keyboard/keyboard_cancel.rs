@@ -18,7 +18,11 @@ pub(crate) fn stop_on_signal<'a>(
         if progress.is_cancelled() {
             return Err(stopped_by_signal());
         }
-        gate()
+        gate()?;
+        if progress.is_cancelled() {
+            return Err(stopped_by_signal());
+        }
+        Ok(())
     }
 }
 
