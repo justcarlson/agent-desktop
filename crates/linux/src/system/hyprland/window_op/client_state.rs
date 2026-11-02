@@ -4,6 +4,7 @@
 use agent_desktop_core::AdapterError;
 use serde_json::Value;
 
+use super::window_op_refusal::refused;
 use crate::system::hyprland::clients::client_parse::parse_address;
 
 /// One client's place and state. `fullscreen` is Hyprland's internal mode:
@@ -32,15 +33,19 @@ impl ClientState {
     }
 }
 
-/// Every client of a `j/clients` reply, or the error when one client is
-/// unreadable.
+/// Every client of a `j/clients` reply. A reply with one client whose place
+/// or state is missing is refused: without that evidence no operation can be
+/// planned or proven.
 pub(crate) fn parse_states(body: &[u8]) -> Result<Vec<ClientState>, AdapterError> {
     serde_json::from_slice::<Vec<Value>>(body)
         .ok()
         .and_then(|clients| clients.iter().map(state_of).collect())
         .ok_or_else(|| {
-            AdapterError::internal("The Hyprland client list could not be read")
-                .with_suggestion("Retry once the compositor answers")
+            refused(
+                "window_state_unreadable",
+                "The compositor's client list does not give every window's place, size, floating, fullscreen and workspace state",
+                "Run a Hyprland release whose 'hyprctl clients -j' reports those fields",
+            )
         })
 }
 
