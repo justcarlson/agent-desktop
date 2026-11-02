@@ -8,10 +8,17 @@ with `not_delivered` and no key: the zoo's entry stays as it was and the thief
 logs no key at all. When the product sends keys before the steal lands, the
 attempt is a late steal, not the case under test, and the leg tries again, up
 to three times. The thief must log no key in any attempt.
+
+The attempts run with `misc:focus_on_activate` off, set back after. The
+product's `GrabFocus` on the entry makes GTK send its own activation request,
+and a compositor that honors it hands the zoo focus again after the steal
+(Hyprland 0.56.2, L47-2). With the option off, only the product's compositor
+activation can focus the zoo, and a steal after it holds.
 """
 
 from __future__ import annotations
 
+import contextlib
 import time
 
 from oracle import atspi_raw as raw
@@ -32,6 +39,7 @@ TYPE_TIMEOUT_MS = "5000"
 REFUSAL_CODES = ("ACTION_FAILED", "STALE_REF")
 LATE = ("stopped_after_keys", "delivered")
 STEAL_WAIT_S = 10.0
+ACTIVATE_OPTION = "misc:focus_on_activate"
 
 
 def theft_outcome(envelope) -> str:
@@ -67,6 +75,43 @@ def steal_once_active(read_active, target: str, steal, timeout_s: float = STEAL_
     return False
 
 
+def focus_on_activate_argv(on: bool, lua: bool) -> list[str]:
+    word = "true" if on else "false"
+    if lua:
+        return ["eval", f"hl.config({{ misc = {{ focus_on_activate = {word} }} }})"]
+    return ["keyword", ACTIVATE_OPTION, word]
+
+
+def _option_on(found: dict) -> bool:
+    value = next((found[key] for key in ("bool", "int", "str") if key in found), None)
+    return value is True or value == 1 or str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+@contextlib.contextmanager
+def toolkit_activation_ignored(ctx: LegContext):
+    """Hyprland ignores a client's own activation request for the block, then the option is set back."""
+    main = main_instance(ctx.tier)
+    runtime, signature = shared(ctx.tier), main["signature"]
+    lua = hyprland.uses_lua(runtime, signature)
+    read = lambda: _option_on(hyprland.query(runtime, signature, f"getoption {ACTIVATE_OPTION}", pid=main["pid"]))
+
+    def put(on: bool) -> None:
+        output = hyprland.control(runtime, signature, focus_on_activate_argv(on, lua))
+        require(output == "ok", f"the compositor refused {ACTIVATE_OPTION} {on}: {output}")
+
+    original = read()
+    ctx.before("hyprland.focus_on_activate", original)
+    put(False)
+    try:
+        off = read()
+        ctx.after("hyprland.focus_on_activate", off)
+        require(not off, f"{ACTIVATE_OPTION} did not turn off, so the zoo can take focus back after the steal")
+        yield
+    finally:
+        put(original)
+        ctx.restored("hyprland.focus_on_activate", read())
+
+
 def _steal_argv(tier, address: str) -> list[str]:
     main = main_instance(tier)
     return focus_argv(address, hyprland.uses_lua(shared(tier), main["signature"]))
@@ -89,6 +134,33 @@ def _attempt(ctx: LegContext, ref: str, target: str, thief: str, steal: list[str
     return envelope, bool(seen), bool(stole), out
 
 
+def _attempts(ctx: LegContext, zoo, aim: tuple[str, str, str, list[str]], problems: list[str],
+              outcomes: list[str]) -> None:
+    tier = ctx.tier
+    ref, target, thief, steal = aim
+    for _ in range(ATTEMPTS):
+        base = zoo_text(tier, zoo, ENTRY)
+        envelope, seen, stole, out = _attempt(ctx, ref, target, thief, steal)
+        outcome = theft_outcome(envelope)
+        outcomes.append(outcome)
+        if not seen:
+            problems.append(f"the product never focused the zoo: {active(tier)}; it answered {out[:300]}")
+            return
+        if not stole:
+            problems.append(f"the thief never took focus back: {active(tier)}; the type ended {outcome}: "
+                            f"{out[:300]}")
+            return
+        if outcome == "refused_before_first_key":
+            if zoo_text(tier, zoo, ENTRY) != base:
+                problems.append(f"the refused type changed the entry from {base!r} to "
+                                f"{zoo_text(tier, zoo, ENTRY)!r}")
+            return
+        if not late_steal(outcome):
+            problems.append(f"the stolen type ended {outcome}: {out[:300]}")
+            return
+        ctx.finding(f"a late steal: the product sent keys first: {out[:300]}")
+
+
 @implementation("input.hyprland_focus_theft_before_first_key")
 def focus_theft_before_first_key(ctx: LegContext) -> None:
     tier = ctx.tier
@@ -103,25 +175,8 @@ def focus_theft_before_first_key(ctx: LegContext) -> None:
         steal = _steal_argv(tier, thief)
         ctx.before("applog.thief_presses", len(presses(log)))
         problems, outcomes = [], []
-        for _ in range(ATTEMPTS):
-            base = zoo_text(tier, zoo, ENTRY)
-            envelope, seen, stole, out = _attempt(ctx, ref, target, thief, steal)
-            outcome = theft_outcome(envelope)
-            outcomes.append(outcome)
-            if not seen:
-                problems.append(f"the product never focused the zoo: {active(tier)}; it answered {out[:300]}")
-                break
-            if not stole:
-                problems.append(f"the thief never took focus back: {active(tier)}")
-            if outcome == "refused_before_first_key":
-                if zoo_text(tier, zoo, ENTRY) != base:
-                    problems.append(f"the refused type changed the entry from {base!r} to "
-                                    f"{zoo_text(tier, zoo, ENTRY)!r}")
-                break
-            if not late_steal(outcome):
-                problems.append(f"the stolen type ended {outcome}: {out[:300]}")
-                break
-            ctx.finding(f"a late steal: the product sent keys first: {out[:300]}")
+        with toolkit_activation_ignored(ctx):
+            _attempts(ctx, zoo, (ref, target, thief, steal), problems, outcomes)
         if "refused_before_first_key" not in outcomes:
             problems.append(f"no attempt refused before the first key: {outcomes}")
         if presses(log):
