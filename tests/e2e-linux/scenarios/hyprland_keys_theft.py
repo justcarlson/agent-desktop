@@ -12,7 +12,7 @@ to three times. The thief must log no key in any attempt.
 The attempts run with `misc:focus_on_activate` off, set back after. The
 product's `GrabFocus` on the entry makes GTK send its own activation request,
 and a compositor that honors it hands the zoo focus again after the steal
-(Hyprland 0.56.2, L47-2). With the option off, only the product's compositor
+(Hyprland 0.56.2, L48-2). With the option off, only the product's compositor
 activation can focus the zoo, and a steal after it holds.
 """
 
