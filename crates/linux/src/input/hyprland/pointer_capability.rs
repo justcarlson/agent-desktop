@@ -2,7 +2,7 @@
 //! resolves any pointer target. Only a bound Hyprland instance opens the
 //! Wayland session to pointer input.
 
-use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, RefEntry};
+use agent_desktop_core::{Action, AdapterError, DeliverySemantics, ErrorCode, RefEntry};
 use serde_json::json;
 
 use super::hypr_route::bound_route;
@@ -27,6 +27,27 @@ pub(crate) fn capability_refusal(
             Ok(false) => Some(pointer_refusal("physical pointer input")),
             Err(error) => Some(error),
         },
+        _ => None,
+    }
+}
+
+/// The refusal for a pointer gesture aimed by ref, read before core waits,
+/// activates the window or moves the cursor. Hover asks `hover`; a click,
+/// scroll or drag endpoint asks `receiver`, the receiver gate; any other
+/// action is not a pointer gesture and is never refused here.
+pub(crate) fn ref_gesture_refusal(
+    action: &Action,
+    hover: impl FnOnce() -> Option<AdapterError>,
+    receiver: impl FnOnce() -> Option<AdapterError>,
+) -> Option<AdapterError> {
+    match action {
+        Action::Hover => hover(),
+        Action::Click
+        | Action::DoubleClick
+        | Action::TripleClick
+        | Action::RightClick
+        | Action::Scroll(_, _)
+        | Action::Drag(_) => receiver(),
         _ => None,
     }
 }

@@ -77,6 +77,7 @@ fn execute_with_deadline(
     ),
     AdapterError,
 > {
+    refuse_ref_pointer(context, &request, deadline)?;
     let state = if request.timeout_ms.is_some_and(|timeout_ms| timeout_ms > 0) {
         execute_poll_loop(context, &request, deadline)?
     } else {
@@ -116,6 +117,26 @@ fn execute_with_deadline(
         u64::try_from(lease_started.elapsed().as_millis()).unwrap_or(u64::MAX),
     );
     Ok((result, lease, pre, deadline, lease_started))
+}
+
+fn refuse_ref_pointer(
+    context: RefActionWaitContext<'_>,
+    request: &ActionRequest,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if !matches!(
+        request.headed_requirement(),
+        crate::HeadedRequirement::FocusedWindowAndCursor
+    ) {
+        return Ok(());
+    }
+    match context
+        .adapter
+        .ref_pointer_refusal(context.entry, &request.action, deadline)
+    {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 pub(crate) fn operation_deadline(request: &ActionRequest) -> Result<Deadline, AdapterError> {

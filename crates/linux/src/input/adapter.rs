@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     Action, AdapterError, ClipboardContent, ClipboardFormat, Deadline, DragParams, InputOps,
-    InteractionLease, KeyCombo, MouseEvent, OperationReport, RefEntry,
+    InteractionLease, KeyCombo, MouseEvent, ObservationOps, OperationReport, RefEntry,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -14,14 +14,17 @@ impl InputOps for LinuxAdapter {
         &self,
         entry: &RefEntry,
         action: &Action,
-        _deadline: Deadline,
+        deadline: Deadline,
     ) -> Option<AdapterError> {
-        match action {
-            Action::Hover => {
-                crate::input::hyprland::pointer_capability::session_hover_refusal(entry)
-            }
-            _ => None,
-        }
+        use crate::input::hyprland::{bound_geometry, pointer_capability};
+        pointer_capability::ref_gesture_refusal(
+            action,
+            || pointer_capability::session_hover_refusal(entry),
+            || {
+                let resolve = || self.resolve_element_strict(entry, deadline);
+                bound_geometry::ref_receiver_refusal(resolve, self.bus(), deadline)
+            },
+        )
     }
 
     fn keyboard_needs_window_activation(&self) -> bool {
