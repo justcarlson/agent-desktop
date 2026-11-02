@@ -31,7 +31,7 @@ class HyprlandRegistryTests(unittest.TestCase):
     def test_legs_that_name_every_tier_keep_the_upstream_three(self):
         self.assertEqual(legs.ALL_TIERS, ("x11-openbox", "x11-mutter", "wayland"))
         zoo = legs.leg_by_id("ref_contract.zoo_gtk3")
-        self.assertNotIn("hyprland", zoo.tiers)
+        self.assertEqual(zoo.tiers, legs.ALL_TIERS + legs.HYPRLAND_ONLY)
 
     def test_every_new_leg_has_its_tiers_modes_and_disposition(self):
         for leg_id, (tiers, modes, disposition) in NEW_LEGS.items():
