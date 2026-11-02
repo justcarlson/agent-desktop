@@ -31,7 +31,6 @@ ROWS = (
 )
 """Registry rows the Hyprland tier added, kept beside legs.py so it stays under the runner line cap.
 
-Each row holds the fields of runner.legs.Leg in order; legs.py builds the Leg rows.
 """
 
 HYPRLAND_ONLY = ("hyprland",)
@@ -39,7 +38,7 @@ HEADLESS = ("headless",)
 HEADED = ("headed",)
 BOTH_MODES = HEADLESS + HEADED
 
-ROWS = (
+FIRST_ROWS = (
     ('non_interference.headed_changes_only_target', 'Headed commands leave the bystander focus, the cursor, the workspaces and the second instance as they were; the comparison detects a drifted bystander and a drifted second instance', 'Calculator, bystander and a second instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
     ('non_interference.headless_route_preserves_desktop', 'Every headless inventory, snapshot, display and semantic command keeps focus, cursor and workspaces, polled while it runs, and its own effect is read from AT-SPI', 'Calculator and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi'), 'pass'),
     ('session.cancel_cleanup_recorded_generations', 'Cancelling a ready runner through its receipt removes its slice, adopted generations, state and second instance, and leaves the compositor, buses, shell processes and bystander alive', 'Hyprland session', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'proc'), 'pass'),
@@ -59,6 +58,9 @@ ROWS = (
     ('capture.hyprland_screen_exact_output', 'With a headless output added at a negative origin and scale 1.25, list-displays reports every output with the compositor bounds and scale, and screenshot --screen N captures that output at its pixel size and matching grim', 'Hyprland outputs and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'pass'),
     ('capture.hyprland_permission_denied_no_dialog', 'With ecosystem:enforce_permissions on, window and screen capture refuse before asking the compositor, write nothing, and open no dialog, portal or layer; capture works again once the option is restored', 'Painted foot window and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'asserted-refusal', 'PERM_DENIED with details option ecosystem:enforce_permissions and enforced true, exit 1, not_delivered, within 1000 ms; no new asker process or layer; desktop unchanged'),
     ('capture.hyprland_deadline_or_cancel_released', 'A batch budget that ends mid-capture answers TIMEOUT within the budget and writes nothing, a larger budget captures, a capture killed mid-frame leaves no file, and the next capture succeeds', 'Painted foot window and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'asserted-refusal', 'TIMEOUT not_delivered with at least one capture_frame kind and at least one captured budget; SIGTERM leaves no image; a later capture succeeds; desktop unchanged'),
+)
+
+ROWS = (
     ('focus.hyprland_other_workspace', 'A headed focus-window on an accessible window and on a compositor-only toplevel, each alone on a workspace no monitor shows, makes j/activewindow name that toplevel and pid, leaves j/clients placing it on its workspace and has j/monitors show that workspace; focus, cursor and workspaces return to the bystander', 'Calculator, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
     ('focus.hyprland_twin_after_sizes_differ', 'Once a third window gives same-titled native Wayland twins distinct j/clients sizes, a headed focus-window on each frame in turn makes j/activewindow name the toplevel of that frame size, the second twin included', 'Focus Twins, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
     ('focus.hyprland_same_size_twins_ambiguous', 'A headed focus-window on either of two same-titled native Wayland twins of one size refuses with AMBIGUOUS_TARGET naming both j/clients addresses and workspaces, not_delivered, while j/activewindow, the cursor, the workspaces and both twins stay as they were', 'Focus Twins and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
