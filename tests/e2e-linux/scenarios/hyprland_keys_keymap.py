@@ -54,10 +54,26 @@ def ime_settled(read: dict, lagging: dict) -> dict:
     return {**read, "keyboards": settled}
 
 
+class Unrecorded:
+    """The leg's context with its oracle reads dropped, for a step the leg's channels already cover."""
+
+    def __init__(self, ctx: LegContext):
+        self._ctx = ctx
+
+    def __getattr__(self, name: str):
+        return getattr(self._ctx, name)
+
+    def before(self, *_args) -> None:
+        return None
+
+    after = restored = before
+
+
 def resync_input_method(ctx: LegContext) -> None:
     """Types one key into a fresh key log so the input-method keyboard copies the compositor keymap."""
-    with _focused_key_log(ctx, "keymap-sync") as (app, _log, ref):
-        problems = _typed(ctx, app, ref, SYNC_KEY, SYNC_KEY)
+    quiet = Unrecorded(ctx)
+    with _focused_key_log(quiet, "keymap-sync") as (app, _log, ref):
+        problems = _typed(quiet, app, ref, SYNC_KEY, SYNC_KEY)
     if problems:
         ctx.finding(f"the resync key after the restore: {'; '.join(problems)}")
 
