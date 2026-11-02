@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use super::client_state::ClientState;
 use super::config_dialect::{ConfigDialect, DIALECT_PROBE, dialect_of};
 use super::output_origin::OutputOrigin;
-use super::restore_geometry::{needs_origins, placed, recorded};
+use super::restore_geometry::{needs_origins, placed, recorded, restorable, tagged_restore};
 use super::window_op_refusal::{refused, rejected, unverified, window_gone};
 use super::window_plan::plan;
 use super::window_step::WindowStep;
@@ -39,7 +39,7 @@ pub(crate) fn window_op_reported(
     let (state, dialect, before) = read_before(world, win)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
     let steps = plan(op, &state, before.active, dialect)?;
-    if steps.is_empty() {
+    if steps.is_empty() && !tagged_restore(op, &state) {
         let mut report = OperationReport::satisfied_without_delivery(action(op), target);
         report.result.details = Some(json!({ "observed": state.to_json() }));
         return Ok(report);
@@ -51,10 +51,10 @@ pub(crate) fn window_op_reported(
     } else {
         Vec::new()
     };
-    let steps = if matches!(op, WindowOp::Maximize) {
-        [recorded(&state, &origins)?, steps].concat()
-    } else {
-        steps
+    let steps = match op {
+        WindowOp::Maximize => [recorded(&state, &origins)?, steps].concat(),
+        WindowOp::Restore => restorable(&state, &origins).map(|()| steps)?,
+        _ => steps,
     };
     let dispatched = applied(world, &state, &steps, &origins, op);
     let observed = dispatched.as_ref().ok().map(ClientState::to_json);
@@ -102,8 +102,8 @@ fn read_before(
     Ok((state, dialect, before))
 }
 
-/// Sends `steps`, then, for a restore that cleared a maximize, the steps
-/// that put the window back where its record says.
+/// Sends `steps`, then, for a restore of a window with a restore tag, the
+/// steps that put the window back where its record says and remove the tag.
 fn applied(
     world: &mut impl WindowWorld,
     state: &ClientState,
@@ -112,14 +112,17 @@ fn applied(
     op: &WindowOp,
 ) -> Result<ClientState, AdapterError> {
     let settled = send_steps(world, state.address, steps, 0)?;
-    let after = settled.last().cloned().ok_or_else(window_gone)?;
-    if !matches!(op, WindowOp::Restore) || state.fullscreen == 0 {
-        return Ok(after);
+    if !tagged_restore(op, state) {
+        return settled.last().cloned().ok_or_else(window_gone);
     }
-    let held = settled
-        .len()
-        .checked_sub(2)
-        .map_or(state, |index| &settled[index]);
+    let after = settled.last().unwrap_or(state).clone();
+    let held = match state.fullscreen {
+        0 => &after,
+        _ => settled
+            .len()
+            .checked_sub(2)
+            .map_or(state, |index| &settled[index]),
+    };
     let placing = placed(held, &after, origins)?;
     let mut placed_states = send_steps(world, state.address, &placing, steps.len())?;
     Ok(placed_states.pop().unwrap_or(after))

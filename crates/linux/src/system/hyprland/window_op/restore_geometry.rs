@@ -18,14 +18,34 @@ use super::window_op_refusal::refused;
 use super::window_step::WindowStep;
 
 /// Whether a maximize or restore of the window in `state` reads the
-/// monitors' origins: a maximize of a floating window, or a restore of a
-/// maximized window that carries a restore tag.
+/// monitors' origins: a maximize of a floating window, or a restore that
+/// places the window by its record.
 pub(crate) fn needs_origins(op: &WindowOp, state: &ClientState) -> bool {
     match op {
         WindowOp::Maximize => state.floating,
-        WindowOp::Restore => state.fullscreen != 0 && !restore_tags(&state.marks.tags).is_empty(),
+        WindowOp::Restore => placing_record(state).is_some(),
         _ => false,
     }
+}
+
+/// Whether a restore of the window in `state` sends the steps of `placed`
+/// after its own: the window carries a restore tag, which a restore always
+/// removes. A tag on a window that is no longer maximized is left by a
+/// restore whose placement never held.
+pub(crate) fn tagged_restore(op: &WindowOp, state: &ClientState) -> bool {
+    matches!(op, WindowOp::Restore) && !restore_tags(&state.marks.tags).is_empty()
+}
+
+/// Refuses a restore that would place the window by its record when its
+/// monitor has no origin in `origins`, before anything is sent.
+pub(crate) fn restorable(
+    state: &ClientState,
+    origins: &[OutputOrigin],
+) -> Result<(), AdapterError> {
+    if placing_record(state).is_none() || origin_of(origins, state.marks.monitor).is_some() {
+        return Ok(());
+    }
+    Err(origin_unknown())
 }
 
 /// The steps a maximize sends before the maximize itself: every stale
@@ -39,13 +59,7 @@ pub(crate) fn recorded(
     if !state.floating {
         return Ok(steps);
     }
-    let origin = origin_of(origins, state.marks.monitor).ok_or_else(|| {
-        refused(
-            "window_state_unreadable",
-            "The compositor does not say where the window's monitor is, so a restore could not put the window back",
-            "Run a Hyprland release whose 'hyprctl clients -j' and 'hyprctl monitors -j' name each window's monitor and its place",
-        )
-    })?;
+    let origin = origin_of(origins, state.marks.monitor).ok_or_else(origin_unknown)?;
     let record = RestoreRecord {
         offset: (state.at.0 - origin.0, state.at.1 - origin.1),
         size: state.size,
@@ -58,11 +72,12 @@ pub(crate) fn recorded(
     Ok(steps)
 }
 
-/// The steps a restore sends after the maximize is cleared: a floating
-/// window with one readable record goes to the recorded offset from its
-/// monitor's origin, at the recorded size, and every restore tag then goes.
-/// `held` is the window just before the maximize was cleared, on the
-/// monitor it filled; `after` is the window once it was cleared.
+/// The steps a restore sends after its own: a floating window with one
+/// readable record goes to the recorded offset from its monitor's origin,
+/// at the recorded size, and every restore tag then goes. `held` is the
+/// window on the monitor that places it: just before the maximize was
+/// cleared, or as it is when the restore cleared none. `after` is the window
+/// once the restore's own steps held.
 pub(crate) fn placed(
     held: &ClientState,
     after: &ClientState,
@@ -119,6 +134,25 @@ fn untagged(state: &ClientState) -> Vec<WindowStep> {
         .collect()
 }
 
+/// The one readable record a restore places the window by, when the window
+/// is maximized or floating.
+fn placing_record(state: &ClientState) -> Option<RestoreRecord> {
+    match restore_tags(&state.marks.tags).as_slice() {
+        [tag] if state.fullscreen != 0 || state.floating => RestoreRecord::parse(tag),
+        _ => None,
+    }
+}
+
+fn origin_unknown() -> AdapterError {
+    refused(
+        "window_state_unreadable",
+        "The compositor does not say where the window's monitor is, so a restore could not put the window back",
+        "Run a Hyprland release whose 'hyprctl clients -j' and 'hyprctl monitors -j' name each window's monitor and its place",
+    )
+}
+
+/// The restore brought the window to a monitor whose origin was not read
+/// before it started: a minimized window back on its old workspace.
 fn origin_lost() -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
