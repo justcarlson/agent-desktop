@@ -1,9 +1,18 @@
+import contextlib
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+from hyprland_leg_fakes import FakeContext, delivered
+from runner.legs import leg_by_id
 from scenarios import hyprland_pointer_pass_through as through
 from scenarios.hyprland_pointer_pass_through import Sample
 
 WINDOW = (10.0, 10.2)
+MAIN = {"signature": "sig", "pid": 4242}
+HIDE_LUA = ["eval", "hl.config({ cursor = { invisible = true } })"]
+SHOW_LUA = ["eval", "hl.config({ cursor = { invisible = false } })"]
 
 
 def drawn(oracle: str, start: float, end: float, shown: bool = True) -> Sample:
@@ -81,6 +90,136 @@ class DrawnWatchTests(unittest.TestCase):
         with through.DrawnWatch({"layers": lambda: True}, 0.01) as watch:
             pass
         self.assertTrue(all(sample.start <= sample.end for sample in watch.samples))
+
+
+class FakeCompositor:
+    """`cursor:invisible` as getoption reports it, and every hyprctl argv sent to change it."""
+
+    def __init__(self, lua: bool, reply_key: str, original):
+        self.lua, self.key, self.value, self.sent = lua, reply_key, original, []
+
+    def query(self, _runtime, _signature, name, *, pid=None):
+        assert name == "getoption cursor:invisible" and pid == MAIN["pid"], (name, pid)
+        return {"option": "cursor:invisible", self.key: self.value, "set": True}
+
+    def control(self, _runtime, _signature, argv, **_kw):
+        self.sent.append(argv)
+        if argv == ["eval", "return 1"]:
+            return "ok" if self.lua else "error"
+        word = argv[-1] if argv[0] == "keyword" else argv[-1].split("invisible = ")[1].split(" ")[0]
+        hidden = word == "true"
+        self.value = {"bool": hidden, "int": int(hidden), "str": word}[self.key]
+        return "ok"
+
+    def patched(self):
+        return mock.patch.multiple(through.hyprland, query=self.query, control=self.control,
+                                   uses_lua=lambda *_: self.lua)
+
+
+def pointer_leg_context() -> FakeContext:
+    ctx = FakeContext(lambda argv: delivered({}))
+    ctx.leg = leg_by_id("pointer.coordinate_click_through_cursor")
+    return ctx
+
+
+class SystemPointerHiddenTests(unittest.TestCase):
+    def run_hidden(self, compositor: FakeCompositor):
+        ctx, inside = pointer_leg_context(), []
+        with compositor.patched(), mock.patch.object(through, "shared", return_value=Path("/run")):
+            with through.system_pointer_hidden(ctx, MAIN):
+                inside.append(compositor.value)
+        return ctx, inside
+
+    def test_lua_configs_hide_the_pointer_with_eval_and_restore_it(self):
+        compositor = FakeCompositor(True, "bool", False)
+        ctx, inside = self.run_hidden(compositor)
+        self.assertEqual(inside, [True])
+        self.assertEqual([argv for argv in compositor.sent if argv[0] == "eval" and "cursor" in argv[1]],
+                         [HIDE_LUA, SHOW_LUA])
+        self.assertEqual(ctx._reads["hyprland.cursor_invisible"],
+                         {"before": [False], "after": [True], "restored": [False]})
+
+    def test_legacy_configs_hide_the_pointer_with_keyword_and_restore_it(self):
+        compositor = FakeCompositor(False, "int", 0)
+        ctx, inside = self.run_hidden(compositor)
+        self.assertEqual(inside, [1])
+        self.assertEqual([argv for argv in compositor.sent if argv[0] == "keyword"],
+                         [["keyword", "cursor:invisible", "true"], ["keyword", "cursor:invisible", "false"]])
+        self.assertEqual(ctx._reads["hyprland.cursor_invisible"],
+                         {"before": [False], "after": [True], "restored": [False]})
+
+    def test_a_pointer_already_hidden_stays_hidden_after_the_block(self):
+        compositor = FakeCompositor(True, "str", "true")
+        self.run_hidden(compositor)
+        self.assertEqual(compositor.value, "true")
+        self.assertEqual(compositor.sent[-1], HIDE_LUA)
+
+    def test_the_pointer_is_restored_when_the_block_fails(self):
+        compositor = FakeCompositor(True, "bool", False)
+        with compositor.patched(), mock.patch.object(through, "shared", return_value=Path("/run")):
+            with self.assertRaises(RuntimeError):
+                with through.system_pointer_hidden(pointer_leg_context(), MAIN):
+                    raise RuntimeError("the click failed")
+        self.assertIs(compositor.value, False)
+
+    def test_a_refused_hide_fails_the_leg(self):
+        compositor = FakeCompositor(True, "bool", False)
+        compositor.control = lambda _r, _s, argv, **_kw: "ok" if argv == ["eval", "return 1"] else "error: no"
+        with compositor.patched(), mock.patch.object(through, "shared", return_value=Path("/run")):
+            with self.assertRaises(AssertionError):
+                with through.system_pointer_hidden(pointer_leg_context(), MAIN):
+                    pass
+
+
+class FakeScreen:
+    def __init__(self, state: dict):
+        self.state = state
+
+    def grab(self):
+        self.state["grabs"].append(self.state["hidden"])
+        return object()
+
+    def shows(self, _image) -> bool:
+        return True
+
+
+class ClickThroughPointerTests(unittest.TestCase):
+    def test_every_pixel_read_and_the_click_run_while_the_system_pointer_is_hidden(self):
+        state = {"hidden": False, "grabs": [], "clicks": []}
+
+        @contextlib.contextmanager
+        def hidden(_ctx, _main):
+            state["hidden"] = True
+            try:
+                yield
+            finally:
+                state["hidden"] = False
+
+        def grab_until(screen, drawn):
+            screen.grab()
+            return object()
+
+        def answer(argv):
+            if argv[0] == "mouse-click":
+                state["clicks"].append(state["hidden"])
+            return delivered({})
+
+        pressed = [{"ev": "press", "widget": "button", "n": 1}, {"ev": "release", "widget": "button"}]
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            nothing = lambda *_a, **_k: contextlib.nullcontext()
+            patches = {"system_pointer_hidden": hidden, "shared": lambda _t: Path(directory),
+                       "main_instance": lambda _t: MAIN, "registry_of": lambda *_: Path(directory),
+                       "pad_ref": lambda *_: "@s1:e1", "_button_point": lambda *_: (100, 100),
+                       "Screen": lambda *_: FakeScreen(state), "covering_layers": lambda *_: [through.NAMESPACE],
+                       "_grab_until": grab_until, "harness_holder": nothing, "keep_drawn": nothing,
+                       "apart_from_last_click": lambda *_: None, "events": lambda *_: pressed,
+                       "settled": lambda *_a, **_k: pressed, "holders_in": lambda *_: [], "QUIET_S": 0.05}
+            stack.enter_context(mock.patch.multiple(through, create=True, **patches))
+            stack.enter_context(mock.patch.object(through.hyprland, "query", lambda *_a, **_k: {}))
+            through._click_through(FakeContext(answer), {}, None, Path(directory) / "pad.log", "s")
+        self.assertEqual(state["clicks"], [True])
+        self.assertTrue(state["grabs"])
+        self.assertTrue(all(state["grabs"]), state["grabs"])
 
 
 class RegistryRowTests(unittest.TestCase):
