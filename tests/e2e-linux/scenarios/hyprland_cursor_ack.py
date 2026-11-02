@@ -75,12 +75,14 @@ def last_unchanged_start(reads: list[tuple[int, str]], before: str) -> int | Non
     return None
 
 
-def event_problems(reads: list[tuple[int, str]], before: str, after_ns: int, label: str) -> list[str]:
-    """The click reached the app once, and a read that started at or after `after_ns` still saw
-    the old display."""
+def event_problems(reads: list[tuple[int, str]], before: str, expected: str, after_ns: int,
+                   label: str) -> list[str]:
+    """The click reached the app once, leaving `expected`, and a read that started at or after
+    `after_ns` still saw the old display. Two clicks that land between two reads leave one change
+    to a value other than `expected`."""
     seen = transitions(reads, before)
-    if len(seen) != 1:
-        return [f"{label}: the display changed {len(seen)} times, not once: {seen}"]
+    if seen != [expected]:
+        return [f"{label}: the display went through {seen}, not once to {expected!r}"]
     unchanged = last_unchanged_start(reads, before)
     if unchanged is None or unchanged < after_ns:
         gap = None if unchanged is None else (unchanged - after_ns) / NS_PER_MS
@@ -89,7 +91,7 @@ def event_problems(reads: list[tuple[int, str]], before: str, after_ns: int, lab
     return []
 
 
-def delayed_problems(trace: list[dict], reads: list[tuple[int, str]], before: str,
+def delayed_problems(trace: list[dict], reads: list[tuple[int, str]], before: str, expected: str,
                      delay_ms: int = DELAY_MS) -> list[str]:
     """Each acknowledgement was held to `delay_ms` after the renderer received its travel and
     sent inside the arrival timeout, and the click reached the app after the last of them."""
@@ -103,10 +105,11 @@ def delayed_problems(trace: list[dict], reads: list[tuple[int, str]], before: st
             problems.append(f"acknowledgement sent {waited:.1f} ms after its travel, not at "
                             f"{delay_ms} ms inside {ARRIVAL_TIMEOUT_MS} ms: {line}")
     acked = max(line["acked_ns"] for line in held)
-    return problems + event_problems(reads, before, acked, "delayed acknowledgement")
+    return problems + event_problems(reads, before, expected, acked, "delayed acknowledgement")
 
 
-def withheld_problems(trace: list[dict], reads: list[tuple[int, str]], before: str) -> list[str]:
+def withheld_problems(trace: list[dict], reads: list[tuple[int, str]], before: str,
+                      expected: str) -> list[str]:
     """No acknowledgement was sent, and the click reached the app only once the arrival timeout
     of the first travel had passed."""
     held = [line for line in trace if line.get("hold") == "withhold"]
@@ -116,7 +119,7 @@ def withheld_problems(trace: list[dict], reads: list[tuple[int, str]], before: s
         return [f"a withheld acknowledgement was sent: {held}"]
     first = min(line["received_ns"] for line in held)
     bound = first + (ARRIVAL_TIMEOUT_MS - SEND_SLACK_MS) * NS_PER_MS
-    return event_problems(reads, before, bound, "withheld acknowledgement")
+    return event_problems(reads, before, expected, bound, "withheld acknowledgement")
 
 
 class DisplayTimeline:
@@ -191,7 +194,7 @@ def _held_click(ctx: LegContext, hold: str, judge) -> None:
             ctx.after("proc.arrival_ack_trace", trace)
             ctx.after("hyprland.layers", surfaces_of(runtime, main))
             require(clicked.ok, f"the held click failed: {clicked.raw[:400]}")
-            held_problems = judge(trace, timeline.reads, shown)
+            held_problems = judge(trace, timeline.reads, shown, shown + "3")
             problems += held_problems
             proven = "proved" if not held_problems else "not proved"
             label = f"{hold}: {proven}, click ok in {clicked.elapsed_ms:.0f} ms"
