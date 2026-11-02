@@ -41,6 +41,7 @@ FILL_DELTA = 16
 FILL_MIN = 8
 HOLD_MS = 8_000
 REFUSAL_KINDS = ("cursor_hide_timeout", "cursor_hide_failed")
+PRE_HIDE_CAUSES = {"native_wayland_client": "native Wayland", "receiver_unproven": "unproven receiver"}
 KEEP_DRAWN_FLAG = "keep-drawn-for-test"
 
 
@@ -145,6 +146,27 @@ def hide_refusal_problems(label: str, envelope, kinds: tuple[str, ...] = REFUSAL
         problems.append(f"{label}: disposition {disposition} is not not_delivered with safe retry")
     if details.get("physical_delivery_started") not in (None, False):
         problems.append(f"{label}: physical delivery started")
+    return problems
+
+
+def pre_hide_refusal_problems(label: str, envelope) -> list[str]:
+    """A headed ref click refused for its receiver before activation, travel or hide.
+
+    Calculator is a native Wayland client, so the cause is `native_wayland_client`.
+    A target the refusal judges from its toplevel may give `receiver_unproven`.
+    A hide refusal is a problem here: it shows the hide ran before the refusal.
+    """
+    error = envelope.error or {}
+    details = error.get("details") or {}
+    disposition = error.get("disposition") or {}
+    problems = []
+    if envelope.ok or error.get("code") != "ACTION_FAILED" or details.get("cause") not in PRE_HIDE_CAUSES:
+        problems.append(f"{label}: expected an ACTION_FAILED {'/'.join(PRE_HIDE_CAUSES)} refusal before any hide, "
+                        f"got {envelope.raw[:300]}")
+    if details.get("physical_delivery_started") is not False:
+        problems.append(f"{label}: physical_delivery_started is {details.get('physical_delivery_started')!r}")
+    if disposition.get("delivery") != "not_delivered" or disposition.get("retry") != "safe":
+        problems.append(f"{label}: disposition {disposition} is not not_delivered with safe retry")
     return problems
 
 
@@ -304,7 +326,9 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
     """A renderer that answers nothing refuses headed work before any event, and never blocks a headless click.
 
     A stopped renderer withholds both its arrival and its `hide`
-    acknowledgement. A killed renderer counts as hidden, so it blocks neither.
+    acknowledgement, so `screenshot --screen` refuses at the hide. The headed
+    ref click on Calculator refuses for its receiver before any hide, so it
+    must leave no holder. A killed renderer counts as hidden, so it blocks neither.
     """
     runtime, main = shared(ctx.tier), main_instance(ctx.tier)
     headed = ctx.mode == "headed"
@@ -327,7 +351,7 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
                     if path.exists():
                         problems.append("a refused screen capture wrote its file")
                     clicked = ctx.product(["--session", session, "click", seven])
-                    problems += hide_refusal_problems("headed click under a stopped renderer", clicked)
+                    problems += pre_hide_refusal_problems("headed click under a stopped renderer", clicked)
                     if display(tree) != before:
                         problems.append("the refused headed click changed the display")
                 else:
@@ -337,7 +361,7 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
             if headed and raw.poll(lambda: display(tree) != before, 1.0):
                 problems.append("the refused headed click changed the display late")
             if holders_in(registry):
-                problems.append(f"a refused hide left holders: {holders_in(registry)}")
+                problems.append(f"a refusal under a stopped renderer left holders: {holders_in(registry)}")
             if headed:
                 problems += _screen_after_resume(screen)
             else:
@@ -366,14 +390,15 @@ def shell_covers(layers: dict, point: tuple[float, float]) -> list[str]:
 
 def _dead_click_problems(ctx: LegContext, envelope, shell: list[str], tree, shown: str) -> list[str]:
     """A click under a killed renderer passes its hide; only a shell layer read before the click, or the
-    native Wayland refusal, may stop it.
+    receiver refusal that runs before the hide, may stop it.
 
     The hit test judges covers after a confirmed hide, so a cover by a layer
     that was over the button before any headed click shows the hide passed.
     Calculator is a native Wayland client, and its headed ref click refuses with
-    `native_wayland_client` only after that hit test, so that refusal shows the
-    hide passed too. Either refusal must be undelivered and safe, and the
-    display must still read `shown`, its value before the click.
+    `native_wayland_client` before activation, travel and hide, so that refusal
+    shows no hide ran. A target judged from its toplevel may give
+    `receiver_unproven` there instead. Either refusal must be undelivered and
+    safe, and the display must still read `shown`, its value before the click.
     """
     if envelope.ok:
         return []
@@ -383,15 +408,18 @@ def _dead_click_problems(ctx: LegContext, envelope, shell: list[str], tree, show
               if check.get("check") == "receives_events" and check.get("status") == "fail"]
     disposition = error.get("disposition") or {}
     shell_covered = bool(covers) and all(name in shell for name in covers)
-    native = details.get("cause") == "native_wayland_client" and details.get("physical_delivery_started") is False
-    if error.get("code") == "ACTION_FAILED" and (shell_covered or native):
+    receiver = details.get("cause") in PRE_HIDE_CAUSES and details.get("physical_delivery_started") is False
+    if error.get("code") == "ACTION_FAILED" and (shell_covered or receiver):
         if disposition.get("delivery") != "not_delivered" or disposition.get("retry") != "safe":
             return [f"the refused click under a dead renderer is {disposition}, not not_delivered and safe"]
         if raw.poll(lambda: display(tree) != shown, 1.0):
             return [f"the refused click under a dead renderer changed the display to {display(tree)!r}"]
-        met = f"the shell layer {covers}, which covered the button before any headed click" if shell_covered \
-            else "the native Wayland refusal, which runs after the hit test"
-        ctx.finding(f"the headed click under a dead renderer passed its hide and met {met}")
+        if shell_covered:
+            ctx.finding(f"the headed click under a dead renderer passed its hide and met the shell layer {covers}, "
+                        "which covered the button before any headed click")
+        else:
+            ctx.finding(f"the headed click under a dead renderer met the {PRE_HIDE_CAUSES[details['cause']]} "
+                        "refusal, which runs before the hide, so no hide ran")
         return []
     return [f"a dead renderer blocked the click: {envelope.raw[:300]}"]
 
