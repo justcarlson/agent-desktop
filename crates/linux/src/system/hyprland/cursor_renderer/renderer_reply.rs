@@ -11,7 +11,9 @@
 //! `hide_cursor` for the same agent supersedes its travel in flight;
 //! `hide_cursor` commits a clear frame and `show_cursor` redraws; `disable`
 //! answers and ends the process; `status` reports every cursor. A holder's
-//! `hide` and `show` go to the holder watch.
+//! `hide` and `show` go to the holder watch. Under the keep-drawn test flag a
+//! live holder does not stop a `present` from drawing, so a live run can show
+//! input passing through a drawn cursor.
 
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -28,6 +30,7 @@ use super::cursor_travel::CursorTravel;
 use super::holder_reply::holder_reply;
 use super::holder_view::{any_live, live_holders};
 use super::holder_watch::HolderWatch;
+use super::keep_drawn_flag::keep_drawn_for_test;
 use super::renderer_process::RendererProcess;
 use super::renderer_request::RendererRequest;
 use super::renderer_wire::{error_reply, ok_reply, read_request, write_reply};
@@ -169,7 +172,7 @@ fn present(
             .clone(),
         _ => instruction.destination().clone(),
     };
-    let held = any_live(&process.paths.holders);
+    let held = any_live(&process.paths.holders) && !keep_drawn_for_test(&process.paths.dir);
     let off_layout = !process.client.on_output(&to);
     let Some(cursor) = process.cursors.get_mut(key) else {
         return answer(&stream, Ok(()));
