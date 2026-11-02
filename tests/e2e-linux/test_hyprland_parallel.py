@@ -260,9 +260,6 @@ class ChildEnvironmentTests(unittest.TestCase):
         self.assertEqual(found["AGENT_DESKTOP_AGENT_ID"], "agent-b")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class FfiChildTests(unittest.TestCase):
     def test_a_live_c_abi_child_is_not_read_to_end_before_it_gets_its_line(self):
@@ -303,3 +300,61 @@ class FfiChildTests(unittest.TestCase):
         self.assertFalse(hung, "the runner blocked reading a live child's stderr")
         self.assertEqual(len(outcome), 1)
         self.assertIn("closed its output early", outcome[0])
+
+
+class FailureReportTests(unittest.TestCase):
+    def test_a_refusal_names_its_occluder_past_the_passing_checks(self):
+        import json
+        from types import SimpleNamespace
+
+        from scenarios import parallel_agents as agents
+
+        checks = [{"check": "visible", "status": "pass"},
+                  {"check": "stable", "status": "pass", "stability": {"samples": [[1, 2, 3, 4]] * 40}},
+                  {"check": "receives_events", "status": "fail", "reason": "occluded by layer",
+                   "occluder": {"role": "layer", "name": "waybar", "bounds": {"x": 0, "y": 0, "width": 1280}}}]
+        error = {"code": "ACTION_FAILED", "message": "Target is not actionable: receives_events (occluded by layer)",
+                 "suggestion": "x" * 200, "details": {"actionable": False, "checks": checks},
+                 "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+        raw = json.dumps({"version": "2.5", "ok": False, "command": "click", "error": error})
+        refusal = Envelope(ok=False, data=None, error=error, raw=raw, elapsed_ms=5.0, argv=[], exit_code=1)
+        problems = agents.outcome_problems(SimpleNamespace(name="D", envelope=refusal, exit_code=1))
+        self.assertEqual(len(problems), 1)
+        self.assertIn('"name": "waybar"', problems[0])
+        self.assertIn("not_delivered", problems[0])
+        self.assertNotIn("samples", problems[0])
+
+
+class RendererRecordTests(unittest.TestCase):
+    def setup_of(self, records):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_orders as orders
+
+        setup = orders.Setup(SimpleNamespace(tier=None), {}, "run-1", {}, {}, {}, {}, {}, 0)
+        setup.positives.append((1.0, 1.0))
+        reads = iter(records)
+        patcher = patch.multiple(orders, record_of=lambda *_args: next(reads), shared=lambda _tier: None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return setup
+
+    def test_a_setup_has_no_renderer_until_a_headed_agent_starts_one(self):
+        setup = self.setup_of([{"pid": 7}, {"pid": 7}])
+        self.assertEqual(setup.note_renderer(), [])
+        self.assertEqual(setup.final_problems(), [])
+
+    def test_a_replaced_renderer_fails(self):
+        setup = self.setup_of([{"pid": 7}, {"pid": 8}])
+        setup.note_renderer()
+        self.assertIn("the session renderer changed", setup.final_problems()[0])
+
+    def test_no_renderer_after_the_headed_agents_fails(self):
+        setup = self.setup_of([None, None])
+        setup.note_renderer()
+        self.assertIn("no headed agent started", setup.final_problems()[0])
+
+
+if __name__ == "__main__":
+    unittest.main()
