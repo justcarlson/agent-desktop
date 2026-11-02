@@ -162,8 +162,10 @@ pub(crate) fn run_chunks(
             .map_err(|error| with_progress(error, 0))?;
     }
     let outcome = drive(session, chunks, gate, deadline);
-    if outcome.as_ref().is_ok_and(|delivered| *delivered > 0) {
-        sleep(deadline.remaining().min(DRAIN));
+    match &outcome {
+        Ok(delivered) if *delivered > 0 => sleep(deadline.remaining().min(DRAIN)),
+        Err(error) if error.disposition == DeliverySemantics::uncertain() => sleep(DRAIN),
+        _ => {}
     }
     let kept = outcome.is_ok() && session.retain();
     if !kept && let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
