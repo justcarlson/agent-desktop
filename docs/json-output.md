@@ -242,6 +242,8 @@ refusal below is `ACTION_NOT_SUPPORTED`, `not_delivered`, with
 | `maximize_takes_focus` | Maximize of a window while another window has focus |
 | `legacy_config_focused_only` | Maximize, or restore of a maximized window, under a legacy `hyprland.conf` |
 | `workspace_name_unsupported` | Minimize of a window whose workspace name is not letters, digits, `-` and `_` |
+| `foreign_special_workspace` | Minimize, maximize or restore of a window another tool hid on a special workspace |
+| `window_state_unreadable` | Any operation when the client list lacks a window's place, size, floating, fullscreen or workspace field |
 | `config_dialect_unknown` | The compositor answers as neither a Lua nor a legacy config |
 
 A request the compositor answers with an error is `ACTION_FAILED`, cause
