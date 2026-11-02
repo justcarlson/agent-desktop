@@ -1,7 +1,12 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+from hyprland_leg_fakes import FakeContext, fake_app, nested_patches
 from runner.product import Envelope
+from runner.verdict import evaluate
 from scenarios import hyprland_multiclick as multiclick
 
 TARGET = "Probe Target"
@@ -57,6 +62,24 @@ class FixtureClickTests(unittest.TestCase):
 
     def test_a_report_of_another_count_fails(self):
         self.assertTrue(multiclick.fixture_click_problems("gtk4", report(2), clicked(TARGET, TARGET, TARGET), 3))
+
+
+class OracleReadTests(unittest.TestCase):
+    def test_the_leg_records_one_before_after_and_restored_read_per_oracle(self):
+        def click(ctx, env, log, label, centre):
+            with log.open("a") as out:
+                out.writelines(json.dumps({"ev": "clicked", "widget": TARGET}) + "\n" for _ in range(5))
+            return []
+        with tempfile.TemporaryDirectory() as directory:
+            patches = {**nested_patches(), "fixture_ref": lambda *a: "@s1:e1",
+                       "receiver_fixture": fake_app(Path(directory), "fixture", [{"ev": "mapped", "pid": 7}]),
+                       "refused_without_input": lambda *a, **kw: [], "target_centre": lambda *a: (300.0, 200.0),
+                       "coordinate_clicks": click}
+            ctx = FakeContext(lambda argv: None)
+            with mock.patch.multiple(multiclick, **patches):
+                multiclick.coordinate_multi_click_xwayland(ctx)
+        self.assertEqual(evaluate(ctx), [])
+        self.assertEqual(set(ctx.reads), {"hyprland.cursor", "applog.fixture"})
 
 
 if __name__ == "__main__":
