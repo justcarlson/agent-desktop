@@ -64,14 +64,15 @@ jobs:
 
       # The VM gets the CLI built here: omarchy-vm leaves */target out of the
       # copy, and the image has no Rust toolchain.
-      - name: Build the CLI and its clipboard helper
+      - name: Build the CLI, its clipboard helper and the FFI library
         working-directory: src/${{ github.event.repository.name }}
         run: |
           rustup show
           cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
+          cargo build --locked --release -p agent-desktop-ffi
           mkdir -p "$GITHUB_WORKSPACE/agent-desktop-bin"
           cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
-            "$GITHUB_WORKSPACE/agent-desktop-bin/"
+            target/release/libagent_desktop_ffi.so "$GITHUB_WORKSPACE/agent-desktop-bin/"
 
       - name: Install the fetch tools
         run: |

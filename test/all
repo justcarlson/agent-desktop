@@ -1,8 +1,8 @@
 #!/bin/bash
 # Runs the Linux end-to-end tiers in a throwaway Omarchy VM. It runs inside the
 # VM from ~/src/agent-desktop, through `test/omarchy-vm run` or the Omarchy VM
-# workflow, with the unchanged tests/e2e-linux runner. The CLI and its
-# clipboard helper are built outside the VM and copied in as
+# workflow, with the unchanged tests/e2e-linux runner. The CLI, its clipboard
+# helper and the FFI library are built outside the VM and copied in as
 # ~/src/agent-desktop-bin; AGENT_DESKTOP_E2E_BIN overrides that path. Never run
 # it on a host: the tiers start desktop sessions and drive apps.
 #
@@ -17,6 +17,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 out=$HOME/out
 bin=${AGENT_DESKTOP_E2E_BIN:-$HOME/src/agent-desktop-bin/agent-desktop}
+ffi=$(dirname "$bin")/libagent_desktop_ffi.so
 apps=(gnome-calculator gnome-text-editor nautilus gnome-terminal gnome-control-center gnome-shell
   python-pyqt6 python-gobject openbox xorg-server-xvfb gtk3 gtk4 glib2 at-spi2-core
   xdg-desktop-portal xdg-desktop-portal-gnome wl-clipboard hyprland foot grim)
@@ -112,6 +113,14 @@ mutter_checks=(
 
 step() { printf '==> %s\n' "$*"; }
 
+# The runner stages only the CLI and its helper, so the tiers get the FFI
+# library's path; the hyprland leg parallel.physical_lock_timeout loads it.
+require_prebuilt() {
+  [[ -x $bin && -x $(dirname "$bin")/agent-desktop-linux-clipboard-owner && -f $ffi ]] && return
+  echo "test/all: no prebuilt agent-desktop, clipboard helper and libagent_desktop_ffi.so in $(dirname "$bin")" >&2
+  return 2
+}
+
 # Passes when the log has a passing check, every mutter check reported a
 # result, and every failed check is a mutter check. The last mutter check is
 # the script's last check, so a log that stops early fails.
@@ -170,12 +179,11 @@ run_tier() {
   local tier=$1 args=(--tier "$1")
   [[ -z ${2:-} ]] || args+=(--leg "$2")
   step "tier $tier"
-  AGENT_DESKTOP_E2E_BIN=$bin AGENT_DESKTOP_E2E_SUITE=$out/suites/$tier \
+  AGENT_DESKTOP_E2E_BIN=$bin AGENT_DESKTOP_E2E_FFI_LIB=$ffi AGENT_DESKTOP_E2E_SUITE=$out/suites/$tier \
     bash tests/e2e-linux/run.sh "${args[@]}" 2>&1 | tee "$out/$tier.log" || rc=1
 }
 
-[[ -x $bin && -x $(dirname "$bin")/agent-desktop-linux-clipboard-owner ]] ||
-  { echo "test/all: no prebuilt agent-desktop and clipboard helper in $(dirname "$bin")" >&2; exit 2; }
+require_prebuilt || exit 2
 openbox_legs=$(legs_except x11-openbox "${openbox_drift[@]}")
 wayland_legs=$(legs_except wayland "${wayland_drift[@]}")
 hyprland_legs=$(legs_except hyprland "${hyprland_drift[@]}")

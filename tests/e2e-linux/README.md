@@ -38,8 +38,10 @@ The runner inherits the caller's tool paths and libraries: supply tools through 
 
 ```sh
 cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
+cargo build --locked --release -p agent-desktop-ffi
 bin=$(mktemp -d)/agent-desktop-bin && mkdir "$bin"
-cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner "$bin"
+cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
+  target/release/libagent_desktop_ffi.so "$bin"
 test/omarchy-vm fetch stable
 pkgs=()
 for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd fuse2 \
@@ -51,7 +53,7 @@ test/omarchy-vm run --channel stable --copy . --copy "$bin" "${pkgs[@]}" --out v
   -- bash -c 'cd "$1" && ./test/all' _ "$(basename "$PWD")"
 ```
 
-Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It leaves out the legs listed in `openbox_drift`, `wayland_drift` and `hyprland_drift`: they fail on upstream `main` and on the branch alike on the Arch image. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. It then opens a `foot` window titled `ad-bystander`, waits for it to take focus, and runs the `hyprland` tier against the VM's own session. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
+Read `vm-out/versions.txt`, then `vm-out/<tier>.log`. A failed tier keeps its suite in `vm-out/suites/<tier>/`. `test/all` refuses to run outside a VM. It also refuses a binary directory without `libagent_desktop_ffi.so`, and passes that library to every tier as `AGENT_DESKTOP_E2E_FFI_LIB`: the hyprland leg `parallel.physical_lock_timeout` loads it. It leaves out the legs listed in `openbox_drift`, `wayland_drift` and `hyprland_drift`: they fail on upstream `main` and on the branch alike on the Arch image. They stay registered. It runs `scripts/test-private-session.sh`, then the `x11-openbox` and `wayland` tiers. It then opens a `foot` window titled `ad-bystander`, waits for it to take focus, and runs the `hyprland` tier against the VM's own session. It does not run `x11-mutter`, because Arch's `gnome-shell` cannot start an X11 session; the three private session checks that start that shell are not counted.
 
 ## Tiers
 
