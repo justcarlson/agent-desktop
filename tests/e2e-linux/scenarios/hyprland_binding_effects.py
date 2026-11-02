@@ -121,15 +121,16 @@ def hyprland_effects_stay_on_bound_instance(ctx: LegContext) -> None:
         reads = {"session desktop": lambda: desktop(tier, main),
                  "session clients": lambda: clients_state(_clients(tier, main))}
         ctx.before("hyprland.desktop", desktop(tier, main))
-        ctx.before("hyprland.second_clients", _clients(tier, nested))
+        ctx.before("hyprland.second_clients", clients_state(_clients(tier, nested)))
         with Sampler(reads) as sampler:
             problems, sentinel_id = _listings(ctx, main, nested, sentinel)
             if sentinel_id is not None:
                 problems += _acted(ctx, main, nested, sentinel_id, found[0]["address"])
         problems += sampler.changes
         ctx.after("hyprland.desktop", desktop(tier, main))
-        ctx.after("hyprland.second_clients", _clients(tier, nested))
+        ctx.after("hyprland.second_clients", clients_state(_clients(tier, nested)))
         require(not problems, "; ".join(problems))
         ctx.restored("hyprland.desktop", desktop(tier, main))
+        ctx.restored("hyprland.second_clients", clients_state(_clients(tier, nested)))
     finally:
         second_instance.stop(tier)
