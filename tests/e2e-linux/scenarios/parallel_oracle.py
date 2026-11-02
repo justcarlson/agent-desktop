@@ -4,14 +4,26 @@ A span is one agent process: when it opened the interaction lock (enqueue),
 when /proc/locks first showed it holding the lock (acquire) and no longer
 holding it (release), the monotonic times its app logged an effect, and the
 lease contention count its envelope reported. A hold is any lease holder,
-an agent or the runner's gate. A dispatch interval is the agent's lease hold,
-from acquire to release, and holds must never overlap. An app's own handler
-may run after its agent releases: a GTK4 button emits `clicked` at the end
-of its activate timeout and a Qt button through `animateClick`, so such an
-effect must still land once and after its own agent's acquire, and its lag
-past release is measured, not counted as an overlap. The negative
-controls run the same oracle over mutated copies, so an oracle that stops
-detecting an overlap or an unreported wait fails the leg.
+an agent or the runner's gate. A dispatch interval is the agent's lease
+hold, from acquire to release, and holds must never overlap.
+
+The timestamped app logs take part in the verdict:
+
+1. Each effect an app logs is at or after the start of its own agent's
+   hold. An earlier effect is input delivered outside the lease.
+2. An app's handler may run after its agent releases: a GTK4 button emits
+   `clicked` at the end of its 250 ms activate timeout and a Qt button
+   through `animateClick`. That lag, from release to the effect, is
+   reported and must stay within `LAG_BOUND_MS`.
+3. Each app logs its effects in the order of its own agent's holds: every
+   effect of one hold comes before the next hold of that agent starts.
+   Effects of different apps are not ordered against each other, because a
+   lagging toolkit's effect can land inside a later agent's hold.
+
+The negative controls run the same oracle over mutated copies: an injected
+overlap of two holds, an unreported wait, and an effect moved inside
+another agent's hold before its own. An oracle that stops detecting any of
+them fails the leg.
 """
 
 from __future__ import annotations
@@ -23,6 +35,7 @@ from dataclasses import dataclass
 LEASE_PREFIXES = ("AGENT_DESKTOP_INTERACTION_LEASE", "AGENT_DESKTOP_SESSION_LEASE")
 AGENT_ENV = "AGENT_DESKTOP_AGENT_ID"
 DELIVERED = ("delivered_verified", "delivered_unverified", "delivery_uncertain")
+LAG_BOUND_MS = 1000.0
 
 
 @dataclass(frozen=True)
@@ -72,13 +85,36 @@ def overlap_problems(spans: list[Span]) -> list[str]:
 
 
 def effect_problems(spans: list[Span], expected: int = 1) -> list[str]:
+    problems = [f"{span.agent}: {len(span.effects)} effects, not {expected}" for span in spans
+                if len(span.effects) != expected]
+    return problems + early_effect_problems(spans)
+
+
+def early_effect_problems(spans: list[Span]) -> list[str]:
+    """An effect logged before its own agent's hold started was delivered outside the lease."""
+    return [f"{span.agent}: an effect at {min(span.effects):.4f} came before its acquire at {span.acquire:.4f}"
+            for span in spans if span.acquire is not None and span.effects and min(span.effects) < span.acquire]
+
+
+def lag_problems(spans: list[Span], bound_ms: float = LAG_BOUND_MS) -> list[str]:
+    """An effect that lands longer than `bound_ms` after its agent released the lease."""
+    return [f"{span.agent}: an effect landed {(effect - span.release) * 1000.0:.0f} ms after its release, "
+            f"past the {bound_ms:.0f} ms bound"
+            for span in spans if span.release is not None
+            for effect in span.effects if (effect - span.release) * 1000.0 > bound_ms]
+
+
+def effect_order_problems(spans: list[Span]) -> list[str]:
+    """Per app, every effect of one hold comes before that agent's next hold starts."""
     problems = []
-    for span in spans:
-        if len(span.effects) != expected:
-            problems.append(f"{span.agent}: {len(span.effects)} effects, not {expected}")
-        elif span.acquire is not None and any(effect < span.acquire for effect in span.effects):
-            problems.append(f"{span.agent}: an effect at {min(span.effects):.4f} came before its acquire at "
-                            f"{span.acquire:.4f}")
+    for agent in sorted({span.agent for span in spans}):
+        held = sorted((span for span in spans if span.agent == agent and span.acquire is not None),
+                      key=lambda span: span.acquire)
+        for first, second in zip(held, held[1:]):
+            if first.effects and (max(first.effects) >= second.acquire
+                                  or (second.effects and max(first.effects) > min(second.effects))):
+                problems.append(f"{agent}: an effect of the hold at {first.acquire:.4f} landed at "
+                                f"{max(first.effects):.4f}, after the next hold began at {second.acquire:.4f}")
     return problems
 
 
@@ -131,8 +167,8 @@ def percentile(values: list[float], fraction: float) -> float | None:
 
 
 def timeline_problems(spans: list[Span], gate: list[Hold], order) -> list[str]:
-    return (overlap_problems(spans) + effect_problems(spans) + queueing_problems(spans, holds_of(spans, gate))
-            + order_problems(spans, order))
+    return (overlap_problems(spans) + effect_problems(spans) + lag_problems(spans)
+            + queueing_problems(spans, holds_of(spans, gate)) + order_problems(spans, order))
 
 
 def with_injected_overlap(spans: list[Span]) -> list[Span]:
@@ -150,12 +186,26 @@ def with_unreported_wait(spans: list[Span]) -> list[Span]:
     return [dataclasses.replace(span, contention=0) if span.contention is not None else span for span in spans]
 
 
+def with_effect_in_foreign_hold(spans: list[Span]) -> list[Span]:
+    """A copy where the second agent to acquire logged its effect halfway through the first agent's hold."""
+    held = sorted((span for span in spans if dispatch_interval(span)), key=lambda span: span.acquire)
+    if len(held) < 2:
+        raise ValueError("a foreign hold needs two observed dispatches")
+    first, second = held[0], held[1]
+    moved = dataclasses.replace(second, effects=(round((first.acquire + first.release) / 2, 6),))
+    return [moved if span is second else span for span in spans]
+
+
 def control_problems(spans: list[Span], gate: list[Hold], order) -> list[str]:
     problems = []
     if not any("overlap" in item for item in timeline_problems(with_injected_overlap(spans), gate, order)):
         problems.append("an injected overlap of two dispatches passed the oracle")
     if not any("contention" in item for item in timeline_problems(with_unreported_wait(spans), gate, order)):
         problems.append("an unreported lease wait passed the oracle")
+    moved = with_effect_in_foreign_hold(spans)
+    agent = sorted((span for span in spans if dispatch_interval(span)), key=lambda span: span.acquire)[1].agent
+    if not any(item.startswith(f"{agent}: an effect at") for item in timeline_problems(moved, gate, order)):
+        problems.append("an effect inside another agent's hold passed the oracle")
     return problems
 
 

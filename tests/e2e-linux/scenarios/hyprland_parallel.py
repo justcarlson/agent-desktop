@@ -92,6 +92,7 @@ def four_agents_serialized_dispatch(ctx: LegContext) -> None:
                     problems += failed
             finally:
                 gate.close()
+        problems += oracle.effect_order_problems(spans)
         ctx.after("applog.strays", _strays(launched, spans))
         problems += _strays(launched, spans)
         after = zoo.desktop_of(tier)
@@ -126,6 +127,7 @@ def four_agents_three_interleavings(ctx: LegContext) -> None:
                         spans += schedule.spans
                 finally:
                     gate.close()
+            problems += oracle.effect_order_problems(spans)
             problems += setup.final_problems()
             zoo.note_layers(ctx, problems)
             ctx.after("applog.strays", _strays(launched, spans))

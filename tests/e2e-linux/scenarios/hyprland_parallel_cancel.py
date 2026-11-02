@@ -46,7 +46,8 @@ def _next_proceeds(gate, sampler, launched, agent: agents.Agent, since: float, a
     allowed.setdefault(agent.name, []).extend(landed)
     if len(landed) != 1:
         problems.append(f"the next agent {agent.name} landed {len(landed)} effects, not 1")
-    return problems
+    span = agents.span_of(agent, sampler.events(), landed)
+    return problems + oracle.early_effect_problems([span]) + oracle.lag_problems([span])
 
 
 def queued_stage(tier, gate, sampler, launched, refs, session: str, allowed) -> list[str]:
