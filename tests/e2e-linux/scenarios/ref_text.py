@@ -50,6 +50,8 @@ def select_text(ctx, verb):
 @implementation("ref_actions.double_click")
 @implementation("ref_actions.double_click_headless_refusal")
 def double_click(ctx):
+    """On X11 a ref double-click selects a document word. On hyprland the headed leg asserts the
+    receiver_unproven refusal of an XWayland pad, and the headless leg the policy refusal."""
     if ctx.tier.name == "hyprland":
         return hyprland_pointer_refs.ref_gesture(ctx, "double-click")
     select_text(ctx, "double-click")
@@ -58,6 +60,8 @@ def double_click(ctx):
 @implementation("ref_actions.triple_click")
 @implementation("ref_actions.triple_click_headless_refusal")
 def triple_click(ctx):
+    """On X11 a ref triple-click selects a document line. On hyprland the headed leg asserts the
+    receiver_unproven refusal of an XWayland pad, and the headless leg the policy refusal."""
     if ctx.tier.name == "hyprland":
         return hyprland_pointer_refs.ref_gesture(ctx, "triple-click")
     select_text(ctx, "triple-click")
