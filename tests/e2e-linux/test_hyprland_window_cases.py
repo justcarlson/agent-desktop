@@ -101,13 +101,16 @@ class SizerLogTests(unittest.TestCase):
             self.write()
             self.assertNotEqual(app.size_problems("resize", self.log, [500, 400]), [])
 
-    def test_the_last_state_must_say_maximized_exactly_when_asked(self):
-        self.write({"ev": "state", "maximized": True}, {"ev": "configure", "w": 1, "h": 1})
+    def test_a_maximize_must_give_the_app_the_new_size_not_the_old_one(self):
+        self.write({"ev": "configure", "w": 500, "h": 400}, {"ev": "configure", "w": 1278, "h": 798})
         with mock.patch.object(app.raw, "poll", return_value=None):
-            self.assertEqual(app.state_problems("maximize", self.log, True), [])
-            self.assertNotEqual(app.state_problems("restore", self.log, False), [])
-            self.write()
-            self.assertNotEqual(app.state_problems("restore", self.log, False), [])
+            self.assertEqual(app.resized_problems("maximize", self.log, [500, 400], [1278, 798]), [])
+            self.assertNotEqual(app.resized_problems("maximize", self.log, [500, 400], [500, 400]), [])
+            self.assertNotEqual(app.resized_problems("maximize", self.log, [500, 400], [1280, 640]), [])
+
+    def test_the_toplevel_state_is_not_read_as_the_maximize_oracle(self):
+        self.assertFalse(hasattr(app, "state_problems"))
+        self.assertNotIn("state_problems", nested.__dict__)
 
     def test_a_refusal_must_leave_the_log_quiet(self):
         self.write({"ev": "configure", "w": 1, "h": 1})
@@ -119,7 +122,12 @@ class SizerLogTests(unittest.TestCase):
 
 class FakeSized:
     def __init__(self, now: dict, log: Path):
-        self.now, self.log, self.steps, self.argvs = now, log, [], []
+        self.now, self.log, self.steps, self.argvs, self.expected = now, log, [], [], []
+        self.ctx, self.instance, self.lua = SimpleNamespace(tier=None), {}, True
+        self.output = {"name": "WAYLAND-1", "x": 0, "y": 0}
+
+    def monitor(self):
+        return dict(self.output)
 
     def read(self):
         return dict(self.now)
@@ -130,6 +138,7 @@ class FakeSized:
     def operated(self, label, argv, expected):
         self.steps.append(("operated", argv[0]))
         self.argvs.append(argv)
+        self.expected.append(expected)
         return []
 
     def satisfied(self, label, argv):
@@ -155,11 +164,40 @@ class NestedPlacementTests(unittest.TestCase):
         self.assertEqual(checks.point(-50, -20), ["--x=-50", "--y=-20"])
         self.assertEqual(checks.point(40, 60), ["--x=40", "--y=60"])
 
-    def test_inside_reads_the_monitor_in_logical_pixels(self):
-        monitor = {"x": -1024, "y": -640, "width": 1280, "height": 800, "scale": 1.25}
-        self.assertTrue(nested.inside({"at": [-984, -580], "size": [480, 360]}, monitor))
-        self.assertFalse(nested.inside({"at": [-984, -580], "size": [1000, 360]}, monitor))
-        self.assertFalse(nested.inside({"at": [0, 0], "size": [10, 10]}, monitor))
+
+
+class ChangedOutputTests(unittest.TestCase):
+    def test_a_restore_on_a_moved_output_expects_the_old_offset_from_the_new_origin(self):
+        log = Path(tempfile.mkdtemp()) / "sizer.events"
+        log.write_text("")
+        sized = FakeSized({"at": [635, 15], "size": [630, 770], "workspace": "1", "fullscreen": 0}, log)
+
+        @contextlib.contextmanager
+        def moved(*_a):
+            sized.output = {"name": "WAYLAND-1", "x": -1024, "y": -640}
+            yield
+
+        with mock.patch.object(nested, "moved_output", moved), \
+                mock.patch.object(nested, "size_problems", return_value=[]):
+            self.assertEqual(nested._changed_output(sized, "nested", sized.read()), [])
+        self.assertEqual(sized.expected[-1], {"fullscreen": 0, "at": [-389, -625], "size": [630, 770],
+                                              "workspace": "1"})
+
+    def test_a_maximize_after_the_output_moved_back_restores_where_the_window_was_then(self):
+        sized = SimpleNamespace(read=lambda: {"at": [635, 15]}, floated=lambda: {"at": [1, 2]}, focused=lambda: None)
+        calls = []
+
+        @contextlib.contextmanager
+        def fake_sizer(*_a):
+            yield None, {}, None
+
+        record = lambda kind: lambda _s, label, first: calls.append((kind, label, first["at"])) or []
+        with mock.patch.object(nested, "sizer", fake_sizer), mock.patch.object(nested, "Sized", return_value=sized), \
+                mock.patch.object(nested, "_maximized_cases", record("max")), \
+                mock.patch.object(nested, "_changed_output", record("moved")):
+            self.assertEqual(nested.maximize_cases(SimpleNamespace(tier=None), {}, True, "nested"), [])
+        self.assertEqual(calls, [("max", "nested", [1, 2]), ("moved", "nested", [635, 15]),
+                                 ("max", "nested after the output moved back", [635, 15])])
 
 
 class LegacyInstanceTests(unittest.TestCase):
