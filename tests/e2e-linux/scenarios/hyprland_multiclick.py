@@ -23,6 +23,7 @@ from oracle import atspi_raw as raw
 from runner.helper import require
 from runner.verdict import LegContext
 from scenarios.hyprland_focus_controls import cursor_argv
+from scenarios.hyprland_hover import fixtures_running
 from scenarios.hyprland_pointer import nested, no_receiver_proof
 from scenarios.hyprland_pointer_pad import cursor_at, instance_control, instance_env, instance_query, xy
 from scenarios.hyprland_pointer_refs import fixture_ref, refused_without_input
@@ -86,40 +87,43 @@ def coordinate_clicks(ctx, env, log: Path, label: str, centre: tuple[float, floa
     return problems
 
 
-def toolkit_problems(ctx, env, instance: dict, toolkit: str) -> list[str]:
+def toolkit_problems(ctx, env, instance: dict, toolkit: str, started: list) -> tuple[list[str], list[str]]:
+    """The problems on one fixture and the widgets its log names as clicked."""
     with receiver_fixture(ctx.tier, instance, toolkit, "plain") as (owned, client, log):
-        ctx.before("applog.fixture", len(fixture_events(log)))
+        started.append(owned)
         target = fixture_ref(ctx, env, owned.pid)
         label = f"{toolkit} plain fixture"
         problems = refused_without_input(ctx, env, instance, label,
                                          [["double-click", target], ["triple-click", target]],
                                          lambda: len(clicked(fixture_events(log))))
         problems += coordinate_clicks(ctx, env, log, label, target_centre(ctx, env, target, client))
-        ctx.after("applog.fixture", len(fixture_events(log)))
-        ctx.finding(f"{label} log: {[item.get('widget') or item.get('ev') for item in fixture_events(log)]}")
-    return problems
+        return problems, clicked(fixture_events(log))
 
 
 def coordinate_multi_click_xwayland(ctx: LegContext) -> None:
     """Headed double and triple click by ref refuse on each XWayland fixture with no click logged;
     `mouse-click --xy --count 2|3` then lands that many clicks on the target, without receiver proof.
-    The nested cursor goes back where it was."""
+    The fixtures are gone and the nested cursor is back where it was at the end."""
     tier = ctx.tier
     instance, lua = nested(tier)
     env = instance_env(tier, instance)
     before = instance_query(tier, instance, "cursorpos")
-    ctx.before("hyprland.cursor", before)
-    problems = []
+    ctx.before("hyprland.cursor", cursor_at(tier, instance))
+    ctx.before("applog.fixture", fixtures_running([]))
+    problems, logged, started = [], {}, []
     try:
         for toolkit in TOOLKITS:
-            problems += toolkit_problems(ctx, env, instance, toolkit)
+            found, logged[toolkit] = toolkit_problems(ctx, env, instance, toolkit, started)
+            problems += found
         ctx.after("hyprland.cursor", cursor_at(tier, instance))
+        ctx.after("applog.fixture", logged)
     finally:
         instance_control(tier, instance, cursor_argv(before["x"], before["y"], lua))
         require(raw.poll(lambda: instance_query(tier, instance, "cursorpos") == before, 3.0),
                 f"the nested cursor did not return to {before}")
-        ctx.restored("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
     require(not problems, "; ".join(problems))
+    ctx.restored("hyprland.cursor", cursor_at(tier, instance))
+    ctx.restored("applog.fixture", fixtures_running(started))
     ctx.finding("each mouse-click --count report says receiver_proof: false")
 
 
