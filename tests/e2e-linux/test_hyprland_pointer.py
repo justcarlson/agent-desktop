@@ -480,7 +480,7 @@ class MovedOutputTests(unittest.TestCase):
         seen = [{"name": "WAYLAND-1", "x": 0, "y": 0, "scale": 1.0, "width": 1280, "height": 800}]
         with mock.patch.object(pointer, "instance_query", return_value=seen), \
                 mock.patch.object(pointer.hyprland, "control"), mock.patch.object(pointer, "shared"), \
-                mock.patch.object(pointer.raw, "poll", return_value=False):
+                mock.patch.object(pointer.raw, "poll", side_effect=[False, True]):
             with self.assertRaises(Exception) as caught:
                 with pointer.moved_output(None, {"signature": "s"}, False, "WAYLAND-1", (-1024, -640), 1.25):
                     pass

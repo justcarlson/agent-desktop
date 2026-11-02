@@ -72,13 +72,21 @@ def moved_output(tier, instance: dict, lua: bool, name: str, origin: tuple[int, 
     hyprland.control(shared(tier), instance["signature"],
                      monitor_command(lua, name, f"{origin[0]}x{origin[1]}", scale))
     try:
-        require(raw.poll(lambda: placed(origin, scale), 5.0), f"{name} never took {origin} at {scale:g}")
+        require(raw.poll(lambda: placed(origin, scale), 5.0),
+                f"{name} never took {origin} at {scale:g}; outputs {outputs_seen(tier, instance)}")
         yield
     finally:
         back = (before["x"], before["y"])
         hyprland.control(shared(tier), instance["signature"],
                          monitor_command(lua, name, f"{back[0]}x{back[1]}", float(before["scale"])))
-        require(raw.poll(lambda: placed(back, float(before["scale"])), 5.0), f"{name} did not return to {back}")
+        require(raw.poll(lambda: placed(back, float(before["scale"])), 5.0),
+                f"{name} did not return to {back}; outputs {outputs_seen(tier, instance)}")
+
+
+def outputs_seen(tier, instance: dict) -> str:
+    """Each output as name, origin, scale and mode size."""
+    return "; ".join(f"{item['name']} {item['x']},{item['y']} scale {float(item['scale']):g} "
+                     f"{item['width']}x{item['height']}" for item in instance_query(tier, instance, "monitors"))
 
 
 def settled_client(tier, instance: dict, pid: int, monitor: dict) -> dict:
