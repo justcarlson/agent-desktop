@@ -5,9 +5,6 @@ refuse at once, before any pointer or modifier event, also for a GTK4 window und
 popup covers the target (L45-3, `hyprland_receiver_fixture`): that popup is a second client of
 the same pid, and a refusal that waited for the target to become actionable first ended in
 `TIMEOUT`. `hover --xy` delivers; `j/cursorpos` is its oracle.
-
-The registry entries for these legs belong to `runner/legs.py`; until they land there,
-`register()` adds the implementations for a registry that names them.
 """
 
 from __future__ import annotations
@@ -28,7 +25,6 @@ from scenarios.hyprland_receiver_fixture import TARGET, TITLE, fixture_events, r
 
 REFUSAL_BUDGET_MS = 2000
 QUIET_S = 0.5
-LEGS = {"pointer.hover_by_ref_refused": "hover_by_ref_refused", "pointer.hover_coordinates": "hover_coordinates"}
 
 
 def ref_refusal_problems(label: str, envelope) -> list[str]:
@@ -168,9 +164,3 @@ def hover_coordinates(ctx: LegContext) -> None:
                     f"the nested cursor did not return to {before}")
             ctx.restored("hyprland.cursor", cursor_at(tier, instance))
     ctx.restored("applog.pad", pads_left(tier))
-
-
-def register(implementation) -> None:
-    """Adds each hover leg's implementation through the registry's `implementation` decorator."""
-    for leg_id, name in LEGS.items():
-        implementation(leg_id)(globals()[name])

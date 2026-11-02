@@ -120,6 +120,12 @@ class HyprlandRegistryTests(unittest.TestCase):
         self.assertLess(wayland.index("session.other_wayland_route_unchanged"),
                         wayland.index("ref_contract.zoo_gtk3"))
 
+    def test_every_lazy_implementation_names_a_scenario_leg(self):
+        import importlib
+        for leg_id, (module, name) in legs.LAZY_IMPLEMENTATIONS.items():
+            with self.subTest(leg=leg_id):
+                self.assertIn(leg_id, {leg.id for leg in legs.REGISTRY})
+                self.assertTrue(callable(getattr(importlib.import_module(module), name, None)))
     def test_hyprland_is_selectable_but_not_a_default_tier(self):
         self.assertIn("hyprland", main.TIER_CHOICES)
         self.assertNotIn("hyprland", main.DEFAULT_TIERS)
