@@ -7,6 +7,7 @@
 
 pub(crate) mod agent_cursor;
 pub(crate) mod agent_cursors;
+pub(crate) mod arrival_ack_hold;
 pub(crate) mod arrow_bitmap;
 pub(crate) mod arrow_frame;
 pub(crate) mod compositor_watch;
