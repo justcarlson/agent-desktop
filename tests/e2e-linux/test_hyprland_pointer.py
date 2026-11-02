@@ -475,6 +475,18 @@ class XwaylandScrollTests(unittest.TestCase):
                           " (pad saw: scroll/scroll 2)"])
 
 
+class MovedOutputTests(unittest.TestCase):
+    def test_an_output_that_never_moves_is_reported_with_the_outputs_seen(self):
+        seen = [{"name": "WAYLAND-1", "x": 0, "y": 0, "scale": 1.0, "width": 1280, "height": 800}]
+        with mock.patch.object(pointer, "instance_query", return_value=seen), \
+                mock.patch.object(pointer.hyprland, "control"), mock.patch.object(pointer, "shared"), \
+                mock.patch.object(pointer.raw, "poll", return_value=False):
+            with self.assertRaises(Exception) as caught:
+                with pointer.moved_output(None, {"signature": "s"}, False, "WAYLAND-1", (-1024, -640), 1.25):
+                    pass
+        self.assertIn("WAYLAND-1 0,0 scale 1 1280x800", str(caught.exception))
+
+
 class PadBackendTests(unittest.TestCase):
     def test_the_x_display_is_the_lock_that_names_the_compositor_or_its_child(self):
         with tempfile.TemporaryDirectory() as work:
