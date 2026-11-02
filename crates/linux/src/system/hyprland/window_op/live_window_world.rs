@@ -48,10 +48,7 @@ impl WindowWorld for LiveWindowWorld {
 
     fn states(&mut self) -> Result<Vec<ClientState>, AdapterError> {
         let body = bound_request(&self.binding, CLIENTS_COMMAND, self.deadline)?;
-        parse_states(&body).ok_or_else(|| {
-            AdapterError::internal("The Hyprland client list could not be read")
-                .with_suggestion("Retry once the compositor answers")
-        })
+        parse_states(&body)
     }
 
     fn desktop(&mut self) -> Result<DesktopState, AdapterError> {

@@ -1,6 +1,7 @@
 //! The window-op state of every client in a `j/clients` reply: where it
 //! is, its size, whether it floats, its fullscreen mode and its workspace.
 
+use agent_desktop_core::AdapterError;
 use serde_json::Value;
 
 use crate::system::hyprland::clients::client_parse::parse_address;
@@ -31,11 +32,16 @@ impl ClientState {
     }
 }
 
-/// Every client of a `j/clients` reply, or `None` when one client is
+/// Every client of a `j/clients` reply, or the error when one client is
 /// unreadable.
-pub(crate) fn parse_states(body: &[u8]) -> Option<Vec<ClientState>> {
-    let clients: Vec<Value> = serde_json::from_slice(body).ok()?;
-    clients.iter().map(state_of).collect()
+pub(crate) fn parse_states(body: &[u8]) -> Result<Vec<ClientState>, AdapterError> {
+    serde_json::from_slice::<Vec<Value>>(body)
+        .ok()
+        .and_then(|clients| clients.iter().map(state_of).collect())
+        .ok_or_else(|| {
+            AdapterError::internal("The Hyprland client list could not be read")
+                .with_suggestion("Retry once the compositor answers")
+        })
 }
 
 fn state_of(client: &Value) -> Option<ClientState> {
