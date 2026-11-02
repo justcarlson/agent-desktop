@@ -167,10 +167,13 @@ UNPROVEN = {"code": "ACTION_FAILED",
             "disposition": {"delivery": "not_delivered", "retry": "safe"}}
 
 
+NATIVE_REFUSAL = {**UNPROVEN, "details": {**UNPROVEN["details"], "cause": "native_wayland_client"}}
+
+
 class XWaylandProofTests(unittest.TestCase):
-    """The XWayland half of the proof leg, driven against a product that answers as the bound Hyprland
-    route does: every headed ref click refuses as receiver_unproven before any activation, and press
-    --window-id runs the focus proof."""
+    """The proof leg, driven against a product that answers as the bound Hyprland route does: every
+    headed ref click refuses before any activation, as native_wayland_client on the native window and
+    as receiver_unproven on the XWayland one, and press --window-id runs the focus proof."""
 
     def setUp(self):
         from scenarios import hyprland_focus_proof
@@ -180,12 +183,16 @@ class XWaylandProofTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.runtime, True)
         self.flag = self.runtime / "inactive-frame.withhold"
         self.holder, self.target = {"address": "0xb", "pid": 2}, {"address": "0xa", "pid": 7, "workspace": {"name": "1"}}
-        self.state = {"active": self.holder, "text": "", "keys": [], "calls": []}
+        self.state = {"active": self.holder, "text": "", "keys": [], "calls": [], "backend": None,
+                      "cursor": {"x": 640, "y": 400}}
+        self.click_moves = False
 
     def product(self, argv):
-        self.state["calls"].append((tuple(argv), self.flag.exists()))
+        self.state["calls"].append((self.state["backend"], tuple(argv), self.flag.exists()))
         if argv[0] == "click":
-            return envelope(False, error=UNPROVEN)
+            if self.click_moves:
+                self.state["cursor"] = {"x": 957, "y": 413}
+            return envelope(False, error=UNPROVEN if self.state["backend"] == self.proof.XWAYLAND else NATIVE_REFUSAL)
         self.state["active"] = self.target
         if self.flag.exists():
             return envelope(False, error=unverified().error, elapsed_ms=4758.0)
@@ -198,22 +205,22 @@ class XWaylandProofTests(unittest.TestCase):
 
         @contextlib.contextmanager
         def frame(tier, flag, backend=proof.NATIVE):
-            self.assertEqual(backend, proof.XWAYLAND)
-            yield app, self.runtime / "log.jsonl"
+            self.state.update(backend=backend, text="", keys=[])
+            yield app, self.runtime / f"log-{backend}.jsonl"
 
         @contextlib.contextmanager
         def desk(ctx):
             yield (lambda: {"workspace": "1"}), self.holder, {"x": 640, "y": 400}
 
         def restore(*_):
-            self.state["active"] = self.holder
+            self.state.update(active=self.holder, cursor={"x": 640, "y": 400})
 
         agreeing = lambda tier, app: self.state["active"] is self.target and not self.flag.exists()
         ctx = SimpleNamespace(tier=SimpleNamespace(runtime_dir=self.runtime), product=self.product)
-        patches = {"_bystander_desktop": desk, "_native_keys": lambda *a: [], "inactive_frame": frame,
+        patches = {"_bystander_desktop": desk, "inactive_frame": frame,
                    "toplevel": lambda tier, app: self.target, "backend_problem": lambda *a: None,
                    "move": lambda *a: None, "restore_desktop": restore, "entry_ref": lambda ctx, app: "@s1:e1",
-                   "cursor": lambda tier: {"x": 640, "y": 400}, "active": lambda tier: self.state["active"],
+                   "cursor": lambda tier: self.state["cursor"], "active": lambda tier: self.state["active"],
                    "frame_active": agreeing, "_witnesses": lambda *a: [],
                    "entry_text": lambda tier, app: self.state["text"], "presses": lambda log: self.state["keys"],
                    "records": lambda log: list(self.state["keys"])}
@@ -228,9 +235,18 @@ class XWaylandProofTests(unittest.TestCase):
 
     def test_the_leg_tests_the_xwayland_proof_with_press_window_id_withheld_and_agreeing(self):
         self.run_leg()
-        presses = [withheld for argv, withheld in self.state["calls"] if argv == ("press", "x", "--window-id", "w1")]
-        clicks = [withheld for argv, withheld in self.state["calls"] if argv[0] == "click"]
-        self.assertEqual((presses, clicks), ([True, False], [True, False]))
+        calls = self.state["calls"]
+        for backend in (self.proof.NATIVE, self.proof.XWAYLAND):
+            with self.subTest(backend=backend):
+                presses = [held for side, argv, held in calls
+                           if side == backend and argv == ("press", "x", "--window-id", "w1")]
+                clicks = [held for side, argv, held in calls if side == backend and argv[0] == "click"]
+                self.assertEqual((presses, clicks), ([True, False], [True, False]))
+
+    def test_a_ref_click_that_moved_the_cursor_fails(self):
+        self.click_moves = True
+        with self.assertRaisesRegex(AssertionError, "xwayland headed ref click: the cursor moved"):
+            self.run_leg()
 
     def test_a_receiver_refusal_that_activated_moved_or_clicked_fails(self):
         refused = envelope(False, error=UNPROVEN)
