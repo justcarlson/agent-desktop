@@ -389,8 +389,12 @@ and `details.observed`. A window already as asked is `not_delivered` with
   without showing that special workspace. `restore` moves it back and then
   clears a maximized or fullscreen state. Neither follows the window, so the
   user's workspace and cursor stay where they are. A window on a workspace
-  whose name is not letters, digits, `-` and `_` (a special workspace, for
-  example) is `ACTION_NOT_SUPPORTED`, cause `workspace_name_unsupported`.
+  whose name is not letters, digits, `-` and `_` is `ACTION_NOT_SUPPORTED`,
+  cause `workspace_name_unsupported`.
+- A window that another tool hid on a special workspace (`special:scratch`,
+  for example) belongs to that tool: `minimize`, `maximize` and `restore` are
+  `ACTION_NOT_SUPPORTED`, cause `foreign_special_workspace`. Bring it back
+  with the tool that hid it.
 - Minimizing the focused window moves focus to another window, as Hyprland
   does when a window leaves. The report names the change in
   `details.side_effects` as `active_window_changed` with the old and new
@@ -411,6 +415,9 @@ and `details.observed`. A window already as asked is `not_delivered` with
   on the focused window, so `maximize`, and `restore` of a maximized window, are
   `ACTION_NOT_SUPPORTED`, cause `legacy_config_focused_only`. Move, resize,
   minimize and restore of a minimized window work.
+- A client list that lacks a window's place, size, floating, fullscreen or
+  workspace field is `ACTION_NOT_SUPPORTED`, cause `window_state_unreadable`:
+  without that evidence nothing can be planned or proven.
 - Every refusal above is `not_delivered`, decided before anything is sent. A
   request the compositor answers with an error is `ACTION_FAILED`, cause
   `compositor_rejected`, with its `details.reply`. A request whose effect is not

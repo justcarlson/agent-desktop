@@ -16,6 +16,8 @@ use super::window_step::WindowStep;
 /// of the workspace it came from.
 pub(crate) const MINIMIZED_PREFIX: &str = "special:agent-desktop-minimized-";
 
+const SPECIAL_PREFIX: &str = "special:";
+
 const MAXIMIZED: i64 = 1;
 const FULLSCREEN: i64 = 2;
 
@@ -63,9 +65,11 @@ pub(crate) fn plan(
                 ),
             ])
         }
-        WindowOp::Minimize => minimize(state, dialect),
-        WindowOp::Maximize => maximize(state, active, dialect),
-        WindowOp::Restore => restore(state, dialect),
+        WindowOp::Minimize => not_hidden_by_another(state).and_then(|()| minimize(state, dialect)),
+        WindowOp::Maximize => {
+            not_hidden_by_another(state).and_then(|()| maximize(state, active, dialect))
+        }
+        WindowOp::Restore => not_hidden_by_another(state).and_then(|()| restore(state, dialect)),
     }
 }
 
@@ -82,6 +86,20 @@ fn nameable(name: &str) -> bool {
         && name
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+/// A window on a special workspace that no minimize of ours names is hidden
+/// by another tool. Its state belongs to that tool, so minimize, maximize and
+/// restore leave it alone.
+fn not_hidden_by_another(state: &ClientState) -> Result<(), AdapterError> {
+    if state.workspace.starts_with(SPECIAL_PREFIX) && minimized_origin(&state.workspace).is_none() {
+        return Err(refused(
+            "foreign_special_workspace",
+            "Another tool hid the window on a special workspace",
+            "Bring the window back with the tool that hid it, then retry",
+        ));
+    }
+    Ok(())
 }
 
 fn placeable(state: &ClientState) -> Result<(), AdapterError> {
