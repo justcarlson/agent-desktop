@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from oracle import atspi_raw as raw
+from oracle import atspi_raw as raw, proc
 from runner import apps, attached_session
 from runner.helper import require
 from runner.product import LEASE_FD_ENV
@@ -30,6 +30,7 @@ from scenarios.hyprland_cursor import ended
 from scenarios.hyprland_cursor_agents import started_multi
 from scenarios.hyprland_focus_controls import cursor, move, restore_desktop
 from scenarios.hyprland_keys_common import keyboards, toplevel
+from scenarios.hyprland_pointer_pad import x_display
 
 BUTTON, ENTRY = "zoo-button", "zoo-entry"
 ACTIVATE, CHANGED = "activate", "changed"
@@ -47,10 +48,15 @@ class Zoo:
         return agents.app_events(self.log, widget, event)
 
 
-def _zoo_command(app: str, env: dict[str, str]) -> list[str]:
+def _zoo_command(tier, app: str, env: dict[str, str]) -> list[str]:
+    """The zoo's argv; the Qt zoo runs on the instance's XWayland display, where headed ref clicks reach it."""
     script = Path(apps.__file__).resolve().parents[1] / "apps" / f"{apps.ZOOS[app]}.py"
     if app == "Zoo Qt":
-        env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", QT_QPA_PLATFORM="xcb")
+        instance = main_instance(tier)
+        display = raw.poll(lambda: x_display(instance), LAUNCH_S)
+        require(display, f"no XWayland display names the compositor {instance['pid']}")
+        env.update(DISPLAY=display, QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1",
+                   QT_QPA_PLATFORM="xcb")
         return [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), str(script)]
     env["GTK_USE_PORTAL"] = "0"
     return ["python3", str(script)]
@@ -82,11 +88,12 @@ def _launch(tier, agent: str) -> Zoo:
         before = {(item.pid, item.start_time) for item in apps._owners(tier, names=names)}
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
-    attached_session.spawn(tier, [*_zoo_command(app, env), str(log)], env, out)
+    attached_session.spawn(tier, [*_zoo_command(tier, app, env), str(log)], env, out)
     deadline = time.monotonic() + LAUNCH_S
     with raw.bounded_until(deadline + RESPONSIVE_S):
         owner = raw.poll(lambda: _new_owner(tier, names, before), LAUNCH_S)
-    require(owner, f"{app} for agent {agent} registered no window in {LAUNCH_S:.0f} s; output: {_tail(out)}")
+    require(owner, f"{app} for agent {agent} registered no window in {LAUNCH_S:.0f} s; "
+                   f"run processes: {[name for _, _, name in proc.members(tier.runtime_dir)]}; output: {_tail(out)}")
     owned = _register(tier, owner)
     try:
         wait_ready(tier, owned)
