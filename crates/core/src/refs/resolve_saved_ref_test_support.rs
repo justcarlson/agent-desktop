@@ -25,6 +25,7 @@ pub(super) struct RuleAdapter {
     pub(super) strict: AtomicU32,
     pub(super) anchors: AtomicU32,
     pub(super) anchored: Mutex<Option<RefEntry>>,
+    pub(super) owner_exited: bool,
 }
 
 impl RuleAdapter {
@@ -39,6 +40,7 @@ impl RuleAdapter {
             strict: AtomicU32::new(0),
             anchors: AtomicU32::new(0),
             anchored: Mutex::new(None),
+            owner_exited: false,
         }
     }
 
@@ -74,6 +76,12 @@ impl ObservationOps for RuleAdapter {
         _deadline: Deadline,
     ) -> Result<Vec<WindowInfo>, AdapterError> {
         self.windows_listed.fetch_add(1, Ordering::SeqCst);
+        if self.owner_exited {
+            return Err(AdapterError::new(
+                crate::ErrorCode::AppNotFound,
+                "No running application matches 'Calculator'",
+            ));
+        }
         Ok(self.windows.clone())
     }
 
