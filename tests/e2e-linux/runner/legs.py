@@ -301,6 +301,8 @@ LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'pointer.hover_by_ref_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'hover_by_ref_headless_refused'),
     'pointer.ref_drag_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_refused'),
     'pointer.ref_drag_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_headless_refused'),
+    'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
+    'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
 }
 
 
