@@ -10,9 +10,11 @@ and a scoped `press x` must give the entry exactly one unmodified `x`.
 
 from __future__ import annotations
 
+import contextlib
 import signal
 import subprocess
 import time
+from pathlib import Path
 
 from oracle import atspi_raw as raw
 from runner import product
@@ -28,6 +30,7 @@ STARTED_PRESSES = 8
 IN_FLIGHT_S = 10.0
 SETTLE_S = 4.0
 SHIFTS = ("Shift_L", "Shift_R")
+LABEL = "cancel"
 
 
 def running_product(tier, argv: list[str], headed: bool = True) -> subprocess.Popen:
@@ -93,6 +96,15 @@ def prefix_problems(typed: str | None, text: str) -> list[str]:
     return []
 
 
+def app_evidence(runtime_dir: Path, label: str, pid: int, found: list[dict]) -> str:
+    """Whether the key log app still runs, the tail of its stderr, and its last records."""
+    alive = "alive" if Path(f"/proc/{pid}").exists() else "gone"
+    stderr = ""
+    with contextlib.suppress(OSError):
+        stderr = (runtime_dir / f"key-log-{label}.log").read_text()[-1500:]
+    return f"the key log app (pid {pid}) is {alive}; stderr: {stderr!r}; last records: {found[-12:]}"
+
+
 def _settled_text(tier, app) -> str | None:
     last = [entry_text(tier, app)]
 
@@ -150,11 +162,16 @@ def cancel_releases_keys(ctx: LegContext) -> None:
     tier = ctx.tier
     before = keyboards(tier)
     ctx.before("hyprland.keyboards", before)
-    with _focused_key_log(ctx, "cancel") as (app, log, ref):
+    with _focused_key_log(ctx, LABEL) as (app, log, ref):
         ctx.before("applog.held_keys", held_keys(records(log)))
         problems = []
         for sent in (signal.SIGTERM, signal.SIGKILL):
-            problems += _round(ctx, app, log, ref, sent)
+            try:
+                problems += _round(ctx, app, log, ref, sent)
+            except Exception:
+                ctx.finding(f"{signal.Signals(sent).name}: "
+                            f"{app_evidence(tier.runtime_dir, LABEL, app.pid, records(log))}")
+                raise
             if not raw.poll(lambda: keyboards(tier) == before, 3.0):
                 problems.append(f"{signal.Signals(sent).name}: the keyboards changed: {before} to {keyboards(tier)}")
         ctx.after("hyprland.keyboards", keyboards(tier))
