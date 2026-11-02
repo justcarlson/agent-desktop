@@ -18,9 +18,19 @@ Cases, two rounds each:
   scale 1.25, then back.
 - `state-moved` and `mode-moved`: maximize, move the output, restore with the case's request, read,
   then put the output back.
+- `record-moved`: the window left where an earlier output move put it, maximized and restored
+  with no output change.
 
-Results go to `<out>/results.jsonl` and a summary to stdout. The nested Hyprland and the sizer are
-the probe's own children and are stopped by their pids.
+Before the cases, `hl.dsp.window.tag` sets and removes tags of each form a restore record needs.
+After them, a nested instance from a legacy `.conf` moves WAYLAND-1 by `keyword monitor`: first
+alone, then beside a created second output, and on a fresh instance in the window leg's order,
+with the second output created and every output settled before the first move. The same order
+runs again with a floating sizer placed by the legacy dispatchers, and on an instance started
+through the session compositor on a silent special workspace, as the window leg starts it.
+
+Results go to `<out>/results.jsonl` and a summary to stdout. The visible nested instances and the
+sizer are the probe's own children and are stopped by their pids. The hidden instance is a child
+of the session compositor, so the probe asks it to exit over its own IPC socket.
 """
 
 from __future__ import annotations
@@ -37,6 +47,7 @@ sys.path.insert(0, str(ROOT / "tests" / "e2e-linux"))
 
 from oracle import hyprland  # noqa: E402
 from runner import second_instance  # noqa: E402
+from scenarios import wayland_outputs  # noqa: E402
 
 SIZER = ROOT / "tests" / "e2e-linux" / "apps" / "hyprland_window_sizer.py"
 ROUNDS = 2
@@ -157,6 +168,124 @@ def legacy_monitor(out: Path) -> dict:
         nested.stop()
 
 
+def legacy_created_first(out: Path) -> dict:
+    """The window leg's order on a fresh legacy-config instance: the second output created, every
+    output settled to the config mode, and only then each `keyword monitor` move of WAYLAND-1."""
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        nested = Nested(out, lua=False)
+    except RuntimeError as error:
+        return {"started": str(error)}
+    try:
+        found = {"started": "legacy", "monitors_before": outputs(nested)}
+        found["create_reply"] = nested.control(["output", "create", "headless", second_instance.OUTPUT])
+        found["output_reply"] = nested.control(second_instance.output_command(False))
+        try:
+            wayland_outputs.settle_outputs(nested.runtime, nested.signature, False)
+            found["settled"] = outputs(nested)
+        except RuntimeError as error:
+            found["settled"] = str(error)
+        legacy_rules(nested, found, "created first ")
+        return found
+    finally:
+        nested.stop()
+
+
+def legacy_with_window(out: Path) -> dict:
+    """The window leg's order with its window: the second output created and settled, the sizer
+    mapped, floated, moved and resized with the legacy dispatchers, and only then each
+    `keyword monitor` move of WAYLAND-1."""
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        nested = Nested(out, lua=False)
+    except RuntimeError as error:
+        return {"started": str(error)}
+    sizer = None
+    try:
+        found = {"started": "legacy"}
+        nested.control(["output", "create", "headless", second_instance.OUTPUT])
+        nested.control(second_instance.output_command(False))
+        wayland_outputs.settle_outputs(nested.runtime, nested.signature, False)
+        found["settled"] = outputs(nested)
+        sizer, address = start_sizer(nested, out)
+        selector = f"address:{address}"
+        found["window_replies"] = [nested.control(argv) for argv in (
+            ["dispatch", "setfloating", selector],
+            ["dispatch", f"movewindowpixel exact 40 60,{selector}"],
+            ["dispatch", f"resizewindowpixel exact 500 400,{selector}"])]
+        time.sleep(SETTLE)
+        client = next(item for item in nested.query("clients") if item["address"] == address)
+        found["window"] = [client["at"], client["size"], client["floating"], client["monitor"]]
+        legacy_rules(nested, found, "with window ")
+        return found
+    finally:
+        if sizer:
+            sizer.terminate()
+            sizer.wait(10)
+        nested.stop()
+
+
+def legacy_hidden(out: Path) -> dict:
+    """The window leg's legacy instance as the leg starts it: through the session compositor on
+    a silent special workspace, so its WAYLAND-1 output is hidden. Each `keyword monitor` move
+    of WAYLAND-1, then `forcerendererreload` and a second wait if the move did not take."""
+    out.mkdir(parents=True, exist_ok=True)
+    runtime = Path(os.environ["XDG_RUNTIME_DIR"])
+    outer = os.environ["HYPRLAND_INSTANCE_SIGNATURE"]
+    config = out / "legacy.conf"
+    config.write_text(second_instance.config_text(False))
+    before = set(hyprland.instances(runtime))
+    hyprland.exec_silently(runtime, outer, f"env -u HYPRLAND_INSTANCE_SIGNATURE Hyprland -c {config}",
+                           "ad_probe_hidden")
+    signature = poll(lambda: next(iter(set(hyprland.instances(runtime)) - before - {outer}), None), 20.0)
+    if not signature:
+        return {"started": "no instance appeared"}
+    found = {"started": "hidden", "lua": hyprland.uses_lua(runtime, signature)}
+    try:
+        control = lambda argv: hyprland.control(runtime, signature, argv)
+        listed = lambda: [[item["name"], item["x"], item["y"], item["scale"], item["width"], item["height"]]
+                          for item in hyprland.query(runtime, signature, "monitors")]
+        control(["output", "create", "headless", second_instance.OUTPUT])
+        control(second_instance.output_command(False))
+        wayland_outputs.settle_outputs(runtime, signature, False)
+        found["settled"] = listed()
+        for rule in LEGACY_MONITOR:
+            moved = lambda: next((item for item in listed() if item[0] == "WAYLAND-1"
+                                  and item[1:3] == [-1024, -640]), None)
+            reply = control(["keyword", "monitor", rule])
+            took = poll(moved, 5.0)
+            step = {"reply": reply, "took": took, "monitors": listed()}
+            if not took:
+                step["reload_reply"] = control(["dispatch", "forcerendererreload"])
+                step["took_after_reload"] = poll(moved, 5.0)
+                step["monitors_after_reload"] = listed()
+            found["hidden " + rule] = step
+            control(["keyword", "monitor", "WAYLAND-1,1280x800@60,0x0,1"])
+            time.sleep(SETTLE)
+        return found
+    finally:
+        pid = hyprland.peer_pid(hyprland.socket_path(runtime, signature))
+        found["exit_reply"] = hyprland.control(runtime, signature, ["dispatch", "exit"])
+        found["exited"] = bool(poll(lambda: not Path(f"/proc/{pid}").exists(), 10.0))
+
+
+def start_sizer(nested: Nested, out: Path) -> tuple[subprocess.Popen, str]:
+    log = out / "sizer.events"
+    log.write_text("")
+    env = dict(os.environ, WAYLAND_DISPLAY=nested.wayland, GDK_BACKEND="wayland")
+    for key in second_instance.DROPPED:
+        env.pop(key, None)
+    sizer = subprocess.Popen([sys.executable, "-I", str(SIZER), str(log)], env=env,
+                             stdout=subprocess.DEVNULL, stderr=open(out / "sizer.log", "w"))
+    client = poll(lambda: next((item for item in nested.query("clients")
+                                if item.get("pid") == sizer.pid and item.get("mapped")), None), 15.0)
+    if not client:
+        sizer.terminate()
+        sizer.wait(10)
+        raise RuntimeError("the sizer never mapped")
+    return sizer, client["address"]
+
+
 def legacy_rules(nested: Nested, found: dict, prefix: str = "") -> None:
     """Each `keyword monitor` move of WAYLAND-1 and the outputs after it, then WAYLAND-1 put back."""
     for rule in LEGACY_MONITOR:
@@ -244,17 +373,7 @@ def main(out: Path) -> int:
     sizer = None
     try:
         log = out / "sizer.events"
-        log.write_text("")
-        env = dict(os.environ, WAYLAND_DISPLAY=nested.wayland, GDK_BACKEND="wayland")
-        for key in second_instance.DROPPED:
-            env.pop(key, None)
-        sizer = subprocess.Popen([sys.executable, "-I", str(SIZER), str(log)], env=env,
-                                 stdout=subprocess.DEVNULL, stderr=open(out / "sizer.log", "w"))
-        client = poll(lambda: next((item for item in nested.query("clients")
-                                    if item.get("pid") == sizer.pid and item.get("mapped")), None), 15.0)
-        if not client:
-            raise RuntimeError("the sizer never mapped")
-        address = client["address"]
+        sizer, address = start_sizer(nested, out)
         nested.control(["dispatch", f'hl.dsp.window.float({{action="enable",{window(address)}}})'])
         nested.control(["dispatch", f'hl.dsp.focus({{{window(address)}}})'])
         with open(out / "results.jsonl", "a") as results:
@@ -276,6 +395,18 @@ def main(out: Path) -> int:
     with open(out / "results.jsonl", "a") as results:
         results.write(json.dumps({"case": "legacy-monitor", "steps": found}) + "\n")
     print(f"legacy monitor: {json.dumps(found)}", flush=True)
+    found = legacy_created_first(out / "created-first")
+    with open(out / "results.jsonl", "a") as results:
+        results.write(json.dumps({"case": "legacy-created-first", "steps": found}) + "\n")
+    print(f"legacy created first: {json.dumps(found)}", flush=True)
+    found = legacy_with_window(out / "with-window")
+    with open(out / "results.jsonl", "a") as results:
+        results.write(json.dumps({"case": "legacy-with-window", "steps": found}) + "\n")
+    print(f"legacy with window: {json.dumps(found)}", flush=True)
+    found = legacy_hidden(out / "hidden")
+    with open(out / "results.jsonl", "a") as results:
+        results.write(json.dumps({"case": "legacy-hidden", "steps": found}) + "\n")
+    print(f"legacy hidden: {json.dumps(found)}", flush=True)
     return 0
 
 
