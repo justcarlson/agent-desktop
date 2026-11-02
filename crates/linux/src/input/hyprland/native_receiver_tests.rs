@@ -22,7 +22,7 @@ const TARGET: u64 = 0x55e7761d2e70;
 
 #[test]
 fn a_native_wayland_target_is_refused_before_any_event() {
-    let error = check_native_receiver(&clients(Some(false)), TARGET).unwrap_err();
+    let error = check_unproven_receiver(&clients(Some(false)), TARGET).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let details = error.details.as_ref().unwrap();
@@ -37,20 +37,22 @@ fn a_native_wayland_target_is_refused_before_any_event() {
 
 #[test]
 fn a_native_wayland_refusal_never_falls_back_to_a_semantic_action() {
-    let error = check_native_receiver(&clients(Some(false)), TARGET).unwrap_err();
+    let error = check_unproven_receiver(&clients(Some(false)), TARGET).unwrap_err();
     assert_ne!(error.code, ErrorCode::ActionNotSupported);
     let check = &error.details.as_ref().unwrap()["check"];
     assert_ne!(check, "geometry");
 }
 
 #[test]
-fn an_xwayland_target_keeps_the_stack_proof() {
-    assert!(check_native_receiver(&clients(Some(true)), TARGET).is_ok());
+fn an_xwayland_target_is_refused_as_an_unproven_receiver() {
+    let error = check_unproven_receiver(&clients(Some(true)), TARGET).unwrap_err();
+    crate::input::hyprland::ref_pointer::tests::assert_unproven(&error);
+    assert_eq!(error.details.as_ref().unwrap()["check"], "hyprland_stack");
 }
 
 #[test]
 fn a_target_without_an_xwayland_flag_is_refused_as_missing_evidence() {
-    let error = check_native_receiver(&clients(None), TARGET).unwrap_err();
+    let error = check_unproven_receiver(&clients(None), TARGET).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let details = error.details.as_ref().unwrap();
@@ -60,20 +62,20 @@ fn a_target_without_an_xwayland_flag_is_refused_as_missing_evidence() {
 
 #[test]
 fn a_target_missing_from_the_client_list_is_refused() {
-    let error = check_native_receiver(&clients(Some(true)), 0xdead).unwrap_err();
+    let error = check_unproven_receiver(&clients(Some(true)), 0xdead).unwrap_err();
     assert_eq!(error.details.as_ref().unwrap()["cause"], "evidence_missing");
 }
 
 #[test]
 fn an_unreadable_client_list_is_refused() {
-    let error = check_native_receiver(b"not json", TARGET).unwrap_err();
+    let error = check_unproven_receiver(b"not json", TARGET).unwrap_err();
     assert_eq!(error.details.as_ref().unwrap()["cause"], "evidence_missing");
 }
 
 #[test]
 fn a_failed_client_list_request_is_refused_as_missing_evidence() {
     let read = Err(AdapterError::new(ErrorCode::Internal, "socket closed"));
-    let error = check_native_read(read, TARGET).unwrap_err();
+    let error = check_unproven_read(read, TARGET).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let details = error.details.as_ref().unwrap();
@@ -84,7 +86,7 @@ fn a_failed_client_list_request_is_refused_as_missing_evidence() {
 #[test]
 fn a_client_list_request_that_runs_out_of_time_is_refused_as_timed_out_evidence() {
     let read = Err(AdapterError::new(ErrorCode::Timeout, "deadline passed"));
-    let error = check_native_read(read, TARGET).unwrap_err();
+    let error = check_unproven_read(read, TARGET).unwrap_err();
     assert_eq!(error.code, ErrorCode::Timeout);
     let details = error.details.as_ref().unwrap();
     assert_eq!(details["cause"], "evidence_timed_out");
