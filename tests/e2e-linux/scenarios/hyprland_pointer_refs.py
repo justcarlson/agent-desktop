@@ -74,14 +74,42 @@ def action_label(argv: list[str]) -> str:
     return " ".join(part for part in argv if not part.startswith("@"))
 
 
-def refused_without_input(ctx, env, instance: dict, label: str, argvs: list[list[str]], reached) -> list[str]:
-    """Each headed ref action refuses as receiver_unproven, the app logs no input, and the compositor's
-    cursor stays where it was. `reached()` counts the input the app has logged."""
+def earlier_core_refusal(argv: list[str], envelope) -> str | None:
+    """A not_delivered refusal core gives before the adapter runs, when the hit test sees a second
+    client window over the target, as a GTK 4 popover on XWayland can be. A ref drag retries the
+    occluded endpoint until its deadline and then ends TIMEOUT, at the interaction lease, at the
+    adapter's stack read or at the retry loop's own deadline, whichever the deadline reaches first."""
+    error = envelope.error or {}
+    if envelope.ok or (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        return None
+    if error.get("code") == "ACTION_FAILED" and preflight_occluder(error):
+        return "core's receives_events hit test found an occluding window"
+    details = error.get("details") or {}
+    spent = (details.get("kind") == "interaction_process_lock_timeout"
+             or (details.get("cause") == "evidence_timed_out" and details.get("physical_delivery_started") is False)
+             or (details.get("kind") == "deadline"
+                 and (details.get("elapsed_ms") or 0) >= (details.get("timeout_ms") or float("inf"))))
+    if error.get("code") == "TIMEOUT" and argv[0] == "drag" and spent:
+        return f"core's drag ran out its deadline retrying the occluded endpoint ({details.get('kind')})"
+    return None
+
+
+def refused_without_input(ctx, env, instance: dict, label: str, argvs: list[list[str]], reached,
+                          earlier=None) -> list[str]:
+    """Each headed ref action refuses as receiver_unproven, or by `earlier`, a refusal that comes
+    before the adapter; the app logs no input, and the compositor's cursor stays where it was.
+    `reached()` counts the input the app has logged."""
     problems = []
     for argv in argvs:
         name = f"{label}: headed {action_label(argv)}"
         logged, before = reached(), cursor_at(ctx.tier, instance)
-        problems += unproven_problems(name, ctx.product(argv, env=env))
+        envelope = ctx.product(argv, env=env)
+        found = unproven_problems(name, envelope)
+        accepted = earlier(argv, envelope) if found and earlier else None
+        if accepted:
+            ctx.finding(f"{name}: refused before the receiver check: {accepted}")
+        else:
+            problems += found
         if raw.poll(lambda: reached() != logged, INPUT_SETTLE_S):
             problems.append(f"{name}: the app logged {reached() - logged} input events")
         after = cursor_at(ctx.tier, instance)
@@ -126,7 +154,8 @@ def fixture_refusals(ctx, env, instance: dict) -> list[str]:
             target = fixture_ref(ctx, env, owned.pid)
             problems += refused_without_input(ctx, env, instance, f"{toolkit} {case} fixture",
                                               fixture_actions(target, client),
-                                              lambda: len(clicked(fixture_events(log))))
+                                              lambda: len(clicked(fixture_events(log))),
+                                              earlier_core_refusal if case == "popup" else None)
             ctx.finding(f"{toolkit} {case} fixture log: {[item.get('ev') for item in fixture_events(log)]}")
     return problems
 
