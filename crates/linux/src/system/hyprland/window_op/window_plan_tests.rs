@@ -154,7 +154,7 @@ fn minimize_parks_the_window_on_a_special_workspace_named_for_its_origin() {
 
 #[test]
 fn an_origin_that_cannot_be_named_is_refused() {
-    for origin in ["special:scratch", "two words", ""] {
+    for origin in ["name:web", "two words", ""] {
         let state = with(|state| state.workspace = origin.into());
         assert_eq!(
             cause(plan(&WindowOp::Minimize, &state, None, LUA)),
