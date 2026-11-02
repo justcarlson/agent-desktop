@@ -200,3 +200,7 @@ mod exactly_once_tests;
 #[cfg(test)]
 #[path = "ref_action_focus_order_tests.rs"]
 mod focus_order_tests;
+
+#[cfg(test)]
+#[path = "ref_action_pointer_refusal_tests.rs"]
+mod pointer_refusal_tests;
