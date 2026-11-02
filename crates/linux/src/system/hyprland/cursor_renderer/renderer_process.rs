@@ -1,5 +1,6 @@
 //! The renderer process: it records itself, asks the bound compositor not
-//! to animate cursor layers, connects to it, shows the first control's
+//! to animate cursor layers and asks again after every config reload,
+//! connects to it, shows the first control's
 //! cursor at its initial point before it serves the first request, listens
 //! on its socket, and serves requests until it is disabled, its session
 //! ends or turns the cursor off, its compositor goes, or the compositor
@@ -12,20 +13,20 @@
 //! only while the record still names its own generation.
 
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline, Point};
 use rustix::event::{PollFd, PollFlags, Timespec};
 
 use super::agent_cursors::AgentCursors;
+use super::compositor_watch::CompositorWatch;
 use super::cursor_animation::{draw_at, draw_within, step_travels};
 use super::held_travel::{UNSEEN_STEP_MS, step_unseen};
 use super::holder_reply::refresh_holders;
 use super::holder_view::any_live;
 use super::holder_watch::HolderWatch;
 use super::initial_pose::initial_point;
-use super::layer_animation::suppress_layer_animation;
 use super::layer_client::LayerClient;
 use super::record_read::{RecordRead, read_record, remove_if_generation};
 use super::renderer_owner::RendererOwner;
@@ -51,7 +52,7 @@ pub(crate) struct RendererProcess {
     pub(crate) client: LayerClient,
     pub(crate) cursors: AgentCursors,
     listener: UnixListener,
-    compositor_dir: PathBuf,
+    compositor: CompositorWatch,
     pub(crate) rules: SessionRules,
 }
 
@@ -88,7 +89,7 @@ impl RendererProcess {
         };
         paths.ensure_dirs()?;
         record.write_atomic(&paths.record)?;
-        suppress_layer_animation(&target.binding);
+        let compositor = CompositorWatch::open(target);
         let opened = Self::open(stream, &paths, &target.binding.wayland_socket);
         let (client, listener) = match opened {
             Ok(opened) => opened,
@@ -103,10 +104,7 @@ impl RendererProcess {
             client,
             cursors: AgentCursors::new(first_point(target)),
             listener,
-            compositor_dir: target
-                .runtime_dir
-                .join("hypr")
-                .join(&target.binding.signature),
+            compositor,
             rules,
         };
         process.cursors.cursor(&key, first).concealed.hidden =
@@ -197,6 +195,7 @@ impl RendererProcess {
             if let Err(error) = self.client.pump() {
                 break Err(error);
             }
+            self.compositor.reapply_after_reload();
             if self.client.take_output_change()
                 && let Err(error) = self.redraw_all()
             {
@@ -258,10 +257,15 @@ impl RendererProcess {
         };
         let timeout = Timespec::try_from(pause)
             .map_err(|_| AdapterError::internal("The renderer poll interval does not fit"))?;
-        let mut fds = [
+        let mut fds = vec![
             PollFd::new(&self.listener, PollFlags::IN),
             PollFd::from_borrowed_fd(self.client.poll_fd(), PollFlags::IN),
         ];
+        fds.extend(
+            self.compositor
+                .poll_fd()
+                .map(|events| PollFd::from_borrowed_fd(events, PollFlags::IN)),
+        );
         match rustix::event::poll(&mut fds, Some(&timeout)) {
             Ok(_) | Err(rustix::io::Errno::INTR) => Ok(()),
             Err(error) => Err(AdapterError::internal("The cursor renderer could not poll")
@@ -282,7 +286,7 @@ impl RendererProcess {
     }
 
     fn still_wanted(&self) -> bool {
-        self.compositor_dir.is_dir()
+        self.compositor.is_present()
             && owns_record(&self.paths, &self.record.owner.generation)
             && (self.rules.wanted)(&self.record.session_id)
     }

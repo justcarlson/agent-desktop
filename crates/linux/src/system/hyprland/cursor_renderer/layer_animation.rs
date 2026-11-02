@@ -3,8 +3,8 @@
 //! point after the frame callback of its arrival has fired (probe row
 //! L43-6). Before it maps a surface, the renderer asks its compositor for a
 //! `no_anim` layer rule on the cursor namespace, so a margin change is drawn
-//! where it is committed. The rule is named, so a later renderer replaces it
-//! instead of adding another. A compositor without a Lua config refuses the
+//! where it is committed. The rule is named, so a later renderer, or the
+//! same one after a config reload, replaces it instead of adding another. A compositor without a Lua config refuses the
 //! request and keeps animating.
 
 use agent_desktop_core::Deadline;

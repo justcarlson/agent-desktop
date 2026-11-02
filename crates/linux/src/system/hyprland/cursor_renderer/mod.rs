@@ -9,6 +9,7 @@ pub(crate) mod agent_cursor;
 pub(crate) mod agent_cursors;
 pub(crate) mod arrow_bitmap;
 pub(crate) mod arrow_frame;
+pub(crate) mod compositor_watch;
 pub(crate) mod cursor_animation;
 pub(crate) mod cursor_concealment;
 pub(crate) mod cursor_surface;
