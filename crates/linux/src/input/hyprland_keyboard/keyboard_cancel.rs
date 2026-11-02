@@ -3,7 +3,8 @@
 //! key-down; the delivery releases its held keys and destroys its virtual
 //! keyboard before the signal's own action is taken.
 
-use agent_desktop_core::AdapterError;
+use agent_desktop_core::{AdapterError, ErrorCode};
+use serde_json::json;
 
 use crate::input::delivery::Gate;
 use crate::input::x11::progress::Progress;
@@ -11,9 +12,22 @@ use crate::input::x11::progress::Progress;
 /// `gate`, refusing every key-down once `progress` is cancelled.
 pub(crate) fn stop_on_signal<'a>(
     gate: Gate<'a>,
-    _progress: &'a Progress,
+    progress: &'a Progress,
 ) -> impl FnMut() -> Result<(), AdapterError> + 'a {
-    move || gate()
+    move || {
+        if progress.is_cancelled() {
+            return Err(stopped_by_signal());
+        }
+        gate()
+    }
+}
+
+fn stopped_by_signal() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "A signal stopped the keyboard delivery",
+    )
+    .with_details(json!({ "cause": "signal" }))
 }
 
 #[cfg(test)]
