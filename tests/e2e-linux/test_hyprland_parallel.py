@@ -480,6 +480,23 @@ class HeadedClickTests(unittest.TestCase):
         self.assertEqual(schedule.argv("D"), ["mouse-click", "--xy", "482,53"])
         self.assertEqual(schedule.argv("A")[:2], ["click", "@s1:e1"])
 
+    def test_d_coordinate_click_envelope_reports_its_lease_contention(self):
+        data = {"action": "mouse_click", "count": 1, "x": 482, "y": 53,
+                "details": {"delivered_events": 3, "receiver_proof": False,
+                            "auto_wait": {"lease_contention_count": 2, "lease_hold_ms": 41}},
+                "disposition": {"delivery": "delivered_unverified", "retry": "unsafe"},
+                "target": {"kind": "pointer", "point": {"x": 482, "y": 53}}}
+        contention = oracle.reported_contention(envelope(True, None, 0, data))
+        self.assertEqual(contention, 2)
+        spans = serial()
+        spans[3] = dataclasses.replace(spans[3], contention=contention)
+        self.assertEqual(oracle.queueing_problems(spans, oracle.holds_of(spans, GATE)), [])
+        unreported = {**data, "details": {"delivered_events": 3, "receiver_proof": False}}
+        spans[3] = dataclasses.replace(spans[3], contention=oracle.reported_contention(
+            envelope(True, None, 0, unreported)))
+        found = oracle.queueing_problems(spans, oracle.holds_of(spans, GATE))
+        self.assertEqual(found, ["D: the envelope reports no lease contention count"])
+
     def test_the_cancel_stages_give_d_a_coordinate_click(self):
         from scenarios import hyprland_parallel_cancel as cancel
 
