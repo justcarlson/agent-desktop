@@ -38,10 +38,10 @@ The runner inherits the caller's tool paths and libraries: supply tools through 
 
 ```sh
 cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
-cargo build --locked --release -p agent-desktop-ffi
+cargo build --locked --profile release-ffi -p agent-desktop-ffi
 bin=$(mktemp -d)/agent-desktop-bin && mkdir "$bin"
 cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
-  target/release/libagent_desktop_ffi.so "$bin"
+  target/release-ffi/libagent_desktop_ffi.so "$bin"
 test/omarchy-vm fetch stable
 pkgs=()
 for pkg in xorg-server-xvfb openbox xdotool wmctrl xclip xorg-xprop xorg-xwininfo xorg-xwd fuse2 \

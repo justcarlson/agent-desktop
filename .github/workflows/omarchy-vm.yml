@@ -69,10 +69,10 @@ jobs:
         run: |
           rustup show
           cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
-          cargo build --locked --release -p agent-desktop-ffi
+          cargo build --locked --profile release-ffi -p agent-desktop-ffi
           mkdir -p "$GITHUB_WORKSPACE/agent-desktop-bin"
           cp target/release/agent-desktop target/release/agent-desktop-linux-clipboard-owner \
-            target/release/libagent_desktop_ffi.so "$GITHUB_WORKSPACE/agent-desktop-bin/"
+            target/release-ffi/libagent_desktop_ffi.so "$GITHUB_WORKSPACE/agent-desktop-bin/"
 
       - name: Install the fetch tools
         run: |
