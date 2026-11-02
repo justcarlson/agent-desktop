@@ -27,6 +27,7 @@ from scenarios.hyprland_focus_controls import (active, client, control, cursor, 
 from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_window_checks import (MINIMIZED, SETTLE_S, float_argv, missing, operated, placement, point,
                                               refusal, satisfied, unchanged, window_argv)
+from scenarios.hyprland_window_dialect import channel, dialect_note, dialect_problems
 from scenarios.hyprland_window_legacy import legacy_instance
 from scenarios.hyprland_window_nested import geometry_cases, maximize_cases, minimize_cases
 
@@ -86,6 +87,8 @@ def _leg(ctx: LegContext, app_id: str, floating: bool, work, nested_work) -> Non
         instance, lua = nested(tier)
         problems += nested_work(ctx, instance, lua, "nested")
         with legacy_instance(tier) as (instance, lua):
+            ctx.finding(dialect_note(channel(), lua))
+            problems += dialect_problems(channel(), lua)
             problems += nested_work(ctx, instance, lua, "legacy config" if not lua else "conf file read as lua")
         require(not problems, "; ".join(problems))
     finally:
