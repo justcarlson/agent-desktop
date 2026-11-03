@@ -106,22 +106,14 @@ def next_text_matches(entry: str | None, typed: str, key: str, repeated: bool) -
     return collapse_repeats(entry[:-len(key)]) == collapse_repeats(typed)
 
 
-def _down_at(events: list[dict], until: float, held: list[int]) -> list[int]:
-    down = list(held)
+def _final_release(events: list[dict], code: int) -> float | None:
+    """When the app last saw `code` released with no press after it. Autorepeat is a release and a press, so
+    only the final release ends a hold."""
+    last = None
     for item in events:
-        code = item.get("code")
-        if item["t"] > until:
-            break
-        if item["event"] == "press" and code not in down:
-            down.append(code)
-        elif item["event"] == "release" and code in down:
-            down.remove(code)
-    return down
-
-
-def _first_release(events: list[dict], code: int, after: float) -> float | None:
-    return next((item["t"] for item in events
-                 if item["t"] > after and item["event"] == "release" and item.get("code") == code), None)
+        if item.get("code") == code:
+            last = item["t"] if item["event"] == "release" else None
+    return last
 
 
 def hold_measure(found: list[dict], signalled: float, next_command: float, expected: str) -> dict:
@@ -131,10 +123,11 @@ def hold_measure(found: list[dict], signalled: float, next_command: float, expec
     before = [item for item in found if item.get("t", 0.0) <= signalled]
     after = key_events([item for item in found if item.get("t", 0.0) > signalled])
     held = held_keys(before)
-    at_next = _down_at(after, next_command, held)
+    pressed = [item.get("code") for item in after if item["event"] == "press" and item["t"] <= next_command]
+    finals = {code: _final_release(after, code) for code in dict.fromkeys(held + pressed)}
+    at_next = [code for code, final in finals.items() if final is None or final > next_command]
     if at_next:
-        ends = [_first_release(after, code, next_command) for code in at_next]
-        end = None if None in ends else max(ends)
+        end = None if any(finals[code] is None for code in at_next) else max(finals[code] for code in at_next)
     else:
         end = max((item["t"] for item in after if item["t"] <= next_command), default=signalled)
     until = next_command if end is None else max(next_command, end)
