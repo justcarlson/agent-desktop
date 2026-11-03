@@ -41,6 +41,10 @@ def type_problems(result: dict, before: bytes, after: bytes) -> list[str]:
     return found
 
 
+def type_argv(window_id: str) -> list[str]:
+    return ['type', window_id, 'x']
+
+
 def envelope(result) -> dict:
     return {'ok': result.ok, 'data': result.data, 'error': result.error}
 
@@ -85,7 +89,7 @@ def press_window_id_compositor_only(ctx) -> None:
                     errors.append(f'{key}: missing compositor_only proof')
             errors += problems(envelope(result), log.read_bytes(), other_log.read_bytes())
             before = log.read_bytes()
-            refused = ctx.product(['type', ids[0], 'x', '--window-id', ids[0]])
+            refused = ctx.product(type_argv(ids[0]))
             errors += type_problems(envelope(refused), before, log.read_bytes())
             require(not other_log.read_bytes(), 'bystander received input')
             ctx.after('hyprland.desktop', desktop(tier, main))
