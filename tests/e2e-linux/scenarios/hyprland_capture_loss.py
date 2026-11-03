@@ -1,7 +1,9 @@
 """Capture after compositor loss, on the nested second instance of the attached `hyprland` tier.
 
 The nested instance holds no part of the user's desktop, so the leg can stop it. A painted foot
-window on it is captured once, which proves the instance renders. The instance is then stopped by
+window on it is captured once, which proves the instance renders. The outer session shows the
+nested window for that capture, since a hidden window gets no frame callbacks and the nested
+instance renders nothing. The instance is then stopped by
 its exact recorded pid, once through the record's own teardown (SIGTERM, so its sockets go) and once
 by SIGKILL (so its sockets stay and nobody serves them). Each later capture of the same window id
 must refuse with a typed code, not_delivered, exit 1 and within a budget, and return no frame and
@@ -24,6 +26,7 @@ from scenarios.capture import decode
 from scenarios.hyprland_capture_common import (capture_path, colour, dominant, ids_by_pid, near, painter_command,
                                                written)
 from scenarios.hyprland_common import bystander, desktop, main_instance
+from scenarios.hyprland_cursor_hide import nested_frames
 from scenarios.hyprland_desktop import boundary_problems, keeps_focus
 from scenarios.hyprland_pointer import nested, nested_running
 from scenarios.hyprland_pointer_pad import NATIVE, instance_env, instance_query, pad_env
@@ -122,7 +125,8 @@ def _round(ctx, how: str) -> list[str]:
     with nested_painted(tier, instance, f"{APP_ID}-{how}", PAINT) as (_, found):
         listed = ctx.product(["list-windows"], env=env, headed=False)
         window_id = ids_by_pid(listed, [found["pid"]])[found["pid"]]
-        _live_capture(ctx, env, window_id, how)
+        with nested_frames(ctx, instance):
+            _live_capture(ctx, env, window_id, how)
         lose(tier, instance, how)
         path = capture_path(tier, f"loss-{how}-lost")
         envelope = ctx.product(["screenshot", "--window-id", window_id, str(path)], env=env, headed=False)
