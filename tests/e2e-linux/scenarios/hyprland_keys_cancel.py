@@ -116,15 +116,23 @@ def _final_release(events: list[dict], code: int) -> float | None:
     return last
 
 
-def hold_measure(found: list[dict], signalled: float, next_command: float, expected: str) -> dict:
+def _next_delivery(events: list[dict], next_command: float, key: str) -> float:
+    """When the next command's own keys start: its lead Shift tap or `key`."""
+    return next((item["t"] for item in events if item["t"] > next_command and item["event"] == "press"
+                 and item.get("keysym") in (*SHIFTS, key)), float("inf"))
+
+
+def hold_measure(found: list[dict], signalled: float, next_command: float, expected: str, key: str) -> dict:
     """The keys held at the signal and at the next command, how long until the app saw the last of them released,
     and the characters the entry gained beyond `expected` until then. Autorepeat reaches the app as a release and a
-    press per character, so the repeats are counted from the entry text. Times are the app's monotonic clock."""
+    press per character, so the repeats are counted from the entry text. A hold ends before the next command's own
+    keys, which press `key` after a Shift tap. Times are the app's monotonic clock."""
     before = [item for item in found if item.get("t", 0.0) <= signalled]
     after = key_events([item for item in found if item.get("t", 0.0) > signalled])
     held = held_keys(before)
     pressed = [item.get("code") for item in after if item["event"] == "press" and item["t"] <= next_command]
-    finals = {code: _final_release(after, code) for code in dict.fromkeys(held + pressed)}
+    bounded = [item for item in after if item["t"] < _next_delivery(after, next_command, key)]
+    finals = {code: _final_release(bounded, code) for code in dict.fromkeys(held + pressed)}
     at_next = [code for code, final in finals.items() if final is None or final > next_command]
     if at_next:
         end = None if any(finals[code] is None for code in at_next) else max(finals[code] for code in at_next)
@@ -225,7 +233,7 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
         problems.append(f"{name}: the next press left {entry_text(tier, app)!r}, not {typed + 'x'!r}")
     raw.poll(lambda: not held_keys(records(log)[after:]), 2.0)
     problems += [f"{name}: {item}" for item in next_press_problems(records(log)[after:], "x", repeating)]
-    measure = dict(hold_measure(records(log)[start:], signalled, next_command, base + CANCELLED), signal=name,
+    measure = dict(hold_measure(records(log)[start:], signalled, next_command, base + CANCELLED, "x"), signal=name,
                    target_focused=focused)
     ctx.finding("hold " + json.dumps(measure, sort_keys=True))
     return problems
