@@ -15,7 +15,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import legs
+from runner import legs, tier_record
 from runner.apps import OwnedApp
 from runner.product import Envelope
 from runner.verdict import LegContext, evaluate
@@ -141,6 +141,7 @@ class CloseVerdictTests(unittest.TestCase):
             self.assertEqual(close._close(ctx, "close", "python3.14", app, {7}), [])
 
 
+@unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
 class ClosePairPlacementTests(unittest.TestCase):
     def spawn_pair(self) -> mock.Mock:
         work = Path(self.enterContext(tempfile.TemporaryDirectory()))
@@ -151,7 +152,7 @@ class ClosePairPlacementTests(unittest.TestCase):
         tier = SimpleNamespace(env={"PATH": str(python.parent)}, runtime_dir=work)
         spawn = mock.Mock(side_effect=RuntimeError("stop after spawn"))
         with mock.patch.object(close.apps, "_owners", return_value=[]), \
-                mock.patch.object(close.attached_session, "spawn", spawn), \
+                mock.patch("runner.attached_session.spawn", spawn), \
                 self.assertRaises(RuntimeError):
             with close.close_pair(tier):
                 pass

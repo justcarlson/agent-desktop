@@ -12,6 +12,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from runner import tier_record
 from runner.product import Envelope
 from runner.verdict import LegContext, evaluate
 from scenarios import (hyprland_window_app as app, hyprland_window_checks as checks,
@@ -237,6 +238,7 @@ class ChangedOutputTests(unittest.TestCase):
                                  ("max", "nested after the output moved back", [635, 15])])
 
 
+@unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
 class LegacyInstanceTests(unittest.TestCase):
     def patched(self, found):
         tier = SimpleNamespace(runtime_dir=Path(tempfile.mkdtemp()), env={"PATH": "/usr/bin"})
@@ -244,9 +246,9 @@ class LegacyInstanceTests(unittest.TestCase):
             "stop": mock.patch.object(legacy.second_instance, "stop"),
             "find": mock.patch.object(legacy.second_instance, "find_new", return_value=found),
             "wayland": mock.patch.object(legacy.second_instance, "wayland_of", return_value="wayland-9"),
-            "spawn": mock.patch.object(legacy.attached_session, "spawn"),
-            "load": mock.patch.object(legacy.attached, "load", return_value={}),
-            "record": mock.patch.object(legacy.attached, "record_instance"),
+            "spawn": mock.patch("runner.attached_session.spawn"),
+            "load": mock.patch("runner.attached.load", return_value={}),
+            "record": mock.patch("runner.attached.record_instance"),
             "shared": mock.patch.object(legacy, "shared", return_value=Path("/run/x")),
             "instances": mock.patch.object(legacy.hyprland, "instances", return_value=[]),
             "lua": mock.patch.object(legacy.hyprland, "uses_lua", return_value=False),

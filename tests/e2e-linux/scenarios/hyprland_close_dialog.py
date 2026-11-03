@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -48,6 +48,7 @@ def _mapped(tier, pid: int) -> list[dict] | None:
 def dialog_host(tier, mode: str):
     """The host window and its unrelated dialog in one process. Yields the app, its two clients
     and the path of its close-request log."""
+    from runner import attached_session
     require(not apps._owners(tier, names=HOST_NAMES), "a dialog host from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)

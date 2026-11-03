@@ -12,7 +12,6 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, proc
-from runner import attached_session
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_close import _register, _release
@@ -26,7 +25,7 @@ LOG_SETTLE_S = 3.0
 
 
 def events(log: Path) -> list[dict]:
-    return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+    return [json.loads(line) for line in log.read_text().rpartition("\n")[0].splitlines() if line.strip()]
 
 
 def logged(log: Path, kind: str) -> dict | None:
@@ -98,6 +97,7 @@ def _new_client(tier, instance: dict, known: set[str]) -> dict | None:
 def sizer(tier, instance: dict, label: str):
     """The sizer on `instance`, native Wayland, in the run's slice. Yields the app, its toplevel
     and its log once `j/clients` shows the toplevel mapped."""
+    from runner import attached_session
     known = {item.get("address") for item in instance_query(tier, instance, "clients")}
     log = tier.runtime_dir / f"window-sizer-{label}.events"
     log.write_text("")
