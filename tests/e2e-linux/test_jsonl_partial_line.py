@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scenarios import hyprland_cursor_ack, hyprland_pointer_pad, hyprland_window_app, parallel_agents, ref_contract
 from scenarios import toolkit_qt
+from apps import sni_item
 
 RECORD = '{"widget": "w", "event": "e", "at": 1.0}'
 PARTIAL = RECORD + '\n{"widget": "w", "ev'
@@ -37,6 +38,12 @@ class PartialLineTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(self.read(reader), expected)
                 self.assertEqual(self.read(reader, RECORD + "\n"), expected)
+
+    def test_the_tray_reader_skips_a_call_still_being_written(self):
+        call = '{"call": "activate", "args": {"x": 1}}'
+        expected = [("activate", {"x": 1})]
+        self.assertEqual(self.read(sni_item.read_log, call + '\n{"call": "act'), expected)
+        self.assertEqual(self.read(sni_item.read_log, call + "\n"), expected)
 
 
 if __name__ == "__main__":
