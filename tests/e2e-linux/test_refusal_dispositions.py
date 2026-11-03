@@ -13,6 +13,7 @@ HYPRLAND_REFUSALS = (
     "pointer.ref_receiver_evidence",
     "pointer.ref_receiver_evidence_under_cursor",
     "pointer.cursor_pass_through",
+    "pointer.session_ref_pointer_refusals",
     "ref_actions.double_click",
     "ref_actions.triple_click",
     "ref_actions.scroll",

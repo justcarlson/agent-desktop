@@ -301,6 +301,8 @@ LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'lifecycle.hyprland_window_operation_refusals': ('scenarios.hyprland_window_refusals', 'window_operation_refusals'),
     'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),
     'pointer.hover_coordinates': ('scenarios.hyprland_hover', 'hover_coordinates'),
+    'pointer.session_ref_pointer_refusals': ('scenarios.hyprland_session_pointer', 'session_ref_pointer_refusals'),
+    'pointer.session_hover_coordinates': ('scenarios.hyprland_session_pointer', 'session_hover_coordinates'),
     'pointer.coordinate_multi_click_xwayland': ('scenarios.hyprland_multiclick', 'coordinate_multi_click_xwayland'),
     'pointer.hover_by_ref_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'hover_by_ref_headless_refused'),
     'pointer.ref_drag_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_refused'),

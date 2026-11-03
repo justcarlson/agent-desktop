@@ -1,13 +1,14 @@
-"""Ref pointer legs on the attached `hyprland` tier, and the Hyprland side of the shared pointer legs.
+"""Ref pointer refusal legs on the attached `hyprland` tier, and the Hyprland side of the shared pointer legs.
 
-Positive ref input goes to the nested second instance, where no shell layer covers the pad.
-Covers the leg places are its own: a slurp selection layer, and a foot terminal it floats or
-pins over the pad. The session instance is used only for refusals that send no event.
-Every headed ref pointer action refuses before any event. On a native Wayland pad the cause is
-`native_wayland_client` (probes/linux/FINDINGS.md L47-4, L47-5), which
-`pointer.native_wayland_ref_refused` checks. On an XWayland pad, and on the L47/L45 fixtures whose
-target sits under an in-window overlay or a same-client popup, it is `receiver_unproven` (L45-2), which
-the other legs check.
+No headed ref pointer action delivers on Hyprland; each refuses before any event. On an XWayland pad,
+and on the L47/L45 fixtures whose target sits under an in-window overlay or a same-client popup, the
+cause is `receiver_unproven` (L45-2). On a native Wayland pad it is `native_wayland_client`
+(probes/linux/FINDINGS.md L47-4, L47-5), which `pointer.native_wayland_ref_refused` checks. These
+legs run on the nested second instance, where the covers are the leg's own: a slurp selection layer,
+and a foot terminal it floats or pins over the pad. `pointer.cover_or_missing_evidence_refused` also
+refuses a click under the session instance's own shell layers. `ref_gesture` is the Hyprland side of
+the shared double-click, triple-click and scroll legs. The shared mouse-click delivery report runs on
+the session instance, on a pad beside the bystander.
 """
 
 from __future__ import annotations
@@ -24,9 +25,9 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_close import _register, _release
 from scenarios.hyprland_common import bystander, main_instance
-from scenarios.hyprland_focus_controls import cursor, cursor_argv, lua_call, restore_desktop, shown
-from scenarios.hyprland_pointer import (delivered, nested, refusal_problems, drag_problems,
-                                        click_problems, wheel_problems)
+from scenarios.hyprland_focus_controls import cursor, lua_call, restore_desktop, shown
+from scenarios.hyprland_pointer import (beside_bystander, click_problems, cursor_problems, nested,
+                                        off_output_problems, refusal_problems, session_pad, session_reads)
 from scenarios.hyprland_pointer_pad import (COVER_CLASS, NATIVE, PAD_BUTTON, PAD_SCROLL, XWAYLAND,
                                             covering_layers, cursor_at, events, find_ref,
                                             global_point, instance_control,
@@ -384,37 +385,20 @@ def native_wayland_ref_refused(ctx: LegContext) -> None:
 
 
 def delivery_report(ctx: LegContext, verb: str) -> None:
-    """The Hyprland side of the shared delivery-report legs. Each verb moves the nested cursor, so the
-    leg puts it back where it found it."""
+    """The Hyprland side of the shared mouse-click delivery-report leg, on the session instance: the
+    pad logs one press at the aim, j/cursorpos ends there, an off-output point refuses with
+    point_off_output, and the bystander's box and the cursor never leave their place."""
+    require(verb == "mouse-click", f"the session delivery report for {verb} lives in hyprland_pointer")
     tier = ctx.tier
-    instance, lua = nested(tier)
-    env = instance_env(tier, instance)
-    ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, f"report-{verb}") as (_, client, log):
-        before = instance_query(tier, instance, "cursorpos")
-        ctx.before("hyprland.cursor", before)
+    main = main_instance(tier)
+    session_reads(ctx, "before", main)
+    with session_pad(ctx, f"report-{verb}") as (_, client, log):
+        env = instance_env(tier, main)
         aim = global_point(client, (0.5, 0.7))
-        if verb == "mouse-click":
+        with beside_bystander(tier, main, client) as found:
             problems = click_problems(ctx, env, log, client, aim, 1)
-            refused = ["mouse-click", "--xy=-5000,-5000"]
-        elif verb == "mouse-wheel":
-            problems = wheel_problems(ctx, env, log, aim, ["--dy=-1"], ["down"])
-            refused = ["mouse-wheel", "--x=-5000", "--y=-5000"]
-        else:
-            problems = drag_problems(ctx, env, log, client, aim, global_point(client, (0.7, 0.9)))
-            refused = ["drag", "--from-xy=-5000,-5000", "--to-xy=-4990,-4990"]
-        ctx.after("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
-        start = len(events(log))
-        envelope = ctx.product(refused, env=env)
-        error = envelope.error or {}
-        if envelope.ok or (error.get("disposition") or {}).get("delivery") != "not_delivered":
-            problems.append(f"an off-output {verb} answered {envelope.raw[:300]}")
-        if since(settled(log, lambda found: len(found) > start, 0.5), start):
-            problems.append(f"the refused {verb} reached the pad")
-        ctx.after("applog.pad", len(events(log)))
-        instance_control(tier, instance, cursor_argv(before["x"], before["y"], lua))
-        require(raw.poll(lambda: instance_query(tier, instance, "cursorpos") == before, 3.0),
-                f"the nested cursor did not return to {before}")
-        require(not problems, "; ".join(problems))
-        ctx.restored("hyprland.cursor", instance_query(tier, instance, "cursorpos"))
-    ctx.restored("applog.pad", pads_left(tier))
+            problems += cursor_problems(tier, main, aim, verb)
+            problems += off_output_problems(ctx, env, log, verb)
+        session_reads(ctx, "after", main, log)
+        require(not problems and not found, "; ".join(problems + found))
+    session_reads(ctx, "restored", main)

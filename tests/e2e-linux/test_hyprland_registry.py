@@ -25,6 +25,8 @@ NEW_LEGS = {
     "lifecycle.hyprland_window_operation_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
     "pointer.hover_by_ref_refused": (("hyprland",), ("headed",), "asserted-refusal"),
     "pointer.hover_coordinates": (("hyprland",), ("headed",), "pass"),
+    "pointer.session_ref_pointer_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
+    "pointer.session_hover_coordinates": (("hyprland",), ("headed",), "pass"),
     "pointer.coordinate_multi_click_xwayland": (("hyprland",), ("headed",), "pass"),
     "pointer.coordinate_click_through_cursor": (("hyprland",), ("headed",), "pass"),
     "pointer.hover_by_ref_headless_refused": (("hyprland",), ("headless",), "asserted-refusal"),
