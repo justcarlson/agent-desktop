@@ -10,6 +10,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from runner import tier_record
 from scenarios import hyprland_keys_common as common
 
 OWNER = ":1.42"
@@ -42,6 +43,7 @@ class ListenerAnchorTests(unittest.TestCase):
                                   "RegisterEvent", "(sass)", (common.LISTENED_EVENT, [], OWNER))])
         self.assertEqual(events, ["anchor closed"])
 
+    @unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
     def test_the_key_log_holds_the_anchor_from_registration_until_after_its_release(self):
         events: list[str] = []
         owned = SimpleNamespace(owner_names=[OWNER], pid=7, start_time=1, windows=["0x1"], name="Key Log")
@@ -60,7 +62,7 @@ class ListenerAnchorTests(unittest.TestCase):
                 mock.patch.object(common.apps, "_owners", return_value=[]), \
                 mock.patch.object(common.shutil, "which", return_value="/usr/bin/python3"), \
                 mock.patch.object(common, "private_interpreter", return_value=Path("/py")), \
-                mock.patch.object(common.attached_session, "spawn"), \
+                mock.patch("runner.attached_session.spawn"), \
                 mock.patch.object(common.raw, "poll", return_value=owned), \
                 mock.patch.object(common, "_register", side_effect=lambda _t, o: events.append("registered") or o), \
                 mock.patch.object(common, "_release", side_effect=lambda *_: events.append("released")), \
@@ -70,6 +72,7 @@ class ListenerAnchorTests(unittest.TestCase):
                 self.assertIs(app, owned)
         self.assertEqual(events, ["registered", f"anchor {OWNER}", "leg", "released", "anchor closed"])
 
+    @unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
     def test_an_anchor_that_cannot_register_still_stops_the_app(self):
         events: list[str] = []
         owned = SimpleNamespace(owner_names=[OWNER], pid=7, start_time=1, windows=["0x1"], name="Key Log")
@@ -81,7 +84,7 @@ class ListenerAnchorTests(unittest.TestCase):
                 mock.patch.object(common.apps, "_owners", return_value=[]), \
                 mock.patch.object(common.shutil, "which", return_value="/usr/bin/python3"), \
                 mock.patch.object(common, "private_interpreter", return_value=Path("/py")), \
-                mock.patch.object(common.attached_session, "spawn"), \
+                mock.patch("runner.attached_session.spawn"), \
                 mock.patch.object(common.raw, "poll", return_value=owned), \
                 mock.patch.object(common.raw, "connect", return_value=FakeConnection(events)), \
                 mock.patch.object(common.raw, "call", side_effect=refuse), \
