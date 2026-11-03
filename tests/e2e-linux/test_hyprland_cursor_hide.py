@@ -20,8 +20,12 @@ from runner.product import Envelope
 from scenarios import hyprland_cursor as cursor
 from scenarios import hyprland_cursor_hide as hide
 
-LEG_IDS = ("cursor.hide_ack_suppression_until_show", "cursor.travel_failure_proceeds_hide_failure_refuses",
+HEADED_STOPPED = "cursor.travel_failure_proceeds_hide_failure_refuses"
+HEADLESS_STOPPED = "cursor.travel_failure_proceeds_headless"
+LEG_IDS = ("cursor.hide_ack_suppression_until_show", HEADED_STOPPED, HEADLESS_STOPPED,
            "pointer.ref_receiver_evidence_under_cursor", "pointer.cursor_pass_through")
+PAD_MOTION = {"ev": "motion", "widget": "area", "wx": 10.0, "wy": 10.0, "t": 1.0}
+PAD_PRESS = {"ev": "press", "widget": "area", "n": 1, "wx": 10.0, "wy": 10.0, "t": 1.0}
 
 
 def refused(kind: str, delivery: str = "not_delivered", retry: str = "safe", started: bool = False) -> Envelope:
@@ -254,6 +258,35 @@ class CursorHideLegTests(unittest.TestCase):
         source = inspect.getsource(hide.travel_failure_proceeds_hide_failure_refuses)
         self.assertIn('pre_hide_refusal_problems("headed click under a stopped renderer", clicked)', source)
         self.assertNotIn('hide_refusal_problems("headed click', source.replace("pre_hide_refusal_problems", ""))
+
+    def test_the_stopped_renderer_halves_are_split_by_what_each_proves(self):
+        headed, headless = legs.leg_by_id(HEADED_STOPPED), legs.leg_by_id(HEADLESS_STOPPED)
+        self.assertEqual((headed.modes, headed.disposition), (legs.HEADED, "asserted-refusal"))
+        self.assertEqual((headless.modes, headless.disposition), (legs.HEADLESS, "pass"))
+        self.assertIn("applog", headed.oracles)
+        self.assertIn("mouse-click --xy", headed.requirement)
+        self.assertIn("mouse-click", headed.reason)
+        self.assertNotIn("headless", headed.reason)
+        self.assertNotIn("refuse", headless.requirement)
+
+    def test_a_headed_xy_click_under_a_stopped_renderer_must_refuse_at_the_hide_with_no_event(self):
+        still = ((5.0, 5.0), (5.0, 5.0))
+        self.assertEqual(hide.xy_refusal_problems("x", refused("cursor_hide_timeout"), [], still), [])
+        self.assertEqual(hide.xy_refusal_problems("x", refused("cursor_hide_failed"), [], still), [])
+        self.assertEqual(len(hide.xy_refusal_problems("x", refused("cursor_hide_timeout"), [PAD_MOTION], still)), 1)
+        self.assertEqual(len(hide.xy_refusal_problems("x", refused("cursor_hide_timeout"), [PAD_PRESS], still)), 1)
+        moved = ((5.0, 5.0), (6.0, 5.0))
+        self.assertEqual(len(hide.xy_refusal_problems("x", refused("cursor_hide_timeout"), [], moved)), 1)
+        self.assertEqual(len(hide.xy_refusal_problems("x", refused("cursor_hide_timeout", started=True), [], still)), 1)
+        self.assertNotEqual(hide.xy_refusal_problems("x", native_refusal(), [], still), [])
+        accepted = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0)
+        self.assertNotEqual(hide.xy_refusal_problems("x", accepted, [PAD_PRESS], moved), [])
+
+    def test_the_headed_leg_sends_its_xy_click_while_the_renderer_is_stopped(self):
+        source = inspect.getsource(hide.travel_failure_proceeds_hide_failure_refuses)
+        stopped = source[source.index("with _stopped(owner):"):source.index("_screen_after_resume")]
+        self.assertIn("_refused_xy(", stopped)
+        self.assertIn("_landed_xy(", source[source.index("_screen_after_resume"):])
 
     def test_the_pad_legs_under_the_cursor_drive_an_xwayland_pad(self):
         source = (Path(hide.__file__)).read_text()
