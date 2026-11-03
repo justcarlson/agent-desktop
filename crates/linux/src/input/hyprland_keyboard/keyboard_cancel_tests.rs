@@ -6,6 +6,7 @@ use agent_desktop_core::{Deadline, DeliverySemantics};
 use super::stop_on_signal;
 use crate::input::hyprland_keyboard::fake_wire::FakeWire;
 use crate::input::hyprland_keyboard::virtual_keyboard_delivery::deliver;
+use crate::input::hyprland_keyboard::virtual_keyboard_sink::VirtualKeyboardSink;
 use crate::input::keyboard::key_names::KEYSYM_SHIFT_L;
 use crate::input::keyboard::keysym_step::KeysymStep;
 use crate::input::x11::progress::Progress;
@@ -71,9 +72,8 @@ fn a_signal_with_shift_held_releases_shift_and_destroys_the_keyboard() {
     ];
     let chunks: [&[KeysymStep]; 2] = [&shifted, &shifted];
     let error = deliver(
-        wire,
+        VirtualKeyboardSink::new(wire, ENGLISH),
         OWNER_US_RU.to_owned(),
-        ENGLISH,
         &chunks,
         &mut gate,
         live(),
