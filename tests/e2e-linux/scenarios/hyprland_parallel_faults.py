@@ -16,6 +16,7 @@ evidence.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import select
@@ -35,6 +36,7 @@ from scenarios import parallel_zoo as zoo
 from scenarios.hyprland_cursor import live_button
 
 CONTEND_MS = "1500"
+ENVIRON_S = 2.0
 FFI_HOLDER_MS, FFI_CONTENDER_MS = "30000", "1000"
 FFI_ENV = "AGENT_DESKTOP_E2E_FFI_LIB"
 FFI_LIBRARY = "libagent_desktop_ffi.so"
@@ -91,9 +93,30 @@ def strays(launched, allowed: dict[str, list[float]]) -> list[str]:
     return [problem for item in launched.values() for problem in zoo.stray_events(item, allowed)]
 
 
+def _environ(pid: int) -> list[bytes]:
+    return (Path("/proc") / str(pid) / "environ").read_bytes().split(b"\0")
+
+
+def child_environ(agent: agents.Agent, seconds: float = ENVIRON_S) -> list[bytes] | None:
+    """The environment the child's own exec installed, marked by its agent id. A read that lands before the
+    exec shows the runner's environment instead, which still holds the lease variable it unset."""
+    marker = f"{oracle.AGENT_ENV}={agent.name}".encode()
+    limit = time.monotonic() + seconds
+    while True:
+        with contextlib.suppress(OSError):
+            environ = _environ(agent.pid)
+            if marker in environ:
+                return environ
+        if time.monotonic() > limit:
+            return None
+        time.sleep(0.005)
+
+
 def inherited_problems(agent: agents.Agent) -> list[str]:
     """The child's environment carries no lease token of the runner's."""
-    environ = (Path("/proc") / str(agent.pid) / "environ").read_bytes().split(b"\0")
+    environ = child_environ(agent)
+    if environ is None:
+        return [f"{agent.name} never showed its own environment ({oracle.AGENT_ENV}={agent.name})"]
     prefixes = tuple(prefix.encode() for prefix in oracle.LEASE_PREFIXES)
     found = [item.decode(errors="replace").partition("=")[0] for item in environ if item.startswith(prefixes)]
     return [f"{agent.name} inherited lease variables {found}"] if found else []

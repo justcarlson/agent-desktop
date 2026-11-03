@@ -815,5 +815,37 @@ class CancelStageOracleTests(unittest.TestCase):
         self.assertTrue(any("before its acquire" in item for item in found), found)
 
 
+
+class InheritedLeaseTests(unittest.TestCase):
+    RUNNER = [b"PATH=/usr/bin", b"AGENT_DESKTOP_INTERACTION_LEASE_FD=3", b""]
+    CHILD = [b"PATH=/usr/bin", b"AGENT_DESKTOP_AGENT_ID=B", b""]
+
+    def problems(self, *reads) -> list[str]:
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_faults as faults
+
+        environs = [b"\0".join(read) for read in reads]
+        with patch.object(faults.Path, "read_bytes", side_effect=environs), patch.object(faults.time, "sleep"):
+            return faults.inherited_problems(SimpleNamespace(name="B", pid=4242))
+
+    def test_a_read_before_the_exec_waits_for_the_childs_own_environment(self):
+        self.assertEqual(self.problems(self.RUNNER, [b""], self.CHILD), [])
+
+    def test_a_lease_variable_in_the_childs_own_environment_fails(self):
+        found = self.problems(self.CHILD[:1] + [b"AGENT_DESKTOP_INTERACTION_LEASE_FD=3"] + self.CHILD[1:])
+        self.assertEqual(found, ["B inherited lease variables ['AGENT_DESKTOP_INTERACTION_LEASE_FD']"])
+
+    def test_a_child_that_never_shows_its_environment_fails(self):
+        from unittest.mock import patch
+
+        from scenarios import hyprland_parallel_faults as faults
+
+        with patch.object(faults.time, "monotonic", side_effect=[0.0, 0.0, 99.0]):
+            found = self.problems(self.RUNNER, self.RUNNER)
+        self.assertIn("never showed its own environment", " ".join(found))
+
+
 if __name__ == "__main__":
     unittest.main()
