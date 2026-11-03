@@ -61,8 +61,8 @@ impl<W: KeyboardWire> VirtualKeyboardSink<W> {
     /// Sends a key-up for each of `codes`, keys another virtual keyboard
     /// left held, and waits until the compositor has handled them.
     pub(crate) fn release_keys(&mut self, codes: &[u32]) -> Result<(), AdapterError> {
-        let _ = (codes, release_stale_keys::<W>);
-        Ok(())
+        let time = self.time_ms();
+        release_stale_keys(&mut self.wire, time, codes)
     }
 
     #[cfg(test)]

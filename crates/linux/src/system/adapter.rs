@@ -46,6 +46,7 @@ impl SystemOps for LinuxAdapter {
 
     fn run_cursor_overlay_child(&self) -> Option<Result<(), AdapterError>> {
         crate::system::hyprland::cursor_renderer::renderer_entry::entry_from_env()
+            .or_else(crate::input::hyprland_keyboard::key_guard::guard_entry::entry_from_env)
     }
 
     fn acquire_interaction_lease(

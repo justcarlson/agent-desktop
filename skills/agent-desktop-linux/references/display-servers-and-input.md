@@ -296,9 +296,12 @@ its own. Ending a session releases its held keys.
   CLI stops, releases every held key and modifier, and returns
   `delivery_uncertain` with `delivered_events`. Read the
 - **Killed delivery.** Hyprland keeps a destroyed virtual keyboard's keys held
-  unless `input:virtualkeyboard:release_pressed_on_close` is set, so a
-  SIGKILLed `type` or `press` can leave a key autorepeating. The next keyboard
-  command on that instance releases it first; see
+  unless `input:virtualkeyboard:release_pressed_on_close` is set. The CLI
+  therefore starts a key guard before its first key-down: a second
+  `agent-desktop` process in its own session that waits for the command to
+  exit. If a SIGKILLed `type` or `press`, or a killed process group, leaves
+  keys held, the guard releases them through a new virtual keyboard. The next
+  keyboard command on that instance releases anything left; see
   [Interrupted input](#interrupted-input).
 ## Pointer on Hyprland
 
@@ -463,14 +466,17 @@ time to arm. The result reports the gesture, not the outcome: check the effect
 
 The X server keeps XTEST-pressed buttons when the client dies, and Hyprland
 keeps a destroyed virtual keyboard's keys. The CLI journals what it holds under
-`$XDG_RUNTIME_DIR/agent-desktop-input` before each press. The next call on that
-display, or on that Hyprland instance, releases what a killed process left
-before it sends its own events. A process that is still running keeps its keys.
+`$XDG_RUNTIME_DIR/agent-desktop-input` before each press. On Hyprland, the
+CLI's key guard releases what a killed keyboard command held as soon as the
+command exits. The next call on that display, or on that Hyprland instance,
+releases what a killed process left before it sends its own events. A process
+that is still running keeps its keys. A program that loads the C library
+starts no key guard.
 If a button seems stuck after you killed a command on X11, run any input
 command with valid arguments, such as
 `agent-desktop --headed mouse-move --xy 640,400`, to release it before the new
-input. On Hyprland only a keyboard command releases keys, such as
-`agent-desktop press shift`. Until then, unless
+input. On Hyprland, if the key guard could not run, only a keyboard command
+releases keys, such as `agent-desktop press shift`. Until then, unless
 `input:virtualkeyboard:release_pressed_on_close` is set, the app sees the key
 held, and a held letter repeats.
 

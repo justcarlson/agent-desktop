@@ -4,8 +4,9 @@
 //! a stop, and `uncertain` with the confirmed count once a key went out.
 //! A signal stops the delivery before its next key-down, and the held keys
 //! are released before the signal's own action is taken. A SIGKILL leaves
-//! no chance to release, so held keys are journaled and the next delivery on
-//! the instance releases what a dead one left.
+//! no chance to release, so held keys are journaled, the CLI's key guard
+//! releases them when the command dies, and the next delivery on the
+//! instance releases whatever a dead one still left.
 
 use agent_desktop_core::{AdapterError, Deadline};
 use serde_json::json;
@@ -13,6 +14,7 @@ use serde_json::json;
 use super::active_layout::read_active_layout;
 use super::control_text::refuse_control;
 use super::held_key_journal::HeldKeyJournal;
+use super::key_guard::guard_spawn::start_once;
 use super::keyboard_cancel::stop_on_signal;
 use super::keyboard_wire::KeyboardWire;
 use super::virtual_keyboard_sink::VirtualKeyboardSink;
@@ -53,8 +55,11 @@ pub(crate) fn send(
         let layouts = owner_layouts(&owner).map_err(|error| with_progress(error, 0))?;
         let layout = read_active_layout(binding, &layouts, deadline)
             .map_err(|error| with_progress(error, 0))?;
-        let sink = VirtualKeyboardSink::new(wire, layout)
-            .journaled(HeldKeyJournal::in_runtime_dir(binding));
+        let journal = HeldKeyJournal::in_runtime_dir(binding);
+        if journal.is_some() {
+            start_once(binding, layout);
+        }
+        let sink = VirtualKeyboardSink::new(wire, layout).journaled(journal);
         deliver(sink, owner, &chunks, &mut gate, deadline)
     })
 }

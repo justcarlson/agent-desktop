@@ -123,10 +123,16 @@ impl HeldKeyJournal {
         Ok(stale)
     }
 
-    /// Removes the records whose keys were released.
+    /// Removes the records whose keys were released. A record already gone
+    /// was removed by the key guard of the delivery that wrote it.
     pub(crate) fn discard(&self, stale: &StaleKeys) -> Result<(), AdapterError> {
         for path in &stale.paths {
-            std::fs::remove_file(path).map_err(|error| recovery_refusal(journal_error(error)))?;
+            match std::fs::remove_file(path) {
+                Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                    return Err(recovery_refusal(journal_error(error)));
+                }
+                _ => {}
+            }
         }
         Ok(())
     }
