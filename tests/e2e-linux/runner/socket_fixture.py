@@ -40,6 +40,8 @@ class Listener:
         self.path = Path(path)
         self.behavior = behavior
         self._held: list[socket.socket] = []
+        self._received = 0
+        self._lock = threading.Lock()
         self._stop = threading.Event()
         self._server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._server.bind(str(self.path))
@@ -52,21 +54,36 @@ class Listener:
 
     def _serve(self) -> None:
         while not self._stop.is_set():
-            try:
-                client, _ = self._server.accept()
-            except TimeoutError:
-                continue
-            except OSError:
-                return
-            if self.behavior == MUTE:
-                self._held.append(client)
-                continue
+            with self._lock:
+                try:
+                    client, _ = self._server.accept()
+                except TimeoutError:
+                    continue
+                except OSError:
+                    return
+                if self.behavior == MUTE:
+                    self._held.append(client)
+                    continue
             with client:
                 if self.behavior == ANSWER:
                     client.settimeout(1.0)
                     with contextlib.suppress(OSError):
                         client.recv(4096)
                         client.sendall(REPLY)
+
+    def received(self) -> int:
+        """Bytes clients have sent to a `silent` or `mute` listener, read without a reply. Clients still in the
+        backlog are accepted first, so a client that wrote and left is counted."""
+        with self._lock:
+            self._server.settimeout(0.1)
+            with contextlib.suppress(OSError):
+                while True:
+                    self._held.append(self._server.accept()[0])
+            for client in self._held:
+                with contextlib.suppress(OSError):
+                    while chunk := client.recv(4096, socket.MSG_DONTWAIT):
+                        self._received += len(chunk)
+        return self._received
 
     def close(self) -> None:
         self._stop.set()
