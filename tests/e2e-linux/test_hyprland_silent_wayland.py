@@ -136,6 +136,22 @@ class HeldSocketFixtureTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
 
 
+class ListenerTrafficTests(unittest.TestCase):
+    def test_a_listener_counts_bytes_a_client_sent_without_replying(self):
+        from runner import socket_fixture
+        for behavior in ("silent", "mute"):
+            for payload in (b"", b"\x01\x00\x00\x00\x0c\x00\x01\x00"):
+                with self.subTest(behavior=behavior, payload=payload), tempfile.TemporaryDirectory() as work:
+                    listener = socket_fixture.Listener(Path(work) / "wayland-x", behavior)
+                    try:
+                        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                            client.connect(str(listener.path))
+                            client.sendall(payload)
+                        self.assertEqual(listener.received(), len(payload))
+                    finally:
+                        listener.close()
+
+
 class DiscoveryOrderTests(unittest.TestCase):
     def test_the_held_socket_sorts_before_any_numbered_compositor_socket(self):
         first = module().reads_first
@@ -145,6 +161,8 @@ class DiscoveryOrderTests(unittest.TestCase):
 
 
 class LegTests(unittest.TestCase):
+    sent: dict = {}
+
     def run_leg(self, answer, launch=None):
         silent_wayland = module()
         self.stops = mock.Mock()
@@ -159,6 +177,7 @@ class LegTests(unittest.TestCase):
 
         def listener(_tier, behavior):
             self.foreign[behavior] = mock.Mock()
+            self.foreign[behavior].received.return_value = self.sent.get(behavior, 0)
             return foreign_path(behavior), self.foreign[behavior]
 
         ctx = SimpleNamespace(tier=tier(), mode="headless", before=mock.Mock(), after=mock.Mock(),
@@ -229,6 +248,14 @@ class LegTests(unittest.TestCase):
                                                        else None)
                 with self.assertRaises(AssertionError):
                     self.run_leg(self.answer_for(override))
+
+    def test_a_foreign_socket_that_received_bytes_before_the_mismatch_fails(self):
+        for behavior in ("silent", "mute"):
+            with self.subTest(behavior=behavior):
+                self.sent = {behavior: 12}
+                with self.assertRaises(AssertionError) as raised:
+                    self.run_leg(self.answer_for())
+                self.assertIn("12 bytes", str(raised.exception))
 
     def test_discovery_by_the_session_signature_must_skip_a_foreign_socket(self):
         override = lambda env: (mismatch(foreign_path("silent")) if env.get("HYPRLAND_INSTANCE_SIGNATURE") == "live"
