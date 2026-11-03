@@ -11,13 +11,21 @@ use agent_desktop_core::{AdapterError, DeliverySemantics};
 use serde_json::{Map, Value, json};
 
 use crate::input::x11::held_journal::{
-    HeldJournal, JournalFile, process_is_alive, quarantine, recovery_refusal, runtime_journal_dir,
+    HeldJournal, JournalFile, journal_dir_in, process_is_alive, quarantine, recovery_refusal,
     unreadable_record_refusal,
 };
 use crate::input::x11::sink_error::SinkError;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 
 const HYPRLAND_DIR: &str = "hyprland";
+
+/// The records folder in the runtime directory the binding found, which holds
+/// `hypr/<signature>/.socket.sock`. A caller started by SSH or a systemd unit
+/// has no `XDG_RUNTIME_DIR` but still records where the session does.
+fn journal_dir_for(binding: &HyprlandBinding) -> Option<PathBuf> {
+    let runtime = binding.ipc_socket.ancestors().nth(3)?;
+    Some(journal_dir_in(runtime).join(HYPRLAND_DIR))
+}
 
 /// The records of one Hyprland instance and Wayland display, written as this
 /// process.
@@ -51,7 +59,7 @@ impl HeldKeyJournal {
     pub(crate) fn in_runtime_dir(binding: &HyprlandBinding) -> Option<Self> {
         let instance = format!("{}:{}", binding.signature, binding.wayland_socket.display());
         Some(Self::at(
-            runtime_journal_dir()?.join(HYPRLAND_DIR),
+            journal_dir_for(binding)?,
             &instance,
             std::process::id(),
         ))

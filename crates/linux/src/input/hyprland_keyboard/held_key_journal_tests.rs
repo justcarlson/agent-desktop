@@ -16,7 +16,10 @@ fn binding_in(runtime: &str) -> HyprlandBinding {
 #[test]
 fn records_sit_in_the_runtime_directory_the_binding_found() {
     let dir = journal_dir_for(&binding_in("/run/user/1000")).expect("dir");
-    assert_eq!(dir, Path::new("/run/user/1000/agent-desktop-input/hyprland"));
+    assert_eq!(
+        dir,
+        Path::new("/run/user/1000/agent-desktop-input/hyprland")
+    );
 }
 
 #[test]
