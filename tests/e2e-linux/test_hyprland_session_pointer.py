@@ -78,6 +78,17 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual({judge for _, judge in actions}, {session.headless_problems})
 
 
+class SharedHeadlessJudgeTests(unittest.TestCase):
+    def test_a_policy_refusal_safe_to_retry_without_a_cause_passes(self):
+        self.assertEqual(pointer.refusal_problems("scroll", refused(POLICY)), [])
+
+    def test_a_policy_refusal_with_a_cause_or_unsafe_retry_fails(self):
+        caused = dict(POLICY, details={"cause": "receiver_unproven"})
+        unsafe = dict(POLICY, disposition={"delivery": "not_delivered", "retry": "unsafe"})
+        self.assertEqual(len(pointer.refusal_problems("scroll", refused(caused))), 1)
+        self.assertEqual(len(pointer.refusal_problems("double-click", refused(unsafe))), 1)
+
+
 class HoverPadTests(unittest.TestCase):
     def test_motion_that_ends_on_the_aim_passes(self):
         self.assertEqual(session.pad_hover_problems([MOTION], CLIENT, (380, 415)), [])

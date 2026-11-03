@@ -368,6 +368,10 @@ def refusal_problems(label: str, envelope) -> list[str]:
         problems.append(f"{label} answered {envelope.raw[:300]}")
     if (error.get("disposition") or {}).get("delivery") != "not_delivered":
         problems.append(f"{label} is not not_delivered: {error.get('disposition')}")
+    if (error.get("disposition") or {}).get("retry") != "safe":
+        problems.append(f"{label} is not safe to retry: {error.get('disposition')}")
+    if "cause" in details:
+        problems.append(f"{label} names a cause: {details.get('cause')}")
     if details.get("physical_delivery_started") not in (None, False):
         problems.append(f"{label} started physical delivery")
     return problems
