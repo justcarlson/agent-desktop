@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
+use agent_desktop_core::Deadline;
+
 use super::{HeldKeyJournal, instance_key, journal_dir_for};
+use crate::input::hyprland_keyboard::record_claim::claim_record;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 
 fn binding_in(runtime: &str) -> HyprlandBinding {
@@ -33,19 +36,32 @@ fn dead(_pid: u32, _instance: &str) -> bool {
 }
 
 #[test]
-fn a_record_the_key_guard_already_removed_is_discarded_without_a_refusal() {
+fn recovery_refuses_rather_than_press_while_the_key_guard_holds_the_record() {
     let dir = std::env::temp_dir().join(format!("ad-hypr-journal-guarded-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let writer = HeldKeyJournal::at(dir.clone(), "sig:wayland-1", 111).with_liveness(dead);
     writer.record(&[30]).expect("the record writes");
-    let reader = HeldKeyJournal::at(dir.clone(), "sig:wayland-1", 222).with_liveness(dead);
-    let stale = reader.stale().expect("the record reads");
-    assert_eq!(stale.codes, [30]);
-    std::fs::remove_file(dir.join("111.json")).expect("the guard removes the record");
+    let reader = HeldKeyJournal::at(dir.clone(), "sig:wayland-1", 222)
+        .with_liveness(dead)
+        .with_claim_wait(50);
+    let guard = claim_record(
+        &dir.join("111.json"),
+        Deadline::after(50).expect("a deadline"),
+    )
+    .expect("no error")
+    .expect("the guard claims the record");
 
     reader
-        .discard(&stale)
-        .expect("a record already removed is not a refusal");
+        .stale()
+        .expect_err("recovery must not press while the guard releases");
+    guard.remove().expect("the guard removes the record");
+
+    let stale = reader.stale().expect("the record is gone");
+    assert!(
+        stale.codes.is_empty(),
+        "the guard already released the keys"
+    );
+    reader.discard(stale).expect("nothing to remove");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

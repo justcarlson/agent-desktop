@@ -18,6 +18,7 @@ pub(crate) mod keyboard_cancel;
 pub(crate) mod keyboard_state;
 pub(crate) mod keyboard_wire;
 pub(crate) mod keymap_fd;
+pub(crate) mod record_claim;
 pub(crate) mod stale_key_release;
 pub(crate) mod virtual_keyboard_delivery;
 pub(crate) mod virtual_keyboard_sink;
