@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+import inspect
 import tempfile
+import threading
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -92,6 +94,55 @@ class PadLogTests(unittest.TestCase):
             log = Path(directory) / "pad.events"
             log.write_text("".join(json.dumps(item) + "\n" for item in LOG[:2]) + "\n")
             self.assertEqual(pad.events(log), LOG[:2])
+
+
+class LateEventTests(unittest.TestCase):
+    """A delivery helper counts the pad's log only after it held still, so a late duplicate fails it."""
+
+    def judge(self, lines: list[dict], late: list[dict], check):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "pad.events"
+            log.write_text("")
+            timers = []
+
+            def write(found: list[dict]) -> None:
+                staged = log.with_suffix(".new")
+                staged.write_text("".join(json.dumps(line) + "\n" for line in found))
+                os.replace(staged, log)
+
+            def product(argv, **_kw):
+                write(lines)
+                if late:
+                    timers.append(threading.Timer(0.3, write, (lines + late,)))
+                    timers[-1].start()
+                data = {"details": {"receiver_proof": False, "delivered_events": 1}}
+                return Envelope(ok=True, data=data, error=None, raw="{}", elapsed_ms=5.0, argv=argv, exit_code=0)
+
+            with mock.patch.object(pointer, "apart_from_last_click"):
+                problems = check(mock.Mock(product=product), log)
+            for timer in timers:
+                timer.join()
+            return problems
+
+    def test_a_late_second_wheel_notch_fails_the_wheel(self):
+        notch = {"ev": "scroll", "widget": "area", "direction": "down", "t": 1.0}
+        wheel = lambda ctx, log: pointer.wheel_problems(ctx, {}, log, (5, 5), ["--dy=-1"], ["down"])
+        self.assertEqual(self.judge([notch], [], wheel), [])
+        self.assertEqual(len(self.judge([notch], [notch], wheel)), 1)
+
+    def test_a_late_second_release_fails_the_drag(self):
+        client = {"at": [0, 0], "size": [100, 100]}
+        press = {"ev": "press", "widget": "area", "n": 1, "wx": 10.0, "wy": 10.0, "t": 1.0}
+        release = {"ev": "release", "widget": "area", "wx": 50.0, "wy": 50.0, "t": 1.1}
+        drag = lambda ctx, log: pointer.drag_problems(ctx, {}, log, client, (10, 10), (50, 50))
+        self.assertEqual(self.judge([press, release], [], drag), [])
+        self.assertEqual(len(self.judge([press, release], [press, release], drag)), 1)
+
+    def test_the_headless_leg_judges_only_events_after_the_cursor_reached_the_pad(self):
+        source = inspect.getsource(pointer.headless_or_cancelled_input)
+        parked = source[source.index("with beside_bystander("):]
+        self.assertIn("start = len(", parked[:parked.index("for argv in")])
+        self.assertIn("since(settled(log, lambda seen: len(seen) > start", source)
 
 
 class GeometryTests(unittest.TestCase):
