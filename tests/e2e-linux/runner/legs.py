@@ -307,6 +307,7 @@ LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
     'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
     'pointer.coordinate_click_through_cursor': ('scenarios.hyprland_pointer_pass_through', 'coordinate_click_through_cursor'),
+    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
 }
 
 
