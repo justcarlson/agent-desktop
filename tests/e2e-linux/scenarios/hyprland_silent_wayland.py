@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from oracle import hyprland
-from runner import attached, attached_session, second_instance, session, socket_fixture
+from runner import second_instance, session, socket_fixture
 from runner.helper import require
 from runner.verdict import LegContext
 from scenarios.hyprland_binding import (DISPLAYS, MISMATCH, compositor_names, display_problems, pair_env,
@@ -59,6 +59,7 @@ def foreign_listener(tier, behavior: str) -> tuple[Path, socket_fixture.Listener
 
 def held_instance(tier, behavior: str) -> tuple[dict, Path]:
     """A nested Hyprland whose pid the kernel names as the peer of a held socket with `behavior`."""
+    from runner import attached, attached_session
     record = attached.load(tier.runtime_dir)
     runtime = Path(record["shared_runtime"])
     lua = hyprland.uses_lua(runtime, record["signature"])
