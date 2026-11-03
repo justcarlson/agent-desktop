@@ -195,14 +195,12 @@ pub(crate) fn recorded_window(
     if entry.source.source_window_id.is_some() {
         return Err(failure.unwrap_or_else(gone));
     }
+    let filter = crate::adapter::WindowFilter {
+        focused_only: false,
+        app: entry.source.source_app.clone(),
+    };
     let listed = adapter
-        .list_windows(
-            &crate::adapter::WindowFilter {
-                focused_only: false,
-                app: entry.source.source_app.clone(),
-            },
-            deadline,
-        )
+        .list_windows(&filter, deadline)
         .map_err(owner_exited_as_stale)?;
     listed
         .into_iter()
