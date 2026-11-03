@@ -32,10 +32,9 @@ from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, c
                                             motions_after, pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
                                             releases,
                                             scrolls, settled, since, window_point, xy)
-from scenarios.wayland_outputs import monitor_command, settle_outputs
+from scenarios.wayland_outputs import (FRACTIONAL, NEGATIVE_ORIGIN, monitor_of, moved_output, nested,
+                                       nested_running, outputs_seen)
 
-NEGATIVE_ORIGIN = (-1024, -640)
-FRACTIONAL = 1.25
 CANCEL_DRAG_MS = 3000
 LATE_EVENT_S = 1.0
 OFF_OUTPUT = "-5000,-5000"
@@ -45,59 +44,9 @@ REFUSED = {"mouse-click": ["mouse-click", f"--xy={OFF_OUTPUT}"],
            "drag": ["drag", f"--from-xy={OFF_OUTPUT}", "--to-xy=-4990,-4990"]}
 
 
-def nested(tier) -> tuple[dict, bool]:
-    """The nested instance with its outputs settled, and whether it takes Lua."""
-    instance = second_instance.ensure(tier)
-    lua = hyprland.uses_lua(shared(tier), instance["signature"])
-    settle_outputs(shared(tier), instance["signature"], lua)
-    return instance, lua
-
-
-def nested_running(instance: dict) -> bool:
-    """Whether the recorded nested instance still runs as the same process."""
-    return second_instance._start_of(instance["pid"], Path("/proc")) == instance["start"]
-
-
-def monitor_of(tier, instance: dict, client: dict) -> dict:
-    found = [item for item in instance_query(tier, instance, "monitors") if item["id"] == client["monitor"]]
-    require(len(found) == 1, f"the pad's monitor {client['monitor']} is not listed once")
-    return found[0]
-
-
 def layout(tier, instance: dict) -> list[tuple]:
     return sorted((item["name"], item["x"], item["y"], round(float(item["scale"]), 3))
                   for item in instance_query(tier, instance, "monitors"))
-
-
-@contextlib.contextmanager
-def moved_output(tier, instance: dict, lua: bool, name: str, origin: tuple[int, int], scale: float):
-    """One output of `instance` at `origin` and `scale`, put back afterwards."""
-    before = [item for item in instance_query(tier, instance, "monitors") if item["name"] == name][0]
-
-    def placed(at, at_scale):
-        return any(item["name"] == name and (item["x"], item["y"]) == tuple(at)
-                   and abs(float(item["scale"]) - at_scale) < 0.01
-                   for item in instance_query(tier, instance, "monitors"))
-
-    command = monitor_command(lua, name, f"{origin[0]}x{origin[1]}", scale)
-    reply = hyprland.control(shared(tier), instance["signature"], command)
-    try:
-        require(raw.poll(lambda: placed(origin, scale), 5.0),
-                f"{name} never took {origin} at {scale:g}; the {'Lua' if lua else 'legacy'} config replied "
-                f"{reply!r} to {' '.join(command)}; outputs {outputs_seen(tier, instance)}")
-        yield
-    finally:
-        back = (before["x"], before["y"])
-        hyprland.control(shared(tier), instance["signature"],
-                         monitor_command(lua, name, f"{back[0]}x{back[1]}", float(before["scale"])))
-        require(raw.poll(lambda: placed(back, float(before["scale"])), 5.0),
-                f"{name} did not return to {back}; outputs {outputs_seen(tier, instance)}")
-
-
-def outputs_seen(tier, instance: dict) -> str:
-    """Each output as name, origin, scale and mode size."""
-    return "; ".join(f"{item['name']} {item['x']},{item['y']} scale {float(item['scale']):g} "
-                     f"{item['width']}x{item['height']}" for item in instance_query(tier, instance, "monitors"))
 
 
 def settled_client(tier, instance: dict, pid: int, monitor: dict) -> dict:
