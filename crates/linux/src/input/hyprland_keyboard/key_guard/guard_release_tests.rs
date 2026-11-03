@@ -5,11 +5,13 @@ use agent_desktop_core::Deadline;
 
 use super::{GuardOutcome, release_held};
 use crate::input::hyprland_keyboard::fake_wire::{FakeWire, WireLog};
-use crate::input::hyprland_keyboard::key_guard::guard_record::HeldRecord;
+use crate::input::hyprland_keyboard::key_guard::guard_record::{HeldRecord, claim_held};
 
 const OWNER_US_RU: &str = include_str!("../../wayland/keymap/us_ru.xkb");
 const KEY_LEFTSHIFT: u32 = 42;
 const KEY_A: u32 = 30;
+const DISPLAY: &str = "sig:/run/user/1000/wayland-1";
+const INSTANCE: &str = "boot:123";
 
 fn live() -> Deadline {
     Deadline::after(5_000).expect("a five second deadline builds")
@@ -22,12 +24,11 @@ fn held(name: &str, codes: &[u32]) -> HeldRecord {
     ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("the folder is created");
-    let path = dir.join("77.json");
-    std::fs::write(&path, "{}").expect("the record writes");
-    HeldRecord {
-        path,
-        codes: codes.to_vec(),
-    }
+    let record = serde_json::json!({
+        "pid": 77, "instance": INSTANCE, "display": DISPLAY, "keys": codes,
+    });
+    std::fs::write(dir.join("77.json"), record.to_string()).expect("the record writes");
+    claim_held(&dir, 77, INSTANCE, DISPLAY, live()).expect("the record is claimed")
 }
 
 fn wire_with(log: &WireLog, fail_on: Option<&'static str>) -> FakeWire {
@@ -41,7 +42,7 @@ fn wire_with(log: &WireLog, fail_on: Option<&'static str>) -> FakeWire {
 #[test]
 fn a_held_key_is_released_newest_first_through_a_new_keyboard() {
     let record = held("released", &[KEY_LEFTSHIFT, KEY_A]);
-    let path: PathBuf = record.path.clone();
+    let path: PathBuf = record.path().to_path_buf();
     let log = WireLog::default();
 
     let outcome = release_held(Some(record), 1, live(), |_| {
@@ -74,7 +75,7 @@ fn a_clean_exit_never_connects() {
 #[test]
 fn a_release_that_fails_keeps_the_record_and_still_destroys_the_keyboard() {
     let record = held("failed", &[KEY_A]);
-    let path = record.path.clone();
+    let path = record.path().to_path_buf();
     let log = WireLog::default();
 
     release_held(Some(record), 0, live(), |_| {
@@ -89,7 +90,7 @@ fn a_release_that_fails_keeps_the_record_and_still_destroys_the_keyboard() {
 #[test]
 fn a_connection_that_fails_keeps_the_record() {
     let record = held("unconnected", &[KEY_A]);
-    let path = record.path.clone();
+    let path = record.path().to_path_buf();
     release_held::<FakeWire, _>(Some(record), 0, live(), |_| {
         Err(agent_desktop_core::AdapterError::internal("no compositor"))
     })

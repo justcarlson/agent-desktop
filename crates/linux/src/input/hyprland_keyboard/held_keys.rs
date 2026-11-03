@@ -62,6 +62,6 @@ impl HeldKeys {
         if !stale.codes.is_empty() {
             release_stale_keys(wire, time_ms, &stale.codes).map_err(recovery_refusal)?;
         }
-        journal.discard(&stale)
+        journal.discard(stale)
     }
 }

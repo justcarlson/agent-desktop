@@ -44,10 +44,11 @@ where
         .and_then(|()| sink.release_keys(&record.codes));
     let closed = sink.close(deadline);
     released.and(closed)?;
+    let count = record.codes.len();
     record
         .remove()
         .map_err(|error| SinkError::Journal(error.to_string()).into_adapter())?;
-    Ok(GuardOutcome::Released(record.codes.len()))
+    Ok(GuardOutcome::Released(count))
 }
 
 #[cfg(test)]
