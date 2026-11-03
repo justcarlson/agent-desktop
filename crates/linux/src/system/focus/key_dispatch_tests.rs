@@ -369,3 +369,22 @@ fn window_scoped_press_refuses_unknown_or_mismatched_focus_without_synthesis() {
         assert!(physical.sent_nothing());
     }
 }
+
+#[test]
+fn compositor_only_press_accepts_focus_without_an_accessibility_frame() {
+    let physical = FakeWorld::wayland();
+    let keys = Keys::owning(&physical);
+    keys.set_focused(None);
+    let result = press_in(Press {
+        physical: &physical,
+        keys: &keys,
+        process: &process(),
+        window: Some(&window(PID, "w-hypr-50-60-a")),
+        combo: &combo(),
+        policy: InteractionPolicy::headed(),
+        deadline: deadline(),
+    })
+    .unwrap();
+    assert_eq!(result.details.unwrap()["focus_proof"], "compositor_only");
+    assert_eq!(physical.count("sent"), 1);
+}
