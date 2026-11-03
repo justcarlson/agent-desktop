@@ -83,7 +83,7 @@ class CancelVerdictTests(unittest.TestCase):
                  at(2.6, key("press", "a", 38)), at(2.61, {"event": "text", "text": "aaa"}),
                  at(4.1, key("release", "a", 38)), at(4.2, key("press", "x", 53)),
                  at(4.21, {"event": "text", "text": "aaax"}), at(4.3, key("release", "x", 53))]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
                          {"held": [38], "held_at_next": [38], "held_s": 2.1, "window_s": 2.0, "repeat_chars": 2,
                           "focus_left": False})
 
@@ -97,7 +97,7 @@ class CancelVerdictTests(unittest.TestCase):
                  at(4.1, key("press", "a", 38)), at(4.11, {"event": "text", "text": "aaa"}),
                  at(4.5, key("release", "a", 38)), at(4.6, key("press", "x", 53)),
                  at(4.61, {"event": "text", "text": "aaax"}), at(4.7, key("release", "x", 53))]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
                          {"held": [38], "held_at_next": [38], "held_s": 2.5, "window_s": 2.0, "repeat_chars": 2,
                           "focus_left": False})
 
@@ -108,8 +108,20 @@ class CancelVerdictTests(unittest.TestCase):
         found = [at(1.0, key("press", "a", 38)), at(1.01, {"event": "text", "text": "a"}),
                  at(3.99, key("release", "a", 38)), at(4.01, key("press", "a", 38)),
                  at(4.02, {"event": "text", "text": "aa"}), at(4.3, key("release", "a", 38))]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
                          {"held": [38], "held_at_next": [38], "held_s": 2.3, "window_s": 2.0, "repeat_chars": 1,
+                          "focus_left": False})
+
+    def test_the_next_commands_shift_tap_is_not_the_held_shift_continuing(self):
+        def at(t: float, item: dict) -> dict:
+            return dict(item, t=t)
+
+        found = [at(0.9, {"event": "text", "text": "a"}), at(1.0, key("press", "Shift_L", 50)),
+                 at(2.03, key("release", "Shift_L", 50, 1)), at(4.1, key("press", "Shift_L", 50)),
+                 at(4.15, key("release", "Shift_L", 50, 1)), at(4.16, key("press", "x", 53)),
+                 at(4.17, {"event": "text", "text": "ax"}), at(4.2, key("release", "x", 53))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
+                         {"held": [50], "held_at_next": [], "held_s": 0.03, "window_s": 2.0, "repeat_chars": 0,
                           "focus_left": False})
 
     def test_keys_in_flight_after_the_signal_count_only_until_the_app_sees_them_released(self):
@@ -119,13 +131,13 @@ class CancelVerdictTests(unittest.TestCase):
         found = [at(0.9, {"event": "text", "text": "a"}), at(1.0, key("press", "Shift_L", 50)),
                  at(2.01, key("press", "B", 56, 1)), at(2.015, {"event": "text", "text": "aB"}),
                  at(2.02, key("release", "B", 56, 1)), at(2.03, key("release", "Shift_L", 50, 1))]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
                          {"held": [50], "held_at_next": [], "held_s": 0.03, "window_s": 2.0, "repeat_chars": 0,
                           "focus_left": False})
 
     def test_a_held_shift_repeats_no_character_and_an_unreleased_key_has_no_held_time(self):
         found = [dict(key("press", "Shift_L", 50), t=1.0), {"event": "focus", "in": False, "t": 3.0}]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB", "x"),
                          {"held": [50], "held_at_next": [50], "held_s": None, "window_s": 2.0, "repeat_chars": 0,
                           "focus_left": True})
 
