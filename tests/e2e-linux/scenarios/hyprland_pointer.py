@@ -37,6 +37,7 @@ from scenarios.wayland_outputs import monitor_command, settle_outputs
 NEGATIVE_ORIGIN = (-1024, -640)
 FRACTIONAL = 1.25
 CANCEL_DRAG_MS = 3000
+LATE_EVENT_S = 1.0
 OFF_OUTPUT = "-5000,-5000"
 BYSTANDER_KEYS = ("address", "pid", "at", "size", "workspace", "floating", "fullscreen", "pinned", "mapped", "hidden")
 REFUSED = {"mouse-click": ["mouse-click", f"--xy={OFF_OUTPUT}"],
@@ -152,10 +153,18 @@ def missed_click(found: list[dict]) -> str:
     return f" (presses elsewhere: {elsewhere}, area motions: {motions})"
 
 
+def held_still(log: Path, start: int, count) -> list[dict]:
+    """The pad's events after `start` once `count` of them stayed the same for `LATE_EVENT_S`, so a late
+    duplicate is counted, not missed."""
+    first = count(since(events(log), start))
+    return since(settled(log, lambda all_: count(since(all_, start)) != first, LATE_EVENT_S), start)
+
+
 def wheel_problems(ctx, env, log: Path, point, deltas: list[str], want: list[str]) -> list[str]:
     start = len(events(log))
     data = delivered(ctx.product(["mouse-wheel", f"--x={int(point[0])}", f"--y={int(point[1])}", *deltas], env=env))
-    found = since(settled(log, lambda all_: scrolls(since(all_, start), "area") == want), start)
+    settled(log, lambda all_: scrolls(since(all_, start), "area") == want)
+    found = held_still(log, start, lambda found: scrolls(found, "area"))
     problems = no_receiver_proof(f"mouse-wheel {deltas}", data)
     if scrolls(found, "area") != want:
         problems.append(f"mouse-wheel {deltas}: the pad logged {scrolls(found, 'area')}, expected {want}")
@@ -167,7 +176,8 @@ def drag_problems(ctx, env, log: Path, client: dict, start_at, end_at) -> list[s
     start = len(events(log))
     data = delivered(ctx.product(["drag", f"--from-xy={xy(start_at)}", f"--to-xy={xy(end_at)}",
                                   "--duration", "300"], env=env))
-    found = since(settled(log, lambda all_: bool(releases(since(all_, start), "area"))), start)
+    settled(log, lambda all_: bool(releases(since(all_, start), "area")))
+    found = held_still(log, start, lambda found: (presses(found, "area"), len(releases(found, "area"))))
     problems = no_receiver_proof("drag", data)
     pressed, released = presses(found, "area"), releases(found, "area")
     if pressed != [1] or len(released) != 1:
@@ -374,6 +384,8 @@ def headless_or_cancelled_input(ctx: LegContext) -> None:
         button = pad_ref(ctx, env, owned)
         pane = pad_ref(ctx, env, owned, PAD_SCROLL)
         with beside_bystander(tier, main, client) as found:
+            start = len(events(log))
+            start += len(held_still(log, start, len))
             cursor = cursor_at(tier, main)
             problems = []
             for argv in (["mouse-click", f"--xy={xy(point)}"],
@@ -386,8 +398,8 @@ def headless_or_cancelled_input(ctx: LegContext) -> None:
         session_reads(ctx, "after", main, log)
         if after != cursor:
             problems.append(f"the cursor moved from {cursor} to {after}")
-        if settled(log, lambda seen: bool(seen), 0.5):
-            problems.append(f"the pad logged events: {events(log)[:5]}")
+        if since(settled(log, lambda seen: len(seen) > start, 0.5), start):
+            problems.append(f"the pad logged events: {since(events(log), start)[:5]}")
         require(not problems and not found, "; ".join(problems + found))
     session_reads(ctx, "restored", main)
 
