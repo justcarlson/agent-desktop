@@ -29,3 +29,6 @@ class PressFootTests(unittest.TestCase):
         self.assertEqual(subject.type_problems(good, b'a\r', b'a\r'), [])
         self.assertTrue(subject.type_problems({'ok': True}, b'a\r', b'a\r'))
         self.assertTrue(subject.type_problems(good, b'a\r', b'a\rx'))
+
+    def test_type_uses_window_id_as_ref_without_an_unsupported_scope_flag(self):
+        self.assertEqual(subject.type_argv('w-hypr-1-2-a'), ['type', 'w-hypr-1-2-a', 'x'])
