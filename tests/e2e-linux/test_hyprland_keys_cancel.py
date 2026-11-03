@@ -73,30 +73,53 @@ class CancelVerdictTests(unittest.TestCase):
         self.assertEqual(cancel.held_after_signal_problems(signal.SIGTERM, [50]),
                          ["SIGTERM: the app saw keys [50] pressed and never released"])
 
-    def test_the_hold_measure_counts_time_held_and_repeats_until_the_next_command(self):
+    def test_a_key_held_after_the_signal_repeats_characters_until_the_next_delivery_releases_it(self):
         def at(t: float, item: dict) -> dict:
             return dict(item, t=t)
 
-        found = [at(1.0, key("press", "Shift_L", 50)), at(1.1, key("press", "a", 38)),
-                 at(1.2, {"event": "text", "text": "a"}), at(2.5, key("press", "a", 38)),
-                 at(2.6, {"event": "text", "text": "aa"}), at(2.7, key("press", "a", 38)),
-                 at(2.8, {"event": "text", "text": "aaa"}), at(4.2, key("release", "Shift_L", 50)),
-                 at(4.3, key("release", "a", 38))]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0),
-                         {"held": [50, 38], "held_at_next": [50, 38], "held_s": 2.3, "window_s": 2.0, "repeats": 2, "repeat_chars": 2,
-                          "text_growth": 2, "focus_left": False})
+        found = [at(1.0, key("press", "a", 38)), at(1.01, {"event": "text", "text": "a"}),
+                 at(2.5, key("release", "a", 38)), at(2.5, key("press", "a", 38)),
+                 at(2.51, {"event": "text", "text": "aa"}), at(2.6, key("release", "a", 38)),
+                 at(2.6, key("press", "a", 38)), at(2.61, {"event": "text", "text": "aaa"}),
+                 at(4.1, key("release", "a", 38)), at(4.2, key("press", "x", 53)),
+                 at(4.21, {"event": "text", "text": "aaax"}), at(4.3, key("release", "x", 53))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+                         {"held": [38], "held_at_next": [38], "held_s": 2.1, "window_s": 2.0, "repeat_chars": 2,
+                          "focus_left": False})
+
+    def test_keys_in_flight_after_the_signal_count_only_until_the_app_sees_them_released(self):
+        def at(t: float, item: dict) -> dict:
+            return dict(item, t=t)
+
+        found = [at(0.9, {"event": "text", "text": "a"}), at(1.0, key("press", "Shift_L", 50)),
+                 at(2.01, key("press", "B", 56, 1)), at(2.015, {"event": "text", "text": "aB"}),
+                 at(2.02, key("release", "B", 56, 1)), at(2.03, key("release", "Shift_L", 50, 1))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+                         {"held": [50], "held_at_next": [], "held_s": 0.03, "window_s": 2.0, "repeat_chars": 0,
+                          "focus_left": False})
 
     def test_a_held_shift_repeats_no_character_and_an_unreleased_key_has_no_held_time(self):
         found = [dict(key("press", "Shift_L", 50), t=1.0), {"event": "focus", "in": False, "t": 3.0}]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0),
-                         {"held": [50], "held_at_next": [50], "held_s": None, "window_s": 2.0, "repeats": 0, "repeat_chars": 0,
-                          "text_growth": 0, "focus_left": True})
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+                         {"held": [50], "held_at_next": [50], "held_s": None, "window_s": 2.0, "repeat_chars": 0,
+                          "focus_left": True})
 
-    def test_a_key_released_before_the_next_command_keeps_its_held_time(self):
-        found = [dict(key("press", "Shift_L", 50), t=1.0), dict(key("release", "Shift_L", 50), t=2.1)]
-        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0),
-                         {"held": [50], "held_at_next": [], "held_s": 0.1, "window_s": 2.0, "repeats": 0,
-                          "repeat_chars": 0, "text_growth": 0, "focus_left": False})
+    def test_after_sigkill_a_repeated_last_character_still_reads_as_a_cut_prefix(self):
+        self.assertEqual(cancel.collapse_repeats("aBaaaa"), "aBa")
+        self.assertEqual(cancel.collapse_repeats(""), "")
+        self.assertEqual(cancel.prefix_problems(cancel.collapse_repeats("aBaaaa"), "aBaB"), [])
+        self.assertNotEqual(cancel.prefix_problems("aBaaaa", "aBaB"), [])
+
+    def test_after_sigkill_the_next_press_may_follow_more_repeats_of_the_held_key(self):
+        repeats = [key("press", "a", 38), key("release", "a", 38)] * 2 + [key("press", "x", 61),
+                                                                          key("release", "x", 61)]
+        self.assertEqual(cancel.next_press_problems(repeats, "x", {38}), [])
+        self.assertNotEqual(cancel.next_press_problems(repeats, "x"), [])
+        self.assertTrue(cancel.next_text_matches("aBaaaaax", "aBaaa", "x", repeated=True))
+        self.assertFalse(cancel.next_text_matches("aBaaaaax", "aBaaa", "x", repeated=False))
+        self.assertTrue(cancel.next_text_matches("aBax", "aBa", "x", repeated=False))
+        self.assertFalse(cancel.next_text_matches("aBaBx", "aBa", "x", repeated=True))
+        self.assertFalse(cancel.next_text_matches(None, "aBa", "x", repeated=True))
 
     def test_a_cut_text_is_a_non_empty_strict_prefix(self):
         self.assertEqual(cancel.prefix_problems("aBa", "aBaB"), [])
