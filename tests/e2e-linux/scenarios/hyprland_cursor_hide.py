@@ -453,6 +453,8 @@ def xy_refusal_problems(label: str, envelope, found: list[dict], cursor: tuple) 
     """A hide refusal, no event in the pad's log `found`, and `cursor`, the j/cursorpos before and
     after the click, unchanged. A receiver refusal is a problem: it shows no hide ran."""
     problems = hide_refusal_problems(label, envelope)
+    if ((envelope.error or {}).get("details") or {}).get("physical_delivery_started") is None:
+        problems.append(f"{label}: the refusal does not state physical_delivery_started false")
     if found:
         problems.append(f"{label}: the pad logged {len(found)} events, expected none{pad_saw(found)}")
     if cursor[0] != cursor[1]:
@@ -461,13 +463,15 @@ def xy_refusal_problems(label: str, envelope, found: list[dict], cursor: tuple) 
 
 
 def _landed_xy(ctx: LegContext, pad: PadAim, label: str) -> list[str]:
-    """The same headed `mouse-click --xy` lands exactly one press on the pad's area."""
+    """The same headed `mouse-click --xy` lands exactly one press on the pad's area, and no other
+    press follows it within `LATE_EVENT_S`."""
     apart_from_last_click(pad.log)
     start, want = len(events(pad.log)), gdk3_presses(1)
     clicked = ctx.product(["--session", pad.session, "mouse-click", f"--xy={xy(pad.point)}"])
     if not clicked.ok:
         return [f"the headed mouse-click {label} failed: {clicked.raw[:300]}"]
-    found = since(settled(pad.log, lambda found: presses(since(found, start), "area") == want), start)
+    settled(pad.log, lambda found: presses(since(found, start), "area") == want)
+    found = since(settled(pad.log, lambda found: presses(since(found, start), "area") != want, LATE_EVENT_S), start)
     if presses(found, "area") != want:
         return [f"the headed mouse-click {label} logged {presses(found, 'area')}, not {want}{pad_saw(found)}"]
     return []
