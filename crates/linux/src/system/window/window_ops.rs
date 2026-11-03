@@ -145,6 +145,12 @@ pub(crate) fn list_windows(
     Ok(listed)
 }
 
+/// The processes whose every registered application this listing read in
+/// full. `pids[i]` is the process of registry application `i`.
+fn fully_read_pids(pids: &[u32], outcomes: &[AppOutcome]) -> HashSet<u32> {
+    HashSet::new()
+}
+
 fn keep_focused(mut windows: Vec<WindowInfo>, filter: &WindowFilter) -> Vec<WindowInfo> {
     if filter.focused_only {
         windows.retain(|window| window.state.is_focused);
