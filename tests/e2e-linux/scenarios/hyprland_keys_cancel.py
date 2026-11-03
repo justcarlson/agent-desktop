@@ -7,19 +7,22 @@ letter, and signals then. After SIGTERM the app's log must show every key it
 saw pressed released. SIGKILL gives the product no chance to release, and
 Hyprland keeps a dead virtual keyboard's keys held while
 `input:virtualkeyboard:release_pressed_on_close` is false, so a key held
-then is a finding, not a failure. After either signal `j/devices` must list
-the keyboards it listed before, and a scoped `press x` must release what was
-held and give the entry exactly one unmodified `x`. Each round records a
-`hold` finding: the keys held between the signal and the next command, how
-long the app saw them held, the autorepeat presses and characters that reached
-the entry, and whether keyboard focus stayed on it. Wayland sends key events
-only to the focused surface, so with focus kept no repeat reached a bystander.
+then is a finding, not a failure, and so are the characters its autorepeat
+adds to the entry before the next delivery releases it. After either signal
+`j/devices` must list the keyboards it listed before, and a scoped `press x`
+must release what was held and give the entry exactly one unmodified `x`. Each
+round records a `hold` finding: the keys held at the signal and at the next
+command, how long until the app saw them released, the repeated characters the
+entry gained beyond the typed text, and whether keyboard focus stayed on it.
+Wayland sends key events only to the focused surface, so with focus kept no
+repeat reached a bystander.
 """
 
 from __future__ import annotations
 
 import contextlib
 import json
+import os
 import signal
 import time
 from pathlib import Path
@@ -63,10 +66,12 @@ def modifier_in_flight(found: list[dict]) -> bool:
     return bool(events) and events[-1]["event"] == "press" and events[-1].get("keysym") in SHIFTS
 
 
-def next_press_problems(found: list[dict], keysym: str) -> list[str]:
-    """The key events after a cancel hold the lead Shift tap and exactly one clean `keysym`, all released."""
+def next_press_problems(found: list[dict], keysym: str, repeating: set[int] = frozenset()) -> list[str]:
+    """The key events after a cancel hold the lead Shift tap and exactly one clean `keysym`, all released.
+    Presses of `repeating` codes are autorepeat of a key the signal left held."""
     presses = [item for item in key_events(found) if item["event"] == "press"]
-    others = [item.get("keysym") for item in presses if item.get("keysym") not in (keysym, *SHIFTS)]
+    others = [item.get("keysym") for item in presses
+              if item.get("keysym") not in (keysym, *SHIFTS) and item.get("code") not in repeating]
     wanted = [item for item in presses if item.get("keysym") == keysym]
     problems = [f"other keys arrived: {others}"] if others else []
     if len(wanted) != 1:
@@ -87,34 +92,58 @@ def _last_text(found: list[dict]) -> str:
     return texts[-1] if texts else ""
 
 
-def hold_measure(found: list[dict], signalled: float, next_command: float) -> dict:
-    """The keys held at the signal or pressed after it and before the next command, the ones still held at the next
-    command, how long until the app saw the last of them released, and the autorepeat presses and characters that
-    reached the app in between. A key pressed after the signal counts, because the stopped product may never send
-    its release. Times are the app's monotonic clock."""
-    before = [item for item in found if item.get("t", 0.0) <= signalled]
-    after = [item for item in found if item.get("t", 0.0) > signalled]
-    held = held_keys(before)
-    down, released, repeats = list(held), {}, []
-    for item in key_events(after):
-        code, inside = item.get("code"), item["t"] <= next_command
-        if item["event"] == "press" and code in down:
-            repeats += [item] if inside else []
-        elif item["event"] == "press" and inside:
+def collapse_repeats(text: str) -> str:
+    """The text with its trailing run of one character cut to a single character."""
+    return text.rstrip(text[-1:]) + text[-1:]
+
+
+def next_text_matches(entry: str | None, typed: str, key: str, repeated: bool) -> bool:
+    """The entry reads the typed text and then `key`; with `repeated`, autorepeat may have lengthened its last run."""
+    if entry is None or not entry.endswith(key):
+        return False
+    if not repeated:
+        return entry == typed + key
+    return collapse_repeats(entry[:-len(key)]) == collapse_repeats(typed)
+
+
+def _down_at(events: list[dict], until: float, held: list[int]) -> list[int]:
+    down = list(held)
+    for item in events:
+        code = item.get("code")
+        if item["t"] > until:
+            break
+        if item["event"] == "press" and code not in down:
             down.append(code)
-            held.append(code)
         elif item["event"] == "release" and code in down:
             down.remove(code)
-            released[code] = item["t"]
-    at_next = [code for code in held if code not in released or released[code] > next_command]
-    window = [item for item in after if item["t"] <= next_command]
+    return down
+
+
+def _first_release(events: list[dict], code: int, after: float) -> float | None:
+    return next((item["t"] for item in events
+                 if item["t"] > after and item["event"] == "release" and item.get("code") == code), None)
+
+
+def hold_measure(found: list[dict], signalled: float, next_command: float, expected: str) -> dict:
+    """The keys held at the signal and at the next command, how long until the app saw the last of them released,
+    and the characters the entry gained beyond `expected` until then. Autorepeat reaches the app as a release and a
+    press per character, so the repeats are counted from the entry text. Times are the app's monotonic clock."""
+    before = [item for item in found if item.get("t", 0.0) <= signalled]
+    after = key_events([item for item in found if item.get("t", 0.0) > signalled])
+    held = held_keys(before)
+    at_next = _down_at(after, next_command, held)
+    if at_next:
+        ends = [_first_release(after, code, next_command) for code in at_next]
+        end = None if None in ends else max(ends)
+    else:
+        end = max((item["t"] for item in after if item["t"] <= next_command), default=signalled)
+    until = next_command if end is None else max(next_command, end)
+    text = _last_text([item for item in found if item.get("t", 0.0) <= until])
+    window = [item for item in found if signalled < item.get("t", 0.0) <= next_command]
     return {"held": held, "held_at_next": at_next,
-            "held_s": round(max(released.values()) - signalled, 3) if held and not down else None,
+            "held_s": None if end is None else round(end - signalled, 3),
             "window_s": round(next_command - signalled, 3),
-            "repeats": len(repeats),
-            "repeat_chars": sum(1 for item in repeats if len(item.get("keysym") or "") == 1
-                                or item.get("keysym") == "space"),
-            "text_growth": len(_last_text(before + window)) - len(_last_text(before)),
+            "repeat_chars": len(text) - len(os.path.commonprefix([text, expected])),
             "focus_left": any(item.get("event") == "focus" and not item.get("in") for item in window)}
 
 
@@ -185,22 +214,26 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
     typed = _settled_text(tier, app) or ""
     ctx.finding(f"{name}: signalled at app record {seen - start}, the app logged {len(records(log)) - start}")
     problems = [f"{name}: {item}" for item in exit_problems(sent, code)]
-    problems += [f"{name}: {item}" for item in prefix_problems(typed[len(base):], CANCELLED)]
+    cut = typed[len(base):]
+    killed = sent == signal.SIGKILL
+    problems += [f"{name}: {item}" for item in prefix_problems(collapse_repeats(cut) if killed else cut, CANCELLED)]
     held = held_keys(records(log)[start:])
     if held and sent == signal.SIGKILL:
         ctx.finding(f"{name}: the app saw keys {held} held until the next delivery")
     problems += held_after_signal_problems(sent, held)
     after = len(records(log))
+    repeating = {item.get("code") for item in key_events(records(log)[start:after])} if killed else set()
     focused = active(tier).get("address") == toplevel(tier, app)["address"]
     next_command = time.monotonic()
     pressed = ctx.product(["press", "x", "--window-id", app.windows[0]], headed=False)
     if not pressed.ok:
         problems.append(f"{name}: the next press failed: {pressed.raw[:300]}")
-    if not raw.poll(lambda: entry_text(tier, app) == typed + "x", SETTLE_S):
+    if not raw.poll(lambda: next_text_matches(entry_text(tier, app), typed, "x", killed), SETTLE_S):
         problems.append(f"{name}: the next press left {entry_text(tier, app)!r}, not {typed + 'x'!r}")
     raw.poll(lambda: not held_keys(records(log)[after:]), 2.0)
-    problems += [f"{name}: {item}" for item in next_press_problems(records(log)[after:], "x")]
-    measure = dict(hold_measure(records(log)[start:], signalled, next_command), signal=name, target_focused=focused)
+    problems += [f"{name}: {item}" for item in next_press_problems(records(log)[after:], "x", repeating)]
+    measure = dict(hold_measure(records(log)[start:], signalled, next_command, base + CANCELLED), signal=name,
+                   target_focused=focused)
     ctx.finding("hold " + json.dumps(measure, sort_keys=True))
     return problems
 
