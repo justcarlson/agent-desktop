@@ -98,7 +98,12 @@ pub(crate) fn process_is_alive(pid: u32, instance: &str) -> bool {
 /// The folder that holds every record of held input for this user session.
 pub(crate) fn runtime_journal_dir() -> Option<PathBuf> {
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").filter(|dir| !dir.is_empty())?;
-    Some(PathBuf::from(runtime).join(JOURNAL_DIR))
+    Some(journal_dir_in(Path::new(&runtime)))
+}
+
+/// The folder of held-input records under the runtime directory `runtime`.
+pub(crate) fn journal_dir_in(runtime: &Path) -> PathBuf {
+    runtime.join(JOURNAL_DIR)
 }
 
 impl HeldJournal {
