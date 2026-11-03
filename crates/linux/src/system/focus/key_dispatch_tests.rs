@@ -23,7 +23,6 @@ struct Keys<'a> {
     lookups: Cell<u32>,
     stopped: bool,
 }
-
 fn facts(instance: &str) -> ProcessFacts {
     ProcessFacts {
         executable: None,
@@ -61,6 +60,15 @@ impl<'a> Keys<'a> {
 }
 
 impl KeyWorld for Keys<'_> {
+    fn confirm_compositor_focus(&self, window: &WindowInfo) -> Result<(), AdapterError> {
+        self.reads.borrow_mut().push("compositor");
+        if self.active == Some(window.pid.get()) {
+            Ok(())
+        } else {
+            Err(window_not_active(window))
+        }
+    }
+
     fn stopped(&self, _pid: u32) -> bool {
         self.stopped
     }
@@ -92,7 +100,6 @@ impl KeyWorld for Keys<'_> {
         self.active
     }
 }
-
 fn window(pid: u32, id: &str) -> WindowInfo {
     WindowInfo {
         id: id.into(),
@@ -104,18 +111,15 @@ fn window(pid: u32, id: &str) -> WindowInfo {
         state: Default::default(),
     }
 }
-
 fn process() -> ProcessIdentity {
     ProcessIdentity::new(ProcessId::new(PID), INSTANCE)
 }
-
 fn combo() -> KeyCombo {
     KeyCombo {
         key: "n".to_owned(),
         modifiers: Vec::new(),
     }
 }
-
 fn press(
     physical: &FakeWorld,
     keys: &Keys<'_>,
@@ -131,7 +135,6 @@ fn press(
         deadline: deadline(),
     })
 }
-
 #[test]
 fn the_active_owner_gets_one_synthesis_under_headless_and_headed_policy() {
     for policy in [InteractionPolicy::headless(), InteractionPolicy::headed()] {
@@ -147,7 +150,6 @@ fn the_active_owner_gets_one_synthesis_under_headless_and_headed_policy() {
         assert_eq!(result.steps[0].verified(), Some(false));
     }
 }
-
 #[test]
 fn a_popup_grab_in_another_app_leaves_the_frame_inactive_and_nothing_is_sent() {
     let physical = FakeWorld::x11();
@@ -158,7 +160,6 @@ fn a_popup_grab_in_another_app_leaves_the_frame_inactive_and_nothing_is_sent() {
     assert!(not_delivered(&error));
     assert!(physical.sent_nothing());
 }
-
 #[test]
 fn another_application_owning_either_active_measure_gets_no_keys() {
     for (focused, active, cause) in [
@@ -176,7 +177,6 @@ fn another_application_owning_either_active_measure_gets_no_keys() {
         assert!(physical.sent_nothing());
     }
 }
-
 #[test]
 fn a_window_with_no_known_owner_on_the_display_is_not_the_target() {
     let physical = FakeWorld::x11();
@@ -191,7 +191,6 @@ fn a_window_with_no_known_owner_on_the_display_is_not_the_target() {
     assert!(not_delivered(&error));
     assert!(physical.sent_nothing());
 }
-
 #[test]
 fn on_wayland_the_gate_is_the_frame_alone() {
     let physical = FakeWorld::wayland();
@@ -208,7 +207,6 @@ fn on_wayland_the_gate_is_the_frame_alone() {
     press(&inactive, &keys, InteractionPolicy::headed()).unwrap_err();
     assert!(inactive.sent_nothing());
 }
-
 #[test]
 fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
     let physical = FakeWorld::wayland();
@@ -237,7 +235,6 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
     .unwrap();
     assert_eq!(physical.count("sent"), 1);
 }
-
 #[test]
 fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
     for policy in [InteractionPolicy::headed(), InteractionPolicy::headless()] {
@@ -256,7 +253,6 @@ fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
         assert!(physical.sent_nothing());
     }
 }
-
 #[test]
 fn a_token_that_changed_before_synthesis_is_refused_with_nothing_read_or_sent() {
     for lookup in [Lookup::Found(facts("boot:other")), Lookup::Gone] {
@@ -270,7 +266,6 @@ fn a_token_that_changed_before_synthesis_is_refused_with_nothing_read_or_sent() 
         assert_eq!(keys.read_count("focused"), 0);
     }
 }
-
 #[test]
 fn a_token_that_changed_after_synthesis_is_a_delivered_unverified_error() {
     let physical = FakeWorld::x11();
@@ -281,7 +276,6 @@ fn a_token_that_changed_after_synthesis_is_a_delivered_unverified_error() {
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(physical.count("sent"), 1);
 }
-
 #[test]
 fn an_unreadable_process_does_not_end_the_press() {
     let physical = FakeWorld::x11();
@@ -290,7 +284,6 @@ fn an_unreadable_process_does_not_end_the_press() {
     press(&physical, &keys, InteractionPolicy::headed()).expect("unreadable is not changed");
     assert_eq!(physical.count("sent"), 1);
 }
-
 #[test]
 fn a_stopped_target_is_unresponsive_and_nothing_is_synthesised() {
     let physical = FakeWorld::x11();
@@ -301,7 +294,6 @@ fn a_stopped_target_is_unresponsive_and_nothing_is_synthesised() {
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(physical.count("sent"), 0);
 }
-
 #[test]
 fn window_scoped_press_rechecks_exact_focus_before_synthesis() {
     for wayland in [false, true] {
@@ -339,7 +331,6 @@ fn window_scoped_press_rechecks_exact_focus_before_synthesis() {
         }
     }
 }
-
 #[test]
 fn window_scoped_press_refuses_unknown_or_mismatched_focus_without_synthesis() {
     let mut recycled = window(PID, "target");
@@ -369,7 +360,6 @@ fn window_scoped_press_refuses_unknown_or_mismatched_focus_without_synthesis() {
         assert!(physical.sent_nothing());
     }
 }
-
 #[test]
 fn compositor_only_press_accepts_focus_without_an_accessibility_frame() {
     let physical = FakeWorld::wayland();
@@ -385,6 +375,26 @@ fn compositor_only_press_accepts_focus_without_an_accessibility_frame() {
         deadline: deadline(),
     })
     .unwrap();
+    assert_eq!(keys.read_count("focused"), 0);
+    assert!(keys.read_count("compositor") > 0);
     assert_eq!(result.details.unwrap()["focus_proof"], "compositor_only");
     assert_eq!(physical.count("sent"), 1);
+}
+
+#[test]
+fn compositor_only_press_refuses_missing_focus_before_any_key() {
+    let physical = FakeWorld::wayland();
+    let mut keys = Keys::owning(&physical);
+    keys.active = Some(OTHER);
+    let result = press_in(Press {
+        physical: &physical,
+        keys: &keys,
+        process: &process(),
+        window: Some(&window(PID, "w-hypr-50-60-a")),
+        combo: &combo(),
+        policy: InteractionPolicy::headed(),
+        deadline: deadline(),
+    });
+    assert!(not_delivered(&result.unwrap_err()));
+    assert!(physical.sent_nothing());
 }

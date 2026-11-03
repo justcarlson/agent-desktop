@@ -247,6 +247,12 @@ Retry after the cause is gone.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names. `press` takes mapped keys only; `type`
   handles characters the layout cannot produce.
+- On bound Hyprland, `press a --window-id <id>` accepts a compositor-only
+  window (`accessible: false`). Headed press can activate it; headless press
+  requires existing focus. `data.details.focus_proof: "compositor_only"`
+  means the compositor and activated toplevel agree and the workspace is in
+  view, with no AT-SPI frame proof. Accessible windows still require an active
+  frame. `type` still needs an accessibility ref; a window id is not a ref.
 - Window ops act on X11 clients; headed scoped `press`, headed ref actions
   and `focus-window` require an X11 session or a bound Hyprland. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's

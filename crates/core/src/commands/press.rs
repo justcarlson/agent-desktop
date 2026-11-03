@@ -24,8 +24,36 @@ pub fn execute(
     ensure_combo_allowed(&combo, &args.combo, args.force, adapter)?;
     let deadline = crate::Deadline::standard()?;
 
+    let target_window = args
+        .window_id
+        .as_deref()
+        .map(|id| crate::snapshot::resolve_window(adapter, args.app.as_deref(), Some(id), deadline))
+        .transpose()?;
+    if let Some(window) = target_window
+        .as_ref()
+        .filter(|window| !window.state.accessible)
+    {
+        let lease = adapter.acquire_interaction_lease(deadline)?;
+        let result = adapter.press_key_for_window(
+            window,
+            &combo,
+            context.physical_input_policy(),
+            &lease,
+        )?;
+        drop(lease);
+        return super::helpers::apply_scoped_post_action_wait(
+            serde_json::to_value(result)?,
+            args.app,
+            args.window_id,
+            adapter,
+            context,
+        );
+    }
+
     let mut pressed_process = None;
-    let result = if let Some((expected, window)) = target_app(&args, adapter, deadline)? {
+    let result = if let Some((expected, window)) =
+        target_app(&args, adapter, deadline, target_window)?
+    {
         let lease = adapter.acquire_interaction_lease(deadline)?;
         let live = crate::commands::helpers::revalidate_app_for_mutation(
             adapter,
@@ -77,14 +105,9 @@ fn target_app(
     args: &PressArgs,
     adapter: &dyn PlatformAdapter,
     deadline: crate::Deadline,
+    window: Option<crate::WindowInfo>,
 ) -> Result<Option<(crate::AppInfo, Option<crate::WindowInfo>)>, AppError> {
-    if let Some(window_id) = &args.window_id {
-        let window = crate::snapshot::resolve_window(
-            adapter,
-            args.app.as_deref(),
-            Some(window_id),
-            deadline,
-        )?;
+    if let Some(window) = window {
         let app = crate::system::app_lookup::resolve_app_owning(&window, adapter, deadline)?;
         return Ok(Some((app, Some(window))));
     }
