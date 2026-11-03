@@ -91,7 +91,7 @@ def parse_log_body(text: str) -> list[tuple[str, dict]]:
 def read_log(path: Path) -> list[tuple[str, dict]]:
     if not path.exists():
         return []
-    return parse_log_body(path.read_text(encoding="utf-8"))
+    return parse_log_body(path.read_text(encoding="utf-8").rpartition("\n")[0])
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
