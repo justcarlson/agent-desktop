@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -66,6 +67,14 @@ class KeyVerdictTests(unittest.TestCase):
         portal = {"steps": [{"label": "RemoteDesktop.type_text"}]}
         self.assertNotEqual(common.labelled("t", envelope(True, data=portal), "VirtualKeyboard.type_text"), [])
         self.assertNotEqual(common.labelled("t", envelope(False, error={}), "VirtualKeyboard.type_text"), [])
+
+
+class KeyLogRecordTests(unittest.TestCase):
+    def test_a_record_the_app_is_still_writing_is_not_read(self):
+        with tempfile.TemporaryDirectory() as folder:
+            log = Path(folder) / "key-log.log"
+            log.write_text('{"event": "press", "code": 38}\n{"event":')
+            self.assertEqual(common.records(log), [{"event": "press", "code": 38}])
 
 
 if __name__ == "__main__":
