@@ -301,6 +301,7 @@ for _leg in REGISTRY:
 
 LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'session.hyprland_silent_wayland_refused': ('scenarios.hyprland_silent_wayland', 'hyprland_silent_wayland_refused'),
+    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
 }
 
 
