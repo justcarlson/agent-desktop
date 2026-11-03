@@ -10,6 +10,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 use super::guard_record::HeldRecord;
 use crate::input::hyprland_keyboard::keyboard_wire::KeyboardWire;
 use crate::input::hyprland_keyboard::virtual_keyboard_sink::VirtualKeyboardSink;
+use crate::input::wayland::keymap::keycode_sink::KeycodeSink;
 use crate::input::x11::sink_error::SinkError;
 
 /// What the guard did for its command.
@@ -33,15 +34,20 @@ where
     W: KeyboardWire,
     F: FnOnce(Deadline) -> Result<(W, String), AdapterError>,
 {
-    let _ = (
-        record,
-        layout,
-        deadline,
-        open,
-        VirtualKeyboardSink::<W>::new,
-        SinkError::Journal,
-    );
-    Ok(GuardOutcome::Clean)
+    let Some(record) = record else {
+        return Ok(GuardOutcome::Clean);
+    };
+    let (wire, owner) = open(deadline)?;
+    let mut sink = VirtualKeyboardSink::new(wire, layout);
+    let released = sink
+        .upload_keymap(&owner, deadline)
+        .and_then(|()| sink.release_keys(&record.codes));
+    let closed = sink.close(deadline);
+    released.and(closed)?;
+    record
+        .remove()
+        .map_err(|error| SinkError::Journal(error.to_string()).into_adapter())?;
+    Ok(GuardOutcome::Released(record.codes.len()))
 }
 
 #[cfg(test)]

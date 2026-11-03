@@ -76,14 +76,22 @@ fn read_payload() -> Result<GuardPayload, AdapterError> {
 
 /// Blocks until `pidfd` reports its process gone, or cannot be polled.
 pub(crate) fn wait_for_exit(pidfd: BorrowedFd<'_>) {
-    let _ = (PollFd::new(&pidfd, PollFlags::IN), poll, Errno::INTR);
+    loop {
+        let mut fds = [PollFd::new(&pidfd, PollFlags::IN)];
+        match poll(&mut fds, None) {
+            Err(Errno::INTR) => continue,
+            _ => return,
+        }
+    }
 }
 
 /// Whether the command the payload names has exited, so a pidfd that could
 /// not be polled never releases keys under a live command.
 pub(crate) fn command_gone(payload: &GuardPayload) -> bool {
-    let _ = (payload, liveness::identity, Identity::Gone);
-    false
+    matches!(
+        liveness::identity(payload.command_pid, &payload.command_instance),
+        Identity::Gone | Identity::Replaced
+    )
 }
 
 #[cfg(test)]

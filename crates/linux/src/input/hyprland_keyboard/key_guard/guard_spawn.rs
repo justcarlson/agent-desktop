@@ -8,8 +8,9 @@
 use std::ffi::OsString;
 use std::io::{self, Write};
 use std::os::fd::{AsRawFd, RawFd};
+use std::os::unix::process::CommandExt;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 
 use rustix::process::{PidfdFlags, getpid, pidfd_open};
@@ -89,13 +90,21 @@ pub(crate) fn guard_command(
     pidfd: RawFd,
     parent_env: impl IntoIterator<Item = (OsString, OsString)>,
 ) -> Command {
-    let _ = (
-        pidfd,
-        parent_env.into_iter().count(),
-        hand_over,
-        is_lease_variable,
+    let mut command = Command::new(executable);
+    command.env_clear().envs(
+        parent_env
+            .into_iter()
+            .filter(|(name, _)| !is_lease_variable(name)),
     );
-    Command::new(executable)
+    command
+        .env(GUARD_ENV, GUARD_PROTOCOL)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    unsafe {
+        command.pre_exec(move || hand_over(pidfd));
+    }
+    command
 }
 
 fn is_lease_variable(name: &OsString) -> bool {

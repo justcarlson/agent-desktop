@@ -3,8 +3,9 @@
 //! The virtual keyboard types with the seat owner's keymap extended by the
 //! keysyms a delivery needs, in the layout the owner has active, and is
 //! destroyed when the delivery ends so the compositor returns to the
-//! physical keyboard's keymap. Held keys are journaled so a killed delivery's
-//! keys are released by the next delivery on the instance.
+//! physical keyboard's keymap. Held keys are journaled; when the CLI is
+//! killed, its key guard releases what the journal holds, and the next
+//! delivery on the instance releases anything left.
 
 pub(crate) mod active_layout;
 mod control_text;
