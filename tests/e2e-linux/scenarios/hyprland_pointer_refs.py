@@ -18,7 +18,6 @@ from pathlib import Path
 
 from oracle import atspi_raw as raw
 from oracle import hyprland, proc
-from runner import attached_session
 from runner.apps import OwnedApp
 from runner.helper import require
 from runner.legs import implementation
@@ -142,6 +141,7 @@ def fixture_refusals(ctx, env, instance: dict) -> list[str]:
 
 
 def _spawn_owned(tier, instance: dict, argv: list[str], label: str, found) -> OwnedApp:
+    from runner import attached_session
     env = dict(tier.env, WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND="wayland")
     env.pop("AT_SPI_BUS_ADDRESS", None)
     env.pop("HYPRLAND_INSTANCE_SIGNATURE", None)

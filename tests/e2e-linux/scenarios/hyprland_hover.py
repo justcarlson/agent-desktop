@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import require
 from runner.verdict import LegContext
 from scenarios.hyprland_close import _register, _release
@@ -102,6 +102,7 @@ def _popup_owner(tier):
 def hover_popup(tier, instance: dict):
     """The GTK4 popup fixture on the instance's XWayland display, once its popup is up. Yields the
     app, its window's client and its log."""
+    from runner import attached_session
     require(not apps._owners(tier, names=POPUP_NAMES), "a hover popup from an earlier leg still runs")
     log = tier.runtime_dir / "hover-popup.events"
     log.write_text("")
