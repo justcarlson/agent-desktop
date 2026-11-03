@@ -321,9 +321,13 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertIn("_refused_xy(", stopped)
         self.assertIn("_landed_xy(", source[source.index("_screen_after_resume"):])
 
-    def test_the_pad_legs_under_the_cursor_drive_an_xwayland_pad(self):
-        source = (Path(hide.__file__)).read_text()
-        self.assertIn("pointer_pad(tier, instance, label, XWAYLAND)", source)
+    def test_the_pad_legs_under_the_cursor_drive_a_shown_xwayland_pad_on_the_session_instance(self):
+        source = inspect.getsource(hide._click_under_cursor)
+        self.assertIn("main = main_instance(tier)", source)
+        self.assertIn("pointer_pad(tier, main, label, XWAYLAND)", source)
+        self.assertIn("app_shown(tier, owned.pid)", source)
+        self.assertIn('gone_problems("session end", runtime, main, session, owner)', source)
+        self.assertNotIn("nested", source)
 
     def test_the_arrow_shows_by_its_fill_and_never_by_a_changed_button(self):
         box = (2, 2, 14, 14)

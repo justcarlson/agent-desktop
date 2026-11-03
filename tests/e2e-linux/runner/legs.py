@@ -318,6 +318,8 @@ for _leg in REGISTRY:
 
 LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'session.hyprland_silent_wayland_refused': ('scenarios.hyprland_silent_wayland', 'hyprland_silent_wayland_refused'),
+    'pointer.session_ref_pointer_refusals': ('scenarios.hyprland_session_pointer', 'session_ref_pointer_refusals'),
+    'pointer.session_hover_coordinates': ('scenarios.hyprland_session_pointer', 'session_hover_coordinates'),
     'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
     'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
     'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
