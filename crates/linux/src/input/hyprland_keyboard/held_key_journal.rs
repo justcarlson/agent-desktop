@@ -119,3 +119,7 @@ impl HeldKeyJournal {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "held_key_journal_tests.rs"]
+mod tests;
