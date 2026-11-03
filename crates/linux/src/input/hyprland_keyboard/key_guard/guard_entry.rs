@@ -65,7 +65,6 @@ where
     W: KeyboardWire,
     F: FnOnce(Deadline) -> Result<(W, String), AdapterError>,
 {
-    let _lease = crate::system::interaction::interaction_lease::acquire(deadline)?;
     let record = journal_dir_for(&payload.binding).and_then(|dir| {
         claim_held(
             &dir,
