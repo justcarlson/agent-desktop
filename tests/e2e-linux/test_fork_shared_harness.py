@@ -5,6 +5,7 @@ tree without those files and runs the e2e-linux unit tests in it.
 """
 from __future__ import annotations
 
+import ast
 import os
 import re
 import shutil
@@ -75,6 +76,38 @@ class SharedHarnessTests(unittest.TestCase):
             )
             self.assertEqual(run.returncode, 0, run.stderr[-6000:])
 
+
+
+STACK_LATER = {
+    "scenarios/hyprland_zoo.py": ("scenarios.hyprland_pointer_pad", "scenarios.hyprland_pointer",
+                                  "scenarios.hyprland_cursor_hide"),
+    "scenarios/hyprland_window_nested.py": ("scenarios.hyprland_pointer", "scenarios.hyprland_cursor_hide"),
+    "scenarios/hyprland_window_ops.py": ("scenarios.hyprland_pointer", "scenarios.hyprland_cursor_hide"),
+    "scenarios/hyprland_capture_loss.py": ("scenarios.hyprland_pointer", "scenarios.hyprland_cursor_hide"),
+    "scenarios/hyprland_cursor_hide.py": ("scenarios.hyprland_pointer",),
+}
+
+
+def imported_modules(path: Path) -> set[str]:
+    found = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            found.add(node.module)
+        elif isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+    return found
+
+
+class StackOrderImportTests(unittest.TestCase):
+    """The upstream split stacks identity, window ops and capture before the cursor renderer, and the
+    renderer before the pointer. A shared module on an earlier branch that imports a later branch's
+    module cannot be imported on its own branch, so these modules take their helpers from modules
+    that the earlier branches hold."""
+
+    def test_earlier_branch_modules_import_no_later_branch_module(self):
+        for name, later in sorted(STACK_LATER.items()):
+            with self.subTest(module=name):
+                self.assertEqual(sorted(imported_modules(HARNESS / name) & set(later)), [])
 
 if __name__ == "__main__":
     unittest.main()
