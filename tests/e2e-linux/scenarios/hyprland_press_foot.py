@@ -5,7 +5,6 @@ import contextlib
 from pathlib import Path
 
 from oracle import atspi_raw as raw, proc
-from runner import attached_session
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_common import bystander, desktop, main_instance
@@ -51,6 +50,7 @@ def envelope(result) -> dict:
 
 @contextlib.contextmanager
 def reader(tier, name: str):
+    from runner import attached_session
     log, ready = (tier.runtime_dir / f'{name}.{suffix}' for suffix in ('bytes', 'ready'))
     for path in (log, ready):
         path.unlink(missing_ok=True)
