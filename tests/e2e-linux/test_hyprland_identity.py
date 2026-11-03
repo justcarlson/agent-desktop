@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from oracle import hyprland
-from runner import apps, attached, attached_session, legs
+from runner import apps, legs, tier_record
 from runner.product import Envelope
 from runner.verdict import LegContext, evaluate
 from scenarios import hyprland_identity as identity
@@ -217,11 +217,13 @@ class NoTreeTests(unittest.TestCase):
         self.assertNotEqual(identity.no_tree_problems("snapshot", envelope), [])
 
 
+@unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
 class TwinPlacementTests(unittest.TestCase):
     """Hyprland unregisters an exec rule on the first window its process maps, so the second twin
     needs the class rule, enabled only while the twins map."""
 
     def setUp(self):
+        from runner import attached
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.work = Path(directory.name)
@@ -245,6 +247,7 @@ class TwinPlacementTests(unittest.TestCase):
                                "workspace": {"name": name}} for index, name in enumerate(self.workspaces)]
 
     def spawn(self, lua: bool = True):
+        from runner import attached_session
         with mock.patch.object(hyprland, "uses_lua", return_value=lua), \
                 mock.patch.object(hyprland, "control", side_effect=self.control), \
                 mock.patch.object(hyprland, "query", side_effect=self.clients):
@@ -258,6 +261,7 @@ class TwinPlacementTests(unittest.TestCase):
         self.assertIn("range(2)", source)
 
     def test_the_class_rule_is_enabled_before_the_exec_and_disabled_after_both_twins_map(self):
+        from runner import attached
         self.spawn()
         self.assertEqual([argv[0] for argv in self.calls], ["eval", "dispatch", "eval"])
         self.assertIn("enabled = true", self.calls[0][1])
@@ -266,6 +270,7 @@ class TwinPlacementTests(unittest.TestCase):
         self.assertEqual(attached.load(self.work)["rules"], [])
 
     def test_a_twin_on_the_active_workspace_fails_and_the_rule_is_still_disabled(self):
+        from runner import attached
         self.workspaces = ["special:ad_e2e", "1"]
         with self.assertRaisesRegex(RuntimeError, "outside special:ad_e2e"):
             self.spawn()
@@ -279,12 +284,14 @@ class TwinPlacementTests(unittest.TestCase):
         self.assertIn("enabled = false", self.calls[-1][1])
 
     def test_a_legacy_config_refuses_before_it_starts_anything(self):
+        from runner import attached
         with self.assertRaisesRegex(RuntimeError, "legacy"):
             self.spawn(lua=False)
         self.assertEqual(self.calls, [])
         self.assertNotIn("rules", attached.load(self.work))
 
     def test_teardown_disables_a_rule_the_run_left_enabled_and_reports_one_it_could_not(self):
+        from runner import attached, attached_session
         record = attached.load(self.work)
         record["rules"] = [attached_session.RULE]
         attached.save(self.work, record)
