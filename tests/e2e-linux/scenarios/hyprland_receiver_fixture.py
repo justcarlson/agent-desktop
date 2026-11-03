@@ -15,7 +15,6 @@ from pathlib import Path
 
 from oracle import atspi_raw as raw
 from oracle import proc
-from runner import attached_session
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_close import _register, _release
@@ -58,6 +57,7 @@ def _mapped_pid(log: Path) -> int | None:
 def receiver_fixture(tier, instance: dict, toolkit: str, case: str):
     """The fixture on the instance's XWayland display. Yields the app, its toplevel and its log once
     `j/clients` shows the toplevel with `xwayland: true` and, for `popup`, the popup is shown."""
+    from runner import attached_session
     env = dict(pad_env(tier, instance, XWAYLAND), QT_QPA_PLATFORM="xcb", QT_ACCESSIBILITY="1",
                QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1")
     label = f"receiver-{toolkit}-{case}"
