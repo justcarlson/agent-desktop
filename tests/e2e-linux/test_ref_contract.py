@@ -209,6 +209,17 @@ class RefContractTests(unittest.TestCase):
                     chooser(None, None, None, None, data, Path("/tmp/note.txt"))
                 act.assert_called_once_with(None, field, "type", "/tmp/note.txt")
 
+    def test_chooser_refuses_a_name_field_with_a_same_named_hidden_twin_before_typing(self):
+        field = {"name": "Name", "role": "textfield", "available_actions": ["TypeText"], "ref_id": "@s1:e3"}
+        twin = dict(field, ref_id="@s1:e118", states=["offscreen"])
+        data = {"tree": {"children": [field, twin]}}
+        with patch("scenarios.ref_contract_windows.raw_target"), \
+                patch("scenarios.ref_contract_windows.act") as act, \
+                patch("scenarios.ref_contract_windows.poll", side_effect=lambda predicate, _: predicate()):
+            with self.assertRaisesRegex(AssertionError, "not unique.*@s1:e118"):
+                chooser(None, None, None, None, data, Path("/tmp/note.txt"))
+            act.assert_not_called()
+
     def test_prepare_selects_another_option_using_its_advertised_action(self):
         node = {"name": "zoo-row-1", "role": "option", "available_actions": ["Select"]}
         other = dict(node, name="zoo-row-2", ref_id="@s1:e2")
