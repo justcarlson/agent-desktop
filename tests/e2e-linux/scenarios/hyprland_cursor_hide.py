@@ -16,6 +16,7 @@ import os
 import secrets
 import signal
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, pixels
@@ -30,8 +31,9 @@ from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arro
                                        kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
 from scenarios.hyprland_focus_controls import active, focus_argv, lua_call, query, toggle_argv
 from scenarios.hyprland_pointer import nested
-from scenarios.hyprland_pointer_pad import (XWAYLAND, covering_layers, events, instance_env, pad_client,
-                                            pad_ref, pads_left, pointer_pad, presses, settled, since)
+from scenarios.hyprland_pointer_pad import (XWAYLAND, apart_from_last_click, covering_layers, cursor_at, events,
+                                            gdk3_presses, global_point, instance_env, pad_client, pad_ref, pad_saw,
+                                            pads_left, pointer_pad, presses, settled, since, xy)
 from scenarios.hyprland_pointer_refs import unproven_problems
 
 SHOW_SETTLE_S = 3.0
@@ -43,6 +45,8 @@ HOLD_MS = 8_000
 REFUSAL_KINDS = ("cursor_hide_timeout", "cursor_hide_failed")
 PRE_HIDE_CAUSES = {"native_wayland_client": "native Wayland", "receiver_unproven": "unproven receiver"}
 KEEP_DRAWN_FLAG = "keep-drawn-for-test"
+XY_FRACTION = (0.5, 0.7)
+LATE_EVENT_S = 1.0
 
 
 def registry_of(runtime: Path, session: str) -> Path:
@@ -323,16 +327,20 @@ def _stopped(owner: dict):
 
 @implementation("cursor.travel_failure_proceeds_hide_failure_refuses")
 def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
-    """A renderer that answers nothing refuses headed work before any event, and never blocks a headless click.
+    """A renderer that answers nothing refuses headed work at the hide, before any event.
 
     A stopped renderer withholds both its arrival and its `hide`
-    acknowledgement, so `screenshot --screen` refuses at the hide. The headed
-    ref click on Calculator refuses for its receiver before any hide, so it
-    must leave no holder. A killed renderer counts as hidden, so it blocks neither.
+    acknowledgement. `screenshot --screen` and a headed `mouse-click --xy` on
+    a shown pointer pad pass the arrival and refuse at the hide, and the pad
+    logs nothing. The headed ref click on Calculator refuses for its receiver
+    before any hide, so it must leave no holder. Once the renderer resumes, and
+    after it is killed, the same coordinate click lands one press.
     """
-    runtime, main = shared(ctx.tier), main_instance(ctx.tier)
-    headed = ctx.mode == "headed"
-    with managed(ctx, "Calculator") as app:
+    tier, runtime, main = ctx.tier, shared(ctx.tier), main_instance(ctx.tier)
+    ctx.before("applog.pad", pads_left(tier))
+    with managed(ctx, "Calculator") as app, \
+            pointer_pad(tier, main, "stopped-renderer", XWAYLAND) as (owned, client, log), \
+            app_shown(tier, owned.pid):
         tree = root(ctx, app)
         before = display(tree)
         ctx.before("atspi.display", before)
@@ -341,46 +349,128 @@ def travel_failure_proceeds_hide_failure_refuses(ctx: LegContext) -> None:
             owner = renderer_of(runtime, main, session)
             registry = registry_of(runtime, session)
             seven, point = _seven(ctx, app, session)
+            pad = PadAim(session, log, global_point(pad_client(tier, main, owned.pid) or client, XY_FRACTION))
             screen = Screen(ctx, main, point)
             shell = shell_covers(hyprland.query(runtime, main["signature"], "layers", pid=main["pid"]), point)
             problems = []
             with _stopped(owner):
-                if headed:
-                    envelope, path = screen.product_capture("hide-withheld")
-                    problems += hide_refusal_problems("screen capture under a stopped renderer", envelope)
-                    if path.exists():
-                        problems.append("a refused screen capture wrote its file")
-                    clicked = ctx.product(["--session", session, "click", seven])
-                    problems += pre_hide_refusal_problems("headed click under a stopped renderer", clicked)
-                    if display(tree) != before:
-                        problems.append("the refused headed click changed the display")
-                else:
-                    clicked = ctx.product(["--session", session, "click", seven])
-                    if not clicked.ok:
-                        problems.append(f"a withheld arrival blocked the headless click: {clicked.raw[:300]}")
-            if headed and raw.poll(lambda: display(tree) != before, 1.0):
+                envelope, path = screen.product_capture("hide-withheld")
+                problems += hide_refusal_problems("screen capture under a stopped renderer", envelope)
+                if path.exists():
+                    problems.append("a refused screen capture wrote its file")
+                problems += _refused_xy(ctx, pad)
+                clicked = ctx.product(["--session", session, "click", seven])
+                problems += pre_hide_refusal_problems("headed click under a stopped renderer", clicked)
+                if display(tree) != before:
+                    problems.append("the refused headed click changed the display")
+            if raw.poll(lambda: display(tree) != before, 1.0):
                 problems.append("the refused headed click changed the display late")
+            if since(events(log), pad.start):
+                problems.append(f"the pad logged events after the refused mouse-click{pad_saw(since(events(log), pad.start))}")
             if holders_in(registry):
                 problems.append(f"a refusal under a stopped renderer left holders: {holders_in(registry)}")
-            if headed:
-                problems += _screen_after_resume(screen)
-            else:
-                after = raw.poll(lambda: display(tree) if display(tree) != before else None, SHOW_SETTLE_S)
-                if not after:
-                    problems.append("the headless click under a stopped renderer had no effect")
+            problems += _screen_after_resume(screen)
+            problems += _landed_xy(ctx, pad, "under a resumed renderer")
             kill_exactly(renderer_of(runtime, main, session))
             shown = display(tree)
             dead = ctx.product(["--session", session, "click", seven])
-            problems += _dead_click_problems(ctx, dead, shell if headed else [], tree, shown)
-            if headed:
-                envelope, path = screen.product_capture("hide-dead")
-                if not envelope.ok:
-                    problems.append(f"a dead renderer blocked the screen capture: {envelope.raw[:300]}")
+            problems += _dead_click_problems(ctx, dead, shell, tree, shown)
+            problems += _landed_xy(ctx, pad, "under a killed renderer")
+            envelope, path = screen.product_capture("hide-dead")
+            if not envelope.ok:
+                problems.append(f"a dead renderer blocked the screen capture: {envelope.raw[:300]}")
+            ctx.after("atspi.display", display(tree))
+            ctx.after("applog.pad", len(events(log)))
+        finally:
+            ended(ctx, session)
+        ctx.restored("atspi.display", undo_all(tree, before))
+        require(not problems, "; ".join(problems))
+    ctx.restored("applog.pad", pads_left(tier))
+
+
+@implementation("cursor.travel_failure_proceeds_headless")
+def travel_failure_proceeds_headless(ctx: LegContext) -> None:
+    """A renderer that answers nothing never blocks a headless click.
+
+    A stopped renderer withholds its arrival acknowledgement; dispatch waits
+    out the bounded arrival timeout and then lands the click. A headless click
+    hides nothing, so it leaves no holder. A killed renderer blocks it neither.
+    """
+    runtime, main = shared(ctx.tier), main_instance(ctx.tier)
+    with managed(ctx, "Calculator") as app:
+        tree = root(ctx, app)
+        before = display(tree)
+        ctx.before("atspi.display", before)
+        session = started(ctx)
+        try:
+            owner = renderer_of(runtime, main, session)
+            registry = registry_of(runtime, session)
+            seven, _ = _seven(ctx, app, session)
+            problems = []
+            with _stopped(owner):
+                clicked = ctx.product(["--session", session, "click", seven])
+                if not clicked.ok:
+                    problems.append(f"a withheld arrival blocked the headless click: {clicked.raw[:300]}")
+            if holders_in(registry):
+                problems.append(f"a headless click under a stopped renderer left holders: {holders_in(registry)}")
+            if not raw.poll(lambda: display(tree) != before, SHOW_SETTLE_S):
+                problems.append("the headless click under a stopped renderer had no effect")
+            kill_exactly(renderer_of(runtime, main, session))
+            shown = display(tree)
+            dead = ctx.product(["--session", session, "click", seven])
+            if not dead.ok:
+                problems.append(f"a dead renderer blocked the headless click: {dead.raw[:300]}")
+            elif not raw.poll(lambda: display(tree) != shown, SHOW_SETTLE_S):
+                problems.append("the headless click under a dead renderer had no effect")
             ctx.after("atspi.display", display(tree))
         finally:
             ended(ctx, session)
         ctx.restored("atspi.display", undo_all(tree, before))
         require(not problems, "; ".join(problems))
+
+
+@dataclass
+class PadAim:
+    """Where the leg's coordinate clicks go: the session, the pad's event log and a point on its area.
+    `start` is the log length before the last refused click."""
+    session: str
+    log: Path
+    point: tuple[int, int]
+    start: int = 0
+
+
+def _refused_xy(ctx: LegContext, pad: PadAim) -> list[str]:
+    """A headed `mouse-click --xy` on the pad, judged by `xy_refusal_problems` once late events had time to arrive."""
+    tier, main = ctx.tier, main_instance(ctx.tier)
+    pad.start, at = len(events(pad.log)), cursor_at(tier, main)
+    clicked = ctx.product(["--session", pad.session, "mouse-click", f"--xy={xy(pad.point)}"])
+    found = since(settled(pad.log, lambda found: len(found) > pad.start, LATE_EVENT_S), pad.start)
+    return xy_refusal_problems("headed mouse-click --xy under a stopped renderer", clicked, found,
+                               (at, cursor_at(tier, main)))
+
+
+def xy_refusal_problems(label: str, envelope, found: list[dict], cursor: tuple) -> list[str]:
+    """A hide refusal, no event in the pad's log `found`, and `cursor`, the j/cursorpos before and
+    after the click, unchanged. A receiver refusal is a problem: it shows no hide ran."""
+    problems = hide_refusal_problems(label, envelope)
+    if found:
+        problems.append(f"{label}: the pad logged {len(found)} events, expected none{pad_saw(found)}")
+    if cursor[0] != cursor[1]:
+        problems.append(f"{label}: the cursor moved from {cursor[0]} to {cursor[1]}")
+    return problems
+
+
+def _landed_xy(ctx: LegContext, pad: PadAim, label: str) -> list[str]:
+    """The same headed `mouse-click --xy` lands exactly one press on the pad's area."""
+    apart_from_last_click(pad.log)
+    start, want = len(events(pad.log)), gdk3_presses(1)
+    clicked = ctx.product(["--session", pad.session, "mouse-click", f"--xy={xy(pad.point)}"])
+    if not clicked.ok:
+        return [f"the headed mouse-click {label} failed: {clicked.raw[:300]}"]
+    found = since(settled(pad.log, lambda found: presses(since(found, start), "area") == want), start)
+    if presses(found, "area") != want:
+        return [f"the headed mouse-click {label} logged {presses(found, 'area')}, not {want}{pad_saw(found)}"]
+    return []
 
 
 def shell_covers(layers: dict, point: tuple[float, float]) -> list[str]:
