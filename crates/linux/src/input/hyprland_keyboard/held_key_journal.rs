@@ -22,7 +22,7 @@ const HYPRLAND_DIR: &str = "hyprland";
 /// The records folder in the runtime directory the binding found, which holds
 /// `hypr/<signature>/.socket.sock`. A caller started by SSH or a systemd unit
 /// has no `XDG_RUNTIME_DIR` but still records where the session does.
-fn journal_dir_for(binding: &HyprlandBinding) -> Option<PathBuf> {
+pub(crate) fn journal_dir_for(binding: &HyprlandBinding) -> Option<PathBuf> {
     let runtime = binding.ipc_socket.ancestors().nth(3)?;
     Some(journal_dir_in(runtime).join(HYPRLAND_DIR))
 }
@@ -43,7 +43,12 @@ pub(crate) struct StaleKeys {
     pub(crate) codes: Vec<u32>,
 }
 
-fn key_codes(value: &Value) -> impl Iterator<Item = u32> + '_ {
+/// The display a record names: the Hyprland instance and its Wayland socket.
+pub(crate) fn instance_key(binding: &HyprlandBinding) -> String {
+    format!("{}:{}", binding.signature, binding.wayland_socket.display())
+}
+
+pub(crate) fn key_codes(value: &Value) -> impl Iterator<Item = u32> + '_ {
     value["keys"]
         .as_array()
         .into_iter()
@@ -57,10 +62,9 @@ fn journal_error(error: std::io::Error) -> AdapterError {
 
 impl HeldKeyJournal {
     pub(crate) fn in_runtime_dir(binding: &HyprlandBinding) -> Option<Self> {
-        let instance = format!("{}:{}", binding.signature, binding.wayland_socket.display());
         Some(Self::at(
             journal_dir_for(binding)?,
-            &instance,
+            &instance_key(binding),
             std::process::id(),
         ))
     }

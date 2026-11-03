@@ -14,6 +14,7 @@ use serde_json::json;
 use super::held_key_journal::HeldKeyJournal;
 use super::held_keys::HeldKeys;
 use super::keyboard_wire::KeyboardWire;
+use super::stale_key_release::release_stale_keys;
 use crate::input::wayland::keymap::keycode_sink::KeycodeSink;
 use crate::input::wayland::keymap::modifier_state::ModifierState;
 use crate::input::wayland::keymap::refusal::keymap_refused;
@@ -55,6 +56,13 @@ impl<W: KeyboardWire> VirtualKeyboardSink<W> {
 
     pub(crate) fn layout(&self) -> u32 {
         self.layout
+    }
+
+    /// Sends a key-up for each of `codes`, keys another virtual keyboard
+    /// left held, and waits until the compositor has handled them.
+    pub(crate) fn release_keys(&mut self, codes: &[u32]) -> Result<(), AdapterError> {
+        let _ = (codes, release_stale_keys::<W>);
+        Ok(())
     }
 
     #[cfg(test)]

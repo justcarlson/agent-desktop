@@ -12,6 +12,7 @@ mod control_text;
 pub(crate) mod fake_wire;
 pub(crate) mod held_key_journal;
 pub(crate) mod held_keys;
+pub(crate) mod key_guard;
 pub(crate) mod keyboard_cancel;
 pub(crate) mod keyboard_state;
 pub(crate) mod keyboard_wire;
