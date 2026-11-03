@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 from oracle.proc import members
-from runner import apps, attached, attached_session, cancel, second_instance
+from runner import apps, cancel, second_instance
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -45,6 +45,7 @@ def child_env(source: dict[str, str], suite: Path, ready: Path) -> tuple[dict[st
 
 
 def _hold(ctx: LegContext, ready: Path) -> None:
+    from runner import attached
     nested = second_instance.ensure(ctx.tier)
     app = apps.launch(ctx.tier, "Calculator")
     found = attached.load(ctx.tier.runtime_dir)
@@ -60,6 +61,7 @@ def _hold(ctx: LegContext, ready: Path) -> None:
 
 def aftermath(ready: dict, child_record: dict, parent_record: dict, proc_root: Path = Path("/proc")) -> list[str]:
     """What a cancelled child left behind, and what of the session it took with it."""
+    from runner import attached_session
     alive = lambda pair: attached_session._alive(pair[0], pair[1], proc_root)
     shared = Path(parent_record["shared_runtime"])
     problems = list(attached_session.remaining(child_record, proc_root))
@@ -100,6 +102,7 @@ def _observe(ctx: LegContext, stage: str, main: dict) -> None:
 
 
 def _cancel(ctx: LegContext) -> None:
+    from runner import attached_session
     main = main_instance(ctx.tier)
     bystander(ctx.tier)
     suite = Path(tempfile.mkdtemp(prefix="cancel-child-", dir=os.environ["AGENT_DESKTOP_E2E_SUITE"]))
