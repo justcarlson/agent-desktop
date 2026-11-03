@@ -3,9 +3,13 @@
 The leg starts the product itself, so it signals the exact process it
 started and no other. It waits until the key log's newest key event is a
 Shift press, which means the virtual keyboard holds Shift for an uppercase
-letter, and signals then. Afterwards the app's log must show every key it
-saw pressed released, `j/devices` must list the keyboards it listed before,
-and a scoped `press x` must give the entry exactly one unmodified `x`.
+letter, and signals then. After SIGTERM the app's log must show every key it
+saw pressed released. SIGKILL gives the product no chance to release, and
+Hyprland keeps a dead virtual keyboard's keys held while
+`input:virtualkeyboard:release_pressed_on_close` is false, so a key held
+then is a finding, not a failure. After either signal `j/devices` must list
+the keyboards it listed before, and a scoped `press x` must release what was
+held and give the entry exactly one unmodified `x`.
 """
 
 from __future__ import annotations
@@ -72,6 +76,13 @@ def exit_problems(sent: int, code: int | None) -> list[str]:
     return [] if code == -sent else [f"the product exited {code}, not by signal {int(sent)}"]
 
 
+def held_after_signal_problems(sent: int, held: list[int]) -> list[str]:
+    """Keys still held after the signal fail SIGTERM; after SIGKILL only the next delivery can release them."""
+    if not held or sent == signal.SIGKILL:
+        return []
+    return [f"{signal.Signals(sent).name}: the app saw keys {held} pressed and never released"]
+
+
 def prefix_problems(typed: str | None, text: str) -> list[str]:
     if not typed or not text.startswith(typed) or typed == text:
         return [f"the entry reads {typed!r}, not a strict prefix of the text"]
@@ -132,8 +143,10 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
     ctx.finding(f"{name}: signalled at app record {seen - start}, the app logged {len(records(log)) - start}")
     problems = [f"{name}: {item}" for item in exit_problems(sent, code)]
     problems += [f"{name}: {item}" for item in prefix_problems(typed[len(base):], CANCELLED)]
-    if held_keys(records(log)[start:]):
-        problems.append(f"{name}: the app saw keys {held_keys(records(log)[start:])} pressed and never released")
+    held = held_keys(records(log)[start:])
+    if held and sent == signal.SIGKILL:
+        ctx.finding(f"{name}: the app saw keys {held} held until the next delivery")
+    problems += held_after_signal_problems(sent, held)
     after = len(records(log))
     pressed = ctx.product(["press", "x", "--window-id", app.windows[0]], headed=False)
     if not pressed.ok:
