@@ -12,10 +12,11 @@ use rustix::event::{PollFd, PollFlags, poll};
 use rustix::io::Errno;
 
 use super::guard_payload::GuardPayload;
-use super::guard_record::read_held;
-use super::guard_release::release_held;
+use super::guard_record::claim_held;
+use super::guard_release::{GuardOutcome, release_held};
 use super::guard_spawn::{COMMAND_PIDFD, GUARD_ENV, GUARD_PROTOCOL};
 use crate::input::hyprland_keyboard::held_key_journal::{instance_key, journal_dir_for};
+use crate::input::hyprland_keyboard::keyboard_wire::KeyboardWire;
 use crate::input::hyprland_keyboard::wayland_wire::WaylandWire;
 use crate::system::process::identity::Identity;
 use crate::system::process::liveness;
@@ -44,20 +45,37 @@ fn run() -> Result<(), AdapterError> {
             "The key guard woke while its command still runs",
         ));
     }
-    let record = journal_dir_for(&payload.binding).and_then(|dir| {
-        read_held(
-            &dir,
-            payload.command_pid,
-            &payload.command_instance,
-            &instance_key(&payload.binding),
-        )
-    });
     let deadline = Deadline::detached_after(RELEASE_BUDGET_MS)?;
-    let outcome = release_held(record, payload.layout, deadline, |deadline| {
+    let outcome = release_dead_command(&payload, deadline, |deadline| {
         WaylandWire::open(&payload.binding, deadline)
     })?;
     tracing::debug!(?outcome, "key guard done");
     Ok(())
+}
+
+/// Claims the dead command's record and releases what it holds. Recovery
+/// that claimed the record first leaves nothing to send. The interaction
+/// lease is never taken: a host may hold it for its whole run.
+pub(crate) fn release_dead_command<W, F>(
+    payload: &GuardPayload,
+    deadline: Deadline,
+    open: F,
+) -> Result<GuardOutcome, AdapterError>
+where
+    W: KeyboardWire,
+    F: FnOnce(Deadline) -> Result<(W, String), AdapterError>,
+{
+    let _lease = crate::system::interaction::interaction_lease::acquire(deadline)?;
+    let record = journal_dir_for(&payload.binding).and_then(|dir| {
+        claim_held(
+            &dir,
+            payload.command_pid,
+            &payload.command_instance,
+            &instance_key(&payload.binding),
+            deadline,
+        )
+    });
+    release_held(record, payload.layout, deadline, open)
 }
 
 fn read_payload() -> Result<GuardPayload, AdapterError> {

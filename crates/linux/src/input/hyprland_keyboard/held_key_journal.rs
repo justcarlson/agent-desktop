@@ -7,9 +7,10 @@
 
 use std::path::PathBuf;
 
-use agent_desktop_core::{AdapterError, DeliverySemantics};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use serde_json::{Map, Value, json};
 
+use super::record_claim::{RecordClaim, claim_record};
 use crate::input::x11::held_journal::{
     HeldJournal, JournalFile, journal_dir_in, process_is_alive, quarantine, recovery_refusal,
     unreadable_record_refusal,
@@ -18,6 +19,7 @@ use crate::input::x11::sink_error::SinkError;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 
 const HYPRLAND_DIR: &str = "hyprland";
+const CLAIM_WAIT_MS: u64 = 3_000;
 
 /// The records folder in the runtime directory the binding found, which holds
 /// `hypr/<signature>/.socket.sock`. A caller started by SSH or a systemd unit
@@ -33,13 +35,14 @@ pub(crate) fn journal_dir_for(binding: &HyprlandBinding) -> Option<PathBuf> {
 pub(crate) struct HeldKeyJournal {
     files: HeldJournal,
     alive: fn(u32, &str) -> bool,
+    claim_wait_ms: u64,
 }
 
-/// The keys every recoverable record holds, and the records to remove once
-/// they are released.
+/// The keys every recoverable record holds, and the claimed records to remove
+/// once they are released.
 #[derive(Debug, Default)]
 pub(crate) struct StaleKeys {
-    paths: Vec<PathBuf>,
+    claims: Vec<RecordClaim>,
     pub(crate) codes: Vec<u32>,
 }
 
@@ -73,12 +76,21 @@ impl HeldKeyJournal {
         Self {
             files: HeldJournal::at(dir, instance, pid),
             alive: process_is_alive,
+            claim_wait_ms: CLAIM_WAIT_MS,
         }
     }
 
     #[cfg(test)]
     pub(crate) fn with_liveness(self, alive: fn(u32, &str) -> bool) -> Self {
         Self { alive, ..self }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_claim_wait(self, claim_wait_ms: u64) -> Self {
+        Self {
+            claim_wait_ms,
+            ..self
+        }
     }
 
     /// Records `codes` as held, or removes the record when none is. A key
@@ -96,26 +108,40 @@ impl HeldKeyJournal {
     }
 
     /// The keys that dead deliveries on this instance, or this process's
-    /// previous delivery, left held. A record that cannot be read is set aside
-    /// and refuses the delivery, because its keys are unknown.
+    /// previous delivery, left held, each record claimed so the dead
+    /// delivery's key guard cannot release it too. A record a guard is still
+    /// releasing is waited for; one still claimed after the wait refuses the
+    /// delivery before its first press. A record that cannot be read is set
+    /// aside and refuses the delivery, because its keys are unknown.
     pub(crate) fn stale(&self) -> Result<StaleKeys, AdapterError> {
+        let deadline = Deadline::after(self.claim_wait_ms)?;
         let mut stale = StaleKeys::default();
         let mut unreadable = 0_usize;
         for file in self.files.files(&self.alive) {
-            match file {
-                JournalFile::Own(path, value) | JournalFile::Stale(path, value) => {
-                    for code in key_codes(&value) {
-                        if !stale.codes.contains(&code) {
-                            stale.codes.push(code);
-                        }
-                    }
-                    stale.paths.push(path);
-                }
+            let path = match file {
+                JournalFile::Own(path, _) | JournalFile::Stale(path, _) => path,
                 JournalFile::Unreadable(path) => {
                     quarantine(&path);
                     unreadable += 1;
+                    continue;
+                }
+            };
+            let Some(claim) = claim_record(&path, deadline)
+                .map_err(|error| recovery_refusal(journal_error(error)))?
+            else {
+                continue;
+            };
+            let Ok(value) = claim.value() else {
+                quarantine(claim.path());
+                unreadable += 1;
+                continue;
+            };
+            for code in key_codes(&value) {
+                if !stale.codes.contains(&code) {
+                    stale.codes.push(code);
                 }
             }
+            stale.claims.push(claim);
         }
         if unreadable > 0 {
             return Err(unreadable_record_refusal(unreadable));
@@ -123,16 +149,12 @@ impl HeldKeyJournal {
         Ok(stale)
     }
 
-    /// Removes the records whose keys were released. A record already gone
-    /// was removed by the key guard of the delivery that wrote it.
-    pub(crate) fn discard(&self, stale: &StaleKeys) -> Result<(), AdapterError> {
-        for path in &stale.paths {
-            match std::fs::remove_file(path) {
-                Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                    return Err(recovery_refusal(journal_error(error)));
-                }
-                _ => {}
-            }
+    /// Removes the claimed records whose keys were released.
+    pub(crate) fn discard(&self, stale: StaleKeys) -> Result<(), AdapterError> {
+        for claim in stale.claims {
+            claim
+                .remove()
+                .map_err(|error| recovery_refusal(journal_error(error)))?;
         }
         Ok(())
     }
