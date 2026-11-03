@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from oracle import pixels
-from runner import legs
+from runner import legs, tier_record
 from runner.product import Envelope
 from runner.verdict import LegContext, evaluate
 from scenarios import hyprland_capture_loss as loss
@@ -77,6 +77,7 @@ class LossRefusalTests(unittest.TestCase):
         self.assertTrue(loss.rendered_problems("stopped", painted_image("000000")))
 
 
+@unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
 class ExactStopTests(unittest.TestCase):
     def test_a_kill_signals_only_the_recorded_pid_when_its_start_matches(self):
         with mock.patch.object(loss, "nested_running", side_effect=[True, False]), \
@@ -94,14 +95,14 @@ class ExactStopTests(unittest.TestCase):
     def test_a_stop_goes_through_the_record_only_for_the_recorded_instance(self):
         tier = SimpleNamespace(runtime_dir=Path("/nonexistent"))
         with mock.patch.object(loss.second_instance, "current", return_value=dict(INSTANCE)), \
-                mock.patch.object(loss.attached, "load", return_value={"instances": [INSTANCE]}), \
+                mock.patch("runner.attached.load", return_value={"instances": [INSTANCE]}), \
                 mock.patch.object(loss, "nested_running", return_value=False), \
                 mock.patch.object(loss.second_instance, "stop") as stop:
             loss.lose(tier, dict(INSTANCE), "stopped")
         stop.assert_called_once_with(tier)
         other = dict(INSTANCE, pid=5151)
         with mock.patch.object(loss.second_instance, "current", return_value=other), \
-                mock.patch.object(loss.attached, "load", return_value={"instances": [other]}), \
+                mock.patch("runner.attached.load", return_value={"instances": [other]}), \
                 mock.patch.object(loss.second_instance, "stop") as stop:
             with self.assertRaises(AssertionError):
                 loss.lose(tier, dict(INSTANCE), "stopped")
