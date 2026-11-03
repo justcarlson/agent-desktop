@@ -114,6 +114,8 @@ pub(crate) fn list_windows(
     let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
     let windows = settle_scoped(pass.windows, stopped)?;
     pass.windows = require_answered(windows, &pass.outcomes, filter.app.is_some())?;
+    let app_pids: Vec<u32> = registry.apps.iter().map(|app| app.root.pid()).collect();
+    let read = fully_read_pids(&app_pids, &pass.outcomes);
     finish_listing(
         &mut pass,
         &state,
@@ -136,7 +138,7 @@ pub(crate) fn list_windows(
         };
         Ok(AccessibleFrames {
             frames,
-            read: registered,
+            read,
             registered: all,
         })
     };
@@ -148,7 +150,21 @@ pub(crate) fn list_windows(
 /// The processes whose every registered application this listing read in
 /// full. `pids[i]` is the process of registry application `i`.
 fn fully_read_pids(pids: &[u32], outcomes: &[AppOutcome]) -> HashSet<u32> {
-    HashSet::new()
+    let answered: HashSet<usize> = outcomes
+        .iter()
+        .filter(|outcome| outcome.read == RootRead::Read)
+        .map(|outcome| outcome.app)
+        .collect();
+    let unread: HashSet<u32> = pids
+        .iter()
+        .enumerate()
+        .filter(|(app, _)| !answered.contains(app))
+        .map(|(_, pid)| *pid)
+        .collect();
+    pids.iter()
+        .copied()
+        .filter(|pid| !unread.contains(pid))
+        .collect()
 }
 
 fn keep_focused(mut windows: Vec<WindowInfo>, filter: &WindowFilter) -> Vec<WindowInfo> {
