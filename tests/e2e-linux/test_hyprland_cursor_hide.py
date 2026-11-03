@@ -6,6 +6,7 @@ import os
 import stat
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -281,6 +282,38 @@ class CursorHideLegTests(unittest.TestCase):
         self.assertNotEqual(hide.xy_refusal_problems("x", native_refusal(), [], still), [])
         accepted = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=5.0, argv=[], exit_code=0)
         self.assertNotEqual(hide.xy_refusal_problems("x", accepted, [PAD_PRESS], moved), [])
+
+    def test_a_headed_xy_refusal_must_say_no_physical_delivery_started(self):
+        still = ((5.0, 5.0), (5.0, 5.0))
+        unstated = refused("cursor_hide_timeout")
+        del unstated.error["details"]["physical_delivery_started"]
+        self.assertEqual(len(hide.xy_refusal_problems("x", unstated, [], still)), 1)
+        unstated.error["details"]["physical_delivery_started"] = None
+        self.assertEqual(len(hide.xy_refusal_problems("x", unstated, [], still)), 1)
+
+    def test_a_recovered_xy_click_counts_a_late_duplicate_press(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "pad.jsonl"
+            log.write_text("")
+
+            def write(count: int) -> None:
+                staged = log.with_suffix(".new")
+                staged.write_text((json.dumps(PAD_PRESS) + "\n") * count)
+                os.replace(staged, log)
+
+            def clicked(late: bool):
+                def product(argv):
+                    write(1)
+                    if late:
+                        threading.Timer(0.3, write, (2,)).start()
+                    return Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=5.0, argv=argv, exit_code=0)
+                return mock.Mock(product=product)
+
+            pad = hide.PadAim("s", log, (5, 5))
+            with mock.patch.object(hide, "apart_from_last_click"):
+                self.assertEqual(hide._landed_xy(clicked(False), pad, "x"), [])
+                log.write_text("")
+                self.assertEqual(len(hide._landed_xy(clicked(True), pad, "x")), 1)
 
     def test_the_headed_leg_sends_its_xy_click_while_the_renderer_is_stopped(self):
         source = inspect.getsource(hide.travel_failure_proceeds_hide_failure_refuses)
