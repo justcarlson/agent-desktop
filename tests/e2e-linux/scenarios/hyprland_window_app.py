@@ -26,7 +26,7 @@ LOG_SETTLE_S = 3.0
 
 
 def events(log: Path) -> list[dict]:
-    return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+    return [json.loads(line) for line in log.read_text().rpartition("\n")[0].splitlines() if line.strip()]
 
 
 def logged(log: Path, kind: str) -> dict | None:
