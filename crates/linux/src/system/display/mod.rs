@@ -5,9 +5,9 @@ use crate::system::display::display_cause::Cause;
 use crate::system::display::display_mutter::LogicalMonitor;
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::display::display_unavailable::Unavailable;
-use crate::system::display::display_wayland::{decide_wayland, wayland_missing};
+use crate::system::wayland::hyprland::display_wayland::{decide_wayland, wayland_missing};
 
-pub(crate) use crate::system::display::display_wayland::list_wayland_displays;
+pub(crate) use crate::system::wayland::hyprland::display_wayland::list_wayland_displays;
 
 pub(crate) fn unreachable(why: Unavailable) -> AdapterError {
     use crate::system::display::display_error::{DisplayCause, display_cause_error};
@@ -64,7 +64,7 @@ fn scale_of(monitor: &X11Monitor, logical: &[LogicalMonitor]) -> f64 {
         .unwrap_or(1.0)
 }
 
-fn primaries_first(displays: &mut [DisplayInfo]) {
+pub(crate) fn primaries_first(displays: &mut [DisplayInfo]) {
     displays.sort_by(|left, right| {
         right
             .is_primary
@@ -95,7 +95,7 @@ fn assemble(monitors: Vec<X11Monitor>, logical: &[LogicalMonitor]) -> Vec<Displa
     displays
 }
 
-fn from_mutter(logical: Vec<LogicalMonitor>) -> Vec<DisplayInfo> {
+pub(crate) fn from_mutter(logical: Vec<LogicalMonitor>) -> Vec<DisplayInfo> {
     let mut displays: Vec<DisplayInfo> = logical
         .into_iter()
         .map(|monitor| DisplayInfo {
@@ -174,12 +174,8 @@ pub(super) mod display_error;
 #[cfg(test)]
 pub(super) mod display_live_tests;
 pub(super) mod display_mutter;
-pub(super) mod display_outputs;
 pub(super) mod display_probe;
 pub(crate) mod display_reach;
 pub(crate) mod display_server;
 pub(crate) mod display_unavailable;
-pub(super) mod display_wayland;
-pub(super) mod output_probe;
 pub(crate) mod route;
-pub(super) mod wayland_output;
