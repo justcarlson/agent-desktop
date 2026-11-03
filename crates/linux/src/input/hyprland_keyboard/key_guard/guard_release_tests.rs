@@ -1,9 +1,9 @@
 use std::cell::Cell;
 use std::path::PathBuf;
 
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{AdapterError, Deadline};
 
-use super::{GuardOutcome, release_held};
+use super::{GuardOutcome, release_held, release_leased};
 use crate::input::hyprland_keyboard::fake_wire::{FakeWire, WireLog};
 use crate::input::hyprland_keyboard::key_guard::guard_record::HeldRecord;
 
@@ -94,5 +94,58 @@ fn a_connection_that_fails_keeps_the_record() {
         Err(agent_desktop_core::AdapterError::internal("no compositor"))
     })
     .expect_err("the guard could not connect");
+    assert!(path.exists(), "the next delivery still needs the record");
+}
+
+#[test]
+fn a_record_the_next_delivery_released_first_sends_no_key() {
+    let path = held("recovered", &[KEY_LEFTSHIFT]).path;
+    let opened = Cell::new(false);
+
+    let outcome = release_leased(
+        |_| std::fs::remove_file(&path).map_err(|error| AdapterError::internal(error.to_string())),
+        || {
+            path.exists().then(|| HeldRecord {
+                path: path.clone(),
+                codes: vec![KEY_LEFTSHIFT],
+            })
+        },
+        0,
+        live(),
+        |_| {
+            opened.set(true);
+            Ok((FakeWire::new(), OWNER_US_RU.to_owned()))
+        },
+    )
+    .expect("nothing is left to release");
+
+    assert_eq!(outcome, GuardOutcome::Clean);
+    assert!(!opened.get(), "the guard sent a key-up the delivery already sent");
+}
+
+#[test]
+fn a_lease_that_cannot_be_had_reads_nothing_and_keeps_the_record() {
+    let record = held("unleased", &[KEY_A]);
+    let path = record.path.clone();
+    let read = Cell::new(false);
+    let opened = Cell::new(false);
+
+    release_leased(
+        |_| Err::<(), _>(AdapterError::internal("the lease is busy")),
+        || {
+            read.set(true);
+            Some(record)
+        },
+        0,
+        live(),
+        |_| {
+            opened.set(true);
+            Ok((FakeWire::new(), OWNER_US_RU.to_owned()))
+        },
+    )
+    .expect_err("the guard had no lease");
+
+    assert!(!read.get(), "the guard read the record without the lease");
+    assert!(!opened.get(), "the guard connected without the lease");
     assert!(path.exists(), "the next delivery still needs the record");
 }

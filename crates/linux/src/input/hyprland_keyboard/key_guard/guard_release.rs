@@ -50,6 +50,27 @@ where
     Ok(GuardOutcome::Released(record.codes.len()))
 }
 
+/// Takes the interaction lease that keyboard deliveries hold, then reads and
+/// releases the command's record while holding it. A delivery that released
+/// the record first leaves nothing to read, so the guard sends no key under
+/// a live delivery. A lease that cannot be had sends nothing and keeps the
+/// record for the next delivery.
+pub(crate) fn release_leased<L, W, F>(
+    lease: impl FnOnce(Deadline) -> Result<L, AdapterError>,
+    read: impl FnOnce() -> Option<HeldRecord>,
+    layout: u32,
+    deadline: Deadline,
+    open: F,
+) -> Result<GuardOutcome, AdapterError>
+where
+    W: KeyboardWire,
+    F: FnOnce(Deadline) -> Result<(W, String), AdapterError>,
+{
+    let record = read();
+    let _lease = lease(deadline)?;
+    release_held(record, layout, deadline, open)
+}
+
 #[cfg(test)]
 #[path = "guard_release_tests.rs"]
 mod tests;
