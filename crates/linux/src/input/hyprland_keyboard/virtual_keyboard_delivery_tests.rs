@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
@@ -6,6 +7,8 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use super::deliver;
 use crate::input::delivery::Delivery;
 use crate::input::hyprland_keyboard::fake_wire::{FakeWire, WireLog};
+use crate::input::hyprland_keyboard::held_key_journal::HeldKeyJournal;
+use crate::input::hyprland_keyboard::virtual_keyboard_sink::VirtualKeyboardSink;
 use crate::input::keyboard::key_names::{KEYSYM_CONTROL_L, KEYSYM_SHIFT_L};
 use crate::input::keyboard::keysym_step::KeysymStep;
 use crate::input::wayland::keymap::xkb_keymap::XkbKeymap;
@@ -15,6 +18,9 @@ const KEYSYM_A: u32 = 0x61;
 const KEYSYM_CYRILLIC_YERU: u32 = 0x6d9;
 const RUSSIAN: u32 = 1;
 const ENGLISH: u32 = 0;
+const KEY_LEFTSHIFT: u32 = 42;
+const KEY_A: u32 = 30;
+const INSTANCE: &str = "instance_a:wayland-1";
 
 fn live() -> Deadline {
     Deadline::after(5_000).expect("a five second deadline builds")
@@ -50,7 +56,13 @@ fn send(
     chunks: &[&[KeysymStep]],
     gate: &mut dyn FnMut() -> Result<(), AdapterError>,
 ) -> Result<Delivery, AdapterError> {
-    deliver(wire, OWNER_US_RU.to_owned(), layout, chunks, gate, live())
+    deliver(
+        VirtualKeyboardSink::new(wire, layout),
+        OWNER_US_RU.to_owned(),
+        chunks,
+        gate,
+        live(),
+    )
 }
 
 #[test]
@@ -145,4 +157,79 @@ fn a_keymap_the_compositor_refuses_sends_no_key() {
     let error = send(wire, ENGLISH, &chunks, &mut || Ok(())).expect_err("no keymap");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert!(keys(&log).is_empty());
+}
+
+fn scratch(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("ad-hypr-delivery-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
+fn dead(_pid: u32, _instance: &str) -> bool {
+    false
+}
+
+fn alive(_pid: u32, _instance: &str) -> bool {
+    true
+}
+
+fn journal(dir: &Path, pid: u32, liveness: fn(u32, &str) -> bool) -> HeldKeyJournal {
+    HeldKeyJournal::at(dir.to_path_buf(), INSTANCE, pid).with_liveness(liveness)
+}
+
+fn send_journaled(wire: FakeWire, journal: HeldKeyJournal) -> Result<Delivery, AdapterError> {
+    let typed = tap(KEYSYM_A);
+    let chunks: [&[KeysymStep]; 1] = [&typed];
+    deliver(
+        VirtualKeyboardSink::new(wire, ENGLISH).journaled(Some(journal)),
+        OWNER_US_RU.to_owned(),
+        &chunks,
+        &mut || Ok(()),
+        live(),
+    )
+}
+
+#[test]
+fn the_next_delivery_releases_what_a_dead_delivery_held_before_its_own_first_key() {
+    let dir = scratch("dead");
+    journal(&dir, 111, dead)
+        .record(&[KEY_LEFTSHIFT, KEY_A])
+        .expect("record");
+    let wire = FakeWire::new();
+    let log = Rc::clone(&wire.log);
+
+    send_journaled(wire, journal(&dir, 222, dead)).expect("the text goes");
+
+    let events = log.borrow().clone();
+    assert_eq!(
+        events[..7],
+        [
+            "keymap", "mods:0:0", "sync", "up:30", "up:42", "flush", "sync"
+        ]
+    );
+    assert_eq!(
+        keys(&log),
+        ["up:30", "up:42", "down:42", "up:42", "down:30", "up:30"]
+    );
+    assert!(!dir.join("111.json").exists());
+    assert!(
+        journal(&dir, 333, dead)
+            .stale()
+            .expect("readable")
+            .codes
+            .is_empty()
+    );
+}
+
+#[test]
+fn keys_a_live_delivery_holds_are_not_released() {
+    let dir = scratch("alive");
+    journal(&dir, 111, alive).record(&[KEY_A]).expect("record");
+    let wire = FakeWire::new();
+    let log = Rc::clone(&wire.log);
+
+    send_journaled(wire, journal(&dir, 222, alive)).expect("the text goes");
+
+    assert_eq!(keys(&log), ["down:42", "up:42", "down:30", "up:30"]);
+    assert!(dir.join("111.json").exists());
 }
