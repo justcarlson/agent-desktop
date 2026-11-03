@@ -20,6 +20,16 @@ focus moves to a second key log, the bystander, which must log no key event.
 GTK does not log the keys that a keyboard enter carries. The bystander check
 therefore depends on the target seeing every held key released before the
 focus moved: the seat then held no key for the enter to carry.
+
+A focus round moves focus to the bystander while the product is stopped with
+the key down, then kills it. The guard's key-ups then reach the bystander, not
+the target, so the round reads both logs as one timeline on the shared
+monotonic clock. The held key must be released, in either window, before the
+repeat delay has passed since its press. Neither entry may gain a character.
+From the moment focus moved, the bystander may log one release of each held
+key and nothing else: the keyboard enter carried the held keys, so the key-up
+goes to the window with focus, as it would from a physical keyboard. Every
+bystander event is recorded in the finding.
 """
 
 from __future__ import annotations
@@ -54,7 +64,8 @@ BYSTANDER_LABEL = "guard-bystander"
 LETTERS = "abcdefghij" * 200
 SHIFTED = "aB" * 400
 TYPE_TIMEOUT_MS = "120000"
-ROUNDS = (("pid", "letter"), ("pid", "shift"), ("group", "letter"), ("group", "shift"))
+ROUNDS = (("pid", "letter", False), ("pid", "shift", False), ("group", "letter", False),
+          ("group", "shift", False), ("pid", "letter", True), ("pid", "shift", True))
 STOPS = 3000
 PROBE_S = 60.0
 RUN_MAX_S = 0.003
@@ -89,6 +100,11 @@ class Tail:
             self.offset += len(complete) + 1
             self.found += [json.loads(line) for line in complete.decode().splitlines() if line.strip()]
         return self.found
+
+
+def merged(*logs: list[dict]) -> list[dict]:
+    """The records of several key logs as one timeline. Each log stamps the leg's monotonic clock."""
+    return sorted((item for found in logs for item in found), key=lambda item: item.get("t", 0.0))
 
 
 def held_presses(found: list[dict]) -> list[dict]:
@@ -185,7 +201,7 @@ def guard_problems(name: str, measure: dict, code: int | None) -> list[str]:
     elif measure["release_after_press_ms"] >= delay:
         problems.append(f"{name}: the held keys were released {measure['release_after_press_ms']} ms after "
                         f"their press, not before the {delay} ms repeat delay")
-    for field in ("extra_presses", "extra_chars", "bystander_events"):
+    for field in ("extra_presses", "extra_chars", "bystander_extra_chars", "bystander_events"):
         if measure.get(field):
             problems.append(f"{name}: {field} {measure[field]}, not 0")
     return problems
@@ -193,6 +209,17 @@ def guard_problems(name: str, measure: dict, code: int | None) -> list[str]:
 
 def bystander_events(found: list[dict]) -> list[dict]:
     return [item for item in found if item.get("event") in ("press", "release", "text")]
+
+
+def stray_bystander_events(seen: list[dict], held: list[dict]) -> int:
+    """The bystander's events other than one release of each held key."""
+    allowed, stray = {item["code"] for item in held}, 0
+    for item in seen:
+        if item.get("event") == "release" and item.get("code") in allowed:
+            allowed.discard(item["code"])
+        else:
+            stray += 1
+    return stray
 
 
 def group_product(tier, argv: list[str], debug_log: Path) -> subprocess.Popen:
@@ -220,7 +247,7 @@ def _bystander_owner(tier, target_pid: int):
 
 @contextlib.contextmanager
 def bystander_log(tier, target_pid: int, workspace: str):
-    """A second key log on `workspace`, registered to the run. Yields its toplevel address and its log path."""
+    """A second key log on `workspace`, registered to the run. Yields its toplevel address, log path and app."""
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
     python = shutil.which("python3", path=env.get("PATH"))
@@ -240,7 +267,7 @@ def bystander_log(tier, target_pid: int, workspace: str):
             stack.callback(_release, tier, owned)
         address = toplevel(tier, owned)["address"]
         move(tier, address, workspace)
-        yield address, log
+        yield address, log, owned
 
 
 def _start(tier, mode: str, ref: str, text: str) -> subprocess.Popen:
@@ -258,16 +285,35 @@ def _visit_bystander(tier, address: str, log: Path) -> int:
     return len(bystander_events(tail.records()))
 
 
-def _clean_up(ctx: LegContext, app, log: Path, start: int) -> None:
+def _clean_up(ctx: LegContext, app, found) -> None:
     """A key the guard left held is released by the next delivery, so later rounds start clean."""
     give_focus(ctx.tier, toplevel(ctx.tier, app)["address"])
     ctx.product(["press", "x", "--window-id", app.windows[0]], headed=False)
-    raw.poll(lambda: not held_keys(records(log)[start:]), SETTLE_S)
+    raw.poll(lambda: not held_keys(found()), SETTLE_S)
 
 
-def _round(ctx: LegContext, scene: tuple, mode: str, kind: str) -> list[str]:
-    tier, (app, log, ref, bystander, bystander_path, delay_ms) = ctx.tier, scene
-    name = f"{mode} {kind}"
+def _focus_moved(tier, bystander: tuple) -> tuple[Tail, str]:
+    """Gives focus to the bystander. Returns a tail of its log from just before, and its entry text then."""
+    address, path, owned = bystander
+    base = entry_text(tier, owned) or ""
+    tail = Tail.at_end(path)
+    give_focus(tier, address)
+    return tail, base
+
+
+def _focus_measure(tier, measure: dict, bystander: tuple, moved: tuple[Tail, str], held: list[dict]) -> None:
+    tail, base = moved
+    owned = bystander[2]
+    entry = raw.poll(lambda: entry_text(tier, owned) is not None, SETTLE_S) and entry_text(tier, owned) or ""
+    seen = bystander_events(tail.records())
+    measure.update(bystander_extra_chars=extra_chars(entry, base), bystander_events=stray_bystander_events(seen, held),
+                   bystander_seen=[[item["event"], item.get("keysym", item.get("text")), item.get("t")]
+                                   for item in seen])
+
+
+def _round(ctx: LegContext, scene: tuple, mode: str, kind: str, focus: bool) -> list[str]:
+    tier, (app, log, ref, bystander, delay_ms) = ctx.tier, scene
+    name = f"{mode} {kind}" + (" focus" if focus else "")
     give_focus(tier, toplevel(tier, app)["address"])
     base, start = entry_text(tier, app) or "", len(records(log))
     text = SHIFTED if kind == "shift" else LETTERS
@@ -275,22 +321,32 @@ def _round(ctx: LegContext, scene: tuple, mode: str, kind: str) -> list[str]:
     running = _start(tier, mode, ref, text)
     started = raw.poll(lambda: any(item.get("event") == "press" for item in tail.records()), 10.0)
     held, stops = catch_held(running, tail, kind) if started else ([], 0)
-    killed = time.monotonic()
     if not held:
         running.send_signal(signal.SIGTERM)
         finished(running, 10.0)
         return [f"{name}: the app never showed a {kind} held while the product was stopped ({stops} stops)"]
+    moved = _focus_moved(tier, bystander) if focus else None
+    killed = time.monotonic()
     _kill(running, mode)
     code, _ = finished(running, 10.0)
+
+    def found() -> list[dict]:
+        return merged(records(log)[start:], moved[0].records()) if moved else records(log)[start:]
+
     codes = [item["code"] for item in held]
-    raw.poll(lambda: not set(codes) & set(held_keys(records(log)[start:])), delay_ms / 1000 + RELEASE_MARGIN_S)
-    measure = guard_measure(records(log)[start:], killed, held, delay_ms)
+    raw.poll(lambda: not set(codes) & set(held_keys(found())), delay_ms / 1000 + RELEASE_MARGIN_S)
+    if moved:
+        time.sleep(BYSTANDER_SETTLE_S)
+    measure = guard_measure(found(), killed, held, delay_ms)
     entry = raw.poll(lambda: entry_text(tier, app) is not None, SETTLE_S) and entry_text(tier, app) or ""
-    measure.update(round=name, stops=stops, exit=code, extra_chars=extra_chars(entry, base + text),
-                   bystander_events=_visit_bystander(tier, bystander, bystander_path))
+    measure.update(round=name, stops=stops, exit=code, extra_chars=extra_chars(entry, base + text))
+    if moved:
+        _focus_measure(tier, measure, bystander, moved, held)
+    else:
+        measure.update(bystander_events=_visit_bystander(tier, bystander[0], bystander[1]))
     ctx.finding("guard " + json.dumps(measure, sort_keys=True))
-    if held_keys(records(log)[start:]):
-        _clean_up(ctx, app, log, start)
+    if held_keys(found()):
+        _clean_up(ctx, app, found)
     return guard_problems(name, measure, code)
 
 
@@ -311,16 +367,20 @@ def killed_type_guard_releases_keys(ctx: LegContext) -> None:
     delay_ms = _repeat_delay(ctx)
     with _focused_key_log(ctx, LABEL) as (app, log, ref):
         shown = desktop(tier, main_instance(tier))["workspace"]
-        with bystander_log(tier, app.pid, shown) as (bystander, bystander_path):
-            ctx.before("applog.held_keys", held_keys(records(log)))
-            scene = (app, log, ref, bystander, bystander_path, delay_ms)
+        with bystander_log(tier, app.pid, shown) as bystander:
+
+            def seen_held() -> list[int]:
+                return held_keys(merged(records(log), records(bystander[1])))
+
+            ctx.before("applog.held_keys", seen_held())
+            scene = (app, log, ref, bystander, delay_ms)
             problems = []
-            for mode, kind in ROUNDS:
-                problems += _round(ctx, scene, mode, kind)
+            for mode, kind, focus in ROUNDS:
+                problems += _round(ctx, scene, mode, kind, focus)
                 if not raw.poll(lambda: keyboards(tier) == before, 3.0):
                     problems.append(f"{mode} {kind}: the keyboards changed: {before} to {keyboards(tier)}")
             ctx.after("hyprland.keyboards", keyboards(tier))
-            ctx.after("applog.held_keys", held_keys(records(log)))
-            ctx.restored("applog.held_keys", held_keys(records(log)))
+            ctx.after("applog.held_keys", seen_held())
+            ctx.restored("applog.held_keys", seen_held())
             require(not problems, "; ".join(problems))
     ctx.restored("hyprland.keyboards", keyboards(tier))
