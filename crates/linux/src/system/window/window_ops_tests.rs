@@ -1,6 +1,6 @@
 use agent_desktop_core::{ErrorCode, WindowInfo, WindowState};
 
-use super::require_answered;
+use super::{fully_read_pids, require_answered};
 use crate::system::registry::app_outcome::AppOutcome;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_frames::RootRead;
@@ -138,4 +138,48 @@ fn the_windows_that_did_answer_are_listed_beside_an_unanswered_frame() {
     let kept = require_answered(listed, &outcome(RootRead::TimedOut), true)
         .expect("the answered windows are kept");
     assert_eq!(kept.len(), 1);
+}
+
+#[test]
+fn a_process_whose_frame_scan_timed_out_or_was_skipped_is_not_read() {
+    let pids = [10, 20, 30, 10];
+    let outcomes = vec![
+        AppOutcome {
+            app: 0,
+            read: RootRead::Read,
+        },
+        AppOutcome {
+            app: 1,
+            read: RootRead::TimedOut,
+        },
+        AppOutcome {
+            app: 3,
+            read: RootRead::Read,
+        },
+    ];
+    let read = fully_read_pids(&pids, &outcomes);
+    assert!(read.contains(&10));
+    assert!(
+        !read.contains(&20),
+        "a timed-out scan must not count as read"
+    );
+    assert!(
+        !read.contains(&30),
+        "a skipped application must not count as read"
+    );
+}
+
+#[test]
+fn a_process_with_one_unread_application_is_not_read() {
+    let outcomes = vec![
+        AppOutcome {
+            app: 0,
+            read: RootRead::Read,
+        },
+        AppOutcome {
+            app: 1,
+            read: RootRead::TimedOut,
+        },
+    ];
+    assert!(fully_read_pids(&[10, 10], &outcomes).is_empty());
 }
