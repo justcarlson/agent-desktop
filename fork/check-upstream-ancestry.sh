@@ -18,22 +18,14 @@ FORK_ONLY_PATHS=(
   fork/
   test/
   .github/workflows/omarchy-vm.yml
-  tests/e2e-linux/oracle/hyprland.py
   tests/e2e-linux/runner/attached.py
   tests/e2e-linux/runner/attached_guard.py
   tests/e2e-linux/runner/attached_session.py
-  tests/e2e-linux/runner/second_instance.py
-  tests/e2e-linux/runner/socket_fixture.py
-  tests/e2e-linux/scenarios/hyprland_cancel.py
-  tests/e2e-linux/scenarios/hyprland_common.py
-  tests/e2e-linux/scenarios/hyprland_desktop.py
   tests/e2e-linux/test_attached_guard.py
   tests/e2e-linux/test_hyprland_fixtures.py
   tests/e2e-linux/test_hyprland_lifecycle.py
   tests/e2e-linux/test_hyprland_membership.py
-  tests/e2e-linux/test_hyprland_oracle.py
-  tests/e2e-linux/test_hyprland_registry.py
-  tests/e2e-linux/test_hyprland_scenarios.py
+  tests/e2e-linux/test_fork_shared_harness.py
 )
 
 # Fork-only hunks in shared files, as "<path> <extended regex on an added line>".

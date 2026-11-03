@@ -14,16 +14,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from runner import attached, attached_guard, attached_session, cancel, session
-
-
-def make_proc(root: Path, pid: int, start: int, *, cgroup: str = "0::/session.slice/x.service",
-              comm: str = "comm", environ: dict | None = None) -> None:
-    directory = root / str(pid)
-    directory.mkdir(parents=True, exist_ok=True)
-    fields = " ".join(["S"] + ["0"] * 18 + [str(start)])
-    (directory / "stat").write_text(f"{pid} ({comm}) {fields}\n")
-    (directory / "cgroup").write_text(cgroup + "\n")
-    (directory / "environ").write_bytes(b"".join(f"{k}={v}\0".encode() for k, v in (environ or {}).items()))
+from test_hyprland_scenarios import make_proc
 
 
 class AttachedLifecycleTests(unittest.TestCase):

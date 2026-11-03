@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from runner import attached, attached_session, second_instance, socket_fixture
-from test_hyprland_lifecycle import make_proc
+from test_hyprland_scenarios import make_proc
 
 
 def exchange(path: Path, timeout: float = 0.4) -> bytes | None:
@@ -200,7 +200,7 @@ class SecondInstanceTests(Workspace):
             mock.patch.object(second_instance.hyprland, "instances", return_value=[]),
             mock.patch.object(second_instance.hyprland, "control",
                               side_effect=lambda runtime, signature, argv: seen["control"].append(argv) or "ok"),
-            mock.patch.object(second_instance.attached_session, "spawn",
+            mock.patch.object(attached_session, "spawn",
                               side_effect=lambda tier, argv, env, log, *where: seen["spawn"].append(env)
                               or seen.setdefault("workspace", where)),
             mock.patch.object(second_instance, "find_new", return_value=instance),
@@ -220,7 +220,7 @@ class SecondInstanceTests(Workspace):
     def test_the_instance_window_gets_an_outer_workspace_no_leg_app_shares(self):
         for diagnose in (False, True):
             self.assertEqual(self.start(diagnose)["workspace"], (second_instance.OUTER_WORKSPACE,))
-        self.assertNotEqual(second_instance.OUTER_WORKSPACE, second_instance.attached_session.WORKSPACE)
+        self.assertNotEqual(second_instance.OUTER_WORKSPACE, attached_session.WORKSPACE)
 
     def test_a_leg_that_does_not_read_outputs_keeps_the_old_start_path(self):
         seen = self.start(diagnose=False)
