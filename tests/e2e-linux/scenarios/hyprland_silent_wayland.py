@@ -117,11 +117,19 @@ def _sampled(ctx: LegContext, phase: str, main: dict, work) -> None:
     ctx.restored(channel, desktop(ctx.tier, main))
 
 
-def _foreign_cases(ctx: LegContext, main: dict, main_names: list[str], behavior: str, socket: Path) -> list[str]:
-    runtime = shared(ctx.tier)
+def traffic_problems(label: str, listener: socket_fixture.Listener) -> list[str]:
+    """The product proves the peer before any byte, so a foreign listener must receive nothing."""
+    sent = listener.received()
+    return [f"{label}: the product sent {sent} bytes to a socket another process serves"] if sent else []
+
+
+def _foreign_cases(ctx: LegContext, main: dict, main_names: list[str], behavior: str,
+                   foreign: tuple[Path, socket_fixture.Listener]) -> list[str]:
+    runtime, (socket, listener) = shared(ctx.tier), foreign
+    label = f"a {behavior} foreign socket named beside the session signature"
     named = ctx.product(DISPLAYS, env=pair_env(ctx.tier, main["signature"], socket.name, runtime), headed=False)
     found = ctx.product(DISPLAYS, env=pair_env(ctx.tier, main["signature"], None, runtime), headed=False)
-    return (mismatch_problems(f"a {behavior} foreign socket named beside the session signature", named, socket)
+    return (mismatch_problems(label, named, socket) + traffic_problems(label, listener)
             + display_problems(f"discovery by the session signature beside a {behavior} foreign socket", found,
                                main_names))
 
@@ -143,7 +151,7 @@ def hyprland_silent_wayland_refused(ctx: LegContext) -> None:
         socket, listener = foreign_listener(ctx.tier, behavior)
         try:
             _sampled(ctx, f"foreign_{behavior}", main,
-                     lambda: _foreign_cases(ctx, main, main_names, behavior, socket))
+                     lambda: _foreign_cases(ctx, main, main_names, behavior, (socket, listener)))
         finally:
             listener.close()
     for behavior in QUIET_BEHAVIORS:
