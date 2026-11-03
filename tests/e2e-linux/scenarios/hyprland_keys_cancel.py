@@ -88,25 +88,27 @@ def _last_text(found: list[dict]) -> str:
 
 
 def hold_measure(found: list[dict], signalled: float, next_command: float) -> dict:
-    """The keys held from the signal to the next command, how long until the app saw them released, and the
-    autorepeat presses and characters that reached the app in between. Times are the app's monotonic clock."""
+    """The keys held at the signal, the ones still held at the next command, how long until the app saw the last of
+    them released, and the autorepeat presses and characters that reached the app in between. Times are the app's
+    monotonic clock."""
     before = [item for item in found if item.get("t", 0.0) <= signalled]
-    window = [item for item in found if signalled < item.get("t", 0.0) <= next_command]
-    later = [item for item in found if item.get("t", 0.0) > next_command]
+    after = [item for item in found if item.get("t", 0.0) > signalled]
     held = held_keys(before)
-    repeats = []
-    for item in key_events(window):
-        code = item.get("code")
-        if item["event"] == "press" and code in held:
-            repeats.append(item)
-        elif item["event"] == "press":
+    down, released, repeats = list(held), {}, []
+    for item in key_events(after):
+        code, inside = item.get("code"), item["t"] <= next_command
+        if item["event"] == "press" and code in down:
+            repeats += [item] if inside else []
+        elif item["event"] == "press" and inside:
+            down.append(code)
             held.append(code)
-        elif code in held:
-            held.remove(code)
-    releases = [next((item["t"] for item in key_events(later) if item["event"] == "release"
-                      and item.get("code") == code), None) for code in held]
-    return {"held": held,
-            "held_s": round(max(releases) - signalled, 3) if held and None not in releases else None,
+        elif item["event"] == "release" and code in down:
+            down.remove(code)
+            released[code] = item["t"]
+    at_next = [code for code in held if code not in released or released[code] > next_command]
+    window = [item for item in after if item["t"] <= next_command]
+    return {"held": held, "held_at_next": at_next,
+            "held_s": round(max(released.values()) - signalled, 3) if held and not down else None,
             "window_s": round(next_command - signalled, 3),
             "repeats": len(repeats),
             "repeat_chars": sum(1 for item in repeats if len(item.get("keysym") or "") == 1
