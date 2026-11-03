@@ -120,7 +120,10 @@ fn a_record_the_next_delivery_released_first_sends_no_key() {
     .expect("nothing is left to release");
 
     assert_eq!(outcome, GuardOutcome::Clean);
-    assert!(!opened.get(), "the guard sent a key-up the delivery already sent");
+    assert!(
+        !opened.get(),
+        "the guard sent a key-up the delivery already sent"
+    );
 }
 
 #[test]

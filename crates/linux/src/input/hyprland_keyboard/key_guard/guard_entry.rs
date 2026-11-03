@@ -13,10 +13,11 @@ use rustix::io::Errno;
 
 use super::guard_payload::GuardPayload;
 use super::guard_record::read_held;
-use super::guard_release::release_held;
+use super::guard_release::release_leased;
 use super::guard_spawn::{COMMAND_PIDFD, GUARD_ENV, GUARD_PROTOCOL};
 use crate::input::hyprland_keyboard::held_key_journal::{instance_key, journal_dir_for};
 use crate::input::hyprland_keyboard::wayland_wire::WaylandWire;
+use crate::system::interaction::interaction_lease;
 use crate::system::process::identity::Identity;
 use crate::system::process::liveness;
 
@@ -44,18 +45,24 @@ fn run() -> Result<(), AdapterError> {
             "The key guard woke while its command still runs",
         ));
     }
-    let record = journal_dir_for(&payload.binding).and_then(|dir| {
-        read_held(
-            &dir,
-            payload.command_pid,
-            &payload.command_instance,
-            &instance_key(&payload.binding),
-        )
-    });
     let deadline = Deadline::detached_after(RELEASE_BUDGET_MS)?;
-    let outcome = release_held(record, payload.layout, deadline, |deadline| {
-        WaylandWire::open(&payload.binding, deadline)
-    })?;
+    let read = || {
+        journal_dir_for(&payload.binding).and_then(|dir| {
+            read_held(
+                &dir,
+                payload.command_pid,
+                &payload.command_instance,
+                &instance_key(&payload.binding),
+            )
+        })
+    };
+    let outcome = release_leased(
+        interaction_lease::acquire,
+        read,
+        payload.layout,
+        deadline,
+        |deadline| WaylandWire::open(&payload.binding, deadline),
+    )?;
     tracing::debug!(?outcome, "key guard done");
     Ok(())
 }

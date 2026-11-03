@@ -66,8 +66,8 @@ where
     W: KeyboardWire,
     F: FnOnce(Deadline) -> Result<(W, String), AdapterError>,
 {
-    let record = read();
     let _lease = lease(deadline)?;
+    let record = read();
     release_held(record, layout, deadline, open)
 }
 
