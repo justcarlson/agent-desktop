@@ -663,5 +663,170 @@ class PadLegBackendTests(unittest.TestCase):
         self.assertEqual(len(refs.native_refusal_problems("c", refused("ACTION_FAILED", cause="native_wayland_client"))), 1)
 
 
+MAIN = {"signature": "main", "pid": 10, "wayland": "wayland-1"}
+NESTED = {"signature": "nested", "pid": 20, "wayland": "wayland-2"}
+PAD_BOX = {"at": [0, 0], "size": [100, 100]}
+
+
+class SessionInstanceTests(unittest.TestCase):
+    """Coordinate wheel and drag deliver on the session instance beside the bystander; the nested
+    instance keeps only the layout case and the compositor it kills."""
+
+    def run_leg(self, leg, mode="headed", answer=None, sampled=(), **patches):
+        pads, envs = [], []
+
+        @pointer.contextlib.contextmanager
+        def opened(_tier, instance, label, backend=pad.NATIVE):
+            pads.append((instance["signature"], label))
+            yield mock.Mock(pid=1), PAD_BOX, Path("/dev/null")
+
+        @pointer.contextlib.contextmanager
+        def shown(*_):
+            yield "Virtual-1"
+
+        @pointer.contextlib.contextmanager
+        def beside(*_):
+            found = list(sampled)
+            yield found
+
+        def checked(name):
+            return mock.Mock(side_effect=lambda *args: envs.append((name, args[1])) or [])
+
+        ctx = mock.Mock(tier=mock.Mock(), mode=mode)
+        ctx.product.return_value = answer or refused("INVALID_ARGS", cause="point_off_output")
+        base = dict(main_instance=mock.Mock(return_value=MAIN), nested=mock.Mock(return_value=(NESTED, True)),
+                    pointer_pad=opened, app_shown=shown, session_client=mock.Mock(return_value=PAD_BOX),
+                    uncovered=mock.Mock(), beside_bystander=beside, bystander_box=mock.Mock(return_value={}),
+                    instance_env=mock.Mock(side_effect=lambda _tier, instance: {"bound": instance["signature"]}),
+                    pads_left=mock.Mock(return_value=[]), events=mock.Mock(return_value=[]),
+                    settled=mock.Mock(return_value=[]), cursor_at=mock.Mock(return_value=(50.0, 70.0)),
+                    cursor_problems=mock.Mock(return_value=[]), pad_ref=mock.Mock(return_value="@s:e1"),
+                    click_problems=checked("click"), wheel_problems=checked("wheel"),
+                    drag_problems=mock.Mock(side_effect=lambda *args: envs.append(("drag", args[1])) or []),
+                    signal_problems=mock.Mock(side_effect=lambda *args: envs.append(("signal", args[1])) or []),
+                    disconnect_problems=mock.Mock(side_effect=lambda *args: envs.append(("disconnect", args[2])) or []),
+                    nested_running=mock.Mock(return_value=True))
+        base.update(patches)
+        with mock.patch.multiple(pointer, create=True, **base):
+            leg(ctx)
+        return pads, envs
+
+    def test_the_hyprland_wheel_and_drag_reports_route_to_the_session_instance(self):
+        from scenarios import pointer as shared_legs
+        for leg, verb in ((shared_legs.mouse_wheel_delivery_report, "mouse-wheel"),
+                          (shared_legs.drag_delivery_report, "drag")):
+            ctx = mock.Mock(tier=mock.Mock(), mode="headed")
+            ctx.tier.name = "hyprland"
+            with mock.patch.object(pointer, "session_delivery_report", create=True) as session, \
+                    mock.patch.object(refs, "delivery_report") as nested_report:
+                leg(ctx)
+            session.assert_called_once_with(ctx, verb)
+            nested_report.assert_not_called()
+
+    def test_the_click_report_keeps_its_route(self):
+        from scenarios import pointer as shared_legs
+        ctx = mock.Mock(tier=mock.Mock(), mode="headed")
+        ctx.tier.name = "hyprland"
+        with mock.patch.object(refs, "delivery_report") as report:
+            shared_legs.mouse_click_delivery_report(ctx)
+        report.assert_called_once_with(ctx, "mouse-click")
+
+    def test_the_delivery_reports_drive_a_pad_on_the_session_instance(self):
+        for verb, check in (("mouse-wheel", "wheel"), ("drag", "drag")):
+            pads, envs = self.run_leg(lambda ctx, verb=verb: pointer.session_delivery_report(ctx, verb))
+            self.assertEqual(pads, [("main", f"report-{verb}")])
+            self.assertEqual(envs, [(check, {"bound": "main"})])
+
+    def test_a_delivery_report_fails_on_a_sampled_bystander_change_or_a_landed_refusal(self):
+        leg = lambda ctx: pointer.session_delivery_report(ctx, "mouse-wheel")
+        with self.assertRaises(AssertionError) as caught:
+            self.run_leg(leg, sampled=["bystander changed to None"])
+        self.assertIn("bystander changed to None", str(caught.exception))
+        landed = Envelope(ok=True, data={}, error=None, raw="{}", elapsed_ms=1.0, argv=[], exit_code=0)
+        with self.assertRaises(AssertionError):
+            self.run_leg(leg, answer=landed)
+
+    def test_the_receiver_proof_leg_runs_on_the_session_instance(self):
+        pads, envs = self.run_leg(pointer.coordinates_have_no_receiver_proof)
+        self.assertEqual(pads, [("main", "coordinates")])
+        self.assertEqual([name for name, _ in envs], ["click", "click", "click", "wheel", "drag"])
+        self.assertEqual({env["bound"] for _, env in envs}, {"main"})
+        with self.assertRaises(AssertionError):
+            self.run_leg(pointer.coordinates_have_no_receiver_proof, sampled=["cursor on the pad changed to False"])
+
+    def test_the_headless_refusals_run_on_the_session_instance(self):
+        pads, _ = self.run_leg(pointer.headless_or_cancelled_input, mode="headless",
+                               answer=refused("POLICY_DENIED", physical_delivery_started=False))
+        self.assertEqual(pads, [("main", "headless")])
+
+    def test_the_cancel_runs_on_the_session_and_only_the_disconnect_on_the_nested_instance(self):
+        pads, envs = self.run_leg(pointer.cancel_or_disconnect_releases_buttons)
+        self.assertEqual(pads, [("main", "cancel"), ("nested", "disconnect")])
+        self.assertEqual(envs, [("signal", {"bound": "main"}), ("drag", {"bound": "main"}),
+                                ("disconnect", {"bound": "nested"})])
+
+    def test_the_layout_leg_keeps_the_nested_instance(self):
+        source = (ROOT / "scenarios" / "hyprland_pointer.py").read_text()
+        layout = source[source.index("def global_layout_coordinates"):]
+        self.assertIn("nested(tier)", layout[:layout.index("\n\n\n")])
+
+
+class BystanderReadTests(unittest.TestCase):
+    """While a session leg acts, the bystander keeps its j/clients box and the cursor stays on the pad."""
+
+    holder = {"address": "0xb", "pid": 5, "at": [0, 0], "size": [640, 800], "workspace": {"id": 1, "name": "1"},
+              "floating": False, "fullscreen": 0, "pinned": False, "mapped": True, "hidden": False,
+              "focusHistoryID": 0, "title": "~"}
+
+    def box(self, clients):
+        with mock.patch.multiple(pointer, create=True, bystander=mock.Mock(return_value={"address": "0xb"}),
+                                 instance_query=mock.Mock(return_value=clients)):
+            return pointer.bystander_box(mock.Mock(), MAIN)
+
+    def test_the_box_ignores_focus_history_and_title(self):
+        moved = dict(self.holder, focusHistoryID=3, title="vim")
+        self.assertEqual(self.box([self.holder]), self.box([moved]))
+        self.assertNotEqual(self.box([self.holder]), self.box([dict(self.holder, at=[10, 0])]))
+        self.assertIsNone(self.box([]))
+        self.assertIsNone(self.box([self.holder, self.holder]))
+
+    def test_sampled_changes_come_back_to_the_leg(self):
+        class Changed:
+            def __init__(self, reads):
+                self.reads, self.changes = reads, []
+
+            def __enter__(self):
+                self.changes.append(f"read {sorted(self.reads)}")
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        with mock.patch.multiple(pointer, create=True, Sampler=Changed, bystander_box=mock.Mock(return_value={}),
+                                 instance_control=mock.Mock(), cursor_at=mock.Mock(return_value=(50.0, 50.0)),
+                                 shared=mock.Mock(), hyprland=mock.Mock(uses_lua=mock.Mock(return_value=True)),
+                                 raw=mock.Mock(poll=lambda check, _timeout: check())):
+            with pointer.beside_bystander(mock.Mock(), MAIN, PAD_BOX) as found:
+                pass
+        self.assertEqual(found, ["read ['bystander', 'cursor on the pad']"])
+
+    def test_cursor_problems_allow_one_pixel(self):
+        with mock.patch.object(pointer, "cursor_at", return_value=(50.6, 70.0), create=True):
+            self.assertEqual(pointer.cursor_problems(None, MAIN, (50, 70), "wheel"), [])
+            self.assertEqual(pointer.cursor_problems(None, MAIN, (60, 70), "drag"),
+                             ["drag: j/cursorpos reads (50.6, 70.0), not (60, 70)"])
+
+
+class SessionRegistryTests(unittest.TestCase):
+    def test_the_session_rows_name_the_bystander_and_read_the_compositor(self):
+        for leg_id in ("pointer.coordinates_have_no_receiver_proof", "pointer.headless_or_cancelled_input",
+                       "pointer.cancel_or_disconnect_releases_buttons"):
+            leg = legs.leg_by_id(leg_id)
+            self.assertIn("session instance", leg.requirement, leg_id)
+            self.assertIn("bystander", leg.target, leg_id)
+            self.assertIn("hyprland", leg.oracles, leg_id)
+        self.assertIn("nested instance", legs.leg_by_id("pointer.global_layout_coordinates").requirement)
+
+
 if __name__ == "__main__":
     unittest.main()
