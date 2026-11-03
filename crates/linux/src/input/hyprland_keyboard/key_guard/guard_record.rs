@@ -42,6 +42,7 @@ pub(crate) fn claim_held(
 }
 
 impl HeldRecord {
+    #[cfg(test)]
     pub(crate) fn path(&self) -> &Path {
         self.claim.path()
     }
