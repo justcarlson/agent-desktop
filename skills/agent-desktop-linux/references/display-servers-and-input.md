@@ -295,6 +295,11 @@ its own. Ending a session releases its held keys.
   each key-down, as on other Wayland sessions. If focus moves mid-text, the
   CLI stops, releases every held key and modifier, and returns
   `delivery_uncertain` with `delivered_events`. Read the
+- **Killed delivery.** Hyprland keeps a destroyed virtual keyboard's keys held
+  unless `input:virtualkeyboard:release_pressed_on_close` is set, so a
+  SIGKILLed `type` or `press` can leave a key autorepeating. The next keyboard
+  command on that instance releases it first; see
+  [Interrupted input](#interrupted-input).
 ## Pointer on Hyprland
 
 On a bound Hyprland, `--headed` pointer commands go through a
@@ -456,9 +461,18 @@ time to arm. The result reports the gesture, not the outcome: check the effect
 
 ## Interrupted input
 
-The X server keeps XTEST-pressed buttons when the client dies. The CLI journals
-what it holds under `$XDG_RUNTIME_DIR/agent-desktop-input`, and the next call on
-that display releases what a killed process left before it sends its own events.
-If a button seems stuck after you killed a command, run any input command
-with valid arguments, such as `agent-desktop --headed mouse-move --xy 640,400`,
-to release it before the new input.
+The X server keeps XTEST-pressed buttons when the client dies, and Hyprland
+keeps a destroyed virtual keyboard's keys. The CLI journals what it holds under
+`$XDG_RUNTIME_DIR/agent-desktop-input` before each press. The next call on that
+display, or on that Hyprland instance, releases what a killed process left
+before it sends its own events. A process that is still running keeps its keys.
+If a button seems stuck after you killed a command on X11, run any input
+command with valid arguments, such as
+`agent-desktop --headed mouse-move --xy 640,400`, to release it before the new
+input. On Hyprland only a keyboard command releases keys, such as
+`agent-desktop press shift`.
+
+If a dead process's record cannot be read, the call sends no input and fails
+with `ACTION_FAILED`, cause `held_input_record_unreadable`; check for a stuck
+key, release it by hand, and retry. The record is set aside, so the retry
+proceeds.
