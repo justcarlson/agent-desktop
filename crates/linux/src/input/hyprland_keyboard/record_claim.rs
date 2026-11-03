@@ -11,9 +11,14 @@ use std::fs::File;
 use std::io;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use agent_desktop_core::Deadline;
+use rustix::fs::{FlockOperation, flock};
+use rustix::io::Errno;
 use serde_json::Value;
+
+const CLAIM_POLL: Duration = Duration::from_millis(5);
 
 /// An open record file this process holds the exclusive lock on.
 #[derive(Debug)]
@@ -47,8 +52,21 @@ pub(crate) fn claim_record(path: &Path, deadline: Deadline) -> io::Result<Option
     }
 }
 
-fn lock_until(_file: &File, _deadline: Deadline) -> io::Result<()> {
-    Ok(())
+fn lock_until(file: &File, deadline: Deadline) -> io::Result<()> {
+    loop {
+        match flock(file, FlockOperation::NonBlockingLockExclusive) {
+            Ok(()) => return Ok(()),
+            Err(errno) if errno == Errno::WOULDBLOCK || errno == Errno::INTR => {}
+            Err(errno) => return Err(errno.into()),
+        }
+        if deadline.is_expired() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Another release still holds the held-key record",
+            ));
+        }
+        std::thread::sleep(CLAIM_POLL.min(deadline.remaining()));
+    }
 }
 
 impl RecordClaim {
