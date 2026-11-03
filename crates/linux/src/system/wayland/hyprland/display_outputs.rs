@@ -13,9 +13,9 @@ use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1::{self, Zxdg
 
 use super::output_probe::OutputProbe;
 use super::wayland_output::WaylandOutput;
-use crate::system::wayland::exchange::{Exchange, ExchangeHandler, HoldsExchange};
-use crate::system::wayland::global::Global;
-use crate::system::wayland::link::Link;
+use crate::system::wayland::hyprland::exchange::{Exchange, ExchangeHandler, HoldsExchange};
+use crate::system::wayland::hyprland::global::Global;
+use crate::system::wayland::hyprland::link::Link;
 
 const OUTPUT: &str = "wl_output";
 const MANAGER: &str = "zxdg_output_manager_v1";
