@@ -53,7 +53,8 @@ def row_verdict(expected, *, succeeded, refused, log_effect, raw_effect, log_unc
 
 
 def events(path):
-    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+    return ([json.loads(line) for line in path.read_text().rpartition("\n")[0].splitlines()]
+            if path.exists() else [])
 
 
 def since_reset(path):

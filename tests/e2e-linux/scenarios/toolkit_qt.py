@@ -33,7 +33,7 @@ def qt_app(ctx):
 
 
 def events(path):
-    return [json.loads(line)["event"] for line in path.read_text().splitlines()]
+    return [json.loads(line)["event"] for line in path.read_text().rpartition("\n")[0].splitlines()]
 
 
 def click_delta(before, after):
