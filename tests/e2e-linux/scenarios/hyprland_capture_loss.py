@@ -18,20 +18,20 @@ import signal
 from pathlib import Path
 
 from oracle import atspi_raw as raw, proc
-from runner import apps, attached, attached_session, second_instance
+from runner import apps, second_instance
 from runner.apps import OwnedApp
 from runner.helper import require
 from runner.verdict import LegContext
 from scenarios.capture import decode
 from scenarios.hyprland_capture_common import (capture_path, colour, dominant, ids_by_pid, near, painter_command,
                                                written)
-from scenarios.hyprland_common import bystander, desktop, main_instance
-from scenarios.hyprland_cursor_hide import nested_frames
+from scenarios.hyprland_common import bystander, desktop, instance_env, instance_query, main_instance
 from scenarios.hyprland_desktop import boundary_problems, keeps_focus
-from scenarios.hyprland_pointer import nested, nested_running
-from scenarios.hyprland_pointer_pad import NATIVE, instance_env, instance_query, pad_env
+from scenarios.hyprland_focus_controls import nested_frames
+from scenarios.hyprland_pointer_pad import NATIVE, pad_env
 from scenarios.hyprland_toplevel import terminal_argv
 from scenarios.hyprland_windows import cursor, restore_desktop
+from scenarios.wayland_outputs import nested, nested_running
 
 APP_ID = "ad-e2e-cap-loss"
 PAINT = "a05000"
@@ -52,6 +52,7 @@ def _new_client(tier, instance: dict, app_id: str, known: set[str]) -> dict | No
 @contextlib.contextmanager
 def nested_painted(tier, instance: dict, app_id: str, value: str):
     """A foot window on `instance` painted `value`, started in the run's slice; yields it and its client."""
+    from runner import attached_session
     log = tier.runtime_dir / f"painter-{app_id}.log"
     log.unlink(missing_ok=True)
     known = {item.get("address") for item in instance_query(tier, instance, "clients")}
@@ -74,6 +75,7 @@ def nested_painted(tier, instance: dict, app_id: str, value: str):
 
 def lose(tier, instance: dict, how: str) -> None:
     """Stop the recorded nested instance by its exact pid and start time, and wait until it is gone."""
+    from runner import attached
     if how == "stopped":
         found = second_instance.current(attached.load(tier.runtime_dir))
         require(found is not None and (found["pid"], found["start"]) == (instance["pid"], instance["start"]),
