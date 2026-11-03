@@ -14,11 +14,11 @@ import contextlib
 
 from oracle import atspi_raw as raw
 from runner.helper import require
-from scenarios.hyprland_focus_controls import focus_argv, listed_ids
-from scenarios.hyprland_pointer import FRACTIONAL, NEGATIVE_ORIGIN, monitor_of, moved_output
-from scenarios.hyprland_pointer_pad import instance_control, instance_env, instance_query
+from scenarios.hyprland_common import instance_control, instance_env, instance_query
+from scenarios.hyprland_focus_controls import focus_argv, listed_ids, nested_frames
 from scenarios.hyprland_window_app import (client_of, quiet_problems, reader, resized_problems, settled_count,
                                            size_problems, sizer)
+from scenarios.wayland_outputs import FRACTIONAL, NEGATIVE_ORIGIN, monitor_of, moved_output
 from scenarios.hyprland_window_checks import (SETTLE_S, float_argv, holds, operated, point, refusal, satisfied,
                                               window_argv)
 
@@ -85,12 +85,6 @@ def placed(sized: Sized, label: str, at: list[int], size: list[int]) -> list[str
                                                              "--height", str(size[1])),
                                {"at": list(at), "size": list(size)})
     return problems + size_problems(label, sized.log, list(size))
-
-
-def nested_frames(ctx, instance: dict):
-    """`hyprland_cursor_hide.nested_frames`, imported late because that module imports this one."""
-    from scenarios.hyprland_cursor_hide import nested_frames as frames
-    return frames(ctx, instance)
 
 
 @contextlib.contextmanager
