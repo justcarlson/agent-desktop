@@ -157,8 +157,11 @@ def main(argv):
         dialog.show_all()
 
     def open_chooser():
+        # Wayland turns header bars on; there the save entry and a hidden rename
+        # entry are both named Name, and neither can be proven unique.
         dialog = Gtk.FileChooserDialog(title="Zoo Save", transient_for=window,
-                                       action=Gtk.FileChooserAction.SAVE, modal=True)
+                                       action=Gtk.FileChooserAction.SAVE, modal=True,
+                                       use_header_bar=False)
         dialogs.append(dialog)
         named(dialog.add_button("Cancel", Gtk.ResponseType.CANCEL), "zoo-save-cancel")
         named(dialog.add_button("Save", Gtk.ResponseType.ACCEPT), "zoo-save-ok")

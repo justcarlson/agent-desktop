@@ -73,6 +73,11 @@ def chooser(ctx, app, tree, path, data, saved):
               and n.get("name", "").strip().casefold().rstrip(":") in
               ("name", "file name", "filename")]
     require(len(fields) == 1, f"expected one save-name field: {fields}")
+    # A twin in any state, such as a hidden rename entry, leaves the ref unproven.
+    identity = ("role", "name", "description")
+    twins = [n for n in nodes(data.get("tree", data)) if n is not fields[0]
+             and all(n.get(key) == fields[0].get(key) for key in identity)]
+    require(not twins, f"save-name field is not unique in its window: {twins}")
     target = raw_target(tree, fields[0])
     act(ctx, fields[0], "type", str(saved))
     require(poll(lambda: target.text() == str(saved), 3),
