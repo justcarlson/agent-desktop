@@ -7,6 +7,7 @@ use serde_json::json;
 use crate::input::backend::Backend;
 use crate::input::physical::target_keyboard::press_for_process;
 use crate::input::physical::target_world::{LiveWorld, PhysicalWorld};
+use crate::system::hyprland::identity::compositor_window_id::is_compositor_id;
 use crate::system::process::process_lookup::Lookup;
 use crate::system::window::window_ops::windows_of_process;
 use crate::system::x11::stacking::stacking_source::StackingSource;
@@ -27,13 +28,25 @@ trait KeyWorld {
         deadline: Deadline,
     ) -> Result<Option<WindowInfo>, AdapterError>;
     fn active_client_pid(&self, deadline: Deadline) -> Option<u32>;
+    fn confirm_compositor_focus(&self, window: &WindowInfo) -> Result<(), AdapterError>;
 }
 
 struct LiveKeys<'a> {
     bus: &'a SharedBus,
+    lease: &'a InteractionLease,
 }
 
 impl KeyWorld for LiveKeys<'_> {
+    fn confirm_compositor_focus(&self, window: &WindowInfo) -> Result<(), AdapterError> {
+        crate::system::hyprland::focus::focus_entry::focus_window_reported(
+            self.bus,
+            window,
+            InteractionPolicy::headless(),
+            self.lease,
+        )
+        .map(|_| ())
+    }
+
     fn lookup(&self, pid: u32) -> Lookup {
         process_facts::lookup(pid)
     }
@@ -110,6 +123,9 @@ fn require_active(
     window: Option<&WindowInfo>,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    if let Some(window) = window.filter(|window| is_compositor_id(&window.id)) {
+        return world.confirm_compositor_focus(window);
+    }
     let pid = process.pid.get();
     let display_active =
         !matches!(backend, Backend::X11(_)) || world.active_client_pid(deadline) == Some(pid);
@@ -199,7 +215,13 @@ fn press_in(
         require_active(keys, &backend, process, window, deadline)
     };
     let result = press_for_process(physical, combo, policy, &mut gate, deadline)?;
-    after_delivery(keys, process, result)
+    let result = after_delivery(keys, process, result)?;
+    if window.is_some_and(|window| is_compositor_id(&window.id)) {
+        Ok(result
+            .with_details(json!({ "focus_proof": agent_desktop_core::FocusProof::CompositorOnly })))
+    } else {
+        Ok(result)
+    }
 }
 
 pub(crate) fn press_key_for_app(
@@ -213,7 +235,7 @@ pub(crate) fn press_key_for_app(
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
     press_in(Press {
         physical: &LiveWorld { bus, lease },
-        keys: &LiveKeys { bus },
+        keys: &LiveKeys { bus, lease },
         process: &process,
         window: None,
         combo,
@@ -231,6 +253,12 @@ pub(crate) fn press_key_for_window(
 ) -> Result<ActionResult, AdapterError> {
     crate::system::display::display_server::require(lease.deadline())
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
+    if is_compositor_id(&window.id) {
+        crate::system::hyprland::focus::focus_entry::focus_window_reported(
+            bus, window, policy, lease,
+        )
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
+    }
     let instance = window
         .process_instance
         .as_deref()
@@ -238,7 +266,7 @@ pub(crate) fn press_key_for_window(
         .ok_or_else(|| window_not_active(window))?;
     press_in(Press {
         physical: &LiveWorld { bus, lease },
-        keys: &LiveKeys { bus },
+        keys: &LiveKeys { bus, lease },
         process: &ProcessIdentity::new(window.pid, instance),
         window: Some(window),
         combo,

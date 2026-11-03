@@ -253,6 +253,14 @@ that activates first and is refused there sent no input, so it reports
 `wl_seat` is `PLATFORM_NOT_SUPPORTED`, and `platform_detail` names the missing
 global.
 
+On a bound Hyprland, `press --window-id` also accepts a compositor-only
+window (`accessible: false`). Its `data.details.focus_proof` is
+`"compositor_only"`: `j/activewindow` and the activated toplevel agree, and
+its workspace is in view. Headed press can activate it first; headless press
+requires existing focus. The same proof is checked before input delivery.
+An accessible window still requires its AT-SPI frame to be active. `type`
+requires an accessibility ref and does not accept a compositor window id.
+
 On a bound Hyprland, `move-window`, `resize-window`, `minimize`, `maximize`
 and `restore` bind the window the same way and prove each request by a fresh
 read of Hyprland's client list. A success is `delivered_verified`, `restore`
