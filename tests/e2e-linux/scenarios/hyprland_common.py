@@ -7,6 +7,8 @@ from pathlib import Path
 
 from oracle import hyprland
 
+X_LOCKS = Path("/tmp")
+
 
 def record(tier) -> dict:
     from runner import attached
@@ -70,3 +72,40 @@ class Sampler:
         self._thread.join(5.0)
         self.sample()
         return False
+
+
+def instance_env(tier, instance: dict) -> dict[str, str]:
+    """The product's environment bound to `instance`."""
+    return dict(tier.env, WAYLAND_DISPLAY=instance["wayland"], HYPRLAND_INSTANCE_SIGNATURE=instance["signature"])
+
+
+def instance_query(tier, instance: dict, name: str):
+    return hyprland.query(shared(tier), instance["signature"], name, pid=instance["pid"])
+
+
+def instance_control(tier, instance: dict, argv: list[str]) -> None:
+    output = hyprland.control(shared(tier), instance["signature"], argv)
+    if output != "ok":
+        raise RuntimeError(f"the compositor refused a test control {argv}: {output}")
+
+
+def _parent_of(pid: int, root: Path = Path("/proc")) -> int | None:
+    try:
+        text = (root / str(pid) / "stat").read_text()
+    except OSError:
+        return None
+    return int(text[text.rindex(")") + 2:].split()[1])
+
+
+def x_display(instance: dict, locks: Path = X_LOCKS, root: Path = Path("/proc")) -> str:
+    """The X display the instance's XWayland serves: the `.X<n>-lock` file that names the compositor
+    or a child of it, or "" when none does."""
+    for lock in sorted(locks.glob(".X*-lock")):
+        number = lock.name[2:-len("-lock")]
+        try:
+            owner = int(lock.read_text().strip())
+        except (OSError, ValueError):
+            continue
+        if number.isdigit() and instance["pid"] in (owner, _parent_of(owner, root)):
+            return f":{number}"
+    return ""

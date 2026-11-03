@@ -20,6 +20,7 @@ from runner import legs
 from runner.product import Envelope
 from scenarios import hyprland_cursor as cursor
 from scenarios import hyprland_cursor_hide as hide
+from scenarios import hyprland_focus_controls as controls
 
 HEADED_STOPPED = "cursor.travel_failure_proceeds_hide_failure_refuses"
 HEADLESS_STOPPED = "cursor.travel_failure_proceeds_headless"
@@ -129,12 +130,12 @@ def ended_reads(outer: Outer) -> tuple[list[str], list]:
             mock.patch.object(cursor, "alive", lambda owner: False), \
             mock.patch.object(cursor, "record_of", lambda runtime, session: None), \
             mock.patch.object(cursor, "SETTLE_S", 0.2), \
-            mock.patch.object(hide, "SHOW_SETTLE_S", 0.2), \
-            mock.patch.object(hide, "outer_window", lambda tier, instance: window, create=True), \
-            mock.patch.object(hide, "outer_shown", lambda tier: set(outer.shown), create=True), \
-            mock.patch.object(hide, "toggle_outer", outer.toggle, create=True), \
-            mock.patch.object(hide, "outer_focus", lambda tier: outer.focused, create=True), \
-            mock.patch.object(hide, "focus_outer", outer.focus, create=True):
+            mock.patch.object(controls, "SHOW_SETTLE_S", 0.2), \
+            mock.patch.object(controls, "outer_window", lambda tier, instance: window), \
+            mock.patch.object(controls, "outer_shown", lambda tier: set(outer.shown)), \
+            mock.patch.object(controls, "toggle_outer", outer.toggle), \
+            mock.patch.object(controls, "outer_focus", lambda tier: outer.focused), \
+            mock.patch.object(controls, "focus_outer", outer.focus):
         problems = hide.ended_layers(ctx, Path("/nonexistent"), {"signature": "s", "pid": 1}, "run-1", owner)
     return problems, ctx.restored_reads.get("hyprland.layers", [])
 

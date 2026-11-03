@@ -24,12 +24,12 @@ from scenarios.hyprland_common import Sampler, bystander, desktop, main_instance
 from scenarios.hyprland_desktop import boundary_problems, keeps_focus
 from scenarios.hyprland_focus_controls import (active, client, control, cursor, focus_argv, listed_ids, move,
                                                restore_desktop, spare_workspaces, terminal, workspaces_in_use)
-from scenarios.hyprland_pointer import nested
 from scenarios.hyprland_window_checks import (MINIMIZED, SETTLE_S, float_argv, missing, operated, placement, point,
                                               refusal, satisfied, unchanged, window_argv)
 from scenarios.hyprland_window_dialect import channel, dialect_note, dialect_problems
 from scenarios.hyprland_window_legacy import legacy_instance
 from scenarios.hyprland_window_nested import geometry_cases, maximize_cases, minimize_cases
+from scenarios.wayland_outputs import nested
 
 FOREIGN = "special:ad-e2e-foreign"
 NEGATIVE_CORNER = (-50, -20)

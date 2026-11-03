@@ -16,7 +16,7 @@ from oracle import atspi_raw as raw
 from runner import apps
 from runner.helper import managed, require
 from scenarios.hyprland_common import main_instance
-from scenarios.hyprland_pointer_pad import x_display
+from scenarios.hyprland_common import x_display
 
 QT_ZOO = "Zoo Qt"
 LAUNCH_S = 20.0

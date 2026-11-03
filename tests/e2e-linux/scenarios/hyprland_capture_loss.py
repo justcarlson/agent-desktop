@@ -25,13 +25,13 @@ from runner.verdict import LegContext
 from scenarios.capture import decode
 from scenarios.hyprland_capture_common import (capture_path, colour, dominant, ids_by_pid, near, painter_command,
                                                written)
-from scenarios.hyprland_common import bystander, desktop, main_instance
-from scenarios.hyprland_cursor_hide import nested_frames
+from scenarios.hyprland_common import bystander, desktop, instance_env, instance_query, main_instance
 from scenarios.hyprland_desktop import boundary_problems, keeps_focus
-from scenarios.hyprland_pointer import nested, nested_running
-from scenarios.hyprland_pointer_pad import NATIVE, instance_env, instance_query, pad_env
+from scenarios.hyprland_focus_controls import nested_frames
+from scenarios.hyprland_pointer_pad import NATIVE, pad_env
 from scenarios.hyprland_toplevel import terminal_argv
 from scenarios.hyprland_windows import cursor, restore_desktop
+from scenarios.wayland_outputs import nested, nested_running
 
 APP_ID = "ad-e2e-cap-loss"
 PAINT = "a05000"
