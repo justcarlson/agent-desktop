@@ -38,10 +38,14 @@ class GuardRegistryTests(unittest.TestCase):
         self.assertIn(LEG, legs.implementations())
 
     def test_every_round_kills_by_pid_or_by_group_with_a_letter_or_shift_held(self):
-        self.assertEqual(set(guard.ROUNDS), {("pid", "letter"), ("pid", "shift"), ("group", "letter"),
-                                             ("group", "shift")})
+        self.assertEqual({(mode, kind) for mode, kind, _ in guard.ROUNDS},
+                         {("pid", "letter"), ("pid", "shift"), ("group", "letter"), ("group", "shift")})
         self.assertFalse(any(char.isupper() for char in guard.LETTERS))
         self.assertTrue(any(char.isupper() for char in guard.SHIFTED))
+
+    def test_focus_moves_to_the_bystander_with_a_letter_and_with_shift_held(self):
+        self.assertEqual({(mode, kind) for mode, kind, focus in guard.ROUNDS if focus},
+                         {("pid", "letter"), ("pid", "shift")})
 
 
 class TailTests(unittest.TestCase):
@@ -133,6 +137,30 @@ class MeasureTests(unittest.TestCase):
         found = guard.guard_measure(found, 10.2, held, 600)
         self.assertEqual((found["release_after_press_ms"], found["extra_presses"]), (700, 1))
 
+    def test_a_release_in_the_window_that_took_focus_ends_the_hold(self):
+        held = [key("press", "c", 54, 10.0)]
+        target = held + [{"event": "focus", "in": False, "t": 10.1}]
+        bystander = [{"event": "focus", "in": True, "t": 10.15}, key("release", "c", 54, 10.22)]
+        found = guard.guard_measure(guard.merged(target, bystander), 10.2, held, 250)
+        self.assertEqual((found["held_open"], found["release_after_press_ms"], found["release_after_kill_ms"]),
+                         ([], 220, 20))
+
+    def test_merged_logs_read_as_one_timeline(self):
+        first = [key("press", "c", 54, 1.0), key("press", "d", 40, 3.0)]
+        second = [key("release", "c", 54, 2.0)]
+        self.assertEqual([item["t"] for item in guard.merged(first, second)], [1.0, 2.0, 3.0])
+
+    def test_after_a_focus_move_the_bystander_may_see_one_release_of_each_held_key(self):
+        held = [key("press", "Shift_L", 50, 1.0), key("press", "B", 56, 1.1)]
+        seen = [key("release", "b", 56, 1.2), key("release", "Shift_L", 50, 1.3)]
+        self.assertEqual(guard.stray_bystander_events(seen, held), 0)
+
+    def test_a_bystander_press_text_or_second_release_is_stray(self):
+        held = [key("press", "c", 54, 1.0)]
+        seen = [key("release", "c", 54, 1.2), key("release", "c", 54, 1.3), key("press", "c", 54, 1.4),
+                {"event": "text", "text": "c"}, key("release", "d", 40, 1.5)]
+        self.assertEqual(guard.stray_bystander_events(seen, held), 4)
+
     def test_extra_chars_count_what_the_entry_gained_beyond_the_typed_text(self):
         self.assertEqual(guard.extra_chars("xabc", "xabcdefg"), 0)
         self.assertEqual(guard.extra_chars("xabccc", "xabcdefg"), 2)
@@ -156,7 +184,7 @@ class VerdictTests(unittest.TestCase):
         self.assertIn("600 ms repeat delay", " ".join(problems))
 
     def test_extra_characters_presses_or_bystander_events_fail(self):
-        for field in ("extra_presses", "extra_chars", "bystander_events"):
+        for field in ("extra_presses", "extra_chars", "bystander_extra_chars", "bystander_events"):
             with self.subTest(field):
                 problems = guard.guard_problems("group shift", measure(**{field: 1}), -signal.SIGKILL)
                 self.assertEqual(problems, [f"group shift: {field} 1, not 0"])
