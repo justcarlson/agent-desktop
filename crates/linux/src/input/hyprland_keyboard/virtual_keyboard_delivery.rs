@@ -3,13 +3,16 @@
 //! route: the focus gate before every key-down, release of every held key on
 //! a stop, and `uncertain` with the confirmed count once a key went out.
 //! A signal stops the delivery before its next key-down, and the held keys
-//! are released before the signal's own action is taken.
+//! are released before the signal's own action is taken. A SIGKILL leaves
+//! no chance to release, so held keys are journaled and the next delivery on
+//! the instance releases what a dead one left.
 
 use agent_desktop_core::{AdapterError, Deadline};
 use serde_json::json;
 
 use super::active_layout::read_active_layout;
 use super::control_text::refuse_control;
+use super::held_key_journal::HeldKeyJournal;
 use super::keyboard_cancel::stop_on_signal;
 use super::keyboard_wire::KeyboardWire;
 use super::virtual_keyboard_sink::VirtualKeyboardSink;
@@ -50,7 +53,9 @@ pub(crate) fn send(
         let layouts = owner_layouts(&owner).map_err(|error| with_progress(error, 0))?;
         let layout = read_active_layout(binding, &layouts, deadline)
             .map_err(|error| with_progress(error, 0))?;
-        deliver(wire, owner, layout, &chunks, &mut gate, deadline)
+        let sink = VirtualKeyboardSink::new(wire, layout)
+            .journaled(HeldKeyJournal::in_runtime_dir(binding));
+        deliver(sink, owner, &chunks, &mut gate, deadline)
     })
 }
 
@@ -66,16 +71,16 @@ fn owner_layouts(owner: &str) -> Result<Vec<String>, AdapterError> {
         .layout_names()
 }
 
-/// Types `chunks` over `wire` with `owner` extended for them, in `layout`.
+/// Types `chunks` through `sink` with `owner` extended for them, in the
+/// sink's layout.
 pub(crate) fn deliver<W: KeyboardWire>(
-    wire: W,
+    sink: VirtualKeyboardSink<W>,
     owner: String,
-    layout: u32,
     chunks: &[&[KeysymStep]],
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    let sink = VirtualKeyboardSink::new(wire, layout);
+    let layout = sink.layout();
     let mut session = KeycodeSession::new(sink, owner, layout, chunks);
     let delivery = run_chunks(&mut session, chunks, gate, deadline)?;
     Ok(Delivery {
