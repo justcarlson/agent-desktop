@@ -38,21 +38,25 @@ def may_match(pid: int, comm: str, names) -> bool:
 
 def owned(tier, pid: int, start: int, env: dict) -> bool:
     """Whether a process belongs to the tier: a recorded run member, or a private-runtime process."""
-    from runner import attached
+    from runner import tier_record
 
     if pid <= 1 or start <= 0:
         return False
-    record = attached.load(tier.runtime_dir)
+    record = tier_record.load(tier.runtime_dir)
     if record is not None:
+        from runner import attached
+
         return attached.is_member(record, pid, start, attached.PROC_ROOT)
     return env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir)
 
 
 def members(runtime_dir: Path, root: Path = Path("/proc")) -> list[tuple[int, int, str]]:
-    from runner import attached
+    from runner import tier_record
 
-    record = attached.load(runtime_dir)
+    record = tier_record.load(runtime_dir)
     if record is not None:
+        from runner import attached
+
         return attached.members(record, root)
     result = []
     for directory in root.iterdir():

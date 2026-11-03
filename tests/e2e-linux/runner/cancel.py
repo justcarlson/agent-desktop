@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from runner import attached, session
+from runner import session, tier_record
 
 
 def publish(suite: Path, tier) -> Path:
@@ -19,7 +19,7 @@ def publish(suite: Path, tier) -> Path:
         raise RuntimeError("the runtime marker does not name this runner generation")
     receipt = {"pid": pid, "start": start, "runtime": str(tier.runtime_dir),
                "marker": str(marker), "runner": str(Path(__file__).with_name("main.py").resolve())}
-    record = attached.load(tier.runtime_dir)
+    record = tier_record.load(tier.runtime_dir)
     if record is not None:
         receipt["attached"] = record["mirror"]
     path = suite / f"{tier.name}.ready.json"

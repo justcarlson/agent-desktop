@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from oracle import hyprland, proc as process
-from runner import attached, attached_session, session
+from runner import session
 
 OUTPUT = "AGENT-DESKTOP-1"
 SENTINEL = "ad-e2e-sentinel"
@@ -67,6 +67,7 @@ def current(record: dict, proc_root: Path = Path("/proc")) -> dict | None:
 
 def find_new(record: dict, before: set[str], proc_root: Path = Path("/proc")) -> dict | None:
     """An instance that appeared after `before` and whose IPC peer is in the run's slice."""
+    from runner import attached
     shared = Path(record["shared_runtime"])
     for signature in sorted(set(hyprland.instances(shared)) - before):
         try:
@@ -114,6 +115,7 @@ def sentinel_pid(clients: list[dict]) -> int | None:
 
 
 def _sentinel(tier, instance: dict, seconds: float) -> list[int]:
+    from runner import attached, attached_session
     shared = Path(attached.load(tier.runtime_dir)["shared_runtime"])
     env = dict(_env(tier), WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND="wayland")
     attached_session.spawn(tier, ["foot", "--title", SENTINEL], env, tier.runtime_dir / "sentinel.log")
@@ -133,6 +135,7 @@ def _sentinel(tier, instance: dict, seconds: float) -> list[int]:
 
 def ensure(tier, seconds: float = 20.0) -> dict:
     """The live second instance, started now if the run has none."""
+    from runner import attached, attached_session
     record = attached.load(tier.runtime_dir)
     found = current(record)
     if found is not None and found.get("sentinel"):
@@ -161,6 +164,7 @@ def ensure(tier, seconds: float = 20.0) -> dict:
 
 def stop(tier, proc_root: Path = Path("/proc"), seconds: float = 5.0) -> None:
     """Stop the recorded second instance and its sentinel, then remove its paths."""
+    from runner import attached, attached_session
     record = attached.load(tier.runtime_dir)
     instance = current(record, proc_root)
     if instance is not None:

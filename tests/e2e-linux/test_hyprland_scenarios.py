@@ -10,9 +10,9 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from runner import tier_record
 from runner.product import Envelope
 from scenarios import hyprland_cancel, hyprland_common, hyprland_desktop
-from test_hyprland_lifecycle import make_proc
 
 NOT_DELIVERED = {"delivery": "not_delivered", "retry": "safe"}
 
@@ -21,6 +21,16 @@ def refused(code: str, *, exit_code: int = 1, disposition=None, **details) -> En
     error = {"code": code, "message": "refused", "details": details,
              "disposition": NOT_DELIVERED if disposition is None else disposition}
     return Envelope(ok=False, data=None, error=error, raw="{}", elapsed_ms=5.0, argv=[], exit_code=exit_code)
+
+
+def make_proc(root: Path, pid: int, start: int, *, cgroup: str = "0::/session.slice/x.service",
+              comm: str = "comm", environ: dict | None = None) -> None:
+    directory = root / str(pid)
+    directory.mkdir(parents=True, exist_ok=True)
+    fields = " ".join(["S"] + ["0"] * 18 + [str(start)])
+    (directory / "stat").write_text(f"{pid} ({comm}) {fields}\n")
+    (directory / "cgroup").write_text(cgroup + "\n")
+    (directory / "environ").write_bytes(b"".join(f"{k}={v}\0".encode() for k, v in (environ or {}).items()))
 
 
 class DeliveryBoundaryTests(unittest.TestCase):
@@ -135,6 +145,7 @@ class DesktopObservationTests(unittest.TestCase):
             self.assertTrue(hyprland_desktop.keeps_focus(None, {"active_window": {"address": "0xa", "pid": 61}}))
 
 
+@unittest.skipUnless(tier_record.installed(), "the attached tier is fork-only")
 class CancelTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
