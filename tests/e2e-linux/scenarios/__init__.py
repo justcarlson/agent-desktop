@@ -67,6 +67,7 @@ from scenarios import hyprland_window_ops
 from scenarios import hyprland_focus_reports
 from scenarios import hyprland_keys_cancel
 from scenarios import hyprland_keys_controls
+from scenarios import hyprland_keys_guard
 from scenarios import hyprland_keys_keymap
 from scenarios import hyprland_keys_refusal
 from scenarios import hyprland_keys_theft
