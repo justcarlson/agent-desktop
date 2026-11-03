@@ -73,6 +73,25 @@ class CancelVerdictTests(unittest.TestCase):
         self.assertEqual(cancel.held_after_signal_problems(signal.SIGTERM, [50]),
                          ["SIGTERM: the app saw keys [50] pressed and never released"])
 
+    def test_the_hold_measure_counts_time_held_and_repeats_until_the_next_command(self):
+        def at(t: float, item: dict) -> dict:
+            return dict(item, t=t)
+
+        found = [at(1.0, key("press", "Shift_L", 50)), at(1.1, key("press", "a", 38)),
+                 at(1.2, {"event": "text", "text": "a"}), at(2.5, key("press", "a", 38)),
+                 at(2.6, {"event": "text", "text": "aa"}), at(2.7, key("press", "a", 38)),
+                 at(2.8, {"event": "text", "text": "aaa"}), at(4.2, key("release", "Shift_L", 50)),
+                 at(4.3, key("release", "a", 38))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0),
+                         {"held": [50, 38], "held_s": 2.3, "window_s": 2.0, "repeats": 2, "repeat_chars": 2,
+                          "text_growth": 2, "focus_left": False})
+
+    def test_a_held_shift_repeats_no_character_and_an_unreleased_key_has_no_held_time(self):
+        found = [dict(key("press", "Shift_L", 50), t=1.0), {"event": "focus", "in": False, "t": 3.0}]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0),
+                         {"held": [50], "held_s": None, "window_s": 2.0, "repeats": 0, "repeat_chars": 0,
+                          "text_growth": 0, "focus_left": True})
+
     def test_a_cut_text_is_a_non_empty_strict_prefix(self):
         self.assertEqual(cancel.prefix_problems("aBa", "aBaB"), [])
         for typed in ("", "aBaB", "ab", None):
