@@ -296,6 +296,7 @@ for _leg in REGISTRY:
 
 
 LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
+    'keyboard.press_window_id_compositor_only': ('scenarios.hyprland_press_foot', 'press_window_id_compositor_only'),
     'session.hyprland_silent_wayland_refused': ('scenarios.hyprland_silent_wayland', 'hyprland_silent_wayland_refused'),
     'lifecycle.hyprland_window_operation_refusals': ('scenarios.hyprland_window_refusals', 'window_operation_refusals'),
     'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),

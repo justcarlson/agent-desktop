@@ -34,6 +34,7 @@ FIRST_ROWS = (
 )
 
 ROWS = (
+    ('keyboard.press_window_id_compositor_only', 'Scoped press delivers a and Return only to a tree-less terminal reader and reports compositor_only focus proof; type still refuses without writing a byte', 'Two foot raw readers and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'pass'),
     ('focus.hyprland_other_workspace', 'A headed focus-window on an accessible window and on a compositor-only toplevel, each alone on a workspace no monitor shows, makes j/activewindow name that toplevel and pid, leaves j/clients placing it on its workspace and has j/monitors show that workspace; focus, cursor and workspaces return to the bystander', 'Calculator, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
     ('focus.hyprland_twin_after_sizes_differ', 'Once a third window gives same-titled native Wayland twins distinct j/clients sizes, a headed focus-window on each frame in turn makes j/activewindow name the toplevel of that frame size, the second twin included', 'Focus Twins, foot and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
     ('focus.hyprland_same_size_twins_ambiguous', 'A headed focus-window on either of two same-titled native Wayland twins of one size refuses with AMBIGUOUS_TARGET naming both j/clients addresses and workspaces, not_delivered, while j/activewindow, the cursor, the workspaces and both twins stay as they were', 'Focus Twins and bystander', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
