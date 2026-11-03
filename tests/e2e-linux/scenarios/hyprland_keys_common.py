@@ -96,7 +96,9 @@ def key_log(tier, label: str, opaque: bool = False):
 
 
 def records(log: Path) -> list[dict]:
-    return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+    """The key log's complete records. The app may still be writing the text after the last newline."""
+    complete = log.read_text().rpartition("\n")[0]
+    return [json.loads(line) for line in complete.splitlines() if line.strip()]
 
 
 def presses(log: Path) -> list[dict]:
