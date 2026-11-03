@@ -102,3 +102,7 @@ mod tests;
 #[cfg(test)]
 #[path = "press_window_tests.rs"]
 mod window_tests;
+
+#[cfg(test)]
+#[path = "press_compositor_tests.rs"]
+mod compositor_tests;
