@@ -5,13 +5,15 @@ drawing area that reports the entry role but has no Text or EditableText
 interface in place of the entry, so a type into it can only be physical keys.
 Each line is one JSON object: a key press or release
 with its keysym name, hardware keycode, modifier state and XKB layout group, a
-focus change of the window, or the entry's whole text after it changed. A leg
+focus change of the window, or the entry's whole text after it changed.
+Each record carries `t`, the monotonic clock when the app saw it. A leg
 reads the log and the entry's accessible text, never the command's own answer.
 """
 
 import json
 import os
 import sys
+import time
 
 os.environ["GTK_USE_PORTAL"] = "0"
 os.environ["GDK_BACKEND"] = "wayland"
@@ -33,7 +35,7 @@ def main():
 
     def note(record):
         with open(log, "a") as handle:
-            handle.write(json.dumps(record) + "\n")
+            handle.write(json.dumps(dict(record, t=time.monotonic())) + "\n")
 
     def key(kind):
         def handler(_widget, event):

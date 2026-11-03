@@ -9,12 +9,17 @@ Hyprland keeps a dead virtual keyboard's keys held while
 `input:virtualkeyboard:release_pressed_on_close` is false, so a key held
 then is a finding, not a failure. After either signal `j/devices` must list
 the keyboards it listed before, and a scoped `press x` must release what was
-held and give the entry exactly one unmodified `x`.
+held and give the entry exactly one unmodified `x`. Each round records a
+`hold` finding: the keys held between the signal and the next command, how
+long the app saw them held, the autorepeat presses and characters that reached
+the entry, and whether keyboard focus stayed on it. Wayland sends key events
+only to the focused surface, so with focus kept no repeat reached a bystander.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import signal
 import time
 from pathlib import Path
@@ -24,7 +29,8 @@ from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.hyprland_keys import _focused_key_log
-from scenarios.hyprland_keys_common import HELD_MODIFIERS, entry_text, keyboards, records
+from scenarios.hyprland_focus_controls import active
+from scenarios.hyprland_keys_common import HELD_MODIFIERS, entry_text, keyboards, records, toplevel
 from scenarios.hyprland_keys_process import finished, running_product
 
 CANCELLED = "aB" * 200
@@ -74,6 +80,39 @@ def next_press_problems(found: list[dict], keysym: str) -> list[str]:
 
 def exit_problems(sent: int, code: int | None) -> list[str]:
     return [] if code == -sent else [f"the product exited {code}, not by signal {int(sent)}"]
+
+
+def _last_text(found: list[dict]) -> str:
+    texts = [item.get("text") or "" for item in found if item.get("event") == "text"]
+    return texts[-1] if texts else ""
+
+
+def hold_measure(found: list[dict], signalled: float, next_command: float) -> dict:
+    """The keys held from the signal to the next command, how long until the app saw them released, and the
+    autorepeat presses and characters that reached the app in between. Times are the app's monotonic clock."""
+    before = [item for item in found if item.get("t", 0.0) <= signalled]
+    window = [item for item in found if signalled < item.get("t", 0.0) <= next_command]
+    later = [item for item in found if item.get("t", 0.0) > next_command]
+    held = held_keys(before)
+    repeats = []
+    for item in key_events(window):
+        code = item.get("code")
+        if item["event"] == "press" and code in held:
+            repeats.append(item)
+        elif item["event"] == "press":
+            held.append(code)
+        elif code in held:
+            held.remove(code)
+    releases = [next((item["t"] for item in key_events(later) if item["event"] == "release"
+                      and item.get("code") == code), None) for code in held]
+    return {"held": held,
+            "held_s": round(max(releases) - signalled, 3) if held and None not in releases else None,
+            "window_s": round(next_command - signalled, 3),
+            "repeats": len(repeats),
+            "repeat_chars": sum(1 for item in repeats if len(item.get("keysym") or "") == 1
+                                or item.get("keysym") == "space"),
+            "text_growth": len(_last_text(before + window)) - len(_last_text(before)),
+            "focus_left": any(item.get("event") == "focus" and not item.get("in") for item in window)}
 
 
 def held_after_signal_problems(sent: int, held: list[int]) -> list[str]:
@@ -134,6 +173,7 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
                        >= STARTED_PRESSES, 10.0)
     flying = bool(started) and _in_flight(log)
     seen = len(records(log))
+    signalled = time.monotonic()
     running.send_signal(sent)
     code, _ = finished(running, 10.0)
     name = signal.Signals(sent).name
@@ -148,6 +188,8 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
         ctx.finding(f"{name}: the app saw keys {held} held until the next delivery")
     problems += held_after_signal_problems(sent, held)
     after = len(records(log))
+    focused = active(tier).get("address") == toplevel(tier, app)["address"]
+    next_command = time.monotonic()
     pressed = ctx.product(["press", "x", "--window-id", app.windows[0]], headed=False)
     if not pressed.ok:
         problems.append(f"{name}: the next press failed: {pressed.raw[:300]}")
@@ -155,6 +197,8 @@ def _round(ctx: LegContext, app, log, ref: str, sent: int) -> list[str]:
         problems.append(f"{name}: the next press left {entry_text(tier, app)!r}, not {typed + 'x'!r}")
     raw.poll(lambda: not held_keys(records(log)[after:]), 2.0)
     problems += [f"{name}: {item}" for item in next_press_problems(records(log)[after:], "x")]
+    measure = dict(hold_measure(records(log)[start:], signalled, next_command), signal=name, target_focused=focused)
+    ctx.finding("hold " + json.dumps(measure, sort_keys=True))
     return problems
 
 
