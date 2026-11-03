@@ -188,6 +188,21 @@ class ListenerTrafficTests(unittest.TestCase):
                     finally:
                         listener.close()
 
+    def test_the_serve_thread_waits_for_a_client_without_the_lock(self):
+        from runner import socket_fixture
+        with tempfile.TemporaryDirectory() as work:
+            listener = socket_fixture.Listener(Path(work) / "wayland-x", "mute")
+            try:
+                free = 0
+                for _ in range(20):
+                    if listener._lock.acquire(blocking=False):
+                        listener._lock.release()
+                        free += 1
+                    time.sleep(0.01)
+                self.assertGreaterEqual(free, 10)
+            finally:
+                listener.close()
+
 
 class DiscoveryOrderTests(unittest.TestCase):
     def test_the_held_socket_sorts_before_any_numbered_compositor_socket(self):
