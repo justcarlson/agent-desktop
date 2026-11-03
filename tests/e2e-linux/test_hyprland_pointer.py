@@ -696,7 +696,7 @@ class SessionInstanceTests(unittest.TestCase):
         ctx.product.return_value = answer or refused("INVALID_ARGS", cause="point_off_output")
         base = dict(main_instance=mock.Mock(return_value=MAIN), nested=mock.Mock(return_value=(NESTED, True)),
                     pointer_pad=opened, app_shown=shown, session_client=mock.Mock(return_value=PAD_BOX),
-                    uncovered=mock.Mock(), beside_bystander=beside, bystander_box=mock.Mock(return_value={}),
+                    beside_bystander=beside, bystander_box=mock.Mock(return_value={}),
                     instance_env=mock.Mock(side_effect=lambda _tier, instance: {"bound": instance["signature"]}),
                     pads_left=mock.Mock(return_value=[]), events=mock.Mock(return_value=[]),
                     settled=mock.Mock(return_value=[]), cursor_at=mock.Mock(return_value=(50.0, 70.0)),

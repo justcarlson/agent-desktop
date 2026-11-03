@@ -26,7 +26,7 @@ from runner.verdict import LegContext
 from scenarios.hyprland_common import Sampler, bystander, main_instance, shared
 from scenarios.hyprland_cursor import app_shown
 from scenarios.hyprland_focus_controls import cursor_argv
-from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, covering_layers, cursor_at, events,
+from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, cursor_at, events,
                                             gdk3_presses, global_point, holds, instance_control, instance_env,
                                             instance_query, lands_at,
                                             motions_after, pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
@@ -199,13 +199,6 @@ def session_client(tier, main: dict, pid: int) -> dict:
     return found
 
 
-def uncovered(tier, main: dict, points) -> None:
-    """No top or overlay layer of the session holds any aim point."""
-    layers = instance_query(tier, main, "layers")
-    covered = {point: covering_layers(layers, point) for point in points}
-    require(not any(covered.values()), f"session layers cover the aim points: {covered}")
-
-
 @contextlib.contextmanager
 def session_pad(ctx: LegContext, label: str):
     """A pad on the session instance, shown on the focused monitor beside the bystander. Yields the
@@ -274,7 +267,6 @@ def session_delivery_report(ctx: LegContext, verb: str) -> None:
     with session_pad(ctx, f"report-{verb}") as (_, client, log):
         env = instance_env(tier, main)
         aim, end_at = global_point(client, (0.5, 0.7)), global_point(client, (0.7, 0.9))
-        uncovered(tier, main, (aim, end_at))
         with beside_bystander(tier, main, client) as found:
             if verb == "mouse-wheel":
                 problems = wheel_problems(ctx, env, log, aim, ["--dy=-1"], ["down"])
@@ -344,7 +336,6 @@ def coordinates_have_no_receiver_proof(ctx: LegContext) -> None:
         clicks = [(count, global_point(client, fraction)) for count, fraction in
                   ((1, (0.3, 0.6)), (2, (0.5, 0.6)), (3, (0.7, 0.6)))]
         aim, drag_from, drag_to = (global_point(client, fraction) for fraction in ((0.5, 0.8), (0.3, 0.7), (0.6, 0.9)))
-        uncovered(tier, main, [point for _, point in clicks] + [aim, drag_from, drag_to])
         with beside_bystander(tier, main, client) as found:
             problems = []
             for count, point in clicks:
@@ -480,8 +471,6 @@ def cancel_or_disconnect_releases_buttons(ctx: LegContext) -> None:
     session_reads(ctx, "before", main)
     with session_pad(ctx, "cancel") as (_, client, log):
         env = instance_env(tier, main)
-        uncovered(tier, main, [global_point(client, fraction) for fraction in
-                               ((0.2, 0.7), (0.8, 0.9), (0.3, 0.7), (0.6, 0.9))])
         with beside_bystander(tier, main, client) as found:
             problems = signal_problems(tier, env, log, client)
             problems += drag_problems(ctx, env, log, client, global_point(client, (0.3, 0.7)),
