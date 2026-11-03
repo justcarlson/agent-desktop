@@ -112,7 +112,8 @@ class LegFlowTests(unittest.TestCase):
     def run_leg(self, after_loss, first=None) -> tuple[LegContext, list]:
         lost: list[str] = []
         calls: list[tuple[str, list[str]]] = []
-        state = {"lost": False}
+        state = {"lost": False, "shown": False}
+        self.shown: list[tuple[str, bool]] = []
 
         def nested(tier):
             state["lost"] = False
@@ -127,10 +128,19 @@ class LegFlowTests(unittest.TestCase):
                 return Envelope(ok=True, data=[{"id": "w-hypr-1", "pid": 600}], error=None, raw="[]",
                                 elapsed_ms=5.0, argv=argv, exit_code=0)
             calls.append(("lost" if state["lost"] else "live", argv))
+            self.shown.append((calls[-1][0], state["shown"]))
             if state["lost"]:
                 return after_loss(Path(argv[-1]))
             Path(argv[-1]).write_bytes(b"png")
             return first or captured(argv[-1])
+
+        @contextlib.contextmanager
+        def frames(ctx, instance):
+            state["shown"] = True
+            try:
+                yield
+            finally:
+                state["shown"] = False
 
         with tempfile.TemporaryDirectory() as runtime:
             tier = SimpleNamespace(runtime_dir=Path(runtime), env={})
@@ -149,6 +159,7 @@ class LegFlowTests(unittest.TestCase):
                     (SimpleNamespace(pid=600), {"pid": 600}))),
                 "decode": mock.Mock(return_value=painted_image()),
                 "lose": mock.Mock(side_effect=lose),
+                "nested_frames": frames,
             }
             with contextlib.ExitStack() as stack:
                 for name, value in patches.items():
@@ -169,6 +180,10 @@ class LegFlowTests(unittest.TestCase):
         self.assertEqual([stage for stage, _ in calls], ["live", "lost"] * len(loss.LOSSES))
         self.assertEqual(evaluate(ctx), [])
         self.assertGreaterEqual(self.stopped, 1)
+
+    def test_the_live_capture_runs_while_the_outer_session_shows_the_instance(self):
+        self.run_leg(lambda path: refused())
+        self.assertEqual(self.shown, [("live", True), ("lost", False)] * len(loss.LOSSES))
 
     def test_a_frame_after_the_loss_fails_the_leg(self):
         def replay(path):
