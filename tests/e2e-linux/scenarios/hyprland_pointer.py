@@ -1,8 +1,11 @@
 """Coordinate pointer legs on the attached `hyprland` tier.
 
-Every event goes to the nested second instance, into the pointer pad the leg owns: that
-instance has no shell layers and no part of the user's desktop. The pad's log says what
-arrived and where; `j/cursorpos`, `j/clients` and `j/monitors` say where the compositor put it.
+Coordinate click, wheel and drag go to the session instance, into a pointer pad the leg owns and
+shows on the focused monitor beside the bystander. A sampler reads the bystander's `j/clients` box
+and keeps the cursor on the pad while the leg acts, so no event can reach the bystander. The nested
+second instance keeps the cases the session cannot give: an output moved to a negative origin and a
+fractional scale, and a compositor killed during a drag. The pad's log says what arrived and where;
+`j/cursorpos`, `j/clients` and `j/monitors` say where the compositor put it.
 """
 
 from __future__ import annotations
@@ -20,10 +23,12 @@ from runner import product, second_instance
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.hyprland_common import shared
+from scenarios.hyprland_common import Sampler, bystander, main_instance, shared
+from scenarios.hyprland_cursor import app_shown
 from scenarios.hyprland_focus_controls import cursor_argv
-from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, cursor_at, events, gdk3_presses,
-                                            global_point, instance_control, instance_env, instance_query, lands_at,
+from scenarios.hyprland_pointer_pad import (PAD_SCROLL, apart_from_last_click, covering_layers, cursor_at, events,
+                                            gdk3_presses, global_point, holds, instance_control, instance_env,
+                                            instance_query, lands_at,
                                             motions_after, pad_client, pad_ref, pad_saw, pads_left, pointer_pad, presses,
                                             releases,
                                             scrolls, settled, since, window_point, xy)
@@ -33,6 +38,10 @@ NEGATIVE_ORIGIN = (-1024, -640)
 FRACTIONAL = 1.25
 CANCEL_DRAG_MS = 3000
 OFF_OUTPUT = "-5000,-5000"
+BYSTANDER_KEYS = ("address", "pid", "at", "size", "workspace", "floating", "fullscreen", "pinned", "mapped", "hidden")
+REFUSED = {"mouse-click": ["mouse-click", f"--xy={OFF_OUTPUT}"],
+           "mouse-wheel": ["mouse-wheel", "--x=-5000", "--y=-5000", "--dy=1"],
+           "drag": ["drag", f"--from-xy={OFF_OUTPUT}", "--to-xy=-4990,-4990"]}
 
 
 def nested(tier) -> tuple[dict, bool]:
@@ -168,6 +177,117 @@ def drag_problems(ctx, env, log: Path, client: dict, start_at, end_at) -> list[s
     return problems
 
 
+def bystander_box(tier, main: dict) -> dict | None:
+    """The bystander's `j/clients` placement on the session instance; None unless listed once."""
+    address = bystander(tier)["address"]
+    found = [item for item in instance_query(tier, main, "clients") if item.get("address") == address]
+    return {key: found[0].get(key) for key in BYSTANDER_KEYS} if len(found) == 1 else None
+
+
+def session_client(tier, main: dict, pid: int) -> dict:
+    """The shown pad's toplevel once two reads in a row agree on its place."""
+    last: dict = {}
+
+    def still():
+        now = pad_client(tier, main, pid)
+        place = now and (now["at"], now["size"], now["monitor"])
+        same = place is not None and last.get("place") == place
+        last["place"] = place
+        return now if same else None
+    found = raw.poll(still, 5.0)
+    require(found, f"the shown pad never held still on the session instance: {last.get('place')}")
+    return found
+
+
+def uncovered(tier, main: dict, points) -> None:
+    """No top or overlay layer of the session holds any aim point."""
+    layers = instance_query(tier, main, "layers")
+    covered = {point: covering_layers(layers, point) for point in points}
+    require(not any(covered.values()), f"session layers cover the aim points: {covered}")
+
+
+@contextlib.contextmanager
+def session_pad(ctx: LegContext, label: str):
+    """A pad on the session instance, shown on the focused monitor beside the bystander. Yields the
+    app, its settled toplevel and its event log."""
+    tier = ctx.tier
+    main = main_instance(tier)
+    with pointer_pad(tier, main, label) as (owned, _, log), app_shown(tier, owned.pid):
+        yield owned, session_client(tier, main, owned.pid), log
+
+
+@contextlib.contextmanager
+def beside_bystander(tier, main: dict, client: dict):
+    """Parks the cursor on the pad, then samples the bystander's box and whether the cursor is still
+    on the pad until the block ends. Yields a list that holds every sampled change afterwards."""
+    lua = hyprland.uses_lua(shared(tier), main["signature"])
+    centre = global_point(client, (0.5, 0.5))
+    instance_control(tier, main, cursor_argv(centre[0], centre[1], lua))
+    require(raw.poll(lambda: holds(cursor_at(tier, main), client), 3.0),
+            f"the cursor did not reach the pad: j/cursorpos reads {cursor_at(tier, main)}")
+    found: list[str] = []
+    sampler = Sampler({"bystander": lambda: bystander_box(tier, main),
+                       "cursor on the pad": lambda: holds(cursor_at(tier, main), client)})
+    with sampler:
+        yield found
+    found.extend(sampler.changes)
+
+
+def cursor_problems(tier, instance: dict, point, label: str) -> list[str]:
+    at = cursor_at(tier, instance)
+    if lands_at(dict(zip(("wx", "wy"), at)), point):
+        return []
+    return [f"{label}: j/cursorpos reads {at}, not {point}"]
+
+
+def off_output_problems(ctx, env, log: Path, verb: str) -> list[str]:
+    """A point on no output refuses with point_off_output, not_delivered, and reaches no pad."""
+    start = len(events(log))
+    refused = ctx.product(REFUSED[verb], env=env)
+    error = refused.error or {}
+    details = error.get("details") or {}
+    problems = []
+    if refused.ok or error.get("code") != "INVALID_ARGS" or details.get("cause") != "point_off_output":
+        problems.append(f"an off-output {verb} answered {refused.raw[:300]}")
+    if (error.get("disposition") or {}).get("delivery") != "not_delivered":
+        problems.append(f"the off-output {verb} is not not_delivered: {error.get('disposition')}")
+    if since(settled(log, lambda found: len(found) > start, 0.5), start):
+        problems.append(f"the off-output {verb} reached the pad")
+    return problems
+
+
+def session_reads(ctx: LegContext, stage: str, main: dict, log: Path | None = None) -> None:
+    """One read of the pad log, the bystander's box and the session cursor at `stage`."""
+    record = getattr(ctx, stage)
+    record("applog.pad", len(events(log)) if log is not None else pads_left(ctx.tier))
+    record("hyprland.bystander", bystander_box(ctx.tier, main))
+    record("hyprland.cursor", cursor_at(ctx.tier, main))
+
+
+def session_delivery_report(ctx: LegContext, verb: str) -> None:
+    """The Hyprland side of the shared wheel and drag delivery-report legs, on the session instance:
+    the pad logs the event, j/cursorpos ends on the aim, an off-output point refuses, and the
+    bystander's box and the cursor never leave their place."""
+    tier = ctx.tier
+    main = main_instance(tier)
+    session_reads(ctx, "before", main)
+    with session_pad(ctx, f"report-{verb}") as (_, client, log):
+        env = instance_env(tier, main)
+        aim, end_at = global_point(client, (0.5, 0.7)), global_point(client, (0.7, 0.9))
+        uncovered(tier, main, (aim, end_at))
+        with beside_bystander(tier, main, client) as found:
+            if verb == "mouse-wheel":
+                problems = wheel_problems(ctx, env, log, aim, ["--dy=-1"], ["down"])
+                problems += cursor_problems(tier, main, aim, verb)
+            else:
+                problems = drag_problems(ctx, env, log, client, aim, end_at)
+                problems += cursor_problems(tier, main, end_at, verb)
+            problems += off_output_problems(ctx, env, log, verb)
+        session_reads(ctx, "after", main, log)
+        require(not problems and not found, "; ".join(problems + found))
+    session_reads(ctx, "restored", main)
+
+
 @implementation("pointer.global_layout_coordinates")
 def global_layout_coordinates(ctx: LegContext) -> None:
     tier = ctx.tier
@@ -217,29 +337,26 @@ def global_layout_coordinates(ctx: LegContext) -> None:
 @implementation("pointer.coordinates_have_no_receiver_proof")
 def coordinates_have_no_receiver_proof(ctx: LegContext) -> None:
     tier = ctx.tier
-    instance, _ = nested(tier)
-    env = instance_env(tier, instance)
-    ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "coordinates") as (_, client, log):
-        problems = []
-        for count, fraction in ((1, (0.3, 0.6)), (2, (0.5, 0.6)), (3, (0.7, 0.6))):
-            problems += click_problems(ctx, env, log, client, global_point(client, fraction), count)
-        problems += wheel_problems(ctx, env, log, global_point(client, (0.5, 0.8)), ["--dy=1"], ["up"])
-        problems += drag_problems(ctx, env, log, client, global_point(client, (0.3, 0.7)),
-                                  global_point(client, (0.6, 0.9)))
-        start = len(events(log))
-        refused = ctx.product(["mouse-click", f"--xy={OFF_OUTPUT}"], env=env)
-        error = refused.error or {}
-        details = error.get("details") or {}
-        if refused.ok or error.get("code") != "INVALID_ARGS" or details.get("cause") != "point_off_output":
-            problems.append(f"a point on no output answered {refused.raw[:300]}")
-        if (error.get("disposition") or {}).get("delivery") != "not_delivered":
-            problems.append(f"the off-output refusal is not not_delivered: {error.get('disposition')}")
-        if since(settled(log, lambda found: len(found) > start, 0.5), start):
-            problems.append("the off-output refusal reached the pad")
-        ctx.after("applog.pad", len(events(log)))
-        require(not problems, "; ".join(problems))
-    ctx.restored("applog.pad", pads_left(tier))
+    main = main_instance(tier)
+    session_reads(ctx, "before", main)
+    with session_pad(ctx, "coordinates") as (_, client, log):
+        env = instance_env(tier, main)
+        clicks = [(count, global_point(client, fraction)) for count, fraction in
+                  ((1, (0.3, 0.6)), (2, (0.5, 0.6)), (3, (0.7, 0.6)))]
+        aim, drag_from, drag_to = (global_point(client, fraction) for fraction in ((0.5, 0.8), (0.3, 0.7), (0.6, 0.9)))
+        uncovered(tier, main, [point for _, point in clicks] + [aim, drag_from, drag_to])
+        with beside_bystander(tier, main, client) as found:
+            problems = []
+            for count, point in clicks:
+                problems += click_problems(ctx, env, log, client, point, count)
+            problems += wheel_problems(ctx, env, log, aim, ["--dy=1"], ["up"])
+            problems += cursor_problems(tier, main, aim, "mouse-wheel")
+            problems += drag_problems(ctx, env, log, client, drag_from, drag_to)
+            problems += cursor_problems(tier, main, drag_to, "drag")
+            problems += off_output_problems(ctx, env, log, "mouse-click")
+        session_reads(ctx, "after", main, log)
+        require(not problems and not found, "; ".join(problems + found))
+    session_reads(ctx, "restored", main)
 
 
 def refusal_problems(label: str, envelope) -> list[str]:
@@ -258,32 +375,30 @@ def refusal_problems(label: str, envelope) -> list[str]:
 @implementation("pointer.headless_or_cancelled_input")
 def headless_or_cancelled_input(ctx: LegContext) -> None:
     tier = ctx.tier
-    instance, _ = nested(tier)
-    env = instance_env(tier, instance)
-    ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "headless") as (owned, client, log):
+    main = main_instance(tier)
+    session_reads(ctx, "before", main)
+    with session_pad(ctx, "headless") as (owned, client, log):
+        env = instance_env(tier, main)
         point = global_point(client, (0.5, 0.7))
         button = pad_ref(ctx, env, owned)
         pane = pad_ref(ctx, env, owned, PAD_SCROLL)
-        cursor = cursor_at(tier, instance)
-        ctx.before("hyprland.cursor", cursor)
-        problems = []
-        for argv in (["mouse-click", f"--xy={xy(point)}"],
-                     ["mouse-wheel", f"--x={int(point[0])}", f"--y={int(point[1])}", "--dy=-1"],
-                     ["drag", f"--from-xy={xy(point)}", f"--to-xy={int(point[0]) + 40},{int(point[1])}"],
-                     ["double-click", button], ["triple-click", button],
-                     ["scroll", pane, "--direction", "down", "--amount", "1"]):
-            problems += refusal_problems(" ".join(argv[:1]), ctx.product(argv, env=env, headed=False))
-        after = cursor_at(tier, instance)
-        ctx.after("hyprland.cursor", after)
-        ctx.after("applog.pad", len(events(log)))
+        with beside_bystander(tier, main, client) as found:
+            cursor = cursor_at(tier, main)
+            problems = []
+            for argv in (["mouse-click", f"--xy={xy(point)}"],
+                         ["mouse-wheel", f"--x={int(point[0])}", f"--y={int(point[1])}", "--dy=-1"],
+                         ["drag", f"--from-xy={xy(point)}", f"--to-xy={int(point[0]) + 40},{int(point[1])}"],
+                         ["double-click", button], ["triple-click", button],
+                         ["scroll", pane, "--direction", "down", "--amount", "1"]):
+                problems += refusal_problems(" ".join(argv[:1]), ctx.product(argv, env=env, headed=False))
+            after = cursor_at(tier, main)
+        session_reads(ctx, "after", main, log)
         if after != cursor:
             problems.append(f"the cursor moved from {cursor} to {after}")
-        if settled(log, lambda found: bool(found), 0.5):
+        if settled(log, lambda seen: bool(seen), 0.5):
             problems.append(f"the pad logged events: {events(log)[:5]}")
-        require(not problems, "; ".join(problems))
-        ctx.restored("hyprland.cursor", cursor_at(tier, instance))
-    ctx.restored("applog.pad", pads_left(tier))
+        require(not problems and not found, "; ".join(problems + found))
+    session_reads(ctx, "restored", main)
 
 
 def _running_drag(tier, env, start_at, end_at) -> subprocess.Popen:
@@ -358,18 +473,29 @@ def disconnect_problems(tier, instance: dict, env, log: Path, client: dict) -> l
 
 @implementation("pointer.cancel_or_disconnect_releases_buttons")
 def cancel_or_disconnect_releases_buttons(ctx: LegContext) -> None:
+    """SIGTERM and the next drag run on the session instance beside the bystander. Only the
+    disconnect, which kills a compositor, runs on the nested instance."""
     tier = ctx.tier
+    main = main_instance(tier)
+    session_reads(ctx, "before", main)
+    with session_pad(ctx, "cancel") as (_, client, log):
+        env = instance_env(tier, main)
+        uncovered(tier, main, [global_point(client, fraction) for fraction in
+                               ((0.2, 0.7), (0.8, 0.9), (0.3, 0.7), (0.6, 0.9))])
+        with beside_bystander(tier, main, client) as found:
+            problems = signal_problems(tier, env, log, client)
+            problems += drag_problems(ctx, env, log, client, global_point(client, (0.3, 0.7)),
+                                      global_point(client, (0.6, 0.9)))
+        session_reads(ctx, "after", main, log)
+        require(not problems and not found, "; ".join(problems + found))
+    session_reads(ctx, "restored", main)
     instance, _ = nested(tier)
-    env = instance_env(tier, instance)
-    ctx.before("applog.pad", pads_left(tier))
-    with pointer_pad(tier, instance, "cancel") as (_, client, log):
+    ctx.before("applog.nested_pad", pads_left(tier))
+    with pointer_pad(tier, instance, "disconnect") as (_, client, log):
         ctx.before("proc.nested", nested_running(instance))
-        problems = signal_problems(tier, env, log, client)
-        problems += drag_problems(ctx, env, log, client, global_point(client, (0.3, 0.7)),
-                                  global_point(client, (0.6, 0.9)))
-        problems += disconnect_problems(tier, instance, env, log, client)
-        ctx.after("applog.pad", len(events(log)))
+        problems = disconnect_problems(tier, instance, instance_env(tier, instance), log, client)
+        ctx.after("applog.nested_pad", len(events(log)))
         ctx.after("proc.nested", nested_running(instance))
         require(not problems, "; ".join(problems))
-    ctx.restored("applog.pad", pads_left(tier))
+    ctx.restored("applog.nested_pad", pads_left(tier))
     ctx.restored("proc.nested", nested_running(nested(tier)[0]))
