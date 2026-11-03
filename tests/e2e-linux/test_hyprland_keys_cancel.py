@@ -67,6 +67,12 @@ class CancelVerdictTests(unittest.TestCase):
         self.assertNotEqual(cancel.exit_problems(signal.SIGTERM, -signal.SIGKILL), [])
         self.assertNotEqual(cancel.exit_problems(signal.SIGTERM, None), [])
 
+    def test_a_key_left_held_counts_against_sigterm_but_not_sigkill(self):
+        self.assertEqual(cancel.held_after_signal_problems(signal.SIGKILL, [50]), [])
+        self.assertEqual(cancel.held_after_signal_problems(signal.SIGTERM, []), [])
+        self.assertEqual(cancel.held_after_signal_problems(signal.SIGTERM, [50]),
+                         ["SIGTERM: the app saw keys [50] pressed and never released"])
+
     def test_a_cut_text_is_a_non_empty_strict_prefix(self):
         self.assertEqual(cancel.prefix_problems("aBa", "aBaB"), [])
         for typed in ("", "aBaB", "ab", None):
