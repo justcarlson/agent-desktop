@@ -470,8 +470,9 @@ If a button seems stuck after you killed a command on X11, run any input
 command with valid arguments, such as
 `agent-desktop --headed mouse-move --xy 640,400`, to release it before the new
 input. On Hyprland only a keyboard command releases keys, such as
-`agent-desktop press shift`. Until then the app sees the key held, and a held
-letter repeats.
+`agent-desktop press shift`. Until then, unless
+`input:virtualkeyboard:release_pressed_on_close` is set, the app sees the key
+held, and a held letter repeats.
 
 If a dead process's record cannot be read, the call sends no input and fails
 with `ACTION_FAILED`, cause `held_input_record_unreadable`; check for a stuck
