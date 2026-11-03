@@ -25,7 +25,7 @@ from pathlib import Path
 
 from oracle import atspi_raw as raw
 from oracle import hyprland
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import require
 from scenarios.hyprland_close import _register, _release, private_interpreter
 from scenarios.hyprland_common import main_instance, shared
@@ -73,6 +73,7 @@ def key_log(tier, label: str, opaque: bool = False):
     """The key log app, registered to the run. Yields the app and its log path.
 
     With `opaque`, its field reports the entry role with no editable text."""
+    from runner import attached_session
     require(not apps._owners(tier, names=KEY_LOG_NAMES), "a key log app from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)

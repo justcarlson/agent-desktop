@@ -6,10 +6,10 @@ import threading
 from pathlib import Path
 
 from oracle import hyprland
-from runner import attached
 
 
 def record(tier) -> dict:
+    from runner import attached
     found = attached.load(tier.runtime_dir)
     if found is None:
         raise AssertionError("the hyprland tier has no attached record")

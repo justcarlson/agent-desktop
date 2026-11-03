@@ -12,7 +12,7 @@ import contextlib
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, proc
-from runner import apps, attached_session
+from runner import apps
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_common import main_instance, shared
@@ -153,6 +153,7 @@ def terminal_argv(app_id: str) -> list[str]:
 @contextlib.contextmanager
 def terminal(tier, app_id: str):
     """A foot toplevel with no accessibility tree, started in the run's slice."""
+    from runner import attached_session
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
     attached_session.spawn(tier, terminal_argv(app_id), dict(tier.env),

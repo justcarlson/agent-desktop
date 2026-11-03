@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import proc as process
-from runner import attached
+from runner import tier_record
 from runner.session_environment import _ENV_KEYS, _PAYLOAD, _parse_env_file, _stderr_tail
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
@@ -78,8 +78,9 @@ def _tier_argv(name: str) -> list[str]:
 
 
 def _proc_members(runtime_dir: Path, proc_root: Path = Path("/proc")) -> list[tuple[int, int]]:
-    record = attached.load(runtime_dir)
+    record = tier_record.load(runtime_dir)
     if record is not None:
+        from runner import attached
         return [member[:2] for member in attached.members(record, proc_root)]
     members = []
     for directory in proc_root.glob("[0-9]*"):
@@ -106,8 +107,9 @@ def _process_start_time(pid_dir: Path) -> int | None:
 
 
 def _kill(pid: int, sig: int, start: int, runtime_dir: Path, proc_root: Path) -> None:
-    record = attached.load(runtime_dir)
+    record = tier_record.load(runtime_dir)
     if record is not None:
+        from runner import attached
         if attached.is_member(record, pid, start, proc_root):
             with contextlib.suppress(ProcessLookupError):
                 os.kill(pid, sig)
@@ -246,7 +248,7 @@ def sweep_strays(session_base: Path, proc_root: Path = Path("/proc")) -> list[Pa
         pid_dir = proc_root / runner_pid
         if pid_dir.exists() and _process_start_time(pid_dir) == int(runner_start):
             continue
-        if attached.load(runtime_dir) is not None:
+        if tier_record.load(runtime_dir) is not None:
             from runner import attached_guard, attached_session
             if attached_guard.refusals(dict(os.environ)):
                 continue

@@ -26,7 +26,7 @@ from pathlib import Path
 
 root, repo, record, report = (Path(arg) for arg in sys.argv[1:5])
 sys.path.insert(0, str(root))
-from runner import attached_session, session
+from runner import session, tier_record
 
 launches = []
 scripts = {str(repo / "scripts" / name) for name in (
@@ -57,12 +57,14 @@ def start_tier(name, *args, **kwargs):
     return real_start_tier(name, *args, **kwargs)
 session.start_tier = start_tier
 
-real_attached_start = attached_session.start
-def attached_start(deadline, source=None):
-    if source is None:
-        refuse("attached_session.start", "os.environ")
-    return real_attached_start(deadline, source)
-attached_session.start = attached_start
+if tier_record.installed():
+    from runner import attached_session
+    real_attached_start = attached_session.start
+    def attached_start(deadline, source=None):
+        if source is None:
+            refuse("attached_session.start", "os.environ")
+        return real_attached_start(deadline, source)
+    attached_session.start = attached_start
 
 real_popen_init = subprocess.Popen.__init__
 def popen_init(self, args, *rest, **kwargs):

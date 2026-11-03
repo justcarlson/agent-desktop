@@ -14,11 +14,12 @@ from runner import stage
 
 def refuse_attached_tier(argv: list[str]) -> None:
     """Refuse the attached tier before anything is written or staged."""
-    from runner import attached_guard
     from runner.main import parse_args
 
     if parse_args(argv).tier != "hyprland":
         return
+    from runner import attached_guard
+
     reasons = attached_guard.refusals(dict(os.environ))
     for reason in reasons:
         print(f"gate: hyprland tier refused: {reason}", file=sys.stderr)

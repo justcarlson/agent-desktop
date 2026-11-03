@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 from oracle import hyprland, proc as process
-from runner import attached, attached_session, session
+from runner import session
 
 OUTPUT = "AGENT-DESKTOP-1"
 SENTINEL = "ad-e2e-sentinel"
@@ -144,6 +144,7 @@ def current(record: dict, proc_root: Path = Path("/proc")) -> dict | None:
 
 def find_new(record: dict, before: set[str], proc_root: Path = Path("/proc")) -> dict | None:
     """An instance that appeared after `before` and whose IPC peer is in the run's slice."""
+    from runner import attached
     shared = Path(record["shared_runtime"])
     for signature in sorted(set(hyprland.instances(shared)) - before):
         try:
@@ -191,6 +192,7 @@ def sentinel_pid(clients: list[dict]) -> int | None:
 
 
 def _sentinel(tier, instance: dict, seconds: float) -> list[int]:
+    from runner import attached, attached_session
     shared = Path(attached.load(tier.runtime_dir)["shared_runtime"])
     env = dict(_env(tier), WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND="wayland")
     attached_session.spawn(tier, ["foot", "--title", SENTINEL], env, tier.runtime_dir / "sentinel.log")
@@ -215,6 +217,7 @@ def launch_env(tier, sized: bool = False) -> dict[str, str]:
 
 def ensure(tier, seconds: float = 20.0, sized: bool = False) -> dict:
     """The live second instance, started now if the run has none; see `launch_env` for `sized`."""
+    from runner import attached, attached_session
     record = attached.load(tier.runtime_dir)
     found = current(record)
     if found is not None and found.get("sentinel"):
@@ -279,6 +282,7 @@ WINDOW_KEYS = ("at", "size", "workspace", "floating", "pinned", "fullscreen", "m
 
 def outer_window(tier, instance: dict) -> dict:
     """Where the outer session holds the nested instance's window: geometry, workspace and floating state."""
+    from runner import attached
     record = attached.load(tier.runtime_dir)
     try:
         client = outer_client(hyprland.query(Path(record["shared_runtime"]), record["signature"], "clients"),
@@ -296,6 +300,7 @@ def print_outer_window(tier, instance: dict, stage: str) -> None:
 
 def diagnostics(tier, instance: dict, sized: bool = False, proc_root: Path = Path("/proc")) -> dict:
     """What the second instance saw, read before teardown removes its directory."""
+    from runner import attached
     record = attached.load(tier.runtime_dir)
     shared = Path(record["shared_runtime"])
     try:
@@ -314,6 +319,7 @@ def diagnostics(tier, instance: dict, sized: bool = False, proc_root: Path = Pat
 
 def ensure_sized(tier, seconds: float = 20.0) -> dict:
     """The live second instance with `OUTPUT` alone sized, for a leg that reads its outputs."""
+    from runner import attached
     instance = ensure(tier, seconds, sized=True)
     shared = Path(attached.load(tier.runtime_dir)["shared_runtime"])
     try:
@@ -327,6 +333,7 @@ def ensure_sized(tier, seconds: float = 20.0) -> dict:
 
 def stop(tier, proc_root: Path = Path("/proc"), seconds: float = 5.0) -> None:
     """Stop the recorded second instance and its sentinel, then remove its paths."""
+    from runner import attached, attached_session
     record = attached.load(tier.runtime_dir)
     instance = current(record, proc_root)
     if instance is not None:

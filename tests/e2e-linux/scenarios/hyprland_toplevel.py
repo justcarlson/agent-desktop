@@ -7,7 +7,7 @@ import contextlib
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, proc
-from runner import apps, attached_session
+from runner import apps
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_windows import clients
@@ -35,6 +35,7 @@ def terminal(tier, app_id: str, command: list[str]):
 @contextlib.contextmanager
 def toplevel(tier, app_id: str, argv: list[str], env: dict[str, str] | None = None):
     """The one toplevel of class `app_id` that `argv` maps, started in the run's slice."""
+    from runner import attached_session
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
     attached_session.spawn(tier, argv, {**tier.env, **(env or {})}, tier.runtime_dir / "terminal-launch.log")

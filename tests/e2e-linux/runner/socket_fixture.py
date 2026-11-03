@@ -16,7 +16,6 @@ import tempfile
 import threading
 from pathlib import Path
 
-from runner import attached
 
 SILENT = "silent"
 MUTE = "mute"
@@ -98,6 +97,7 @@ class Listener:
 
 def fixture_dir(work: Path, kind: str) -> Path:
     """Record and create a fake instance directory under the shared `hypr/`."""
+    from runner import attached
     record = attached.load(work)
     directory = Path(record["shared_runtime"]) / "hypr" / f"ad_e2e_{kind}_{os.getpid()}_{next(_COUNTER)}"
     attached.record_fixture(work, directory)

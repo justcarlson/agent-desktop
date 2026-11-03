@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -148,6 +148,7 @@ def _owner(tier, names: tuple[str, ...]):
 def spawned(tier, argv: list[str], names: tuple[str, ...], executable: str, extra: dict[str, str],
             toplevels: tuple[str, int] | None = None):
     """A one-window Python app run by a private interpreter named `executable`, registered to the run."""
+    from runner import attached_session
     require(not apps._owners(tier, names=names), f"{executable} from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import atspi_raw as raw, proc
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import require
 from runner.product import LEASE_FD_ENV
 from runner.readiness import wait_ready
@@ -81,6 +81,7 @@ def _tail(path: Path) -> str:
 
 def _launch(tier, agent: str) -> Zoo:
     """The agent's zoo, started through the compositor with its own output file and registered to the run."""
+    from runner import attached_session
     app = ZOOS[agent]
     names = apps.ALIASES[app]
     log = tier.runtime_dir / f"parallel-{agent.lower()}.jsonl"

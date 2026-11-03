@@ -15,7 +15,7 @@ from __future__ import annotations
 import contextlib
 
 from oracle import atspi_raw as raw, hyprland
-from runner import attached, attached_session, second_instance
+from runner import second_instance
 from runner.helper import require
 from scenarios.hyprland_common import shared
 from scenarios.wayland_outputs import settle_outputs
@@ -27,6 +27,7 @@ CONFIG = "window-legacy-instance.conf"
 @contextlib.contextmanager
 def legacy_instance(tier):
     """Yields the instance and whether it answers in Lua."""
+    from runner import attached, attached_session
     second_instance.stop(tier)
     runtime = shared(tier)
     config = tier.runtime_dir / CONFIG

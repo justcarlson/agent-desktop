@@ -16,7 +16,7 @@ from pathlib import Path
 
 from oracle import atspi_raw as raw
 from oracle import hyprland
-from runner import apps, attached_session
+from runner import apps
 from runner.helper import nodes, require
 from scenarios.hyprland_close import _register, _release
 from scenarios.hyprland_common import shared
@@ -274,6 +274,7 @@ def backend_problem(client: dict, backend: str) -> str | None:
 def pointer_pad(tier, instance: dict, label: str, backend: str = NATIVE):
     """The pad on `instance`, native Wayland unless `backend` is `XWAYLAND`. Yields the app, its
     toplevel and its event log once `j/clients` shows the toplevel on that backend."""
+    from runner import attached_session
     require(not apps._owners(tier, names=PAD_NAMES), "a pointer pad from an earlier leg still runs")
     env = pad_env(tier, instance, backend)
     log = tier.runtime_dir / f"pointer-pad-{label}.events"

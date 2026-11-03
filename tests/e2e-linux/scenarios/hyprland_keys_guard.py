@@ -45,7 +45,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw
-from runner import apps, attached_session, product
+from runner import apps, product
 from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -248,6 +248,7 @@ def _bystander_owner(tier, target_pid: int):
 @contextlib.contextmanager
 def bystander_log(tier, target_pid: int, workspace: str):
     """A second key log on `workspace`, registered to the run. Yields its toplevel address, log path and app."""
+    from runner import attached_session
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
     python = shutil.which("python3", path=env.get("PATH"))

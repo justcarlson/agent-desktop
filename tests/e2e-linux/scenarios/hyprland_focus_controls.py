@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, proc
-from runner import apps, attached_session
+from runner import apps
 from runner.apps import OwnedApp
 from runner.helper import require
 from scenarios.hyprland_common import main_instance, shared
@@ -167,6 +167,7 @@ def terminal_argv(app_id: str) -> list[str]:
 @contextlib.contextmanager
 def terminal(tier, app_id: str):
     """A foot toplevel with no accessibility tree. Yields it and its compositor client."""
+    from runner import attached_session
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
     attached_session.spawn(tier, terminal_argv(app_id), dict(tier.env), tier.runtime_dir / "focus-terminal.log")
@@ -193,6 +194,7 @@ def _mapped_pair(tier, pid: int) -> list[dict] | None:
 @contextlib.contextmanager
 def focus_twins(tier):
     """Two same-titled native Wayland frames of one process. Yields the app and its two clients."""
+    from runner import attached_session
     require(not apps._owners(tier, names=TWINS_NAMES), "focus twins from an earlier leg still run")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
