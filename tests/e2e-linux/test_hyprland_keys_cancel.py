@@ -87,6 +87,31 @@ class CancelVerdictTests(unittest.TestCase):
                          {"held": [38], "held_at_next": [38], "held_s": 2.1, "window_s": 2.0, "repeat_chars": 2,
                           "focus_left": False})
 
+    def test_an_autorepeat_pair_after_the_next_command_does_not_end_the_hold(self):
+        def at(t: float, item: dict) -> dict:
+            return dict(item, t=t)
+
+        found = [at(1.0, key("press", "a", 38)), at(1.01, {"event": "text", "text": "a"}),
+                 at(2.5, key("release", "a", 38)), at(2.5, key("press", "a", 38)),
+                 at(2.51, {"event": "text", "text": "aa"}), at(4.1, key("release", "a", 38)),
+                 at(4.1, key("press", "a", 38)), at(4.11, {"event": "text", "text": "aaa"}),
+                 at(4.5, key("release", "a", 38)), at(4.6, key("press", "x", 53)),
+                 at(4.61, {"event": "text", "text": "aaax"}), at(4.7, key("release", "x", 53))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+                         {"held": [38], "held_at_next": [38], "held_s": 2.5, "window_s": 2.0, "repeat_chars": 2,
+                          "focus_left": False})
+
+    def test_a_next_command_between_an_autorepeat_release_and_press_still_sees_the_key_held(self):
+        def at(t: float, item: dict) -> dict:
+            return dict(item, t=t)
+
+        found = [at(1.0, key("press", "a", 38)), at(1.01, {"event": "text", "text": "a"}),
+                 at(3.99, key("release", "a", 38)), at(4.01, key("press", "a", 38)),
+                 at(4.02, {"event": "text", "text": "aa"}), at(4.3, key("release", "a", 38))]
+        self.assertEqual(cancel.hold_measure(found, 2.0, 4.0, "aBaB"),
+                         {"held": [38], "held_at_next": [38], "held_s": 2.3, "window_s": 2.0, "repeat_chars": 1,
+                          "focus_left": False})
+
     def test_keys_in_flight_after_the_signal_count_only_until_the_app_sees_them_released(self):
         def at(t: float, item: dict) -> dict:
             return dict(item, t=t)
