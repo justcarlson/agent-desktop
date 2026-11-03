@@ -30,7 +30,6 @@ from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arrow_box, ended, gone_problems,
                                        kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
 from scenarios.hyprland_focus_controls import active, focus_argv, lua_call, query, toggle_argv
-from scenarios.wayland_outputs import nested
 from scenarios.hyprland_pointer_pad import (XWAYLAND, apart_from_last_click, covering_layers, cursor_at, events,
                                             gdk3_presses, global_point, instance_env, pad_client, pad_ref, pad_saw,
                                             pads_left, pointer_pad, presses, settled, since, xy)
@@ -600,27 +599,27 @@ def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, o
 
 
 def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
-    """A headed ref click on the XWayland pad while the session cursor layer covers it refuses as
-    receiver_unproven before it hides the layer, and the pad logs no press. The refusal leaves the
-    layer drawn, kept or not."""
+    """A headed ref click on an XWayland pad on the session instance, while the session cursor layer
+    covers it, refuses as receiver_unproven before it hides the layer, and the pad logs no press. The
+    refusal leaves the layer drawn, kept or not."""
     tier, runtime = ctx.tier, shared(ctx.tier)
-    instance, _ = nested(tier)
-    env = instance_env(tier, instance)
+    main = main_instance(tier)
+    env = instance_env(tier, main)
     ctx.before("applog.pad", pads_left(tier))
-    ctx.before("hyprland.layers", layers_of(runtime, instance))
-    with pointer_pad(tier, instance, label, XWAYLAND) as (owned, client, log):
+    ctx.before("hyprland.layers", layers_of(runtime, main))
+    with pointer_pad(tier, main, label, XWAYLAND) as (owned, client, log), app_shown(tier, owned.pid):
         session = started(ctx, env)
         try:
-            owner = renderer_of(runtime, instance, session)
+            owner = renderer_of(runtime, main, session)
             registry = registry_of(runtime, session)
             bound = dict(env, AGENT_DESKTOP_SESSION=session)
             button = pad_ref(ctx, bound, owned)
             placed = ctx.product(["click", button], env=bound, headed=False)
             require(placed.ok, f"the click that places the cursor failed: {placed.raw[:400]}")
-            client = pad_client(tier, instance, owned.pid) or client
-            over = lambda: cursor_layer_over(hyprland.query(runtime, instance["signature"], "layers",
-                                                            pid=instance["pid"]), client)
-            require(raw.poll(over, SHOW_SETTLE_S), f"no cursor layer is over the pad: {layers_of(runtime, instance)}")
+            client = pad_client(tier, main, owned.pid) or client
+            over = lambda: cursor_layer_over(hyprland.query(runtime, main["signature"], "layers",
+                                                            pid=main["pid"]), client)
+            require(raw.poll(over, SHOW_SETTLE_S), f"no cursor layer is over the pad: {layers_of(runtime, main)}")
             start = len(events(log))
             with keep_drawn(registry) if kept else contextlib.nullcontext():
                 clicked = ctx.product(["click", button], env=bound, headed=True)
@@ -633,11 +632,12 @@ def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
                 problems.append("the cursor layer was gone right after the refused click")
             if not raw.poll(over, SHOW_SETTLE_S):
                 problems.append("the cursor layer was not over the pad after the refused click")
-            ctx.after("hyprland.layers", layers_of(runtime, instance))
+            ctx.after("hyprland.layers", layers_of(runtime, main))
             ctx.after("applog.pad", len(events(log)))
         finally:
             ended(ctx, session, env)
-        problems += ended_layers(ctx, runtime, instance, session, owner)
+        problems += gone_problems("session end", runtime, main, session, owner)
+        ctx.restored("hyprland.layers", layers_of(runtime, main))
         require(not problems, "; ".join(problems))
     ctx.restored("applog.pad", pads_left(tier))
 

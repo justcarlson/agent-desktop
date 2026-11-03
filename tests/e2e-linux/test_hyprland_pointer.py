@@ -782,6 +782,48 @@ class SessionInstanceTests(unittest.TestCase):
             shared_legs.mouse_click_delivery_report(ctx)
         report.assert_called_once_with(ctx, "mouse-click")
 
+    def run_click_report(self, sampled=(), problems=()):
+        import contextlib
+        calls = []
+
+        @contextlib.contextmanager
+        def opened(_ctx, label):
+            calls.append(("pad", label))
+            yield None, PAD_BOX, Path("/unused")
+
+        @contextlib.contextmanager
+        def beside(_tier, instance, _client):
+            calls.append(("beside", instance["signature"]))
+            yield list(sampled)
+
+        def checked(name):
+            return mock.Mock(side_effect=lambda *args: calls.append((name, args[1])) or list(problems))
+
+        patches = dict(main_instance=mock.Mock(return_value=MAIN), session_pad=opened, beside_bystander=beside,
+                       instance_env=mock.Mock(side_effect=lambda _tier, instance: {"bound": instance["signature"]}),
+                       global_point=mock.Mock(return_value=(10, 20)), click_problems=checked("click"),
+                       cursor_problems=mock.Mock(side_effect=lambda _tier, instance, *a: calls.append(
+                           ("cursor", instance["signature"])) or []),
+                       off_output_problems=checked("off-output"), nested=mock.Mock(side_effect=AssertionError),
+                       session_reads=mock.Mock(side_effect=lambda _ctx, phase, instance, *a: calls.append(
+                           (phase, instance["signature"]))))
+        with mock.patch.multiple(refs, **patches):
+            refs.delivery_report(mock.Mock(tier=mock.Mock(), mode="headed"), "mouse-click")
+        return calls
+
+    def test_the_click_report_drives_a_pad_on_the_session_instance(self):
+        self.assertEqual(self.run_click_report(),
+                         [("before", "main"), ("pad", "report-mouse-click"), ("beside", "main"),
+                          ("click", {"bound": "main"}), ("cursor", "main"), ("off-output", {"bound": "main"}),
+                          ("after", "main"), ("restored", "main")])
+
+    def test_the_click_report_fails_on_a_bystander_change_or_a_problem(self):
+        with self.assertRaises(AssertionError) as caught:
+            self.run_click_report(sampled=["bystander changed to None"])
+        self.assertIn("bystander changed to None", str(caught.exception))
+        with self.assertRaises(AssertionError):
+            self.run_click_report(problems=["the click landed twice"])
+
     def test_the_delivery_reports_drive_a_pad_on_the_session_instance(self):
         for verb, check in (("mouse-wheel", "wheel"), ("drag", "drag")):
             pads, envs = self.run_leg(lambda ctx, verb=verb: pointer.session_delivery_report(ctx, verb))

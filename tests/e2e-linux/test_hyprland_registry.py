@@ -21,6 +21,8 @@ NEW_LEGS = {
     "capture.hyprland_screen_exact_output": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_permission_denied_no_dialog": (("hyprland",), ("headless",), "asserted-refusal"),
     "capture.hyprland_deadline_or_cancel_released": (("hyprland",), ("headless",), "asserted-refusal"),
+    "pointer.session_ref_pointer_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
+    "pointer.session_hover_coordinates": (("hyprland",), ("headed",), "pass"),
 }
 REUSED = (
     "non_interference.active_window_unchanged_by_semantic_click",
