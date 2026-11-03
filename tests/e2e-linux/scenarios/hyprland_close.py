@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, proc
-from runner import apps, attached_session
+from runner import apps
 from runner.apps import OwnedApp
 from runner.helper import managed, require
 from runner.legs import implementation
@@ -109,6 +109,7 @@ def _release(tier, owned: OwnedApp) -> None:
 @contextlib.contextmanager
 def terminal(tier, app_id: str):
     """A foot toplevel with no accessibility tree, in the run's slice. Yields it and its client."""
+    from runner import attached_session
     hyprland.lua_string(app_id)
     known = {item.get("address") for item in clients(tier)}
     argv = ["foot", "--app-id", app_id, "--title", app_id, "sleep", "infinity"]
@@ -157,6 +158,7 @@ def pair_interpreter(work: Path, python: Path) -> Path:
 @contextlib.contextmanager
 def close_pair(tier):
     """One process with two native Wayland windows. Yields the app and its two clients."""
+    from runner import attached_session
     require(not apps._owners(tier, names=PAIR_NAMES), "a close pair from an earlier leg still runs")
     env = dict(tier.env)
     env.pop("AT_SPI_BUS_ADDRESS", None)
