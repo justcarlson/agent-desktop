@@ -88,9 +88,10 @@ def _last_text(found: list[dict]) -> str:
 
 
 def hold_measure(found: list[dict], signalled: float, next_command: float) -> dict:
-    """The keys held at the signal, the ones still held at the next command, how long until the app saw the last of
-    them released, and the autorepeat presses and characters that reached the app in between. Times are the app's
-    monotonic clock."""
+    """The keys held at the signal or pressed after it and before the next command, the ones still held at the next
+    command, how long until the app saw the last of them released, and the autorepeat presses and characters that
+    reached the app in between. A key pressed after the signal counts, because the stopped product may never send
+    its release. Times are the app's monotonic clock."""
     before = [item for item in found if item.get("t", 0.0) <= signalled]
     after = [item for item in found if item.get("t", 0.0) > signalled]
     held = held_keys(before)
