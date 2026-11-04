@@ -17,4 +17,4 @@ pub(crate) mod stack_client;
 pub(crate) mod stack_parse;
 
 #[cfg(test)]
-pub(crate) mod fake_stack_ipc;
+pub(crate) mod fake_stack_ipc_test_support;
