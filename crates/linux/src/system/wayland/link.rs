@@ -99,6 +99,11 @@ where
         )
     }
 
+    /// Sends every queued request without waiting for an answer.
+    pub(crate) fn flush(&self) -> Result<(), WaylandFault> {
+        self.connection.flush().map_err(|_| WaylandFault::Gone)
+    }
+
     pub(crate) fn handle(&self) -> QueueHandle<S> {
         self.queue.handle()
     }
