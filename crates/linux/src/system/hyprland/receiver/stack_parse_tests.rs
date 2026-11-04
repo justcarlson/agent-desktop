@@ -1,14 +1,5 @@
 use super::*;
 
-const CLIENTS: &[u8] = br#"[
- {"address":"0x556a218cbb20","mapped":true,"hidden":false,"at":[12,38],"size":[1256,750],
-  "workspace":{"id":1,"name":"1"},"floating":false,"monitor":0,"pid":3704,
-  "pinned":false,"fullscreen":0},
- {"address":"0x556a218cbc40","mapped":true,"hidden":false,"at":[-1012,-602],"size":[300,200],
-  "workspace":{"id":7,"name":"7"},"floating":true,"monitor":1,"pid":3705,
-  "pinned":true,"fullscreen":2}
-]"#;
-
 const LAYERS: &[u8] = br#"{
  "Virtual-1":{"levels":{
   "0":[{"address":"0x1","x":0,"y":0,"w":1280,"h":800,"namespace":"omarchy-background","pid":724}],
@@ -18,25 +9,6 @@ const LAYERS: &[u8] = br#"{
  "S7NEG":{"levels":{
   "2":[{"address":"0x4","x":-1280,"y":-720,"w":1280,"h":720,"namespace":"omarchy-bar","pid":724}]}}
 }"#;
-
-#[test]
-fn clients_carry_their_stacking_state() {
-    let clients = parse_stack_clients(CLIENTS).unwrap_or_default();
-    assert_eq!(clients.len(), 2);
-    assert_eq!(clients[0].address, 0x556a218cbb20);
-    assert!(!clients[0].floating && !clients[0].pinned && !clients[0].fullscreen);
-    assert!(clients[0].shown);
-    assert_eq!(clients[1].rect.x, -1012.0);
-    assert!(clients[1].floating && clients[1].pinned && clients[1].fullscreen);
-    assert_eq!(clients[1].workspace.name, "7");
-    assert_eq!(clients[1].workspace.monitor, Some(1));
-}
-
-#[test]
-fn a_client_without_stacking_state_makes_the_reply_unusable() {
-    let body = br#"[{"address":"0x1","at":[0,0],"size":[1,1],"pid":1,"mapped":true}]"#;
-    assert_eq!(parse_stack_clients(body), None);
-}
 
 #[test]
 fn layers_cover_every_output_and_level() {

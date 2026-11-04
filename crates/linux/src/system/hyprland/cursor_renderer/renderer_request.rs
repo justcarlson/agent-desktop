@@ -9,8 +9,6 @@
 use agent_desktop_core::{AdapterError, CursorOverlayControl, ErrorCode};
 use serde_json::{Value, json};
 
-use crate::system::hyprland::placement::hidden_placements;
-
 /// One request to a renderer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum RendererRequest {
@@ -29,17 +27,11 @@ pub(crate) enum RendererRequest {
 }
 
 impl RendererRequest {
-    /// The request for `control`. A `present` into a placement this
-    /// command found hidden is parked.
+    /// The request for `control`, sent unparked.
     pub(crate) fn control(control: CursorOverlayControl) -> Self {
-        let park = control.instruction().is_some_and(|instruction| {
-            std::iter::once(instruction.destination())
-                .chain(instruction.drag_from())
-                .any(hidden_placements::hides)
-        });
         Self::Control {
             control: Box::new(control),
-            park,
+            park: false,
         }
     }
 

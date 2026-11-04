@@ -14,6 +14,7 @@ use serde_json::json;
 struct Hold {
     nonce: String,
     thread: ThreadId,
+    #[cfg_attr(not(test), allow(dead_code))]
     renderers: Vec<u32>,
     lost: bool,
 }
@@ -58,6 +59,7 @@ pub(crate) fn withdraw(nonce: &str) {
 
 /// Every renderer process that acknowledged a holder the calling thread
 /// holds.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn acknowledged_renderers() -> Vec<u32> {
     with_holds(|holds| {
         holds

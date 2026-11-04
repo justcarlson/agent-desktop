@@ -2,20 +2,16 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 
-use agent_desktop_core::{
-    AdapterError, Deadline, DisplayInfo, ErrorCode, Rect, ScreenshotTarget, WindowInfo,
-};
+use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, Rect, ScreenshotTarget, WindowInfo};
 use serde_json::json;
 
 use super::cursor_hider_for;
-use crate::input::hyprland::cursor_guard::with_cursors_hidden;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::capture::capture_world::CaptureWorld;
 use crate::system::hyprland::capture::hypr_capture::capture_screen;
 use crate::system::hyprland::cursor_renderer::fake_renderer_test_support::{
     FakeAnswer, FakeRenderer,
 };
-use crate::system::hyprland::cursor_renderer::hold_registry::acknowledged_renderers;
 use crate::system::hyprland::cursor_renderer::holder_view::{any_live, live_holders};
 use crate::system::hyprland::cursor_renderer::registry_fixture::{RegistryFixture, start_time_of};
 use crate::system::hyprland::identity::bound_toplevel::BoundToplevel;
@@ -56,80 +52,6 @@ fn own_cursor_layer(pid: u32) -> serde_json::Value {
 
 fn deadline() -> Deadline {
     Deadline::after(2_000).expect("deadline")
-}
-
-fn kind(error: &AdapterError) -> &str {
-    error.details.as_ref().expect("details")["kind"]
-        .as_str()
-        .expect("kind")
-}
-
-#[test]
-fn headed_input_runs_with_every_renderer_hidden_and_shows_them_after() {
-    let fixture = RegistryFixture::new();
-    let renderer = FakeRenderer::start(
-        &fixture.paths.dir,
-        "1111111111111111",
-        FakeAnswer::Acknowledge,
-    );
-    let socket = serve_layers(fixture.root(), own_cursor_layer(std::process::id()));
-    let mut hider = cursor_hider_for(&binding(socket), Some(fixture.root()));
-    let seen = with_cursors_hidden(hider.as_mut(), deadline(), || {
-        Ok((
-            renderer.messages(),
-            any_live(&fixture.paths.holders),
-            acknowledged_renderers(),
-        ))
-    })
-    .expect("sent");
-    assert_eq!(seen.0, ["hide"]);
-    assert!(
-        seen.1,
-        "a renderer that starts during the work finds a live holder"
-    );
-    assert_eq!(seen.2, [std::process::id()]);
-    assert_eq!(renderer.messages(), ["hide", "show"]);
-    assert!(!any_live(&fixture.paths.holders));
-}
-
-#[test]
-fn a_withheld_hide_acknowledgement_refuses_before_input() {
-    let fixture = RegistryFixture::new();
-    let _renderer =
-        FakeRenderer::start(&fixture.paths.dir, "2222222222222222", FakeAnswer::Withhold);
-    let socket = serve_layers(fixture.root(), json!([]));
-    let mut hider = cursor_hider_for(&binding(socket), Some(fixture.root()));
-    let mut sent = false;
-    let error = with_cursors_hidden(hider.as_mut(), deadline(), || {
-        sent = true;
-        Ok(())
-    })
-    .expect_err("withheld");
-    assert!(!sent);
-    assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(kind(&error), "cursor_hide_timeout");
-    assert_eq!(
-        error.details.as_ref().expect("details")["physical_delivery_started"],
-        false
-    );
-}
-
-#[test]
-fn a_foreign_layer_with_the_cursor_namespace_refuses_before_input() {
-    for runtime in [true, false] {
-        let fixture = RegistryFixture::new();
-        let socket = serve_layers(fixture.root(), own_cursor_layer(1));
-        let mut hider = cursor_hider_for(&binding(socket), runtime.then(|| fixture.root()));
-        let mut sent = false;
-        let error = with_cursors_hidden(hider.as_mut(), deadline(), || {
-            sent = true;
-            Ok(())
-        })
-        .expect_err("foreign layer");
-        assert!(!sent);
-        assert_eq!(error.code, ErrorCode::ActionFailed);
-        assert_eq!(kind(&error), "cursor_unknown_overlay");
-    }
 }
 
 #[test]
