@@ -232,10 +232,6 @@ cursor; on Wayland none is drawn.
   `setParent(None)`) lets a ref resolve onto a control the user can no longer
   see. GTK4 then answers `ok` with `delivered_unverified` and no effect. No
   identity rule reaches this; check the application's own effect.
-  current desktop; on Hyprland only `--headed focus-window` does.
-- Linux exact FFI refs carrying bounds or a bounds hash require window-relative
-  geometry, even when the ref also carries a name or identifier. Geometry-free
-  identity refs are supported.
 
 ## References
 

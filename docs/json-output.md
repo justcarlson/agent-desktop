@@ -185,8 +185,7 @@ Every ref is re-identified from its stored entry or refused, and `details.kind` 
 The fifth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a live field could not be read, so the identity count stayed unproven. It is retryable. Linux menu and tray refs report the same kind as `STALE_REF`.
 
 After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer. Every one of these is `not_delivered`.
-## Hyprland windows
-## Hyprland windows and focus
+
 ## Hyprland windows, focus and close
 
 On a bound Hyprland, `list-windows` also lists toplevels that no accessibility
