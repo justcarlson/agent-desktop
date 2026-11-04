@@ -1,7 +1,9 @@
 use std::time::{Duration, Instant};
 
 use super::{hide_every, hide_one};
-use crate::system::hyprland::cursor_renderer::fake_renderer::{FakeAnswer, FakeRenderer};
+use crate::system::hyprland::cursor_renderer::fake_renderer_test_support::{
+    FakeAnswer, FakeRenderer,
+};
 use crate::system::hyprland::cursor_renderer::hide_refusal::HideRefusal;
 use crate::system::hyprland::cursor_renderer::registry_fixture::{
     RegistryFixture, finish, record_for, sleeper,

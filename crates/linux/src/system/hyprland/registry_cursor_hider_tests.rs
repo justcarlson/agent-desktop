@@ -12,7 +12,9 @@ use crate::input::hyprland::cursor_guard::with_cursors_hidden;
 use crate::system::hyprland::bind::hyprland_binding::HyprlandBinding;
 use crate::system::hyprland::capture::capture_world::CaptureWorld;
 use crate::system::hyprland::capture::hypr_capture::capture_screen;
-use crate::system::hyprland::cursor_renderer::fake_renderer::{FakeAnswer, FakeRenderer};
+use crate::system::hyprland::cursor_renderer::fake_renderer_test_support::{
+    FakeAnswer, FakeRenderer,
+};
 use crate::system::hyprland::cursor_renderer::hold_registry::acknowledged_renderers;
 use crate::system::hyprland::cursor_renderer::holder_view::{any_live, live_holders};
 use crate::system::hyprland::cursor_renderer::registry_fixture::{RegistryFixture, start_time_of};
