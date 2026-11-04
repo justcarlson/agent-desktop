@@ -46,8 +46,8 @@ from scenarios import hyprland_binding_effects
 from scenarios import hyprland_binding_refusals
 from scenarios import hyprland_cancel
 from scenarios import hyprland_desktop
-from scenarios import hyprland_identity_title
 from scenarios import hyprland_identity
+from scenarios import hyprland_identity_title
 from scenarios import wayland_outputs
 
 __all__ = [
