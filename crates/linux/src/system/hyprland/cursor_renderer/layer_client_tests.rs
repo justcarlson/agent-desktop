@@ -2,7 +2,7 @@ use agent_desktop_core::{CursorOverlayStyle, Deadline};
 
 use super::LayerClient;
 use crate::system::hyprland::cursor_renderer::arrow_bitmap::ArrowBitmap;
-use crate::system::hyprland::cursor_renderer::fake_layer_compositor::FakeLayerCompositor;
+use crate::system::hyprland::cursor_renderer::fake_layer_compositor_test_support::FakeLayerCompositor;
 
 fn deadline() -> Deadline {
     Deadline::detached_after(2_000).expect("deadline")

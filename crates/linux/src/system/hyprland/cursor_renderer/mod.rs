@@ -43,6 +43,6 @@ pub(crate) mod stop_outcome;
 pub(crate) mod stop_timings;
 
 #[cfg(test)]
-pub(crate) mod fake_layer_compositor;
+pub(crate) mod fake_layer_compositor_test_support;
 #[cfg(test)]
 pub(crate) mod registry_fixture;
