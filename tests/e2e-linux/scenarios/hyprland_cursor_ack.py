@@ -52,7 +52,7 @@ def read_trace(path: Path) -> list[dict]:
         text = path.read_text()
     except OSError:
         return []
-    return [json.loads(line) for line in text.splitlines() if line.strip()]
+    return [json.loads(line) for line in text.rpartition("\n")[0].splitlines() if line.strip()]
 
 
 def transitions(reads: list[tuple[int, str]], before: str) -> list[str]:

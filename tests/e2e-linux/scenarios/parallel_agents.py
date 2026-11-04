@@ -309,7 +309,7 @@ def queued(sampler: LockSampler, agents: list[Agent], label: str) -> None:
 def app_events(log: Path, widget: str, event: str) -> list[dict]:
     if not log.exists():
         return []
-    found = [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+    found = [json.loads(line) for line in log.read_text().rpartition("\n")[0].splitlines() if line.strip()]
     return [item for item in found if item.get("widget") == widget and item.get("event") == event]
 
 
