@@ -1,0 +1,257 @@
+"""The pointer pad on the attached `hyprland` tier: a GTK3 window the run owns that logs each
+pointer event it receives, started on the session instance or on the nested second instance.
+
+The nested instance has no shell layers and no part of the user's desktop, so every pointer
+event the legs deliver lands there, inside the pad. The pad's own log is the oracle for what
+arrived; the compositor's `j/clients` and `j/cursorpos` say where.
+"""
+
+from __future__ import annotations
+
+import collections
+import contextlib
+import json
+import time
+from pathlib import Path
+
+from oracle import atspi_raw as raw
+from oracle import hyprland
+from runner import apps
+from runner.helper import nodes, require
+from scenarios.hyprland_close import _register, _release
+from scenarios.hyprland_common import instance_control, instance_env, instance_query, shared, x_display
+
+PAD_SCRIPT = Path(__file__).resolve().parents[1] / "apps" / "pointer_pad.py"
+PAD_CLASS = "ad-pointer-pad"
+PAD_NAMES = ("ad pointer pad", PAD_CLASS)
+PAD_SETTLE_S = 10.0
+EVENT_SETTLE_S = 3.0
+CLICK_GAP_S = 0.8
+COVER_CLASS = "ad-pointer-cover"
+NATIVE = "wayland"
+XWAYLAND = "x11"
+
+
+def pad_client(tier, instance: dict, pid: int) -> dict | None:
+    found = [item for item in instance_query(tier, instance, "clients") if item.get("pid") == pid]
+    return found[0] if len(found) == 1 and found[0].get("mapped") else None
+
+
+def cursor_at(tier, instance: dict) -> tuple[float, float]:
+    point = instance_query(tier, instance, "cursorpos")
+    return float(point["x"]), float(point["y"])
+
+
+def events(log: Path) -> list[dict]:
+    return [json.loads(line) for line in log.read_text().rpartition("\n")[0].splitlines() if line.strip()]
+
+
+def presses(found: list[dict], widget: str) -> list[int]:
+    """The GTK press counts one widget logged, in order."""
+    return [item["n"] for item in found if item.get("ev") == "press" and item.get("widget") == widget]
+
+
+def gdk3_presses(count: int) -> list[int]:
+    """The press counts GTK3 logs for `count` fast clicks: every physical press logs 1, and the second
+    and third press each add one synthetic double or triple press, so a triple click logs [1, 1, 2, 1, 3]."""
+    found: list[int] = []
+    for press in range(1, count + 1):
+        found += [1] if press == 1 else [1, press]
+    return found
+
+
+def _smooth_direction(item: dict) -> str | None:
+    dx, dy = item.get("dx") or 0.0, item.get("dy") or 0.0
+    if dy:
+        return "down" if dy > 0 else "up"
+    if dx:
+        return "right" if dx > 0 else "left"
+    return None
+
+
+def scrolls(found: list[dict], widget: str) -> list[str]:
+    """The wheel directions one widget logged, in order. A window with the smooth-scroll mask gets a
+    Wayland wheel turn as one smooth event, so its direction comes from the sign of its delta, as GDK's
+    discrete directions do; a smooth event with no delta is left out. When GDK also logged discrete
+    events, only those count, so one turn is never counted twice."""
+    wheel = [item for item in found if item.get("ev") == "scroll" and item.get("widget") == widget]
+    discrete = [item["direction"] for item in wheel if item.get("direction") != "smooth"]
+    if discrete:
+        return discrete
+    return [direction for item in wheel if (direction := _smooth_direction(item))]
+
+
+def wheel_notches(found: list[dict], widget: str) -> list[str]:
+    """The wheel notches one widget logged, in order, with GDK's discrete events over smooth ones as in
+    `scrolls`. A smooth event that moved exactly one notch on one axis reads as its direction; any other
+    smooth event reads as its deltas, so a merged, split or empty notch never reads as one."""
+    wheel = [item for item in found if item.get("ev") == "scroll" and item.get("widget") == widget]
+    discrete = [item["direction"] for item in wheel if item.get("direction") != "smooth"]
+    if discrete:
+        return discrete
+    return [_unit_direction(item) or f"smooth dx={item.get('dx')} dy={item.get('dy')}" for item in wheel]
+
+
+def _unit_direction(item: dict) -> str | None:
+    dx, dy = item.get("dx") or 0.0, item.get("dy") or 0.0
+    unit = sorted((abs(dx), abs(dy))) == [0.0, 1.0]
+    return _smooth_direction(item) if unit else None
+
+
+def pad_saw(found: list[dict]) -> str:
+    """Every event kind each pad widget logged, so a lost gesture shows whether anything reached the pad."""
+    counts = collections.Counter(f"{item.get('ev')}/{item.get('widget')}" for item in found)
+    seen = ", ".join(f"{kind} {count}" for kind, count in sorted(counts.items()))
+    return f" (pad saw: {seen or 'nothing'})"
+
+
+def since(found: list[dict], count: int) -> list[dict]:
+    """The events logged after the first `count`."""
+    return found[count:]
+
+
+def releases(found: list[dict], widget: str) -> list[dict]:
+    return [item for item in found if item.get("ev") == "release" and item.get("widget") == widget]
+
+
+def motions_after(found: list[dict], moment: float) -> list[dict]:
+    return [item for item in found if item.get("ev") == "motion" and item["t"] > moment]
+
+
+def apart_from_last_click(log: Path, gap: float = CLICK_GAP_S) -> None:
+    """Wait until `gap` seconds have passed since the pad's last event, so the
+    next press does not join the last click sequence."""
+    found = events(log)
+    if found:
+        left = found[-1]["t"] + gap - time.monotonic()
+        if left > 0:
+            time.sleep(left)
+
+
+def holds(point: tuple[float, float], box: dict) -> bool:
+    """Whether a client or layer box (`at`/`size`, or `x`/`y`/`w`/`h`) holds a global point."""
+    if "at" in box:
+        (x, y), (width, height) = box["at"], box["size"]
+    else:
+        x, y, width, height = box["x"], box["y"], box["w"], box["h"]
+    return x <= point[0] < x + width and y <= point[1] < y + height
+
+
+def covering_layers(layers: dict, point: tuple[float, float]) -> list[str]:
+    """The namespaces of the top and overlay layers (level 2 and 3) that hold a global point."""
+    found = []
+    for monitor in layers.values():
+        for level, entries in (monitor.get("levels") or {}).items():
+            if int(level) >= 2:
+                found += [entry.get("namespace", "") for entry in entries if holds(point, entry)]
+    return found
+
+
+def window_point(point: tuple[float, float], client: dict) -> tuple[float, float]:
+    """A global layout point in the client's window-local logical pixels."""
+    return point[0] - client["at"][0], point[1] - client["at"][1]
+
+
+def lands_at(event: dict, expected: tuple[float, float], tolerance: float = 1.0) -> bool:
+    return abs(event["wx"] - expected[0]) <= tolerance and abs(event["wy"] - expected[1]) <= tolerance
+
+
+def global_point(client: dict, fraction: tuple[float, float]) -> tuple[int, int]:
+    """A point inside the client, at `fraction` of its width and height."""
+    (x, y), (width, height) = client["at"], client["size"]
+    return int(x + width * fraction[0]), int(y + height * fraction[1])
+
+
+def xy(point: tuple[float, float]) -> str:
+    return f"{int(point[0])},{int(point[1])}"
+
+
+def settled(log: Path, check, seconds: float = EVENT_SETTLE_S):
+    """The pad's log once `check` accepts it, or its last state when the time runs out."""
+    deadline = time.monotonic() + seconds
+    while True:
+        found = events(log)
+        if check(found) or time.monotonic() >= deadline:
+            return found
+        time.sleep(0.05)
+
+
+def find_ref(ctx, env: dict[str, str], window: str, role: str, name: str) -> str:
+    """The one qualified ref for `role`/`name` in the pad window, observed through `env`."""
+    envelope = ctx.product(["find", "--exact", "--limit", "0", "--role", role, "--name", name],
+                           env=env, window_id=window, headed=False)
+    require(envelope.ok, f"find {role}/{name}: {envelope.raw[:400]}")
+    found = {item["ref_id"] for item in nodes(envelope.data) if isinstance(item.get("ref_id"), str)}
+    require(len(found) == 1, f"expected one ref for {role}/{name}, found {found}")
+    return found.pop()
+
+
+PAD_BUTTON = ("button", "Pad Button")
+PAD_SCROLL = ("scrollarea", "Pad Scroll")
+
+
+def pad_ref(ctx, env: dict[str, str], owned, target: tuple[str, str] = PAD_BUTTON) -> str:
+    """The qualified ref of one pad control, the button unless `target` names another, observed
+    through `env`. Scroll by ref needs `PAD_SCROLL`: a button is no wheel target, so it has no Scroll."""
+    envelope = ctx.product(["list-windows"], env=env, headed=False)
+    require(envelope.ok and isinstance(envelope.data, list), f"list-windows failed: {envelope.raw[:400]}")
+    windows = [item.get("id") for item in envelope.data if item.get("pid") == owned.pid]
+    require(len(windows) == 1, f"the pad is listed {len(windows)} times")
+    window = windows[0]
+    return find_ref(ctx, env, window, *target)
+
+
+def pads_left(tier) -> list[int]:
+    """The pids of pointer pads still running, once any closing pad is gone; empty between legs."""
+    raw.poll(lambda: not apps._owners(tier, names=PAD_NAMES), PAD_SETTLE_S)
+    return sorted(app.pid for app in apps._owners(tier, names=PAD_NAMES))
+
+
+def _pad_owner(tier):
+    found = [app for app in apps._owners(tier, names=PAD_NAMES) if app.windows]
+    return found[0] if len(found) == 1 else None
+
+
+def pad_env(tier, instance: dict, backend: str) -> dict[str, str]:
+    """The pad's launch environment on `instance`: native Wayland, or the instance's XWayland display."""
+    env = dict(tier.env, WAYLAND_DISPLAY=instance["wayland"], GDK_BACKEND=backend)
+    env.pop("AT_SPI_BUS_ADDRESS", None)
+    env.pop("HYPRLAND_INSTANCE_SIGNATURE", None)
+    if backend == XWAYLAND:
+        display = raw.poll(lambda: x_display(instance), PAD_SETTLE_S)
+        require(display, f"no XWayland display names the compositor {instance['pid']} of {instance['signature']}")
+        env["DISPLAY"] = display
+    return env
+
+
+def backend_problem(client: dict, backend: str) -> str | None:
+    """Why the pad's toplevel is not on the backend the leg asked for, read from `j/clients`."""
+    want = backend == XWAYLAND
+    if client.get("xwayland") is want:
+        return None
+    return f"the pointer pad's toplevel reports xwayland {client.get('xwayland')!r} in j/clients, expected {want}"
+
+
+@contextlib.contextmanager
+def pointer_pad(tier, instance: dict, label: str, backend: str = NATIVE):
+    """The pad on `instance`, native Wayland unless `backend` is `XWAYLAND`. Yields the app, its
+    toplevel and its event log once `j/clients` shows the toplevel on that backend."""
+    from runner import attached_session
+    require(not apps._owners(tier, names=PAD_NAMES), "a pointer pad from an earlier leg still runs")
+    env = pad_env(tier, instance, backend)
+    log = tier.runtime_dir / f"pointer-pad-{label}.events"
+    log.write_text("")
+    attached_session.spawn(tier, ["python3", str(PAD_SCRIPT), str(log)], env,
+                           tier.runtime_dir / f"pointer-pad-{label}.log")
+    with raw.bounded_until(time.monotonic() + PAD_SETTLE_S):
+        owner = raw.poll(lambda: _pad_owner(tier), PAD_SETTLE_S)
+    require(owner, "the pointer pad never registered its window")
+    owned = _register(tier, owner)
+    try:
+        client = raw.poll(lambda: pad_client(tier, instance, owned.pid), 5.0)
+        require(client, f"the pointer pad has no mapped toplevel on {instance['signature']}")
+        problem = backend_problem(client, backend)
+        require(problem is None, problem or "")
+        yield owned, client, log
+    finally:
+        _release(tier, owned)
