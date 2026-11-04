@@ -14,6 +14,7 @@ pub(crate) mod cursor_renderer;
 pub(crate) mod focus;
 pub(crate) mod identity;
 pub(crate) mod ipc;
+pub(crate) mod placement;
 pub(crate) mod protocol;
 pub(crate) mod receiver;
 pub(crate) mod registry_cursor_hider;

@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from oracle import atspi_raw as raw, hyprland, pixels
+from runner import second_instance
 from runner.helper import activate, changed, display, managed, one, require, root
 from runner.legs import implementation
 from runner.verdict import LegContext
@@ -27,8 +28,10 @@ from scenarios.hyprland_capture_screen import grim
 from scenarios.hyprland_common import main_instance, shared
 from scenarios.hyprland_cursor import (NAMESPACE, _seven, alive, app_shown, arrow_box, ended, gone_problems,
                                        kill_exactly, layers_of, monitor_at, renderer_of, start_time, started)
-from scenarios.hyprland_focus_controls import lua_call, query
-from scenarios.hyprland_pointer_pad import covering_layers
+from scenarios.hyprland_focus_controls import active, focus_argv, lua_call, query, toggle_argv
+from scenarios.wayland_outputs import nested
+from scenarios.hyprland_pointer_pad import (covering_layers, events, instance_env, pad_client, pad_ref,
+                                            pads_left, pointer_pad, presses, settled, since)
 
 SHOW_SETTLE_S = 3.0
 ARROW_FILL = (0x42, 0x99, 0xFF)
@@ -36,6 +39,7 @@ FILL_DELTA = 16
 FILL_MIN = 8
 HOLD_MS = 8_000
 REFUSAL_KINDS = ("cursor_hide_timeout", "cursor_hide_failed")
+KEEP_DRAWN_FLAG = "keep-drawn-for-test"
 
 
 def registry_of(runtime: Path, session: str) -> Path:
@@ -61,6 +65,20 @@ def holders_in(registry: Path) -> list[dict]:
     return found
 
 
+def cursor_layer_over(layers: dict, box: dict) -> bool:
+    """Whether a cursor layer on the overlay level overlaps a client box."""
+    (x, y), (width, height) = box["at"], box["size"]
+    for monitor in (layers or {}).values():
+        for entries in (monitor.get("levels") or {}).values():
+            for entry in entries:
+                if entry.get("namespace") != NAMESPACE:
+                    continue
+                if entry["x"] < x + width and x < entry["x"] + entry["w"] and \
+                        entry["y"] < y + height and y < entry["y"] + entry["h"]:
+                    return True
+    return False
+
+
 def dpms_argv(state: str, lua: bool) -> list[str]:
     if lua:
         return ["dispatch", lua_call("hl.dsp.dpms", {"action": state})]
@@ -80,6 +98,18 @@ def undo_all(tree, before: str, steps: int = 4) -> str:
 
 def holder_body(pid: int, started_at: int, nonce: str, expiry_ms: int) -> dict:
     return {"pid": pid, "start_time": started_at, "nonce": nonce, "expiry": expiry_ms}
+
+
+@contextlib.contextmanager
+def keep_drawn(registry: Path):
+    """The renderer's test flag that keeps the cursor drawn through a hide, removed on exit."""
+    flag = registry / KEEP_DRAWN_FLAG
+    descriptor = os.open(flag, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    os.close(descriptor)
+    try:
+        yield flag
+    finally:
+        flag.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager
@@ -364,3 +394,131 @@ def _screen_after_resume(screen: Screen) -> list[str]:
         return []
     path.unlink(missing_ok=True)
     return [f"a resumed renderer still blocks the screen capture: {envelope.raw[:300]}"]
+
+
+def outer_window(tier, instance: dict) -> dict:
+    return second_instance.outer_window(tier, instance)
+
+
+def outer_shown(tier) -> set[str]:
+    """The special workspaces the outer session shows on its monitors."""
+    return {(item.get("specialWorkspace") or {}).get("name", "") for item in query(tier, "monitors")} - {""}
+
+
+def toggle_outer(tier, name: str) -> None:
+    main = main_instance(tier)
+    lua = hyprland.uses_lua(shared(tier), main["signature"])
+    hyprland.control(shared(tier), main["signature"], toggle_argv(name, lua))
+
+
+def outer_focus(tier) -> str:
+    return (active(tier) or {}).get("address", "")
+
+
+def focus_outer(tier, address: str) -> None:
+    main = main_instance(tier)
+    lua = hyprland.uses_lua(shared(tier), main["signature"])
+    hyprland.control(shared(tier), main["signature"], focus_argv(address, lua))
+
+
+@contextlib.contextmanager
+def nested_frames(ctx: LegContext, instance: dict):
+    """Shows the nested instance's window in the outer session while the block runs.
+
+    The window sits on a silent special workspace, and Hyprland sends frame
+    callbacks only to windows it draws. The nested instance renders its output
+    only on those callbacks, and it drops a closed layer only when it renders,
+    so a closed layer stays listed with pid -1 while its window is hidden.
+    """
+    tier = ctx.tier
+    space = (outer_window(tier, instance).get("workspace") or {}).get("name", "")
+    require(space.startswith("special:"), f"the nested window is not on a special workspace: {space!r}")
+    before, focused = outer_shown(tier), outer_focus(tier)
+    require(space not in before, f"the outer session already shows {space}")
+    try:
+        toggle_outer(tier, space)
+        require(raw.poll(lambda: space in outer_shown(tier), SHOW_SETTLE_S),
+                f"the outer session did not show {space}: {sorted(outer_shown(tier))}")
+        ctx.finding(f"the outer session showed {space} so the nested output renders while its closed layer settles")
+        yield
+    finally:
+        if space in outer_shown(tier):
+            toggle_outer(tier, space)
+        require(raw.poll(lambda: space not in outer_shown(tier), SHOW_SETTLE_S),
+                f"the outer session still shows {space}: {sorted(outer_shown(tier))}")
+        for name in sorted(before - outer_shown(tier)):
+            toggle_outer(tier, name)
+        require(raw.poll(lambda: outer_shown(tier) == before, SHOW_SETTLE_S),
+                f"the outer session shows {sorted(outer_shown(tier))}, not {sorted(before)} as before")
+        if focused and outer_focus(tier) != focused:
+            focus_outer(tier, focused)
+        require(raw.poll(lambda: not focused or outer_focus(tier) == focused, SHOW_SETTLE_S),
+                f"the outer session focuses {outer_focus(tier)!r}, not {focused!r} as before")
+
+
+def ended_layers(ctx: LegContext, runtime: Path, instance: dict, session: str, owner: dict) -> list[str]:
+    """After session end, waits until the renderer, its record and its layer are gone, then reads the layers.
+
+    The nested compositor removes a closed layer, listed with pid -1, only
+    when its output renders, so the wait runs inside `nested_frames`. A layer
+    that stays is a problem and drifts the restored read.
+    """
+    with nested_frames(ctx, instance):
+        problems = gone_problems("session end", runtime, instance, session, owner)
+    ctx.restored("hyprland.layers", layers_of(runtime, instance))
+    return problems
+
+
+def _click_under_cursor(ctx: LegContext, label: str, kept: bool) -> None:
+    """A headed ref click on the pad while the session cursor layer covers it lands exactly once."""
+    tier, runtime = ctx.tier, shared(ctx.tier)
+    instance, _ = nested(tier)
+    env = instance_env(tier, instance)
+    ctx.before("applog.pad", pads_left(tier))
+    ctx.before("hyprland.layers", layers_of(runtime, instance))
+    with pointer_pad(tier, instance, label) as (owned, client, log):
+        session = started(ctx, env)
+        try:
+            owner = renderer_of(runtime, instance, session)
+            registry = registry_of(runtime, session)
+            bound = dict(env, AGENT_DESKTOP_SESSION=session)
+            button = pad_ref(ctx, bound, owned)
+            placed = ctx.product(["click", button], env=bound, headed=False)
+            require(placed.ok, f"the click that places the cursor failed: {placed.raw[:400]}")
+            client = pad_client(tier, instance, owned.pid) or client
+            over = lambda: cursor_layer_over(hyprland.query(runtime, instance["signature"], "layers",
+                                                            pid=instance["pid"]), client)
+            require(raw.poll(over, SHOW_SETTLE_S), f"no cursor layer is over the pad: {layers_of(runtime, instance)}")
+            start = len(events(log))
+            with keep_drawn(registry) if kept else contextlib.nullcontext():
+                clicked = ctx.product(["click", button], env=bound, headed=True)
+                drawn_during = over()
+            found = since(settled(log, lambda found: presses(found, "button") != [] and len(found) > start), start)
+            problems = []
+            if not clicked.ok:
+                problems.append(f"the click under the cursor refused: {clicked.raw[:400]}")
+            if presses(found, "button") != [1]:
+                problems.append(f"the pad logged {presses(found, 'button')} under the cursor, not one press")
+            if kept and not drawn_during:
+                problems.append("the kept cursor layer was gone right after the click")
+            if not raw.poll(over, SHOW_SETTLE_S):
+                problems.append("the cursor layer did not come back after the click")
+            ctx.after("hyprland.layers", layers_of(runtime, instance))
+            ctx.after("applog.pad", len(events(log)))
+        finally:
+            ended(ctx, session, env)
+        problems += ended_layers(ctx, runtime, instance, session, owner)
+        require(not problems, "; ".join(problems))
+    ctx.restored("applog.pad", pads_left(tier))
+
+
+@implementation("pointer.ref_receiver_evidence_under_cursor")
+def ref_receiver_evidence_under_cursor(ctx: LegContext) -> None:
+    """The headed click hides the session cursor, accepts its acknowledged layer as its own and lands once."""
+    _click_under_cursor(ctx, "under-cursor", kept=False)
+
+
+@implementation("pointer.cursor_pass_through")
+def cursor_pass_through(ctx: LegContext) -> None:
+    """With the renderer's test flag keeping the cursor drawn through the hide, the click still lands once."""
+    _click_under_cursor(ctx, "pass-through", kept=True)
