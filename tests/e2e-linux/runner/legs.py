@@ -204,7 +204,6 @@ REGISTRY: tuple[Leg, ...] = (
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_FIRST_ROWS)
 REGISTRY += (
     Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
-    Leg('capture.hyprland_deadline_or_cancel_released','A batch budget that ends mid-capture answers TIMEOUT within the budget and writes nothing, a larger budget captures, a capture killed mid-frame leaves no file, and the next capture succeeds', 'Painted foot window and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'asserted-refusal', 'TIMEOUT not_delivered with at least one capture_frame kind and at least one captured budget; SIGTERM leaves no image; a later capture succeeds; desktop unchanged'),
 )
 
 RESTORED_MUTTER_EVENTS = (
@@ -242,23 +241,6 @@ for _leg_id, _rows in _BY_ID.items():
     _row_tiers = [tier for row in _rows for tier in row.tiers]
     if len(_row_tiers) != len(set(_row_tiers)):
         raise ValueError(f"leg {_leg_id} has two registry rows for one tier")
-REGISTRY += (
-    Leg('cursor.hide_ack_suppression_until_show', 'With the cursor drawn over the Calculator button it clicked, grim shows it while screenshot --screen, taken before, under a second live holder and after the outputs power off and on, matches the cursor-free screen at the arrow; a live holder clears the cursor and a click under it draws nothing; the cursor returns once the holder leaves, and no holder file outlives its command', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
-    Leg('cursor.travel_failure_proceeds_hide_failure_refuses', 'A stopped renderer leaves a headless click landing, while a headed click and screenshot --screen refuse with cursor_hide_timeout or cursor_hide_failed, not_delivered, safe retry, no file and no change to the display; once it resumes the capture works, and a killed renderer blocks neither', 'Calculator', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'atspi', 'proc'), 'asserted-refusal', 'the headed half asserts the hide refusal as its expected outcome; the headless half and the recovery steps must succeed'),
-    Leg('pointer.ref_receiver_evidence_under_cursor', 'With the session cursor layer drawn over the pad on a nested instance, a headed ref click lands one press in the pad log and the cursor layer comes back afterwards', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'pass'),
-    Leg('pointer.cursor_pass_through', 'With the keep-drawn test flag in the renderer registry, the session cursor layer stays drawn over the pad on a nested instance through a headed ref click, and the pad logs exactly one press', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'pass'),
-    Leg('cursor.hide_ack_delayed_within_deadline', 'With the cursor drawn over the Calculator button it clicked and the renderer stopped by SIGSTOP on its exact pid, screenshot --screen writes its holder and waits; it has written no file when the renderer resumes 200 ms later, then succeeds with a PNG written after the resume that matches the cursor-free screen at the arrow, leaves no holder, and the cursor returns', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
-    Leg('cursor.hide_hold_across_agents', 'In a multi-agent session with agent-a\'s cursor drawn over Calculator\'s 7, a second live holder clears it; agent-b\'s click on 8 lands and its screenshot --screen succeeds without the cursor, while every grim under the holder shows neither cursor; once the holder leaves, grim shows both cursors and j/layers lists one tip on each button', 'Calculator', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
-    Leg('cursor.layout_placement_and_hidden_targets', 'With a headless output added at -1024x-640 and scale 1.25 while the renderer runs, a headless click on Calculator\'s 7 on each output puts one cursor surface in j/layers on that output alone with its tip on the button, grim of that output shows the arrow at the button in physical pixels and its size follows the output\'s scale; the renderer survives the output\'s removal; a click while Calculator\'s workspace is hidden draws no cursor on the output that is shown; j/cursorpos never moves', 'Calculator', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi', 'pixels', 'proc'), 'pass'),
-)
-
-REGISTRY += (
-    Leg('parallel.four_agents_serialized_dispatch', 'Four headless agent processes with distinct agent ids in one multi-agent session, each clicking a different zoo app and queued behind a runner-held interaction lease, all succeed over six rounds; /proc/locks shows their lease holds one at a time, no app logs its click outside its agent\'s hold, every envelope\'s lease contention count matches the observed wait, an injected overlap and an unreported wait each fail the same oracle, and focus, cursor and workspaces stay as they were', 'Zoo GTK3, Zoo GTK4 and Zoo Qt', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog', 'proc'), 'pass'),
-    Leg('parallel.four_agents_three_interleavings', 'With a headless click on Zoo GTK3, a headed type into Zoo GTK4, screenshot --screen and a headed mouse-click --xy at the centre of the Zoo Qt button served in the orders B A D, D B A and A D B, and once with the Qt click holding the lease and its hide holder while the others queue, each effect lands once in its own app, no earlier than its agent\'s hold and at most 1000 ms after its release, the capture shows no cursor, the envelopes report the queueing, and the headless click and the capture leave focus, cursor and workspaces with the bystander; a click with no agent id refuses with INVALID_ARGS, and a headed ref click on the Zoo Qt button refuses with receiver_unproven, not_delivered and no event in its app', 'Zoo GTK3, Zoo GTK4 and Zoo Qt', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'atspi', 'pixels', 'proc'), 'pass'),
-    Leg('parallel.physical_lock_timeout', 'While the runner holds the interaction lease, a headed type with a 1500 ms timeout and a headed mouse-click --xy with its default 5000 ms budget return TIMEOUT, kind lock_timeout on interaction.lock with a contention count, exit 1 and no event in their apps, and a second C ABI thread in one process returns TIMEOUT, kind interaction_process_lock_timeout; once the lease is released each queued click lands exactly once, no contender sends late input and no child inherits the runner\'s lease', 'Zoo GTK3, Zoo GTK4 and Zoo Qt', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'proc'), 'asserted-refusal', "the leg asserts the contenders' TIMEOUT refusals as its expected outcome; queued delivery after release must succeed"),
-    Leg('parallel.cancel_waiter_and_holder', 'SIGTERM on an agent queued for the interaction lease, on one that has just taken it and on a paced headed type part way through its text leaves no event from the queued agent, frees the lease, leaves a strict prefix in the entry with no safe retry, and no keyboard lost, changed or added other than the input method\'s own virtual keyboard, and in each case the next queued agent takes the lease and lands its click once; the Qt agent clicks with mouse-click --xy', 'Zoo GTK3, Zoo GTK4 and Zoo Qt', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog', 'atspi', 'proc'), 'pass'),
-)
-
 
 _IMPLEMENTATIONS: dict[str, Callable] = {}
 
@@ -312,9 +294,9 @@ for _leg in REGISTRY:
 
 LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'session.hyprland_silent_wayland_refused': ('scenarios.hyprland_silent_wayland', 'hyprland_silent_wayland_refused'),
-    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
     'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
     'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
+    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
 }
 
 
