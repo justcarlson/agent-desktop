@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scenarios import hyprland_pointer_pad, hyprland_window_app, ref_contract
+from scenarios import hyprland_cursor_ack, hyprland_pointer_pad, hyprland_window_app, parallel_agents, ref_contract
 from scenarios import toolkit_qt
 from apps import sni_item
 
@@ -29,8 +29,10 @@ class PartialLineTests(unittest.TestCase):
         readers = {
             "ref_contract.events": (ref_contract.events, [record]),
             "toolkit_qt.events": (toolkit_qt.events, ["e"]),
+            "parallel_agents.app_events": (lambda log: parallel_agents.app_events(log, "w", "e"), [record]),
             "hyprland_window_app.events": (hyprland_window_app.events, [record]),
             "hyprland_pointer_pad.events": (hyprland_pointer_pad.events, [record]),
+            "hyprland_cursor_ack.read_trace": (hyprland_cursor_ack.read_trace, [record]),
         }
         for name, (reader, expected) in readers.items():
             with self.subTest(name):
