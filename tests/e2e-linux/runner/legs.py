@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass, replace
 from typing import Callable
+
+from runner.legs_hyprland import BOTH_MODES, HEADED, HEADLESS, HYPRLAND_ONLY
+from runner.legs_hyprland import FIRST_ROWS as HYPRLAND_FIRST_ROWS
+from runner.legs_hyprland import ROWS as HYPRLAND_ROWS
 
 TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland", "hyprland")
 MODE_NAMES = ("headless", "headed")
@@ -14,10 +19,6 @@ OPENBOX_ONLY = ("x11-openbox",)
 MUTTER_ONLY = ("x11-mutter",)
 WAYLAND_ONLY = ("wayland",)
 ALL_TIERS = ("x11-openbox", "x11-mutter", "wayland")
-HYPRLAND_ONLY = ("hyprland",)
-HEADLESS = ("headless",)
-HEADED = ("headed",)
-BOTH_MODES = MODE_NAMES
 
 
 @dataclass(frozen=True)
@@ -200,12 +201,8 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('batch_contract.entry_failure_and_stop_on_error', 'A failed batch entry reports its own STALE_REF and later entries still run; --stop-on-error halts with stopped.reason and the failing index; the display shows exactly the entries that ran', 'Calculator', ('x11-openbox', 'x11-mutter', 'hyprland'), ('headless',), ('atspi',), 'asserted-refusal', 'the failing entry answers STALE_REF inside an ok batch envelope; stopped.reason stop_on_error at index 1; display 78 without the flag and 7 with it'),
 )
 
+REGISTRY += tuple(Leg(*row) for row in HYPRLAND_FIRST_ROWS)
 REGISTRY += (
-    Leg('non_interference.headed_changes_only_target', 'Headed commands leave the bystander focus, the cursor, the workspaces and the second instance as they were; the comparison detects a drifted bystander and a drifted second instance', 'Calculator, bystander and a second instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'atspi'), 'pass'),
-    Leg('non_interference.headless_route_preserves_desktop', 'Every headless inventory, snapshot, display and semantic command keeps focus, cursor and workspaces, polled while it runs, and its own effect is read from AT-SPI', 'Calculator and bystander', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'atspi'), 'pass'),
-    Leg('session.cancel_cleanup_recorded_generations', 'Cancelling a ready runner through its receipt removes its slice, adopted generations, state and second instance, and leaves the compositor, buses, shell processes and bystander alive', 'Hyprland session', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'proc'), 'pass'),
-    Leg('error_contract.hyprland_delivery_boundaries', 'Refusals on Hyprland carry upstream codes, exit 1 and physical_delivery_started false with not_delivered and safe retry, and the app, bystander and cursor show no effect', 'Calculator and bystander', HYPRLAND_ONLY, BOTH_MODES, ('hyprland', 'atspi', 'proc'), 'pass'),
-    Leg('observation.hyprland_displays_match_monitors', 'list-displays over xdg_output names every Hyprland output with the origin primary first, its logical bounds and scale as hyprctl -j monitors reports them, on the session compositor, on a two-output second instance and after that instance takes a fractional scale', 'Hyprland session and a second instance', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'pass'),
     Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
 )
 
@@ -233,15 +230,37 @@ REGISTRY += tuple(
     for suffix in ("", "_windows")
 )
 
-_BY_ID = {leg.id: leg for leg in REGISTRY}
-if len(_BY_ID) != len(REGISTRY):
-    raise ValueError("duplicate leg id in the registry")
+REGISTRY += tuple(Leg(*row) for row in HYPRLAND_ROWS)
+
+# A leg id may have one row per tier, when a tier asserts a different outcome from the same
+# scenario (a refusal on hyprland, delivery on X11). Two rows of one id never share a tier.
+_BY_ID: dict[str, tuple[Leg, ...]] = {}
+for _row in REGISTRY:
+    _BY_ID[_row.id] = _BY_ID.get(_row.id, ()) + (_row,)
+for _leg_id, _rows in _BY_ID.items():
+    _row_tiers = [tier for row in _rows for tier in row.tiers]
+    if len(_row_tiers) != len(set(_row_tiers)):
+        raise ValueError(f"leg {_leg_id} has two registry rows for one tier")
 
 _IMPLEMENTATIONS: dict[str, Callable] = {}
 
 
-def leg_by_id(leg_id: str) -> Leg:
+def leg_rows(leg_id: str) -> tuple[Leg, ...]:
+    """Every registry row of a leg id, one per set of tiers."""
     return _BY_ID[leg_id]
+
+
+def leg_by_id(leg_id: str, tier: str | None = None) -> Leg:
+    """The row of a leg id for `tier`. Without a tier the id must have a single row."""
+    rows = _BY_ID[leg_id]
+    if tier is not None:
+        matching = [row for row in rows if tier in row.tiers]
+        if not matching:
+            raise KeyError(f"leg {leg_id} is not registered for {tier}")
+        return matching[0]
+    if len(rows) != 1:
+        raise KeyError(f"leg {leg_id} has one row per tier; name the tier")
+    return rows[0]
 
 
 def implementation(leg_id: str):
@@ -271,3 +290,18 @@ def _ref_contract(ctx):
 for _leg in REGISTRY:
     if _leg.id.startswith("ref_contract."):
         implementation(_leg.id)(_ref_contract)
+
+
+LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
+}
+
+
+def _lazy(module: str, name: str) -> Callable:
+    def run(ctx):
+        return getattr(importlib.import_module(module), name)(ctx)
+
+    return run
+
+
+for _leg_id, (_module, _name) in LAZY_IMPLEMENTATIONS.items():
+    implementation(_leg_id)(_lazy(_module, _name))
