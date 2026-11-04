@@ -42,8 +42,6 @@ command that resolves a window id report the refusal:
 
 What a bound Hyprland adds to `list-windows`, to resolving a window id, to
 `focus-window` and to `close-app` is in `windows-and-lifecycle.md`. Keys go
-through a virtual keyboard; see [Wayland keys](#wayland-keys). Other commands
-on Hyprland behave as on a generic Wayland session.
 through a virtual keyboard; see [Wayland keys](#wayland-keys). Pointer input
 is in [Pointer on Hyprland](#pointer-on-hyprland). Other commands on Hyprland
 behave as on a generic Wayland session.
@@ -279,22 +277,30 @@ its own. Ending a session releases its held keys.
 - **No active window.** On a Wayland session with no seat keyboard no window
   carries `ACTIVE`, so `focus-changed` waits time out.
 
-- **Every layer counts.** The tool trusts no layer namespace. Its own cursor
-  layers pass only after their renderer confirmed this command's hide; any
-  other `agent-desktop-cursor` layer refuses the command before any event. A
-  shell bar or dock that covers the whole output, as the stock Omarchy bar
-  does, refuses every ref pointer action under it. Use a semantic action, or a
-  coordinate command and read the effect.
-- **Long input keeps the cursors hidden.** Input that runs longer than 10 s
-  renews its hide. If the renewal fails, the input stops before its next event
-  with `ACTION_FAILED`, kind `cursor_hide_renewal_failed`, `uncertain`. Read
-  the target's state before you retry.
+### Hyprland keys
+
+A bound Hyprland takes keys through `zwp_virtual_keyboard_v1`. Step labels are
+`VirtualKeyboard.type_text` and `VirtualKeyboard.press_key`. Each delivery
+creates one virtual keyboard and destroys it at the end, so none stays in the
+compositor's device list.
+
+- **Keymap.** The CLI reads the seat's keymap, adds a key for each character
+  that keymap lacks, and sends the result before the first key. The layout is
+  the compositor's main keyboard's active layout; the CLI sends that layout
+  group and every held modifier with the keys. It does not switch the user's
+  layout.
+- **Characters.** Any Unicode character, Tab and newline included. Other
+  control characters, such as `\u0007` or `\r`, are `ACTION_NOT_SUPPORTED`,
+  cause `character_outside_layout`, before any key. Use `set-value` instead.
 - **Focus.** A headed `type` or `press` by ref first activates the target's
   window through the compositor, as `--headed focus-window` does; a refused
   activation ends the command before any key. The focus gate then runs before
   each key-down, as on other Wayland sessions. If focus moves mid-text, the
   CLI stops, releases every held key and modifier, and returns
   `delivery_uncertain` with `delivered_events`. Read the
+  field before you retry. Global `press` has no target, so it goes to whichever
+  window holds keyboard focus.
+- **Lead Shift.** Each delivery starts with the lone Shift tap described above.
 - **Killed delivery.** Hyprland keeps a destroyed virtual keyboard's keys held
   unless `input:virtualkeyboard:release_pressed_on_close` is set. The CLI
   therefore starts a key guard before its first key-down: a second
@@ -303,6 +309,21 @@ its own. Ending a session releases its held keys.
   keys held, the guard releases them through a new virtual keyboard. The next
   keyboard command on that instance releases anything left; see
   [Interrupted input](#interrupted-input).
+- **Refusals.** Each is `ACTION_NOT_SUPPORTED`, `not_delivered`,
+  `physical_delivery_started: false`, and no key was sent:
+
+| `details.cause` | When |
+|---|---|
+| `active_layout_unknown` | The compositor's main keyboard names no layout of the seat's keymap |
+| `owner_keymap_unreadable` | The seat's keymap could not be read |
+| `owner_keymap_invalid`, `owner_keymap_unrecognized` | The seat's keymap does not compile, or lacks the keycodes or symbols section the CLI adds keys to |
+| `keysym_invalid` | A requested key has no keysym name a keymap can carry |
+| `no_free_keycode` | The text needs more new keys than the keymap has free codes |
+| `extended_keymap_invalid`, `extended_keymap_too_large` | The keymap with the added keys does not compile, or is too large to send |
+
+Without libxkbcommon, keys refuse with `PLATFORM_NOT_SUPPORTED`, cause
+`xkb_unavailable`, `not_delivered`.
+
 ## Pointer on Hyprland
 
 On a bound Hyprland, `--headed` pointer commands go through a
@@ -349,10 +370,16 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   (`mouse-click --xy`, `mouse-wheel --x --y`, `drag --from-xy --to-xy`), which
   report `receiver_proof: false`, and read the effect from the app. Tray and
   shell refs keep their own paths.
-- **Every layer counts.** The tool trusts no layer namespace, its own cursor
-  namespace included. A shell bar or dock that covers the whole output, as the
-  stock Omarchy bar does, refuses every ref pointer action under it. Use a
-  semantic action, or a coordinate command and read the effect.
+- **Every layer counts.** The tool trusts no layer namespace. Its own cursor
+  layers pass only after their renderer confirmed this command's hide; any
+  other `agent-desktop-cursor` layer refuses the command before any event. A
+  shell bar or dock that covers the whole output, as the stock Omarchy bar
+  does, refuses every ref pointer action under it. Use a semantic action, or a
+  coordinate command and read the effect.
+- **Long input keeps the cursors hidden.** Input that runs longer than 10 s
+  renews its hide. If the renewal fails, the input stops before its next event
+  with `ACTION_FAILED`, kind `cursor_hide_renewal_failed`, `uncertain`. Read
+  the target's state before you retry.
 - **Bounds and hit tests** come from the compositor. A ref's live bounds and
   its `find` and `snapshot` bounds are its window rectangle at the window's
   Hyprland origin, in the same layout points. `hyprctl` lists only toplevel
@@ -386,37 +413,6 @@ agent-desktop --headed drag --from-xy 600,400 --to-xy 800,400
   event, releases held buttons, waits up to 1 s for the compositor to confirm
   them, then ends the process with that signal.
 
-### Hyprland keys
-A bound Hyprland takes keys through `zwp_virtual_keyboard_v1`. Step labels are
-`VirtualKeyboard.type_text` and `VirtualKeyboard.press_key`. Each delivery
-creates one virtual keyboard and destroys it at the end, so none stays in the
-compositor's device list.
-- **Keymap.** The CLI reads the seat's keymap, adds a key for each character
-  that keymap lacks, and sends the result before the first key. The layout is
-  the compositor's main keyboard's active layout; the CLI sends that layout
-  group and every held modifier with the keys. It does not switch the user's
-  layout.
-- **Characters.** Any Unicode character, Tab and newline included. Other
-  control characters, such as `\u0007` or `\r`, are `ACTION_NOT_SUPPORTED`,
-  cause `character_outside_layout`, before any key. Use `set-value` instead.
-- **Focus.** The focus gate runs before each key-down, as on other Wayland
-  sessions. If focus moves mid-text, the CLI stops, releases every held key and
-  modifier, and returns `delivery_uncertain` with `delivered_events`. Read the
-  field before you retry. Global `press` has no target, so it goes to whichever
-  window holds keyboard focus.
-- **Lead Shift.** Each delivery starts with the lone Shift tap described above.
-- **Refusals.** Each is `ACTION_NOT_SUPPORTED`, `not_delivered`,
-  `physical_delivery_started: false`, and no key was sent:
-| `details.cause` | When |
-|---|---|
-| `active_layout_unknown` | The compositor's main keyboard names no layout of the seat's keymap |
-| `owner_keymap_unreadable` | The seat's keymap could not be read |
-| `owner_keymap_invalid`, `owner_keymap_unrecognized` | The seat's keymap does not compile, or lacks the keycodes or symbols section the CLI adds keys to |
-| `keysym_invalid` | A requested key has no keysym name a keymap can carry |
-| `no_free_keycode` | The text needs more new keys than the keymap has free codes |
-| `extended_keymap_invalid`, `extended_keymap_too_large` | The keymap with the added keys does not compile, or is too large to send |
-Without libxkbcommon, keys refuse with `PLATFORM_NOT_SUPPORTED`, cause
-`xkb_unavailable`, `not_delivered`.
 ## Wheel and scroll
 
 ```bash
