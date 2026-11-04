@@ -60,6 +60,6 @@ pub(crate) mod surface_key;
 #[cfg(test)]
 pub(crate) mod fake_layer_compositor_test_support;
 #[cfg(test)]
-pub(crate) mod fake_renderer;
+pub(crate) mod fake_renderer_test_support;
 #[cfg(test)]
 pub(crate) mod registry_fixture;
