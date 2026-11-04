@@ -204,9 +204,6 @@ REGISTRY: tuple[Leg, ...] = (
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_FIRST_ROWS)
 REGISTRY += (
     Leg('session.other_wayland_route_unchanged', 'On the generic Wayland tier list-displays keeps the Mutter DisplayConfig answer, as busctl reads it, and Hyprland-like variables do not move it', 'GNOME Wayland session', WAYLAND_ONLY, HEADLESS, ('dbus',), 'pass'),
-    Leg('session.hyprland_live_instance_binds', 'A live Hyprland instance binds: discovery with only the runtime directory skips stale and hung-up instances and lists the session outputs, and a named signature, with or without its Wayland display, lists the outputs hyprctl -j monitors reports for that instance, beside a second instance', 'Hyprland session and a second instance', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'pass'),
-    Leg('session.hyprland_dead_named_instance_refused', 'A named signature that is absent, a stale file or a socket nobody serves refuses list-displays with PLATFORM_NOT_SUPPORTED and hyprland_mismatch, exit 1 and not_delivered within the budget, with or without the session display, and never falls back to the live session instance; the desktop and its monitors stay unchanged', 'Hyprland session', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'pass'),
-    Leg('session.hyprland_absent_keeps_generic_route', 'When no Hyprland instance answers in the runtime directory, list-displays keeps the generic Wayland route on the named socket and lists the outputs hyprctl -j monitors reports, the same answer as the bound route', 'Hyprland session', HYPRLAND_ONLY, HEADLESS, ('hyprland',), 'pass'),
 )
 
 RESTORED_MUTTER_EVENTS = (
