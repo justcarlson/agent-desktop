@@ -172,16 +172,24 @@ fn listed(window: WindowInfo) -> crate::system::registry::listed_window::ListedW
 fn an_accessible_window_the_compositor_identity_refuses_does_not_resolve() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "Notes");
     let live = || vec![listed(window("w-1.2-a", 5, Some("b:1"), "Notes"))];
-    let refused = super::resolve_accessible(&stored, live(), Liveness::Alive, |evidence| {
-        assert_eq!((evidence.pid, evidence.title.as_str()), (5, "Notes"));
-        Err(agent_desktop_core::AdapterError::new(
-            ErrorCode::AmbiguousTarget,
-            "twins",
-        ))
-    })
+    let refused = super::resolve_accessible(
+        &stored,
+        (live(), RootRead::Read),
+        Liveness::Alive,
+        |evidence| {
+            assert_eq!((evidence.pid, evidence.title.as_str()), (5, "Notes"));
+            Err(agent_desktop_core::AdapterError::new(
+                ErrorCode::AmbiguousTarget,
+                "twins",
+            ))
+        },
+    )
     .expect_err("refused");
     assert_eq!(refused.code, ErrorCode::AmbiguousTarget);
-    let resolved = super::resolve_accessible(&stored, live(), Liveness::Alive, |_| Ok(()));
+    let resolved =
+        super::resolve_accessible(&stored, (live(), RootRead::Read), Liveness::Alive, |_| {
+            Ok(())
+        });
     assert_eq!(
         resolved.map(|found| found.id).ok().as_deref(),
         Some("w-1.2-a")
