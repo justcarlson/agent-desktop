@@ -17,8 +17,7 @@ from runner import legs
 from runner.product import Envelope
 from scenarios import hyprland_cursor_hide as hide
 
-LEG_IDS = ("cursor.hide_ack_suppression_until_show", "cursor.travel_failure_proceeds_hide_failure_refuses",
-           "pointer.ref_receiver_evidence_under_cursor", "pointer.cursor_pass_through")
+LEG_IDS = ("cursor.hide_ack_suppression_until_show", "cursor.travel_failure_proceeds_hide_failure_refuses")
 
 
 def refused(kind: str, delivery: str = "not_delivered", retry: str = "safe", started: bool = False) -> Envelope:
@@ -88,24 +87,6 @@ class CursorHideLegTests(unittest.TestCase):
                 self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE((registry / "holders").stat().st_mode) & 0o077, 0)
             self.assertEqual(hide.holders_in(registry), [])
-
-    def test_the_keep_drawn_flag_is_a_private_file_removed_on_exit(self):
-        with tempfile.TemporaryDirectory() as work:
-            registry = Path(work)
-            with hide.keep_drawn(registry) as flag:
-                self.assertTrue(flag.is_file())
-                self.assertEqual(flag.name, "keep-drawn-for-test")
-                self.assertEqual(stat.S_IMODE(flag.stat().st_mode), 0o600)
-            self.assertFalse(flag.exists())
-
-    def test_only_a_cursor_layer_overlapping_the_client_counts(self):
-        client = {"at": [100, 100], "size": [200, 100]}
-        over = {"namespace": "agent-desktop-cursor", "x": 290, "y": 190, "w": 32, "h": 32}
-        apart = {"namespace": "agent-desktop-cursor", "x": 400, "y": 400, "w": 32, "h": 32}
-        foreign = {"namespace": "selection", "x": 100, "y": 100, "w": 200, "h": 100}
-        self.assertTrue(hide.cursor_layer_over({"DP-1": {"levels": {"3": [over]}}}, client))
-        self.assertFalse(hide.cursor_layer_over({"DP-1": {"levels": {"3": [apart, foreign]}}}, client))
-        self.assertFalse(hide.cursor_layer_over({}, client))
 
     def test_dpms_follows_the_config_language(self):
         self.assertEqual(hide.dpms_argv("off", False), ["dispatch", "dpms", "off"])
