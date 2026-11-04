@@ -1,7 +1,7 @@
 use agent_desktop_core::{ErrorCode, HitTestResult};
 
 use super::*;
-use crate::system::hyprland::receiver::fake_stack_ipc::{CannedReply, FakeStackIpc};
+use crate::system::hyprland::receiver::fake_stack_ipc_test_support::{CannedReply, FakeStackIpc};
 use crate::system::hyprland::receiver::receiver_hit::read_hit;
 
 const TARGET: u64 = 0xa1;
