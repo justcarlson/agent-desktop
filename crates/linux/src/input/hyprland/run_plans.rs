@@ -72,6 +72,7 @@ pub(crate) fn run_plans(
     match outcome {
         Ok(()) => Ok(Delivery {
             delivered_events: sent,
+            virtual_keyboard: false,
         }),
         Err(error) => {
             let released = match (held.is_empty(), unconfirmed) {

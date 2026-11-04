@@ -59,6 +59,7 @@ fn a_coordinate_report_carries_no_receiver_proof() {
         OperationReport::pointer_dispatched(&event(MouseEventKind::Move, Vec::new()), false),
         &Delivery {
             delivered_events: 1,
+            virtual_keyboard: false,
         },
     );
 
