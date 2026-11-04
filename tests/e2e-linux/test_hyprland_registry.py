@@ -22,11 +22,11 @@ NEW_LEGS = {
     "capture.hyprland_screen_exact_output": (("hyprland",), ("headless",), "pass"),
     "capture.hyprland_permission_denied_no_dialog": (("hyprland",), ("headless",), "asserted-refusal"),
     "capture.hyprland_deadline_or_cancel_released": (("hyprland",), ("headless",), "asserted-refusal"),
-    "pointer.session_ref_pointer_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
-    "pointer.session_hover_coordinates": (("hyprland",), ("headed",), "pass"),
     "lifecycle.hyprland_window_operation_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
     "pointer.hover_by_ref_refused": (("hyprland",), ("headed",), "asserted-refusal"),
     "pointer.hover_coordinates": (("hyprland",), ("headed",), "pass"),
+    "pointer.session_ref_pointer_refusals": (("hyprland",), ("headless", "headed"), "asserted-refusal"),
+    "pointer.session_hover_coordinates": (("hyprland",), ("headed",), "pass"),
     "pointer.coordinate_multi_click_xwayland": (("hyprland",), ("headed",), "pass"),
     "pointer.coordinate_click_through_cursor": (("hyprland",), ("headed",), "pass"),
     "pointer.hover_by_ref_headless_refused": (("hyprland",), ("headless",), "asserted-refusal"),
@@ -111,6 +111,14 @@ class HyprlandRegistryTests(unittest.TestCase):
                               if leg_id not in {leg.id for leg in legs.REGISTRY})
         self.assertEqual(unregistered, [])
 
+    def test_every_lazy_implementation_names_a_scenario_leg(self):
+        import importlib
+
+        for leg_id, (module, name) in legs.LAZY_IMPLEMENTATIONS.items():
+            with self.subTest(leg=leg_id):
+                self.assertIn(leg_id, {leg.id for leg in legs.REGISTRY})
+                self.assertTrue(callable(getattr(importlib.import_module(module), name, None)))
+
     def test_each_tier_keeps_the_run_order_it_had_before_the_hyprland_rows_moved(self):
         def run_order(tier):
             return [leg.id for leg in legs.REGISTRY if tier in leg.tiers]
@@ -124,12 +132,6 @@ class HyprlandRegistryTests(unittest.TestCase):
         self.assertLess(wayland.index("session.other_wayland_route_unchanged"),
                         wayland.index("ref_contract.zoo_gtk3"))
 
-    def test_every_lazy_implementation_names_a_scenario_leg(self):
-        import importlib
-        for leg_id, (module, name) in legs.LAZY_IMPLEMENTATIONS.items():
-            with self.subTest(leg=leg_id):
-                self.assertIn(leg_id, {leg.id for leg in legs.REGISTRY})
-                self.assertTrue(callable(getattr(importlib.import_module(module), name, None)))
     def test_hyprland_is_selectable_but_not_a_default_tier(self):
         self.assertIn("hyprland", main.TIER_CHOICES)
         self.assertNotIn("hyprland", main.DEFAULT_TIERS)
