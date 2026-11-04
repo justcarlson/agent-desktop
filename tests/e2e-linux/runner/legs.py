@@ -235,12 +235,6 @@ REGISTRY += tuple(
 
 REGISTRY += tuple(Leg(*row) for row in HYPRLAND_ROWS)
 
-REGISTRY += (
-    Leg('pointer.hover_by_ref_headless_refused', 'Without headed permission, hover by ref on an XWayland and a native pad on a nested instance refuses with POLICY_DENIED before any event; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor, active window and pad log unchanged'),
-    Leg('pointer.ref_drag_refused', 'A headed drag from a pad ref to a ref, from a ref to a point and from a point to a ref refuses before any event, receiver_unproven on an XWayland pad and native_wayland_client on a native pad; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADED, ('hyprland', 'applog'), 'asserted-refusal', 'ACTION_FAILED, kind receiver_evidence, causes receiver_unproven and native_wayland_client, physical_delivery_started false, not_delivered; a ref drag has no receiver proof on Hyprland'),
-    Leg('pointer.ref_drag_headless_refused', 'Without headed permission, the same three ref drags on an XWayland and a native pad refuse with POLICY_DENIED before any event; the pad log, j/cursorpos and j/activewindow stay unchanged', 'Pointer pad on a nested instance', HYPRLAND_ONLY, HEADLESS, ('hyprland', 'applog'), 'asserted-refusal', 'POLICY_DENIED, not_delivered, physical_delivery_started false; cursor, active window and pad log unchanged'),
-)
-
 # A leg id may have one row per tier, when a tier asserts a different outcome from the same
 # scenario (a refusal on hyprland, delivery on X11). Two rows of one id never share a tier.
 _BY_ID: dict[str, tuple[Leg, ...]] = {}
@@ -303,34 +297,19 @@ for _leg in REGISTRY:
 
 LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'session.hyprland_silent_wayland_refused': ('scenarios.hyprland_silent_wayland', 'hyprland_silent_wayland_refused'),
-    'pointer.session_ref_pointer_refusals': ('scenarios.hyprland_session_pointer', 'session_ref_pointer_refusals'),
-    'pointer.session_hover_coordinates': ('scenarios.hyprland_session_pointer', 'session_hover_coordinates'),
-    'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
-    'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
-    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
-}
-
-
-def _lazy(module: str, name: str) -> Callable:
-    def run(ctx):
-        return getattr(importlib.import_module(module), name)(ctx)
-
-    return run
-
-
-for _leg_id, (_module, _name) in LAZY_IMPLEMENTATIONS.items():
-    implementation(_leg_id)(_lazy(_module, _name))
-
-
-LAZY_IMPLEMENTATIONS: dict[str, tuple[str, str]] = {
     'lifecycle.hyprland_window_operation_refusals': ('scenarios.hyprland_window_refusals', 'window_operation_refusals'),
     'pointer.hover_by_ref_refused': ('scenarios.hyprland_hover', 'hover_by_ref_refused'),
     'pointer.hover_coordinates': ('scenarios.hyprland_hover', 'hover_coordinates'),
+    'pointer.session_ref_pointer_refusals': ('scenarios.hyprland_session_pointer', 'session_ref_pointer_refusals'),
+    'pointer.session_hover_coordinates': ('scenarios.hyprland_session_pointer', 'session_hover_coordinates'),
     'pointer.coordinate_multi_click_xwayland': ('scenarios.hyprland_multiclick', 'coordinate_multi_click_xwayland'),
     'pointer.hover_by_ref_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'hover_by_ref_headless_refused'),
     'pointer.ref_drag_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_refused'),
     'pointer.ref_drag_headless_refused': ('scenarios.hyprland_pointer_ref_refusals', 'ref_drag_headless_refused'),
+    'cursor.arrival_ack_before_dispatch_delayed': ('scenarios.hyprland_cursor_ack', 'arrival_ack_delayed'),
+    'cursor.arrival_ack_before_dispatch_withheld': ('scenarios.hyprland_cursor_ack', 'arrival_ack_withheld'),
     'pointer.coordinate_click_through_cursor': ('scenarios.hyprland_pointer_pass_through', 'coordinate_click_through_cursor'),
+    'capture.compositor_loss_refused': ('scenarios.hyprland_capture_loss', 'compositor_loss_refused'),
 }
 
 
