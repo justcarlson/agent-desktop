@@ -135,9 +135,9 @@ test('the Linux CLI archive is built from both executables and listed exactly', 
   }
 });
 
-function linuxTarballScript(jobText) {
-  const step = jobText.split(/(?=^ {6}- )/m).find((text) => text.startsWith('      - name: Create tarball (Linux)'));
-  assert.ok(step, 'the job must have a Create tarball (Linux) step');
+function linuxTarballScript(jobText, stepName = 'Create tarball (Linux)') {
+  const step = jobText.split(/(?=^ {6}- )/m).find((text) => text.startsWith(`      - name: ${stepName}`));
+  assert.ok(step, `the job must have a ${stepName} step`);
   const lines = step.split('\n');
   const start = lines.findIndex((line) => line === '        run: |');
   assert.notEqual(start, -1, 'the Linux tarball step must run a block script');
@@ -179,6 +179,31 @@ test('the Linux CLI tarball step in both workflows stages the notices and passes
     assert.equal(run.status, 0, `${name} Linux tarball step failed:\n${run.stdout}${run.stderr}`);
     assert.ok(linuxTarballScript(job).includes(NOTICE), `${name} must archive ${NOTICE} beside the executables`);
     assert.match(run.stdout, /OK: CLI archive carries agent-desktop and agent-desktop-linux-clipboard-owner, both executable, and THIRD_PARTY_NOTICES\.md/, name);
+  }
+});
+
+test('the dry-run Linux FFI archive step stages the notices and passes the archive contents check', { skip: LINUX_ONLY }, () => {
+  const job = jobBlock(dryRunWorkflow, 'ffi');
+  const script = linuxTarballScript(job, 'Stage and verify archive contents (Linux)');
+  const work = mkdtempSync(join(tmpdir(), 'ad-ffi-step-'));
+  try {
+    const target = join(work, 'target', 'x86_64-unknown-linux-gnu');
+    mkdirSync(join(target, 'release-ffi'), { recursive: true });
+    mkdirSync(join(target, 'release'), { recursive: true });
+    writeFileSync(join(target, 'release-ffi', 'libagent_desktop_ffi.so'), 'lib\n');
+    writeFileSync(join(target, 'release', HELPER), `${HELPER}\n`);
+    for (const path of ['scripts', 'crates', 'LICENSE', NOTICE]) {
+      symlinkSync(join(root, path), join(work, path));
+    }
+    const run = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
+      cwd: work,
+      env: { ...process.env, VERSION: '0.0.0-test' },
+      encoding: 'utf8',
+    });
+    assert.equal(run.status, 0, `release-dry-run.yml Linux FFI archive step failed:\n${run.stdout}${run.stderr}`);
+    assert.match(run.stdout, /OK: FFI archive carries libagent_desktop_ffi\.so and agent-desktop-linux-clipboard-owner side by side, and THIRD_PARTY_NOTICES\.md/);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
 });
 
