@@ -1,7 +1,7 @@
 use agent_desktop_core::Deadline;
 
 use super::*;
-use crate::system::wayland::fake_compositor::{FakeCompositor, FakeOutput, Script};
+use crate::system::wayland::fake_compositor_test_support::{FakeCompositor, FakeOutput, Script};
 use crate::system::wayland::wayland_fault::WaylandFault;
 
 fn deadline() -> Deadline {

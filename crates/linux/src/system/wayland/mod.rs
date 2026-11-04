@@ -11,4 +11,4 @@ pub(crate) mod socket_connect;
 pub(crate) mod wayland_fault;
 
 #[cfg(test)]
-pub(crate) mod fake_compositor;
+pub(crate) mod fake_compositor_test_support;
