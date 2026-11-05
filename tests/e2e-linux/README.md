@@ -37,7 +37,7 @@ The runner inherits the caller's tool paths and libraries: supply tools through 
 - `--tier x11-openbox`: private Xvfb and openbox.
 - `--tier x11-mutter`: private Xvfb and the private mutter shell wrapper.
 - `--tier wayland`: private bus and a health-gated headless GNOME Wayland shell.
-- `--tier hyprland`: attaches to the Hyprland session the runner starts in. Run it only in a throwaway VM.
+- `--tier hyprland`: attaches to the Hyprland session the runner starts in.
 
 Each tier runs the headless and headed modes registered for that leg. A headed mode on a headless compositor sends synthetic input inside that private session, not to the user's desktop.
 
