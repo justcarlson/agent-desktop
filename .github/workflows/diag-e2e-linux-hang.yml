@@ -1,0 +1,55 @@
+name: Diag e2e-linux hang
+
+on:
+  push:
+    branches: ['diag/e2e-linux-hang']
+
+permissions: {}
+
+jobs:
+  rep:
+    name: rep ${{ matrix.rep }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        rep: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install py-spy
+        run: python3 -m pip install --user --break-system-packages py-spy==0.4.0
+      - name: Run the Format job's Python checks with a stall dump
+        run: |
+          python3 -V
+          PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m py_compile tests/e2e/*.py tests/e2e-linux/runner/*.py tests/e2e-linux/test_*.py tests/e2e-linux/scenarios/*.py
+          PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m unittest discover -s tests/e2e -p 'test_*.py'
+          AGENT_DESKTOP_E2E_SKIP_LIVE=1 PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -I -m unittest discover -v -s tests/e2e-linux -p 'test_*.py' > /tmp/e2e-linux.log 2>&1 &
+          pid=$!
+          for _ in $(seq 1 300); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "STALL after 300 s"
+            ps -eo pid,ppid,etimes,stat,wchan:32,args --forest
+            for p in $(pgrep -f 'python3'); do
+              echo "== py-spy $p"
+              sudo "$HOME/.local/bin/py-spy" dump --pid "$p" || true
+            done
+            for p in $(pgrep -f 'python3'); do
+              echo "== fds $p"
+              sudo ls -l "/proc/$p/fd" || true
+            done
+            tail -40 /tmp/e2e-linux.log
+            kill -9 "$pid"
+            exit 1
+          fi
+          rc=0; wait "$pid" || rc=$?
+          grep -E '^(Ran|OK|FAILED)' /tmp/e2e-linux.log
+          if [ "$rc" -ne 0 ]; then
+            grep -n -E -A40 '^(FAIL|ERROR):' /tmp/e2e-linux.log | head -400
+          fi
+          exit "$rc"
