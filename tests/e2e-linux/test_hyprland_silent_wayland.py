@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import os
+import signal
 import socket
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -74,7 +77,14 @@ class RegistryTests(unittest.TestCase):
 
 
 class HeldSocketFixtureTests(unittest.TestCase):
-    """The fixture app on its own, with `sleep` in place of a compositor: no display is involved."""
+    """The fixture app on its own, with `sleep` in place of a compositor: no display is involved.
+
+    A Unix connect to a full backlog waits for `SO_SNDTIMEO` and then fails, whatever the Python timeout. A
+    silent socket keeps its backlog full, so a short wait ends the fill. A mute holder may start accepting late
+    on a loaded runner, so its clients wait long enough for the holder to drain the backlog.
+    """
+
+    MUTE_WAIT = 5.0
 
     def start(self, behavior: str) -> tuple[subprocess.Popen, Path]:
         scratch = tempfile.TemporaryDirectory(prefix="held.")
@@ -92,9 +102,35 @@ class HeldSocketFixtureTests(unittest.TestCase):
     @staticmethod
     def connect(path: Path, timeout: float = 0.3) -> socket.socket:
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.settimeout(timeout)
-        client.connect(str(path))
+        try:
+            seconds = int(timeout)
+            client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO,
+                              struct.pack("ll", seconds, int((timeout - seconds) * 1_000_000)))
+            client.connect(str(path))
+            client.settimeout(timeout)
+        except BaseException:
+            client.close()
+            raise
         return client
+
+    def fills(self, path: Path, timeout: float) -> bool:
+        with contextlib.ExitStack() as stack:
+            for _ in range(100):
+                try:
+                    stack.enter_context(self.connect(path, timeout))
+                except (TimeoutError, BlockingIOError):
+                    return True
+        return False
+
+    @staticmethod
+    def holder(child: subprocess.Popen) -> int:
+        children = Path(f"/proc/{child.pid}/task/{child.pid}/children")
+        deadline = time.monotonic() + 5
+        while not (pids := children.read_text().split()):
+            if time.monotonic() > deadline:
+                raise AssertionError("the fixture never forked its holder")
+            time.sleep(0.02)
+        return int(pids[0])
 
     def test_the_peer_is_the_exec_process_and_nothing_ever_replies(self):
         for behavior in ("silent", "mute"):
@@ -108,18 +144,19 @@ class HeldSocketFixtureTests(unittest.TestCase):
                 self.assertEqual(peer, child.pid)
 
     def test_silent_never_accepts_and_mute_accepts_every_client(self):
-        for behavior, fills in (("silent", True), ("mute", False)):
-            with self.subTest(behavior=behavior):
-                _, path = self.start(behavior)
-                clients, full = [], False
-                with contextlib.ExitStack() as stack:
-                    for _ in range(100):
-                        try:
-                            clients.append(stack.enter_context(self.connect(path)))
-                        except (TimeoutError, BlockingIOError):
-                            full = True
-                            break
-                self.assertEqual(full, fills)
+        _, silent = self.start("silent")
+        self.assertTrue(self.fills(silent, 0.3))
+        _, mute = self.start("mute")
+        self.assertFalse(self.fills(mute, self.MUTE_WAIT))
+
+    def test_a_mute_holder_that_starts_late_still_takes_every_client(self):
+        child, path = self.start("mute")
+        holder = self.holder(child)
+        os.kill(holder, signal.SIGSTOP)
+        resume = threading.Timer(1.0, os.kill, (holder, signal.SIGCONT))
+        resume.start()
+        self.addCleanup(resume.join)
+        self.assertFalse(self.fills(path, self.MUTE_WAIT))
 
     def test_the_socket_goes_when_the_exec_process_ends(self):
         child, path = self.start("mute")
