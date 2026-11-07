@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import os
+import select
 import socket
 import tempfile
 import threading
@@ -53,6 +54,12 @@ class Listener:
 
     def _serve(self) -> None:
         while not self._stop.is_set():
+            try:
+                ready, _, _ = select.select([self._server], [], [], 0.1)
+            except (OSError, ValueError):
+                return
+            if not ready:
+                continue
             with self._lock:
                 try:
                     client, _ = self._server.accept()
