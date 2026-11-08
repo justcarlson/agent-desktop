@@ -232,6 +232,7 @@ struct DisappearingWindowAdapter {
     inventories: AtomicUsize,
     unavailable_kind: &'static str,
     disappears: bool,
+    first_inventory_stall: std::time::Duration,
 }
 
 impl ObservationOps for DisappearingWindowAdapter {
@@ -240,7 +241,11 @@ impl ObservationOps for DisappearingWindowAdapter {
         filter: &WindowFilter,
         deadline: crate::Deadline,
     ) -> Result<Vec<WindowInfo>, AdapterError> {
-        if self.inventories.fetch_add(1, Ordering::SeqCst) > 0 && self.disappears {
+        let inventory = self.inventories.fetch_add(1, Ordering::SeqCst);
+        if inventory == 0 {
+            std::thread::sleep(self.first_inventory_stall);
+        }
+        if inventory > 0 && self.disappears {
             return Ok(Vec::new());
         }
         StaticTreeAdapter {
@@ -266,6 +271,35 @@ impl ActionOps for DisappearingWindowAdapter {}
 impl InputOps for DisappearingWindowAdapter {}
 impl SystemOps for DisappearingWindowAdapter {}
 
+/// A gone wait returns as soon as the window is absent, so this budget only
+/// bounds a runner that stalls before its second window inventory.
+const GONE_BUDGET_MS: u64 = 5_000;
+
+fn disappearing_adapter(
+    kind: &'static str,
+    disappears: bool,
+    first_inventory_stall: std::time::Duration,
+) -> DisappearingWindowAdapter {
+    DisappearingWindowAdapter {
+        inventories: AtomicUsize::new(0),
+        unavailable_kind: kind,
+        disappears,
+        first_inventory_stall,
+    }
+}
+
+fn wait_gone(adapter: &DisappearingWindowAdapter, timeout_ms: u64) -> Result<Value, AppError> {
+    execute(
+        WaitSelectorInput {
+            window_id: Some("w-1".into()),
+            timeout_ms,
+            ..base_input("button:Close", true)
+        },
+        adapter,
+        &CommandContext::default(),
+    )
+}
+
 #[test]
 fn gone_wait_requires_window_absence_after_accessibility_disappears() {
     let _guard = HomeGuard::new();
@@ -278,20 +312,13 @@ fn gone_wait_requires_window_absence_after_accessibility_disappears() {
         ),
         ("unsupported_surface", true, Some("ACTION_NOT_SUPPORTED")),
     ] {
-        let adapter = DisappearingWindowAdapter {
-            inventories: AtomicUsize::new(0),
-            unavailable_kind: kind,
-            disappears,
+        let adapter = disappearing_adapter(kind, disappears, std::time::Duration::ZERO);
+        let timeout_ms = if expected.is_none() {
+            GONE_BUDGET_MS
+        } else {
+            250
         };
-        let result = execute(
-            WaitSelectorInput {
-                window_id: Some("w-1".into()),
-                timeout_ms: 250,
-                ..base_input("button:Close", true)
-            },
-            &adapter,
-            &CommandContext::default(),
-        );
+        let result = wait_gone(&adapter, timeout_ms);
         if let Some(code) = expected {
             assert_eq!(result.unwrap_err().code(), code);
         } else {
@@ -299,4 +326,19 @@ fn gone_wait_requires_window_absence_after_accessibility_disappears() {
             assert!(adapter.inventories.load(Ordering::SeqCst) >= 2);
         }
     }
+}
+
+#[test]
+fn gone_wait_reaches_absence_after_a_stalled_first_inventory() {
+    let _guard = HomeGuard::new();
+    let adapter = disappearing_adapter(
+        "window_without_accessibility_element",
+        true,
+        std::time::Duration::from_millis(250),
+    );
+    assert_eq!(
+        wait_gone(&adapter, GONE_BUDGET_MS).unwrap()["target_absent"],
+        true
+    );
+    assert!(adapter.inventories.load(Ordering::SeqCst) >= 2);
 }
