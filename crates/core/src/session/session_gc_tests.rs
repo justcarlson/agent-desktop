@@ -24,12 +24,73 @@ fn multiple_liveness_owners_do_not_serialize_each_other() {
     assert!(session_dir(&manifest.id).unwrap().is_dir());
 
     drop(second);
-    let report = gc(GcOptions {
+    assert!(gc_reaping(any_age, &[&manifest.id]).contains(&manifest.id));
+}
+
+/// Runs gc until it has reaped every session in `expected` and returns all
+/// it reaped. A child that another test thread spawns shares this process's
+/// open lock descriptions until it execs, so a lock already closed here can
+/// read as held for that short window.
+fn gc_reaping(options: impl Fn() -> GcOptions, expected: &[&str]) -> Vec<String> {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let mut removed = Vec::new();
+    loop {
+        removed.extend(gc(options()).unwrap().removed);
+        let reaped_all = expected
+            .iter()
+            .all(|id| removed.iter().any(|reaped| reaped == id));
+        if reaped_all || std::time::Instant::now() >= deadline {
+            return removed;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn any_age() -> GcOptions {
+    GcOptions {
         ended_only: false,
         older_than: Some(Duration::ZERO),
-    })
-    .unwrap();
-    assert!(report.removed.contains(&manifest.id));
+    }
+}
+
+#[test]
+fn gc_reaps_a_released_session_while_other_threads_spawn_children() {
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let spawners: Vec<_> = (0..2)
+        .map(|_| {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                        .arg("--exact")
+                        .arg("session::gc_tests::subprocess_session_lease_holder")
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                }
+            })
+        })
+        .collect();
+    let reaped = (0..200)
+        .filter(|_| {
+            let _guard = HomeGuard::new();
+            let mut manifest = start_session(StartSessionOptions {
+                name: None,
+                trace: SessionTraceMode::Off,
+                ..Default::default()
+            })
+            .unwrap();
+            manifest.created_at = 0;
+            write_manifest(&manifest).unwrap();
+            drop(acquire_liveness_lease(&manifest.id).unwrap().unwrap());
+            gc_reaping(any_age, &[&manifest.id]).contains(&manifest.id)
+        })
+        .count();
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    for spawner in spawners {
+        spawner.join().unwrap();
+    }
+    assert_eq!(reaped, 200);
 }
 
 #[test]
@@ -82,12 +143,7 @@ fn gc_retains_idle_cross_process_owner_and_reaps_after_crash() {
 
     child.kill().unwrap();
     child.wait().unwrap();
-    let removed = gc(GcOptions {
-        ended_only: false,
-        older_than: Some(Duration::ZERO),
-    })
-    .unwrap();
-    assert!(removed.removed.contains(&manifest.id));
+    assert!(gc_reaping(any_age, &[&manifest.id]).contains(&manifest.id));
 }
 
 #[test]
@@ -106,13 +162,15 @@ fn gc_removes_ended_sessions_but_not_pointer_or_live() {
     })
     .unwrap();
     end_session(&ended.id).unwrap();
-    let report = gc(GcOptions {
-        ended_only: false,
-        older_than: None,
-    })
-    .unwrap();
-    assert!(report.removed.contains(&ended.id));
-    assert!(!report.removed.contains(&live.id));
+    let removed = gc_reaping(
+        || GcOptions {
+            ended_only: false,
+            older_than: None,
+        },
+        &[&ended.id],
+    );
+    assert!(removed.contains(&ended.id));
+    assert!(!removed.contains(&live.id));
     assert!(session_dir(&live.id).unwrap().is_dir());
     assert!(!session_dir(&ended.id).unwrap().exists());
 }
@@ -141,13 +199,15 @@ fn gc_ended_reclaims_an_ended_session_whose_trace_was_just_written() {
     write_trace_segment(&traced.id);
     end_session(&traced.id).unwrap();
 
-    let report = gc(GcOptions {
-        ended_only: true,
-        older_than: None,
-    })
-    .unwrap();
+    let removed = gc_reaping(
+        || GcOptions {
+            ended_only: true,
+            older_than: None,
+        },
+        &[&traced.id],
+    );
 
-    assert!(report.removed.contains(&traced.id));
+    assert!(removed.contains(&traced.id));
     assert!(!session_dir(&traced.id).unwrap().exists());
 }
 
@@ -165,14 +225,16 @@ fn gc_ended_with_a_zero_limit_leaves_no_ended_session() {
     .unwrap();
     end_session(&untraced.id).unwrap();
 
-    let report = gc(GcOptions {
-        ended_only: true,
-        older_than: Some(Duration::ZERO),
-    })
-    .unwrap();
+    let removed = gc_reaping(
+        || GcOptions {
+            ended_only: true,
+            older_than: Some(Duration::ZERO),
+        },
+        &[&traced.id, &untraced.id],
+    );
 
-    assert!(report.removed.contains(&traced.id));
-    assert!(report.removed.contains(&untraced.id));
+    assert!(removed.contains(&traced.id));
+    assert!(removed.contains(&untraced.id));
     assert!(list_sessions().unwrap().is_empty());
 }
 
@@ -208,7 +270,7 @@ fn gc_ended_keeps_an_ended_session_while_a_command_still_holds_its_lease() {
     assert!(session_dir(&traced.id).unwrap().is_dir());
 
     drop(lease);
-    assert!(gc(options()).unwrap().removed.contains(&traced.id));
+    assert!(gc_reaping(options, &[&traced.id]).contains(&traced.id));
 }
 
 #[test]
