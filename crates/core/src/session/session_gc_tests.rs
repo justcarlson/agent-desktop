@@ -54,46 +54,6 @@ fn any_age() -> GcOptions {
 }
 
 #[test]
-fn gc_reaps_a_released_session_while_other_threads_spawn_children() {
-    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let spawners: Vec<_> = (0..2)
-        .map(|_| {
-            let stop = stop.clone();
-            std::thread::spawn(move || {
-                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-                    let _ = std::process::Command::new(std::env::current_exe().unwrap())
-                        .arg("--exact")
-                        .arg("session::gc_tests::subprocess_session_lease_holder")
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .status();
-                }
-            })
-        })
-        .collect();
-    let reaped = (0..200)
-        .filter(|_| {
-            let _guard = HomeGuard::new();
-            let mut manifest = start_session(StartSessionOptions {
-                name: None,
-                trace: SessionTraceMode::Off,
-                ..Default::default()
-            })
-            .unwrap();
-            manifest.created_at = 0;
-            write_manifest(&manifest).unwrap();
-            drop(acquire_liveness_lease(&manifest.id).unwrap().unwrap());
-            gc_reaping(any_age, &[&manifest.id]).contains(&manifest.id)
-        })
-        .count();
-    stop.store(true, std::sync::atomic::Ordering::Relaxed);
-    for spawner in spawners {
-        spawner.join().unwrap();
-    }
-    assert_eq!(reaped, 200);
-}
-
-#[test]
 fn subprocess_session_lease_holder() {
     let Some(ready) = std::env::var_os("AGENT_DESKTOP_SESSION_LEASE_READY") else {
         return;
@@ -391,3 +351,7 @@ fn unreadable_manifest_is_skipped_not_fatal_for_list_and_gc() {
     assert!(bad_dir.is_dir());
     assert!(session_dir(&good.id).unwrap().is_dir());
 }
+
+#[cfg(test)]
+#[path = "session_gc_stress_tests.rs"]
+mod stress_tests;
