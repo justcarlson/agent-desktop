@@ -102,12 +102,23 @@ def mode_commands(monitors: list[dict], lua: bool) -> list[list[str]]:
 
 
 def readiness_problems(monitors: list[dict]) -> list[str]:
-    """Why the enabled outputs are not yet the sized `OUTPUT` alone."""
+    """Why the enabled outputs are not yet `OUTPUT` alone, at the origin in its first advertised mode.
+
+    A size alone is not enough: `OUTPUT` starts sized at 1280x0, and a mode rule that lands after the
+    wait would move and retile the sentinel during the leg."""
     enabled = [monitor for monitor in monitors if not monitor.get("disabled")]
     names = [monitor.get("name") for monitor in enabled]
     problems = [] if names == [OUTPUT] else [f"enabled outputs are {names}, not [{OUTPUT!r}]"]
+    sized = [monitor for monitor in enabled if monitor.get("width", 0) > 0 and monitor.get("height", 0) > 0]
     problems += [f"{monitor.get('name')} is {monitor.get('width')}x{monitor.get('height')}"
-                 for monitor in enabled if not (monitor.get("width", 0) > 0 and monitor.get("height", 0) > 0)]
+                 for monitor in enabled if monitor not in sized]
+    for monitor in sized:
+        mode = advertised_mode(monitor) if monitor.get("name") == OUTPUT else None
+        want = mode.partition("@")[0] if mode else None
+        have = f"{monitor.get('width')}x{monitor.get('height')}"
+        place = f"{monitor.get('x')}x{monitor.get('y')}"
+        if want is not None and (have, place) != (want, "0x0"):
+            problems.append(f"{OUTPUT} is {have} at {place}, not {want} at 0x0")
     return problems
 
 

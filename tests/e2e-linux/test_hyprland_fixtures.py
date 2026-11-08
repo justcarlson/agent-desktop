@@ -163,7 +163,8 @@ class SecondInstanceTests(Workspace):
 
     def test_outputs_that_get_a_size_pass_the_readiness_wait(self):
         sized = [{"name": "WAYLAND-1", "width": 0, "height": 0, "disabled": True, "availableModes": []},
-                 {"name": "AGENT-DESKTOP-1", "width": 1920, "height": 1080, "availableModes": ["1920x1080@60.00Hz"]}]
+                 {"name": "AGENT-DESKTOP-1", "x": 0, "y": 0, "width": 1920, "height": 1080,
+                  "availableModes": ["1920x1080@60.00Hz"]}]
         reads = iter([self.MONITORS, self.MONITORS, sized])
         sent = []
 
@@ -176,6 +177,33 @@ class SecondInstanceTests(Workspace):
         with mock.patch.object(second_instance.hyprland, "control", side_effect=control):
             second_instance._size_outputs(Path("/run/user/1000"), "nested", False, 2.0)
         self.assertEqual(len(sent), 2)
+
+    STALE = [{"name": "WAYLAND-1", "width": 0, "height": 0, "disabled": True, "availableModes": []},
+             {"name": "AGENT-DESKTOP-1", "x": 1280, "y": 0, "width": 1280, "height": 800,
+              "availableModes": ["1920x1080@60.00Hz", "1280x800@60.00Hz"]}]
+
+    def size_outputs_against(self, reads: list) -> list:
+        seen = []
+
+        def control(runtime, signature, argv):
+            if argv == ["-j", "monitors", "all"]:
+                seen.append(reads.pop(0) if len(reads) > 1 else reads[0])
+                return json.dumps(seen[-1])
+            return "ok"
+
+        with mock.patch.object(second_instance.hyprland, "control", side_effect=control):
+            second_instance._size_outputs(Path("/run/user/1000"), "nested", False, 0.5)
+        return seen
+
+    def test_readiness_waits_for_the_requested_mode_at_the_origin(self):
+        moved = [self.STALE[0], dict(self.STALE[1], x=0, y=0, width=1920, height=1080)]
+        seen = self.size_outputs_against([self.STALE, self.STALE, self.STALE, moved])
+        self.assertEqual(seen[-1], moved)
+
+    def test_an_output_still_in_its_old_mode_and_place_is_a_fixture_error(self):
+        with self.assertRaises(second_instance.OutputsNotReady) as raised:
+            self.size_outputs_against([self.STALE])
+        self.assertIn("1280x800 at 1280x0, not 1920x1080 at 0x0", str(raised.exception))
 
     def test_a_refused_mode_rule_is_a_fixture_error(self):
         answers = {("-j", "monitors", "all"): json.dumps(self.MONITORS)}
