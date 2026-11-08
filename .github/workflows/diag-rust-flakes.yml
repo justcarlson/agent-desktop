@@ -1,0 +1,44 @@
+name: Diag rust flakes
+
+on:
+  push:
+    branches: ['diag/rust-flakes']
+
+permissions: {}
+
+jobs:
+  rep:
+    name: ${{ matrix.os }} ${{ matrix.shard }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the core library tests
+        run: |
+          rustup show
+          scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-core --lib --no-run
+      - name: Run the core library tests 12 times
+        shell: bash
+        run: |
+          fails=0
+          : > "$RUNNER_TEMP/failed.txt"
+          for rep in $(seq 1 12); do
+            if scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-core --lib > "$RUNNER_TEMP/rep.log" 2>&1; then
+              echo "rep $rep ok"
+            else
+              fails=$((fails + 1))
+              echo "rep $rep FAILED"
+              sed -n -E 's/^---- (.*) stdout ----$/\1/p' "$RUNNER_TEMP/rep.log" | tee -a "$RUNNER_TEMP/failed.txt"
+              grep -E -A12 '^---- .* stdout ----$' "$RUNNER_TEMP/rep.log" | head -60
+            fi
+          done
+          echo "== suite runs 12, failed $fails"
+          echo "== failures by test"
+          sort "$RUNNER_TEMP/failed.txt" | uniq -c | sort -rn
