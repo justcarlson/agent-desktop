@@ -51,6 +51,8 @@ mod tests {
             .join("store.lock")
     }
 
+    /// A child that another test thread spawns shares the closed lock's open
+    /// description until it execs, so the release is awaited, not read once.
     #[test]
     fn lock_is_released_without_deleting_the_lock_file() {
         let path = lock_path("release");
@@ -59,6 +61,10 @@ mod tests {
             assert!(lock_holder_is_live(&path));
         }
         assert!(path.is_file());
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while lock_holder_is_live(&path) && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
         assert!(!lock_holder_is_live(&path));
         let _lock = RefStoreLock::acquire(&path).unwrap();
     }
